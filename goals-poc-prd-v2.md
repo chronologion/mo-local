@@ -4,8 +4,6 @@
 **Status**: Draft  
 **Last Updated**: 2025-11-28
 
-
-
 ## 1. Objective
 
 Build a Goals POC that demonstrates:
@@ -18,38 +16,34 @@ Build a Goals POC that demonstrates:
 - **Multi-device support** for a single user via key backup/restore.
 - **Multi-user sharing** at the aggregate (Goal) level with cryptographic access control.
 
-
-
 ## 2. Scope
 
 ### 2.1 In Scope
 
-| Area | Details |
-|------|---------|
-| Frontend | React + TypeScript + Vite + shadcn/ui |
-| Architecture | Clean Architecture (4 layers) |
-| Bounded Context | Goals BC only |
-| Domain | Balanced Wheel with 8 slices: Health, Family, Relationships, Work, Money, Learning, Mindfulness, Leisure |
-| Views | Wheel view, Timeline view |
-| Local Storage | LiveStore (SQLite via OPFS/wa-sqlite) |
-| Encryption | Per-aggregate keys (`K_goal`), wrapped by user identity keys |
-| Sync | Custom LiveStore sync provider → NestJS + Postgres encrypted event store |
-| Multi-device | Same user on multiple devices via key backup/import |
-| Sharing | Per-Goal sharing with invited users (view or edit permissions) |
-| Auth | Public-key registration + challenge/response authentication |
+| Area            | Details                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| Frontend        | React + TypeScript + Vite + shadcn/ui                                                                    |
+| Architecture    | Clean Architecture (4 layers)                                                                            |
+| Bounded Context | Goals BC only                                                                                            |
+| Domain          | Balanced Wheel with 8 slices: Health, Family, Relationships, Work, Money, Learning, Mindfulness, Leisure |
+| Views           | Wheel view, Timeline view                                                                                |
+| Local Storage   | LiveStore (SQLite via OPFS/wa-sqlite)                                                                    |
+| Encryption      | Per-aggregate keys (`K_goal`), wrapped by user identity keys                                             |
+| Sync            | Custom LiveStore sync provider → NestJS + Postgres encrypted event store                                 |
+| Multi-device    | Same user on multiple devices via key backup/import                                                      |
+| Sharing         | Per-Goal sharing with invited users (view or edit permissions)                                           |
+| Auth            | Public-key registration + challenge/response authentication                                              |
 
 ### 2.2 Out of Scope
 
-| Area | Rationale |
-|------|-----------|
-| Email verification / OAuth | POC uses key-based identity only |
-| Mobile / React Native | Web-only for POC |
-| MLS-style group crypto | Pragmatic per-aggregate key scheme instead |
-| Complex conflict resolution | LiveStore's default last-write-wins with rebasing |
-| Goal hierarchies / sub-goals / tasks | Simple flat goal model for POC |
-| Full key rotation on revocation | Documented limitation; revoked users retain historical access |
-
-
+| Area                                 | Rationale                                                     |
+| ------------------------------------ | ------------------------------------------------------------- |
+| Email verification / OAuth           | POC uses key-based identity only                              |
+| Mobile / React Native                | Web-only for POC                                              |
+| MLS-style group crypto               | Pragmatic per-aggregate key scheme instead                    |
+| Complex conflict resolution          | LiveStore's default last-write-wins with rebasing             |
+| Goal hierarchies / sub-goals / tasks | Simple flat goal model for POC                                |
+| Full key rotation on revocation      | Documented limitation; revoked users retain historical access |
 
 ## 3. Clean Architecture
 
@@ -77,7 +71,8 @@ Build a Goals POC that demonstrates:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          DOMAIN LAYER                               │
 │  Aggregates, Entities, Value Objects, Domain Events                 │
-│  - Pure TypeScript, ZERO dependencies (except assertive-ts)         │
+│  - Pure TypeScript, ZERO external dependencies                      │
+│  - Custom fluent assertion DSL for domain invariants                │
 │  - DSL-style API with expressive, fluent value objects              │
 │  - Business logic and invariants enforced via assertions            │
 │  - Domain events as first-class citizens                            │
@@ -203,8 +198,6 @@ Interface → Application → Domain ← Infrastructure
 - **Infrastructure**: Depends on Domain and implements Application ports.
 - **Interface**: Depends on Application (via controllers/services) and Infrastructure (for DI).
 
-
-
 ## 4. Domain Model (Goals BC)
 
 ### 4.0 Domain Design Principles
@@ -214,6 +207,7 @@ The Domain layer is designed to feel like a **Domain-Specific Language (DSL)** t
 **Core Principles**:
 
 1. **No Primitive Obsession**: Every domain concept is a Value Object, not a primitive
+
    ```typescript
    // ❌ Bad: Primitives everywhere
    function createGoal(slice: string, priority: string, month: string) { ... }
@@ -222,18 +216,20 @@ The Domain layer is designed to feel like a **Domain-Specific Language (DSL)** t
    function createGoal(slice: Slice, priority: Priority, targetMonth: TargetMonth) { ... }
    ```
 
-2. **Assertions over Control Flow**: Use `assertive-ts` for invariants, not verbose if-else
+2. **Assertions over Control Flow**: Use custom fluent assertion DSL for invariants, not verbose if-else
+
    ```typescript
    // ❌ Bad: Verbose conditionals
    if (month < 1 || month > 12) {
      throw new Error('Invalid month');
    }
 
-   // ✅ Good: Declarative assertions
-   assert(month).toBeGreaterThanOrEqualTo(1).toBeLessThanOrEqualTo(12);
+   // ✅ Good: Declarative assertions with custom DSL
+   Assert.that(month, 'Month').isBetween(1, 12);
    ```
 
 3. **Fluent, Natural Language API**: Methods read like business language
+
    ```typescript
    // ✅ Expressive, intention-revealing
    if (priority.isHigherThan(Priority.Should)) { ... }
@@ -242,18 +238,21 @@ The Domain layer is designed to feel like a **Domain-Specific Language (DSL)** t
    ```
 
 4. **Immutability by Default**: Value Objects never mutate, always return new instances
+
    ```typescript
-   const nextMonth = currentMonth.addMonths(1);  // Returns new instance
+   const nextMonth = currentMonth.addMonths(1); // Returns new instance
    ```
 
 5. **Type Safety with Static Constants**: Predefined instances prevent typos
+
    ```typescript
-   Slice.Health      // ✅ IDE autocomplete, type-safe
-   Slice.of('Work')  // ✅ Runtime validation
-   'health'          // ❌ Compile error
+   Slice.Health; // ✅ IDE autocomplete, type-safe
+   Slice.of('Work'); // ✅ Runtime validation
+   ('health'); // ❌ Compile error
    ```
 
-6. **Zero Infrastructure Dependencies**: Domain layer depends only on `assertive-ts` for validation
+6. **Zero External Dependencies**: Domain layer has ZERO external dependencies
+   - Custom fluent assertion DSL implemented in-house
    - No frameworks
    - No database concerns
    - No serialization logic
@@ -300,15 +299,17 @@ export class Goal extends AggregateRoot<GoalId> {
     assert(params.summary).toBeNonEmptyString();
 
     const goal = new Goal(params.id);
-    goal.apply(new GoalCreated({
-      goalId: params.id.value,
-      slice: params.slice.value,
-      summary: params.summary,
-      targetMonth: params.targetMonth.value,
-      priority: params.priority.level,
-      createdBy: params.createdBy,
-      createdAt: new Date(),
-    }));
+    goal.apply(
+      new GoalCreated({
+        goalId: params.id.value,
+        slice: params.slice.value,
+        summary: params.summary,
+        targetMonth: params.targetMonth.value,
+        priority: params.priority.level,
+        createdBy: params.createdBy,
+        createdAt: new Date(),
+      })
+    );
     return goal;
   }
 
@@ -317,22 +318,26 @@ export class Goal extends AggregateRoot<GoalId> {
     assert(newSummary).toBeNonEmptyString();
     assert(newSummary).not.toBeEqualTo(this._summary);
 
-    this.apply(new GoalSummaryChanged({
-      goalId: this.id.value,
-      summary: newSummary,
-      changedAt: new Date(),
-    }));
+    this.apply(
+      new GoalSummaryChanged({
+        goalId: this.id.value,
+        summary: newSummary,
+        changedAt: new Date(),
+      })
+    );
   }
 
   changeSlice(newSlice: Slice): void {
     assert(!this._deletedAt).toBeTruthy();
     assert(newSlice).not.toBeEqualTo(this._slice);
 
-    this.apply(new GoalSliceChanged({
-      goalId: this.id.value,
-      slice: newSlice.value,
-      changedAt: new Date(),
-    }));
+    this.apply(
+      new GoalSliceChanged({
+        goalId: this.id.value,
+        slice: newSlice.value,
+        changedAt: new Date(),
+      })
+    );
   }
 
   // ... other methods
@@ -370,15 +375,16 @@ export class Goal extends AggregateRoot<GoalId> {
 ### 4.2 Value Objects (DSL-Style with Assertions)
 
 **Design Principles**:
+
 - Every type is a Value Object (no primitives leak through domain boundary)
 - Fluent, expressive API that reads like natural language
-- Invariants enforced via `assertive-ts` (no verbose if-else chains)
+- Invariants enforced via custom fluent assertion DSL (no verbose if-else chains)
 - Immutable by design
 - Rich behavior, not anemic data structures
 
 ```typescript
 // domain/goals/Slice.ts
-import { assert } from 'assertive-ts';
+import { Assert } from '../shared/Assert';
 
 export type SliceValue =
   | 'Health'
@@ -391,26 +397,32 @@ export type SliceValue =
   | 'Leisure';
 
 export const ALL_SLICES: readonly SliceValue[] = [
-  'Health', 'Family', 'Relationships', 'Work',
-  'Money', 'Learning', 'Mindfulness', 'Leisure'
+  'Health',
+  'Family',
+  'Relationships',
+  'Work',
+  'Money',
+  'Learning',
+  'Mindfulness',
+  'Leisure',
 ] as const;
 
 export class Slice {
   private constructor(private readonly _value: SliceValue) {}
 
   static of(value: string): Slice {
-    assert(value).toBeIncludedIn(ALL_SLICES);
+    Assert.that(value, 'Slice').isOneOf(ALL_SLICES);
     return new Slice(value as SliceValue);
   }
 
-  static Health = Slice.of('Health');
-  static Family = Slice.of('Family');
-  static Relationships = Slice.of('Relationships');
-  static Work = Slice.of('Work');
-  static Money = Slice.of('Money');
-  static Learning = Slice.of('Learning');
-  static Mindfulness = Slice.of('Mindfulness');
-  static Leisure = Slice.of('Leisure');
+  static readonly Health = new Slice('Health');
+  static readonly Family = new Slice('Family');
+  static readonly Relationships = new Slice('Relationships');
+  static readonly Work = new Slice('Work');
+  static readonly Money = new Slice('Money');
+  static readonly Learning = new Slice('Learning');
+  static readonly Mindfulness = new Slice('Mindfulness');
+  static readonly Leisure = new Slice('Leisure');
 
   get value(): SliceValue {
     return this._value;
@@ -426,7 +438,7 @@ export class Slice {
 }
 
 // domain/goals/Priority.ts
-import { assert } from 'assertive-ts';
+import { Assert } from '../shared/Assert';
 
 export type PriorityLevel = 'must' | 'should' | 'maybe';
 
@@ -434,13 +446,13 @@ export class Priority {
   private constructor(private readonly _level: PriorityLevel) {}
 
   static of(level: string): Priority {
-    assert(level).toBeIncludedIn(['must', 'should', 'maybe']);
+    Assert.that(level, 'Priority').isOneOf(['must', 'should', 'maybe']);
     return new Priority(level as PriorityLevel);
   }
 
-  static Must = Priority.of('must');
-  static Should = Priority.of('should');
-  static Maybe = Priority.of('maybe');
+  static readonly Must = new Priority('must');
+  static readonly Should = new Priority('should');
+  static readonly Maybe = new Priority('maybe');
 
   get level(): PriorityLevel {
     return this._level;
@@ -459,7 +471,11 @@ export class Priority {
   }
 
   isHigherThan(other: Priority): boolean {
-    const order: Record<PriorityLevel, number> = { must: 3, should: 2, maybe: 1 };
+    const order: Record<PriorityLevel, number> = {
+      must: 3,
+      should: 2,
+      maybe: 1,
+    };
     return order[this._level] > order[other._level];
   }
 
@@ -473,15 +489,15 @@ export class Priority {
 }
 
 // domain/goals/Month.ts
-import { assert } from 'assertive-ts';
+import { Assert } from '../shared/Assert';
 
 export class Month {
   private constructor(
     private readonly _year: number,
     private readonly _month: number // 1-12
   ) {
-    assert(_year).toBeGreaterThan(2000);
-    assert(_month).toBeGreaterThanOrEqualTo(1).toBeLessThanOrEqualTo(12);
+    Assert.that(_year, 'Year').isGreaterThan(2000);
+    Assert.that(_month, 'Month').isBetween(1, 12);
   }
 
   static of(year: number, month: number): Month {
@@ -489,7 +505,7 @@ export class Month {
   }
 
   static fromString(value: string): Month {
-    assert(value).toMatch(/^\d{4}-\d{2}$/);
+    Assert.that(value, 'Month string').matches(/^\d{4}-\d{2}$/);
     const [year, month] = value.split('-').map(Number);
     return new Month(year, month);
   }
@@ -512,13 +528,17 @@ export class Month {
   }
 
   isBefore(other: Month): boolean {
-    return this._year < other._year ||
-           (this._year === other._year && this._month < other._month);
+    return (
+      this._year < other._year ||
+      (this._year === other._year && this._month < other._month)
+    );
   }
 
   isAfter(other: Month): boolean {
-    return this._year > other._year ||
-           (this._year === other._year && this._month > other._month);
+    return (
+      this._year > other._year ||
+      (this._year === other._year && this._month > other._month)
+    );
   }
 
   isSameAs(other: Month): boolean {
@@ -526,8 +546,8 @@ export class Month {
   }
 
   addMonths(count: number): Month {
-    assert(count).toBeInteger();
-    const totalMonths = (this._year * 12 + this._month - 1) + count;
+    Assert.that(count, 'Month count').isInteger();
+    const totalMonths = this._year * 12 + this._month - 1 + count;
     const newYear = Math.floor(totalMonths / 12);
     const newMonth = (totalMonths % 12) + 1;
     return new Month(newYear, newMonth);
@@ -543,13 +563,14 @@ export class Month {
 }
 
 // domain/goals/GoalId.ts
-import { assert } from 'assertive-ts';
+import { Assert } from '../shared/Assert';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class GoalId {
   private constructor(private readonly _value: string) {
-    assert(_value).toMatch(UUID_REGEX);
+    Assert.that(_value, 'GoalId').matches(UUID_REGEX);
   }
 
   static create(): GoalId {
@@ -602,9 +623,103 @@ if (goal.targetMonth.isSameAs(nextQuarter)) {
 }
 
 // Type safety with no primitive obsession
-goal.changeSlice(Slice.Work);           // ✅ Type-safe
-goal.changeSlice('Work');                // ❌ Compile error
-goal.changeSlice(Slice.of('Unknown'));   // ❌ Runtime assertion error
+goal.changeSlice(Slice.Work); // ✅ Type-safe
+goal.changeSlice('Work'); // ❌ Compile error
+goal.changeSlice(Slice.of('Unknown')); // ❌ Runtime assertion error
+```
+
+### 4.2.1 Custom Fluent Assertion DSL
+
+The domain layer uses a custom, zero-dependency fluent assertion library (`Assert`) for validating invariants. This provides expressive, readable validation without external dependencies.
+
+**Design Goals**:
+
+- Fluent, chainable API that reads like natural language
+- Zero external dependencies (fully implemented in-house)
+- Clear, descriptive error messages with optional context
+- Type-safe with TypeScript support
+
+**Core API**:
+
+```typescript
+// shared/Assert.ts
+export class Assert<T> {
+  static that<T>(value: T, name?: string): Assert<T>;
+
+  // String Assertions
+  isNonEmpty(): this;
+  matches(pattern: RegExp): this;
+
+  // Number Assertions
+  isGreaterThan(min: number): this;
+  isGreaterThanOrEqual(min: number): this;
+  isLessThanOrEqual(max: number): this;
+  isBetween(min: number, max: number): this;
+  isInteger(): this;
+
+  // Array/Set Assertions
+  isOneOf<U>(allowed: readonly U[]): this;
+
+  // Equality Assertions
+  equals(other: T): this;
+  doesNotEqual(other: T): this;
+
+  // Nullability Assertions
+  isDefined(): asserts this is Assert<NonNullable<T>>;
+  isNull(): this;
+
+  // Boolean Assertions
+  isTrue(): this;
+  isFalse(): this;
+
+  // Custom Predicate
+  satisfies(predicate: (value: T) => boolean, errorMessage?: string): this;
+}
+```
+
+**Usage Examples**:
+
+```typescript
+// String validation
+Assert.that(summary, 'Summary').isNonEmpty();
+Assert.that(goalId, 'GoalId').matches(UUID_REGEX);
+
+// Number validation
+Assert.that(year, 'Year').isGreaterThan(2000);
+Assert.that(month, 'Month').isBetween(1, 12);
+Assert.that(count, 'Month count').isInteger();
+
+// Enum/Set validation
+Assert.that(slice, 'Slice').isOneOf(ALL_SLICES);
+Assert.that(priority, 'Priority').isOneOf(['must', 'should', 'maybe']);
+
+// Nullability
+Assert.that(this._deletedAt, 'Goal is deleted').isNull();
+Assert.that(this._summary, 'Summary').isDefined();
+
+// Boolean assertions
+Assert.that(newSummary.equals(this.summary), 'Summary unchanged').isFalse();
+
+// Custom predicates
+Assert.that(existing, 'User already has access').satisfies(
+  (e) => e === undefined,
+  'User already has access to this goal'
+);
+```
+
+**Error Messages**:
+
+The DSL produces clear, contextual error messages:
+
+```typescript
+// Assert.that(13, 'Month').isBetween(1, 12);
+// Throws: "Month must be between 1 and 12, got: 13"
+
+// Assert.that('', 'Summary').isNonEmpty();
+// Throws: "Summary must be a non-empty string, got: \"\""
+
+// Assert.that('invalid-uuid', 'GoalId').matches(UUID_REGEX);
+// Throws: "GoalId must match pattern /^[0-9a-f]{8}-...$/i, got: \"invalid-uuid\""
 ```
 
 ### 4.3 Domain Events
@@ -627,15 +742,17 @@ export class GoalCreated implements DomainEvent {
   readonly occurredAt: Date;
   readonly aggregateId: string;
 
-  constructor(public readonly payload: {
-    goalId: string;
-    slice: SliceValue;           // Primitive for serialization
-    summary: string;
-    targetMonth: string;          // ISO string YYYY-MM
-    priority: PriorityLevel;      // Primitive for serialization
-    createdBy: string;
-    createdAt: Date;
-  }) {
+  constructor(
+    public readonly payload: {
+      goalId: string;
+      slice: SliceValue; // Primitive for serialization
+      summary: string;
+      targetMonth: string; // ISO string YYYY-MM
+      priority: PriorityLevel; // Primitive for serialization
+      createdBy: string;
+      createdAt: Date;
+    }
+  ) {
     this.occurredAt = payload.createdAt;
     this.aggregateId = payload.goalId;
   }
@@ -647,11 +764,13 @@ export class GoalSummaryChanged implements DomainEvent {
   readonly occurredAt: Date;
   readonly aggregateId: string;
 
-  constructor(public readonly payload: {
-    goalId: string;
-    summary: string;
-    changedAt: Date;
-  }) {
+  constructor(
+    public readonly payload: {
+      goalId: string;
+      summary: string;
+      changedAt: Date;
+    }
+  ) {
     this.occurredAt = payload.changedAt;
     this.aggregateId = payload.goalId;
   }
@@ -665,8 +784,6 @@ export class GoalSummaryChanged implements DomainEvent {
 // - GoalAccessGranted
 // - GoalAccessRevoked
 ```
-
-
 
 ## 5. Application Layer
 
@@ -686,10 +803,10 @@ import { PriorityLevel } from '../../domain/goals/Priority';
 export interface CreateGoalCommand {
   readonly type: 'CreateGoal';
   readonly goalId: string;
-  readonly slice: SliceValue;        // e.g. 'Health'
+  readonly slice: SliceValue; // e.g. 'Health'
   readonly summary: string;
-  readonly targetMonth: string;      // 'YYYY-MM'
-  readonly priority: PriorityLevel;  // 'must' | 'should' | 'maybe'
+  readonly targetMonth: string; // 'YYYY-MM'
+  readonly priority: PriorityLevel; // 'must' | 'should' | 'maybe'
 }
 
 // application/commands/UpdateGoalSummaryCommand.ts
@@ -728,7 +845,7 @@ import { GoalApplicationService } from '../services/GoalApplicationService';
 export class CreateGoalHandler {
   constructor(
     private readonly goalAppService: GoalApplicationService,
-    private readonly currentUserId: string,
+    private readonly currentUserId: string
   ) {}
 
   async handle(command: CreateGoalCommand): Promise<void> {
@@ -741,7 +858,10 @@ import { ICryptoService } from '../ports/ICryptoService';
 import { IKeyStore } from '../ports/IKeyStore';
 
 export interface IKeyManagementService {
-  createAggregateKey(aggregateId: string, ownerUserId: string): Promise<{
+  createAggregateKey(
+    aggregateId: string,
+    ownerUserId: string
+  ): Promise<{
     kAggregate: CryptoKey;
     ownerWrappedKey: Uint8Array;
   }>;
@@ -750,12 +870,13 @@ export interface IKeyManagementService {
 export class KeyManagementService implements IKeyManagementService {
   constructor(
     private readonly crypto: ICryptoService,
-    private readonly keyStore: IKeyStore,
+    private readonly keyStore: IKeyStore
   ) {}
 
   async createAggregateKey(aggregateId: string, ownerUserId: string) {
     const kAggregate = await this.crypto.generateSymmetricKey();
-    const ownerPubEnc = await this.keyStore.getUserEncryptionPublicKey(ownerUserId);
+    const ownerPubEnc =
+      await this.keyStore.getUserEncryptionPublicKey(ownerUserId);
     const ownerWrappedKey = await this.crypto.wrapKey(kAggregate, ownerPubEnc);
 
     await this.keyStore.storeGoalKey(aggregateId, kAggregate, 'owner');
@@ -777,13 +898,19 @@ import { IKeyManagementService } from './KeyManagementService';
 export class GoalApplicationService {
   constructor(
     private readonly keyManagement: IKeyManagementService,
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: IEventStore
   ) {}
 
-  async createGoal(command: CreateGoalCommand, currentUserId: string): Promise<void> {
+  async createGoal(
+    command: CreateGoalCommand,
+    currentUserId: string
+  ): Promise<void> {
     // 1. Generate per-aggregate key + owner access metadata
     const { kAggregate, ownerWrappedKey } =
-      await this.keyManagement.createAggregateKey(command.goalId, currentUserId);
+      await this.keyManagement.createAggregateKey(
+        command.goalId,
+        currentUserId
+      );
 
     // 2. Create domain aggregate
     const goal = Goal.create({
@@ -814,7 +941,7 @@ import { DomainEvent } from '../../domain/shared/DomainEvent';
 export interface IEventStore {
   /**
    * Append domain events for a single aggregate.
-   * 
+   *
    * kGoal is the per-goal symmetric key; the implementation is responsible
    * for deriving envelope and field-encryption keys and pushing encrypted
    * events into LiveStore (and, via sync, to the backend).
@@ -826,7 +953,7 @@ export interface IEventStore {
     aggregateId: string,
     events: DomainEvent[],
     kGoal: CryptoKey,
-    accessMetadata: { ownerUserId: string; ownerWrappedKey: Uint8Array },
+    accessMetadata: { ownerUserId: string; ownerWrappedKey: Uint8Array }
   ): Promise<void>;
 }
 
@@ -841,10 +968,14 @@ export interface ICryptoService {
   deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey>;
 
   // Identity keypairs (implemented with WebCrypto ECDSA/ECDH P-256 for the POC)
-  generateSigningKeyPair(): Promise<CryptoKeyPair>;    // ECDSA: auth / challenge-response
+  generateSigningKeyPair(): Promise<CryptoKeyPair>; // ECDSA: auth / challenge-response
   generateEncryptionKeyPair(): Promise<CryptoKeyPair>; // ECDH: key agreement / wrapping
   sign(data: Uint8Array, privateKey: CryptoKey): Promise<Uint8Array>;
-  verify(data: Uint8Array, signature: Uint8Array, publicKey: CryptoKey): Promise<boolean>;
+  verify(
+    data: Uint8Array,
+    signature: Uint8Array,
+    publicKey: CryptoKey
+  ): Promise<boolean>;
 
   /**
    * Key wrapping (used for wrapping K_goal with identity encryption keys).
@@ -855,11 +986,20 @@ export interface ICryptoService {
    *  - unwrapKey parses the ephemeral public key from the wrapped blob and
    *    uses recipientPrivateKey to derive the same AES-GCM key and recover K_goal.
    */
-  wrapKey(keyToWrap: CryptoKey, recipientPublicKey: CryptoKey): Promise<Uint8Array>;
-  unwrapKey(wrappedKey: Uint8Array, recipientPrivateKey: CryptoKey): Promise<CryptoKey>;
+  wrapKey(
+    keyToWrap: CryptoKey,
+    recipientPublicKey: CryptoKey
+  ): Promise<Uint8Array>;
+  unwrapKey(
+    wrappedKey: Uint8Array,
+    recipientPrivateKey: CryptoKey
+  ): Promise<CryptoKey>;
 
   // Deterministic derivation of sub-keys for double encryption
-    deriveSubKey(rootKey: CryptoKey, info: 'remote' | 'local'): Promise<CryptoKey>;
+  deriveSubKey(
+    rootKey: CryptoKey,
+    info: 'remote' | 'local'
+  ): Promise<CryptoKey>;
 }
 
 // application/ports/IKeyStore.ts
@@ -886,7 +1026,11 @@ export interface IKeyStore {
 
   // Per-goal key cache for the *current* user.
   // Implementation may persist K_goal re-wrapped with the identity keys or K_pwd.
-  storeGoalKey(goalId: string, kGoal: CryptoKey, permission: 'owner' | 'edit' | 'view'): Promise<void>;
+  storeGoalKey(
+    goalId: string,
+    kGoal: CryptoKey,
+    permission: 'owner' | 'edit' | 'view'
+  ): Promise<void>;
   getGoalKey(goalId: string): Promise<{ key: CryptoKey; permission: string }>;
 
   /**
@@ -903,8 +1047,6 @@ export interface IKeyStore {
   getUserEncryptionPublicKey(userId: string): Promise<CryptoKey>;
 }
 ```
-
-
 
 ## 6. Infrastructure Layer: LiveStore Integration
 
@@ -937,10 +1079,10 @@ export const tables = {
       id: State.SQLite.text({ primaryKey: true }),
       // All user-visible fields are stored as ciphertext encrypted with K_goal_local.
       // Only IDs and timestamps remain plaintext for sync/projection purposes.
-      slice: State.SQLite.text(),        // ciphertext
-      summary: State.SQLite.text(),      // ciphertext
-      targetMonth: State.SQLite.text(),  // ciphertext
-      priority: State.SQLite.text(),     // ciphertext
+      slice: State.SQLite.text(), // ciphertext
+      summary: State.SQLite.text(), // ciphertext
+      targetMonth: State.SQLite.text(), // ciphertext
+      priority: State.SQLite.text(), // ciphertext
       createdBy: State.SQLite.text(),
       createdAt: State.SQLite.datetime(),
       deletedAt: State.SQLite.datetime({ nullable: true }),
@@ -1011,10 +1153,10 @@ export const events = {
     name: 'v1.GoalCreated',
     schema: Schema.Struct({
       goalId: Schema.String,
-      slice: Schema.String,        // may be plaintext
-      summary: Schema.String,      // may be ciphertext (K_goal_local)
-      targetMonth: Schema.String,  // may be ciphertext
-      priority: Schema.String,     // may be ciphertext
+      slice: Schema.String, // may be plaintext
+      summary: Schema.String, // may be ciphertext (K_goal_local)
+      targetMonth: Schema.String, // may be ciphertext
+      priority: Schema.String, // may be ciphertext
       createdBy: Schema.String,
       createdAt: Schema.String,
     }),
@@ -1024,7 +1166,7 @@ export const events = {
     name: 'v1.GoalSummaryChanged',
     schema: Schema.Struct({
       goalId: Schema.String,
-      summary: Schema.String,      // may be ciphertext
+      summary: Schema.String, // may be ciphertext
       changedAt: Schema.String,
     }),
   }),
@@ -1042,7 +1184,7 @@ export const events = {
     name: 'v1.GoalTargetChanged',
     schema: Schema.Struct({
       goalId: Schema.String,
-      targetMonth: Schema.String,  // may be ciphertext
+      targetMonth: Schema.String, // may be ciphertext
       changedAt: Schema.String,
     }),
   }),
@@ -1051,7 +1193,7 @@ export const events = {
     name: 'v1.GoalPriorityChanged',
     schema: Schema.Struct({
       goalId: Schema.String,
-      priority: Schema.String,     // may be ciphertext
+      priority: Schema.String, // may be ciphertext
       changedAt: Schema.String,
     }),
   }),
@@ -1109,7 +1251,10 @@ import { tables } from './tables';
 import { events } from './events';
 
 export const materializers = State.SQLite.materializers(events, {
-  'v1.GoalCreated': ({ goalId, slice, summary, targetMonth, priority, createdBy, createdAt }, ctx) => {
+  'v1.GoalCreated': (
+    { goalId, slice, summary, targetMonth, priority, createdBy, createdAt },
+    ctx
+  ) => {
     return tables.goals.insert({
       id: goalId,
       slice,
@@ -1139,10 +1284,15 @@ export const materializers = State.SQLite.materializers(events, {
   },
 
   'v1.GoalDeleted': ({ goalId, deletedAt }, ctx) => {
-    return tables.goals.update({ deletedAt: new Date(deletedAt) }).where({ id: goalId });
+    return tables.goals
+      .update({ deletedAt: new Date(deletedAt) })
+      .where({ id: goalId });
   },
 
-  'v1.GoalAccessGranted': ({ goalId, grantedTo, permission, grantedAt }, ctx) => {
+  'v1.GoalAccessGranted': (
+    { goalId, grantedTo, permission, grantedAt },
+    ctx
+  ) => {
     return tables.goalAccess.insert({
       id: `${goalId}:${grantedTo}`,
       goalId,
@@ -1181,8 +1331,11 @@ export class DomainEventAdapter {
 
   async toLiveStoreEvent(
     domainEvent: DomainEvent,
-    kGoalLocal: CryptoKey,
-  ): Promise<{ eventName: keyof typeof events; args: Record<string, unknown> }> {
+    kGoalLocal: CryptoKey
+  ): Promise<{
+    eventName: keyof typeof events;
+    args: Record<string, unknown>;
+  }> {
     const type = domainEvent.eventType;
     const p: any = domainEvent.payload;
 
@@ -1298,20 +1451,26 @@ import { Store } from '@livestore/livestore';
 export class LiveStoreEventStore implements IEventStore {
   constructor(
     private readonly store: Store,
-    private readonly adapter: DomainEventAdapter,
+    private readonly adapter: DomainEventAdapter
   ) {}
 
   async append(
     aggregateId: string,
     domainEvents: DomainEvent[],
     kGoal: CryptoKey,
-    accessMetadata: { ownerUserId: string; ownerWrappedKey: Uint8Array },
+    accessMetadata: { ownerUserId: string; ownerWrappedKey: Uint8Array }
   ): Promise<void> {
     // Derive K_goal_local for field-level encryption
-    const kGoalLocal = await this.adapter['cryptoService'].deriveSubKey(kGoal, 'local');
+    const kGoalLocal = await this.adapter['cryptoService'].deriveSubKey(
+      kGoal,
+      'local'
+    );
 
     for (const domainEvent of domainEvents) {
-      const { eventName, args } = await this.adapter.toLiveStoreEvent(domainEvent, kGoalLocal);
+      const { eventName, args } = await this.adapter.toLiveStoreEvent(
+        domainEvent,
+        kGoalLocal
+      );
       const liveStoreEvent = events[eventName];
 
       // 1. Commit to the local LiveStore eventlog + projections.
@@ -1447,8 +1606,6 @@ The Infrastructure layer contains a `EncryptedSyncAdapter.ts` that wraps the low
 `EncryptedEventWrapper.ts` (if present) is a small helper for serializing/deserializing the `{ name, args }` + `encryptedArgs` envelope. All key management and encryption logic lives in the sync adapter; the Domain and Application layers remain unaware of envelope encryption details.
 ```
 
-
-
 ## 7. Cryptographic Model
 
 ### 7.1 Key Hierarchy
@@ -1538,7 +1695,10 @@ export class CryptoService implements ICryptoService {
     ) as Promise<CryptoKeyPair>;
   }
 
-  async deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
+  async deriveKeyFromPassword(
+    password: string,
+    salt: Uint8Array
+  ): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const passwordKey = await crypto.subtle.importKey(
       'raw',
@@ -1564,7 +1724,10 @@ export class CryptoService implements ICryptoService {
     );
   }
 
-  async wrapKey(keyToWrap: CryptoKey, recipientPublicKey: CryptoKey): Promise<Uint8Array> {
+  async wrapKey(
+    keyToWrap: CryptoKey,
+    recipientPublicKey: CryptoKey
+  ): Promise<Uint8Array> {
     // ECIES-style wrap using ECDH + AES-GCM
     // 1. Generate ephemeral ECDH keypair
     const ephemeral = await crypto.subtle.generateKey(
@@ -1590,11 +1753,14 @@ export class CryptoService implements ICryptoService {
     const ciphertext = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv },
       aesKey,
-      rawKGoal,
+      rawKGoal
     );
 
     // 5. Serialize ephemeral public key + IV + ciphertext
-    const ephemeralPublicSpki = await crypto.subtle.exportKey('spki', ephemeral.publicKey);
+    const ephemeralPublicSpki = await crypto.subtle.exportKey(
+      'spki',
+      ephemeral.publicKey
+    );
     const ep = new Uint8Array(ephemeralPublicSpki);
     const ct = new Uint8Array(ciphertext);
     const result = new Uint8Array(2 + ep.length + iv.length + ct.length);
@@ -1607,7 +1773,10 @@ export class CryptoService implements ICryptoService {
     return result;
   }
 
-  async unwrapKey(wrappedKey: Uint8Array, recipientPrivateKey: CryptoKey): Promise<CryptoKey> {
+  async unwrapKey(
+    wrappedKey: Uint8Array,
+    recipientPrivateKey: CryptoKey
+  ): Promise<CryptoKey> {
     // Parse ephemeral public key length
     const epLen = (wrappedKey[0] << 8) | wrappedKey[1];
     const epBytes = wrappedKey.slice(2, 2 + epLen);
@@ -1619,7 +1788,7 @@ export class CryptoService implements ICryptoService {
       epBytes,
       { name: 'ECDH', namedCurve: 'P-256' },
       true,
-      [],
+      []
     );
 
     const aesKey = await crypto.subtle.deriveKey(
@@ -1627,13 +1796,13 @@ export class CryptoService implements ICryptoService {
       recipientPrivateKey,
       { name: 'AES-GCM', length: 256 },
       false,
-      ['decrypt'],
+      ['decrypt']
     );
 
     const rawKGoal = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       aesKey,
-      ct,
+      ct
     );
 
     return crypto.subtle.importKey(
@@ -1641,7 +1810,7 @@ export class CryptoService implements ICryptoService {
       rawKGoal,
       { name: 'AES-GCM', length: 256 },
       true,
-      ['encrypt', 'decrypt'],
+      ['encrypt', 'decrypt']
     );
   }
 
@@ -1652,7 +1821,7 @@ export class CryptoService implements ICryptoService {
       key,
       data
     );
-    
+
     // Prepend IV to ciphertext
     const result = new Uint8Array(iv.length + encrypted.byteLength);
     result.set(iv);
@@ -1663,13 +1832,13 @@ export class CryptoService implements ICryptoService {
   async decrypt(data: Uint8Array, key: CryptoKey): Promise<Uint8Array> {
     const iv = data.slice(0, 12);
     const ciphertext = data.slice(12);
-    
+
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       key,
       ciphertext
     );
-    
+
     return new Uint8Array(decrypted);
   }
 
@@ -1677,21 +1846,28 @@ export class CryptoService implements ICryptoService {
     const signature = await crypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       privateKey,
-      data,
+      data
     );
     return new Uint8Array(signature);
   }
 
-  async verify(data: Uint8Array, signature: Uint8Array, publicKey: CryptoKey): Promise<boolean> {
+  async verify(
+    data: Uint8Array,
+    signature: Uint8Array,
+    publicKey: CryptoKey
+  ): Promise<boolean> {
     return crypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-256' },
       publicKey,
       signature,
-      signature,
+      signature
     );
   }
 
-  async deriveSubKey(rootKey: CryptoKey, info: 'remote' | 'local'): Promise<CryptoKey> {
+  async deriveSubKey(
+    rootKey: CryptoKey,
+    info: 'remote' | 'local'
+  ): Promise<CryptoKey> {
     // POC HKDF-style derivation using WebCrypto is non-trivial; for now,
     // this can be implemented by exporting the root key and hashing with
     // a context string, then importing as a new AES-GCM key.
@@ -1700,7 +1876,6 @@ export class CryptoService implements ICryptoService {
   }
 }
 ```
-
 
 ### 7.3 Identity and Device Registration
 
@@ -1753,8 +1928,6 @@ Multi-device support is in scope: a user should be able to create an identity on
      - Stores `K_aggregate` locally via `IKeyStore.storeGoalKey`.
    - From this point on, Device B can decrypt both envelopes (`K_goal_remote`) and fields (`K_goal_local`) and behaves identically to Device A.
 
-
-
 ## 8. Interface Layer
 
 ### 8.1 React Hooks and Command Wiring
@@ -1762,7 +1935,10 @@ Multi-device support is in scope: a user should be able to create an identity on
 ```typescript
 // interface/hooks/useGoals.ts
 import { useQuery } from '@livestore/react';
-import { allGoals$, goalsBySlice$ } from '../../infrastructure/livestore/queries';
+import {
+  allGoals$,
+  goalsBySlice$,
+} from '../../infrastructure/livestore/queries';
 import { useDecryptedGoals } from '../readAdapters/useDecryptedGoals';
 
 // High-level hooks: wrap low-level LiveStore queries with a read adapter
@@ -1789,17 +1965,26 @@ export interface GoalCommandAPI {
   createGoal(input: {
     slice: SliceValue;
     summary: string;
-    targetMonth: string;      // 'YYYY-MM'
+    targetMonth: string; // 'YYYY-MM'
     priority: PriorityLevel;
   }): Promise<string>;
   updateSummary(goalId: string, summary: string): Promise<void>;
   deleteGoal(goalId: string): Promise<void>;
-  shareGoal(goalId: string, userId: string, permission: 'view' | 'edit'): Promise<void>;
+  shareGoal(
+    goalId: string,
+    userId: string,
+    permission: 'view' | 'edit'
+  ): Promise<void>;
 }
 
 export function useGoalCommands(): GoalCommandAPI {
-  const { goalAppService, updateGoalSummaryHandler, deleteGoalHandler, shareGoalHandler, currentUserId } =
-    useContext(AppContext);
+  const {
+    goalAppService,
+    updateGoalSummaryHandler,
+    deleteGoalHandler,
+    shareGoalHandler,
+    currentUserId,
+  } = useContext(AppContext);
 
   return useMemo(
     () => ({
@@ -1811,20 +1996,28 @@ export function useGoalCommands(): GoalCommandAPI {
             goalId,
             ...input,
           },
-          currentUserId,
+          currentUserId
         );
         return goalId;
       },
 
       async updateSummary(goalId: string, summary: string) {
-        await updateGoalSummaryHandler.handle({ type: 'UpdateGoalSummary', goalId, summary });
+        await updateGoalSummaryHandler.handle({
+          type: 'UpdateGoalSummary',
+          goalId,
+          summary,
+        });
       },
 
       async deleteGoal(goalId: string) {
         await deleteGoalHandler.handle({ type: 'DeleteGoal', goalId });
       },
 
-      async shareGoal(goalId: string, userId: string, permission: 'view' | 'edit') {
+      async shareGoal(
+        goalId: string,
+        userId: string,
+        permission: 'view' | 'edit'
+      ) {
         await shareGoalHandler.handle({
           type: 'ShareGoal',
           goalId,
@@ -1833,7 +2026,13 @@ export function useGoalCommands(): GoalCommandAPI {
         });
       },
     }),
-    [goalAppService, updateGoalSummaryHandler, deleteGoalHandler, shareGoalHandler, currentUserId],
+    [
+      goalAppService,
+      updateGoalSummaryHandler,
+      deleteGoalHandler,
+      shareGoalHandler,
+      currentUserId,
+    ]
   );
 }
 ```
@@ -1858,7 +2057,7 @@ interface GoalCardProps {
 
 export function GoalCard({ goal, onEdit }: GoalCardProps) {
   const commands = useGoalCommands();
-  
+
   const handleDelete = async () => {
     if (confirm('Delete this goal?')) {
       await commands.deleteGoal(goal.id);
@@ -1948,12 +2147,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 `useGoalCommands` and other hooks now receive fully-constructed services/handlers from `AppContext`, so heavy objects are singletons for the lifetime of the app (or session), not recreated per render.
 
-
 ### 8.4 Decryption Read Adapter (`useDecryptedGoals`)
 
 `useDecryptedGoals` is the primary read adapter that bridges encrypted LiveStore projections and UI-friendly DTOs. Because decryption requires asynchronous operations (`IKeyStore.getGoalKey`, `ICryptoService.decrypt`), the adapter is designed as an async hook with caching, not as a synchronous function.
 
 **Design:**
+
 - Signature:
   - `useDecryptedGoals(rows)` accepts the raw rows from `useQuery(allGoals$ | goalsBySlice$ | goalsByMonthRange$)`.
   - Returns an array of decrypted `GoalDTO` objects or `undefined` while decrypting (the UI can show a loading state or skeleton).
@@ -1976,19 +2175,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       - When `rows` are unchanged and ciphertexts match the cache, the hook returns cached decrypted DTOs synchronously (no re-decrypt per render).
 
 **Async vs sync and React constraints:**
+
 - React hooks cannot `await` directly, so `useDecryptedGoals`:
   - Initiates decryption work inside a `useEffect` when `rows` change.
   - Maintains internal loading/error state and returns `undefined` (or previous value) while work is in progress.
   - The POC uses explicit loading states in components rather than Suspense; wrapping this in a Suspense resource is a possible future enhancement but not required initially.
 
 **GoalDecryptionCache service:**
+
 - Implemented as a lightweight in-memory cache, exposed via `AppContext` (e.g., `goalDecryptionCache: Map<cacheKey, GoalDTO>`).
 - Responsibilities:
   - Avoid redundant decryption for stable ciphertexts within a session.
   - Provide a simple `get/set` API keyed by `{ goalId, sliceCipher, summaryCipher, targetMonthCipher, priorityCipher }`.
 - This cache is ephemeral (in-memory only); it does not change the trust model or persistence story, it only improves performance.
-
-
 
 ## 9. Backend Architecture (NestJS + Postgres)
 
@@ -2087,9 +2286,9 @@ interface PushRequest {
 }
 
 interface PushResponse {
-  accepted: string[];      // Event IDs accepted
+  accepted: string[]; // Event IDs accepted
   rejected: Array<{ id: string; reason: string }>;
-  serverSeq: number;       // Latest server sequence
+  serverSeq: number; // Latest server sequence
 }
 ```
 
@@ -2108,7 +2307,7 @@ interface PullResponse {
   }>;
   wrappedKeys: Array<{
     aggregateId: string;
-    wrappedKey: string;    // K_goal wrapped for requesting user
+    wrappedKey: string; // K_goal wrapped for requesting user
     permission: string;
   }>;
   cursor: number;
@@ -2192,20 +2391,21 @@ High-level invite sequence (for not-yet-associated users):
    - On subsequent `GET /sync/pull`, the backend includes this aggregate’s `wrapped_key` in the `wrappedKeys` section for the invitee.
    - Client unwraps `wrappedKeyForSelf` with its identity key to recover `K_goal`, derives `K_goal_remote` / `K_goal_local`, and can now decrypt envelope and field-level ciphertext for this goal during sync.
 
-
 ### 9.6 Key Availability and Event Ordering
 
 Because keys and events travel over sync independently, a client can temporarily see events for an aggregate before it has the corresponding wrapped key.
 
 **Server guarantees**
+
 - The backend only returns events for aggregates where the caller has an active entry in `aggregate_access` at the time of the pull.
 - `wrappedKeys` always includes entries for all aggregates the caller can access; however, due to batching and ordering, an event for a newly shared aggregate and the corresponding `wrapped_key` may appear in the same or adjacent pull responses.
 
 **Client behavior when key is missing**
+
 - On pull, for each event in `events`:
   - If `K_aggregate` is already available locally:
     - The sync encryption adapter decrypts `encryptedArgs` with `K_goal_remote` and commits `{ name, args }` into LiveStore.
-  - If `K_aggregate` is *not* available yet:
+  - If `K_aggregate` is _not_ available yet:
     - The adapter does **not** attempt to decrypt or commit the event immediately.
     - Instead, it queues the event in a local “pending events” buffer keyed by `aggregateId`.
 - When a `wrapped_key` for `aggregateId` is received in `wrappedKeys`:
@@ -2214,6 +2414,7 @@ Because keys and events travel over sync independently, a client can temporarily
   - Replays all pending events for that `aggregateId` in `seq` order through the adapter and LiveStore, then clears the pending buffer for that aggregate.
 
 **Revocation / no-key cases**
+
 - If an aggregate has been revoked for the user, the backend will stop including:
   - Events for that `aggregateId`, and
   - `wrapped_key` entries for that aggregate.
@@ -2225,6 +2426,7 @@ Because keys and events travel over sync independently, a client can temporarily
   - Event ordering remains correct once `K_aggregate` arrives; events are replayed in the canonical `seq` order.
 
 This pattern keeps:
+
 - The server blind to all aggregate contents (`K_goal` / `K_aggregate` never leaves the client in plaintext).
 - The server blind to PII (only `user_id`, public keys, `aggregate_id`, `invite_id`, and encrypted blobs).
 
@@ -2235,13 +2437,13 @@ This pattern keeps:
 // Client → Server
 interface WSClientMessage {
   type: 'subscribe' | 'ping';
-  storeId?: string;  // For subscribe
+  storeId?: string; // For subscribe
 }
 
 // Server → Client
 interface WSServerMessage {
   type: 'notification' | 'pong';
-  newEventsAvailable?: boolean;  // Trigger pull
+  newEventsAvailable?: boolean; // Trigger pull
   latestSeq?: number;
 }
 
@@ -2261,16 +2463,14 @@ interface WSServerMessage {
 
 ### 9.4 Authorization Rules
 
-| Endpoint | Required Permission / Checks |
-|----------|-----------------------------|
-| `POST /sync/push` | Caller must have `edit` or `owner` on goal |
-| `GET /sync/pull` | Caller must have any active permission on goal |
-| `GET /users/:id/public-keys` | Caller must be authenticated; returns public signing/encryption keys only |
-| `POST /invites` | Caller must have `owner` on goal |
-| `POST /invites/:id/accept` | Invite must exist, be unexpired, and not already accepted (capability-style; no PII) |
-| `POST /invites/:id/revoke` | Caller must have `owner` on goal |
-
-
+| Endpoint                     | Required Permission / Checks                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| `POST /sync/push`            | Caller must have `edit` or `owner` on goal                                           |
+| `GET /sync/pull`             | Caller must have any active permission on goal                                       |
+| `GET /users/:id/public-keys` | Caller must be authenticated; returns public signing/encryption keys only            |
+| `POST /invites`              | Caller must have `owner` on goal                                                     |
+| `POST /invites/:id/accept`   | Invite must exist, be unexpired, and not already accepted (capability-style; no PII) |
+| `POST /invites/:id/revoke`   | Caller must have `owner` on goal                                                     |
 
 ## 10. Threat Model
 
@@ -2282,36 +2482,35 @@ interface WSServerMessage {
 
 ### 10.2 What Server Can See
 
-| Visible | Hidden |
-|---------|--------|
-| Event names/types | Event payload content (summary, slice, targetMonth, priority, etc.) |
-| Aggregate IDs | All aggregate-specific fields and metadata inside encrypted_args |
-| User IDs | User names or identifiers from other systems |
-| Timestamps | Business dates (e.g. targetMonth) |
-| Access relationships | Actual permission meaning and keys |
+| Visible              | Hidden                                                              |
+| -------------------- | ------------------------------------------------------------------- |
+| Event names/types    | Event payload content (summary, slice, targetMonth, priority, etc.) |
+| Aggregate IDs        | All aggregate-specific fields and metadata inside encrypted_args    |
+| User IDs             | User names or identifiers from other systems                        |
+| Timestamps           | Business dates (e.g. targetMonth)                                   |
+| Access relationships | Actual permission meaning and keys                                  |
 
 ### 10.3 Key Revocation Limitations
 
 When access is revoked:
+
 1. Server stops returning events for that goal to revoked user
 2. **However:** Revoked user still possesses `K_goal` from before revocation
 3. Historical data remains accessible to revoked user locally
 
 **Mitigation (Future):** Key rotation on revocation (not in POC scope).
 
-
-
 ## 11. Implementation Plan
 
 ### Phase 1: Foundation
 
-| Task | Layer |
-|------|-------|
-| Project setup (Vite + React + TS + shadcn) | Interface |
-| Clean Architecture folder structure | All |
-| Domain model (Goal aggregate, events, VOs) | Domain |
-| Application commands and handlers skeleton | Application |
-| LiveStore schema, tables, events | Infrastructure |
+| Task                                       | Layer          |
+| ------------------------------------------ | -------------- |
+| Project setup (Vite + React + TS + shadcn) | Interface      |
+| Clean Architecture folder structure        | All            |
+| Domain model (Goal aggregate, events, VOs) | Domain         |
+| Application commands and handlers skeleton | Application    |
+| LiveStore schema, tables, events           | Infrastructure |
 
 ### Dev Environment & Docker Compose
 
@@ -2348,43 +2547,43 @@ The repo will include a `docker-compose.yml` to spin up a full POC stack with a 
 
 ### Phase 2: Local-First
 
-| Task | Layer |
-|------|-------|
-| Crypto service (Web Crypto API) | Infrastructure |
-| Key store (IndexedDB) | Infrastructure |
-| Domain event → LiveStore adapter | Infrastructure |
+| Task                                         | Layer          |
+| -------------------------------------------- | -------------- |
+| Crypto service (Web Crypto API)              | Infrastructure |
+| Key store (IndexedDB)                        | Infrastructure |
+| Domain event → LiveStore adapter             | Infrastructure |
 | Materializers + read adapters for decryption | Infrastructure |
-| Goal CRUD flows | All |
-| Wheel and Timeline views | Interface |
-| Local backup (key export) | All |
+| Goal CRUD flows                              | All            |
+| Wheel and Timeline views                     | Interface      |
+| Local backup (key export)                    | All            |
 
 ### Phase 3: Sync
 
-| Task | Layer |
-|------|-------|
-| NestJS backend setup | Backend |
-| Auth endpoints | Backend |
-| Sync endpoints (push/pull) | Backend |
+| Task                           | Layer          |
+| ------------------------------ | -------------- |
+| NestJS backend setup           | Backend        |
+| Auth endpoints                 | Backend        |
+| Sync endpoints (push/pull)     | Backend        |
 | Custom LiveStore sync provider | Infrastructure |
-| Sync status UI | Interface |
+| Sync status UI                 | Interface      |
 
 ### Phase 4: Sharing
 
-| Task | Layer |
-|------|-------|
-| Invite endpoints | Backend |
-| Share command/handler | Application |
+| Task                   | Layer          |
+| ---------------------- | -------------- |
+| Invite endpoints       | Backend        |
+| Share command/handler  | Application    |
 | Invite link generation | Infrastructure |
-| Accept invite flow | All |
-| Revoke access | All |
+| Accept invite flow     | All            |
+| Revoke access          | All            |
 
 ### Phase 5: Polish
 
-| Task | Area |
-|------|------|
-| Error handling | All |
+| Task           | Area      |
+| -------------- | --------- |
+| Error handling | All       |
 | Loading states | Interface |
-| Documentation | All |
+| Documentation  | All       |
 
 ### Testing & Validation Strategy
 
@@ -2430,29 +2629,27 @@ Testing spans all layers; the POC aims for pragmatic but meaningful coverage:
 
 The intention is to keep unit tests focused on pure, synchronous logic (Domain + Application services), and use a small but representative set of integration/E2E tests to validate crypto correctness and sync behavior across devices.
 
-
-
 ## 12. Design Decisions
 
-| Question | Decision | Rationale |
-|----------|----------|-----------|
-| Argon2id vs PBKDF2 | Use PBKDF2 (600k iterations) | Web Crypto API native support; acceptable for POC. Document as production TODO. |
-| Materializer async/crypto | Pre-decrypt in sync layer before materializer | LiveStore materializers must be synchronous. Decrypt events during pull, store decrypted in local event buffer, materializers process plaintext. |
-| Multiple storeIds | Single store per identity (storeId = userId) | POC assumes a single-tenant per identity; all of a user's aggregates share one store. Multi-tenant membership (one user in multiple tenants) is not supported in the POC and will require a refined storeId scheme (e.g., storeId = tenantId:userId). |
-| WebSocket vs polling | WebSocket for real-time sync | Use WebSocket for push notifications of new events; fall back to polling if connection drops. |
-
-
+| Question                  | Decision                                      | Rationale                                                                                                                                                                                                                                             |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Argon2id vs PBKDF2        | Use PBKDF2 (600k iterations)                  | Web Crypto API native support; acceptable for POC. Document as production TODO.                                                                                                                                                                       |
+| Materializer async/crypto | Pre-decrypt in sync layer before materializer | LiveStore materializers must be synchronous. Decrypt events during pull, store decrypted in local event buffer, materializers process plaintext.                                                                                                      |
+| Multiple storeIds         | Single store per identity (storeId = userId)  | POC assumes a single-tenant per identity; all of a user's aggregates share one store. Multi-tenant membership (one user in multiple tenants) is not supported in the POC and will require a refined storeId scheme (e.g., storeId = tenantId:userId). |
+| WebSocket vs polling      | WebSocket for real-time sync                  | Use WebSocket for push notifications of new events; fall back to polling if connection drops.                                                                                                                                                         |
 
 ## 13. Deep Dive: Materializers, Crypto, and Event Sourcing
 
 ### Problem
 
 LiveStore materializers are **synchronous, pure functions** that must:
+
 - Be deterministic
 - Have no side effects
 - Return SQLite operations immediately
 
 At the same time we want:
+
 - **Envelope encryption** of event arguments on the wire and at rest on the server (`K_goal_remote`)
 - **Field-level encryption** of sensitive data in local projections (`K_goal_local`)
 - **Event-sourced backend** as the canonical store, while treating projections as snapshots on each device
@@ -2488,7 +2685,6 @@ At the same time we want:
    - From `K_goal`, the client deterministically derives `K_goal_remote` and `K_goal_local` using `ICryptoService.deriveSubKey`.
    - If a device does not yet have `K_goal` for a goal, it cannot decrypt envelopes or fields for that goal and simply treats events as opaque.
 
-
 ## 14. Research Topics (Post-POC)
 
 ### Event Compaction
@@ -2496,16 +2692,18 @@ At the same time we want:
 **Problem**: Event logs grow unbounded. Each goal's full history is stored forever.
 
 **Research Questions**:
+
 1. Does LiveStore provide built-in compaction/snapshotting?
 2. Can we implement periodic snapshots at aggregate boundaries?
 3. What's the impact of deleting old events on sync protocol?
 
 **Proposed Approach** (to validate):
+
 ```typescript
 // Periodic compaction per goal
 interface GoalSnapshot {
   goalId: string;
-  snapshotSeq: number;  // Last event sequence included
+  snapshotSeq: number; // Last event sequence included
   state: {
     slice: string;
     summary: string;
@@ -2523,11 +2721,13 @@ interface GoalSnapshot {
 ```
 
 **Open Questions**:
+
 - How does compaction interact with multi-device sync?
 - What if device A compacts but device B has older events offline?
 - Can we delete events server-side without breaking causality?
 
 **Next Steps**:
+
 - Review LiveStore docs for snapshot support
 - Test sync behavior with event deletion
 - Design compaction policy (time-based vs count-based)
@@ -2537,15 +2737,16 @@ interface GoalSnapshot {
 **Problem**: With per-aggregate keys and AEAD field-level encryption, local SQLite projections cannot perform meaningful SQL-level filtering on encrypted fields (e.g., slice, targetMonth, priority). For large-volume domains (such as tasks), decrypt-then-filter in read adapters may become a bottleneck.
 
 **Research Questions**:
+
 1. Can we introduce local-only, privacy-preserving indexes (e.g., HMAC-based slice_index) to enable SQL equality filtering without exposing plaintext?
 2. What are the performance and UX trade-offs of deterministic encryption (per-user or per-device keys) for specific fields?
 3. How does any indexing scheme interact with per-goal keying, sharing, and key rotation?
 
 **Proposed directions**:
+
 - Explore a second, local-only index column for hot filter dimensions (slice, priority, targetMonth bucket).
 - Evaluate the cost/benefit of deterministic encryption vs HMAC-based indexes, strictly on the client side.
 - Keep server schema unchanged: events table continues to use `encrypted_args` only; any searchable encryption features are local concerns.
-
 
 ## 15. Appendix: LiveStore Key Concepts
 
@@ -2560,6 +2761,7 @@ Materializers are pure functions that transform events into SQLite state. They m
 ### Sync Model
 
 LiveStore uses a Git-inspired push/pull model:
+
 - Events form an ordered log with sequence numbers
 - Pull before push to maintain total ordering
 - Local events are rebased on top of pulled events
@@ -2570,29 +2772,29 @@ LiveStore uses a Git-inspired push/pull model:
 Each store has a `storeId` that identifies it for syncing. Multiple clients with the same `storeId` sync together.
 
 **Our Model (POC)**: `storeId = userId` (one store per identity)
+
 - All of an identity's aggregates (goals, etc.) share one store
 - Per-goal/aggregate encryption provides isolation between aggregates
 - Simpler sync protocol (one connection per identity)
 - Multiple devices sync via shared `storeId`
 
 **Multi-tenant note**:
+
 - The POC assumes a single-tenant-per-identity model: effectively `tenantId === userId` from the sync system's perspective.
 - In a future multi-tenant design where a user can belong to multiple tenants, we will likely move to a storeId that encodes both tenant and identity (e.g., `storeId = tenantId:userId`) or one LiveStore store per `(tenant, user)` pair.
 
-
-
 ## 16. Glossary
 
-| Term | Definition |
-|------|------------|
-| `K_goal` | 256-bit symmetric key unique to each Goal aggregate |
-| `K_goal_remote` | Key derived from `K_goal` for envelope encryption of event args on the wire/server |
-| `K_goal_local` | Key derived from `K_goal` for field-level encryption in local projections |
-| `K_pwd` | Password-derived key using Argon2id/PBKDF2 |
-| `k_invite_public` / `k_invite_private` | Ephemeral keypair for invite capability links (server stores only the public key) |
-| Materializer | LiveStore function that transforms events into SQLite state |
-| `storeId` | Unique identifier for a LiveStore instance used for sync |
-| AEAD | Authenticated Encryption with Associated Data (AES-256-GCM) |
-| DSL | Domain-Specific Language - our domain layer API design approach |
-| `assertive-ts` | Fluent assertion library used for domain invariant validation |
-| Value Object | Immutable domain type identified by its value, not identity |
+| Term                                   | Definition                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| `K_goal`                               | 256-bit symmetric key unique to each Goal aggregate                                |
+| `K_goal_remote`                        | Key derived from `K_goal` for envelope encryption of event args on the wire/server |
+| `K_goal_local`                         | Key derived from `K_goal` for field-level encryption in local projections          |
+| `K_pwd`                                | Password-derived key using Argon2id/PBKDF2                                         |
+| `k_invite_public` / `k_invite_private` | Ephemeral keypair for invite capability links (server stores only the public key)  |
+| Materializer                           | LiveStore function that transforms events into SQLite state                        |
+| `storeId`                              | Unique identifier for a LiveStore instance used for sync                           |
+| AEAD                                   | Authenticated Encryption with Associated Data (AES-256-GCM)                        |
+| DSL                                    | Domain-Specific Language - our domain layer API design approach                    |
+| `Assert`                               | Custom in-house fluent assertion DSL for domain invariant validation               |
+| Value Object                           | Immutable domain type identified by its value, not identity                        |
