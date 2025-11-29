@@ -23,7 +23,9 @@ describe('CreateGoalCommand validation', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.goalId.value).toBe('018f7b1a-7c8a-72c4-a0ab-8234c2d6f001');
+      expect(result.value.goalId.value).toBe(
+        '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001'
+      );
       expect(result.value.slice.value).toBe('Health');
       expect(result.value.priority.level).toBe('must');
     }
@@ -101,7 +103,9 @@ describe('RegisterUserCommand validation', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors.some((e) => e.field === 'signingPublicKey')).toBe(true);
+      expect(result.errors.some((e) => e.field === 'signingPublicKey')).toBe(
+        true
+      );
     }
   });
 });

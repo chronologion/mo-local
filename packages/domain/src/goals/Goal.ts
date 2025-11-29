@@ -16,6 +16,7 @@ import { GoalPriorityChanged } from '../events/GoalPriorityChanged';
 import { GoalDeleted } from '../events/GoalDeleted';
 import { GoalAccessGranted, Permission } from '../events/GoalAccessGranted';
 import { GoalAccessRevoked } from '../events/GoalAccessRevoked';
+import { DomainEvent } from '../shared/DomainEvent';
 
 /**
  * Goal aggregate root.
@@ -55,6 +56,16 @@ export class Goal extends AggregateRoot<GoalId> {
 
   private constructor(id: GoalId) {
     super(id);
+  }
+
+  /**
+   * Reconstitute a Goal from historical events.
+   */
+  static reconstitute(id: GoalId, events: readonly DomainEvent[]): Goal {
+    const goal = new Goal(id);
+    goal.loadFromHistory(events as DomainEvent[]);
+    goal.markEventsAsCommitted();
+    return goal;
   }
 
   /**

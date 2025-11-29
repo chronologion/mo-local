@@ -1,6 +1,11 @@
 import { UserId } from '@mo/domain';
 import { KeyBackup } from '../ports/types';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface ImportUserKeysCommand {
@@ -57,7 +62,10 @@ const validateBackup = (
 
   for (const { key, name } of requiredIdentity) {
     if (!(key instanceof Uint8Array) || key.length === 0) {
-      errors.push({ field: `${field}.${name}`, message: 'Value must be a non-empty byte array' });
+      errors.push({
+        field: `${field}.${name}`,
+        message: 'Value must be a non-empty byte array',
+      });
     }
   }
 

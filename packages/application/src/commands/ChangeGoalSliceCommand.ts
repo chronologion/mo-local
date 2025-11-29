@@ -1,5 +1,10 @@
 import { GoalId, Slice, SliceValue, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface ChangeGoalSliceCommand {

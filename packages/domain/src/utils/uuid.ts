@@ -68,4 +68,3 @@ export function uuidv7(): string {
     16
   )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-

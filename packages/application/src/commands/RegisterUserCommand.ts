@@ -1,5 +1,10 @@
 import { UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface RegisterUserCommand {
@@ -23,7 +28,11 @@ export function validateRegisterUserCommand(
   const errors: ValidationError[] = [];
 
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
-  const signingPublicKey = validateBytes(command.signingPublicKey, 'signingPublicKey', errors);
+  const signingPublicKey = validateBytes(
+    command.signingPublicKey,
+    'signingPublicKey',
+    errors
+  );
   const encryptionPublicKey = validateBytes(
     command.encryptionPublicKey,
     'encryptionPublicKey',
@@ -31,7 +40,13 @@ export function validateRegisterUserCommand(
   );
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 
-  if (errors.length > 0 || !userId || !signingPublicKey || !encryptionPublicKey || !timestamp) {
+  if (
+    errors.length > 0 ||
+    !userId ||
+    !signingPublicKey ||
+    !encryptionPublicKey ||
+    !timestamp
+  ) {
     return failure(errors);
   }
 

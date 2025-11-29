@@ -1,5 +1,10 @@
 import { GoalId, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface RevokeGoalAccessCommand {
@@ -23,7 +28,11 @@ export function validateRevokeGoalAccessCommand(
   const errors: ValidationError[] = [];
 
   const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const revokeUserId = safeConvert(() => UserId.of(command.revokeUserId), 'revokeUserId', errors);
+  const revokeUserId = safeConvert(
+    () => UserId.of(command.revokeUserId),
+    'revokeUserId',
+    errors
+  );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 

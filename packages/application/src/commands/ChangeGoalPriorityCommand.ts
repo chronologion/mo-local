@@ -1,5 +1,10 @@
 import { GoalId, Priority, PriorityLevel, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface ChangeGoalPriorityCommand {
@@ -23,7 +28,11 @@ export function validateChangeGoalPriorityCommand(
   const errors: ValidationError[] = [];
 
   const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const priority = safeConvert(() => Priority.of(command.priority), 'priority', errors);
+  const priority = safeConvert(
+    () => Priority.of(command.priority),
+    'priority',
+    errors
+  );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 

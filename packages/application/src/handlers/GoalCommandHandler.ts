@@ -9,7 +9,12 @@ import {
   ValidatedGrantGoalAccessCommand,
   ValidatedRevokeGoalAccessCommand,
 } from '../commands';
-import { IGoalRepository, IEventBus, ICryptoService, IKeyStore } from '../ports';
+import {
+  IGoalRepository,
+  IEventBus,
+  ICryptoService,
+  IKeyStore,
+} from '../ports';
 import { NotFoundError } from '../errors/NotFoundError';
 
 export type GoalCommandResult =
@@ -27,7 +32,9 @@ export class GoalCommandHandler {
     private readonly eventBus: IEventBus
   ) {}
 
-  async handleCreate(command: ValidatedCreateGoalCommand): Promise<GoalCommandResult> {
+  async handleCreate(
+    command: ValidatedCreateGoalCommand
+  ): Promise<GoalCommandResult> {
     const kGoal = await this.crypto.generateKey();
     const goal = Goal.create({
       id: command.goalId,
@@ -45,13 +52,17 @@ export class GoalCommandHandler {
     return { goalId: goal.id.value, encryptionKey: kGoal };
   }
 
-  async handleChangeSummary(command: ValidatedChangeGoalSummaryCommand): Promise<GoalCommandResult> {
+  async handleChangeSummary(
+    command: ValidatedChangeGoalSummaryCommand
+  ): Promise<GoalCommandResult> {
     const goal = await this.loadGoal(command.goalId);
     goal.changeSummary(command.summary);
     return this.persist(goal);
   }
 
-  async handleChangeSlice(command: ValidatedChangeGoalSliceCommand): Promise<GoalCommandResult> {
+  async handleChangeSlice(
+    command: ValidatedChangeGoalSliceCommand
+  ): Promise<GoalCommandResult> {
     const goal = await this.loadGoal(command.goalId);
     goal.changeSlice(command.slice);
     return this.persist(goal);
@@ -73,9 +84,11 @@ export class GoalCommandHandler {
     return this.persist(goal);
   }
 
-  async handleDelete(command: ValidatedDeleteGoalCommand): Promise<GoalCommandResult> {
+  async handleDelete(
+    command: ValidatedDeleteGoalCommand
+  ): Promise<GoalCommandResult> {
     const goal = await this.loadGoal(command.goalId);
-    goal.delete(command.userId);
+    goal.delete();
     return this.persist(goal);
   }
 

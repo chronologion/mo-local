@@ -16,7 +16,9 @@ describe('UserCommandHandler', () => {
       timestamp: new Date(),
     });
 
-    expect(bus.getPublished().some((e) => e.eventType === 'UserRegistered')).toBe(true);
+    expect(
+      bus.getPublished().some((e) => e.eventType === 'UserRegistered')
+    ).toBe(true);
   });
 
   it('imports keys', async () => {

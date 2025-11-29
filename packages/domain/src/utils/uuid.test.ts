@@ -20,4 +20,3 @@ describe('uuidv7', () => {
     expect(['8', '9', 'a', 'b']).toContain(variantChar);
   });
 });
-
