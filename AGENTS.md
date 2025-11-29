@@ -13,3 +13,4 @@ Key rules:
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.
 - Use the docker compose stack to run and debug the app, and run e2e tests.
 - Lint, typecheck, prettify before you declare something is ready.
+- For each completed task, make a PR with a proper markdown summary. Wait for review and fix any reported issues.
