@@ -23,7 +23,10 @@ type SupportedEvent =
 /**
  * Applies goal-related domain events to materialized state.
  */
-export const applyGoalEvent = (state: MaterializedState, event: SupportedEvent): void => {
+export const applyGoalEvent = (
+  state: MaterializedState,
+  event: SupportedEvent
+): void => {
   switch (event.eventType) {
     case 'GoalCreated':
       state.goals.set(event.aggregateId, {
@@ -51,7 +54,11 @@ export const applyGoalEvent = (state: MaterializedState, event: SupportedEvent):
     case 'GoalSliceChanged': {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
-      state.goals.set(event.aggregateId, { ...row, slice: event.payload.slice, version: row.version + 1 });
+      state.goals.set(event.aggregateId, {
+        ...row,
+        slice: event.payload.slice,
+        version: row.version + 1,
+      });
       break;
     }
     case 'GoalTargetChanged': {
@@ -100,7 +107,10 @@ export const applyGoalEvent = (state: MaterializedState, event: SupportedEvent):
       const id = `${event.aggregateId}:${event.payload.revokedFrom}`;
       const row = state.goalAccess.get(id);
       if (!row) break;
-      state.goalAccess.set(id, { ...row, revoked_at: event.occurredAt.getTime() });
+      state.goalAccess.set(id, {
+        ...row,
+        revoked_at: event.occurredAt.getTime(),
+      });
       break;
     }
     default:

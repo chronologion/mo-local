@@ -5,3 +5,5 @@ export * from './livestore/LiveStoreEventStore';
 export * from './livestore/LiveStoreGoalRepository';
 export * from './livestore/materializers/types';
 export * from './livestore/materializers/goalMaterializer';
+export * from './livestore/adapters/DomainToLiveStoreAdapter';
+export * from './livestore/adapters/LiveStoreToDomainAdapter';
