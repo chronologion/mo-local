@@ -12,3 +12,4 @@ export * from './crypto/SharingCrypto';
 export * from './crypto/AggregateKeyManager';
 export * from './crypto/KeyWrapping';
 export * from './crypto/IndexedDBKeyStore';
+export * from './crypto/WebCryptoService';
