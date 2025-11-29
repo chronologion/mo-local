@@ -1,5 +1,4 @@
 import { ICryptoService } from '@mo/application';
-import { webcrypto } from 'node:crypto';
 import { ECIES_EPHEMERAL_LENGTH } from './eciesEnvelope';
 
 const CURVE = 'P-256';
@@ -30,18 +29,23 @@ export class SharingCrypto {
       throw new Error('Invalid peer public key length');
     }
 
-    const subtle = (globalThis.crypto ?? undefined)?.subtle ?? webcrypto.subtle;
+    const subtle = (globalThis.crypto ?? undefined)?.subtle;
+    if (!subtle) {
+      throw new Error('WebCrypto not available');
+    }
+    const privateBytes = new Uint8Array(privateKey);
+    const publicBytes = new Uint8Array(peerPublicKey);
 
     const privateKeyHandle = await subtle.importKey(
       'pkcs8',
-      privateKey,
+      privateBytes,
       { name: 'ECDH', namedCurve: CURVE },
       false,
       ['deriveBits']
     );
     const publicKeyHandle = await subtle.importKey(
       'raw',
-      peerPublicKey,
+      publicBytes,
       { name: 'ECDH', namedCurve: CURVE },
       false,
       []
