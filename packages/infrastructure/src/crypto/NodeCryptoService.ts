@@ -1,18 +1,25 @@
 import {
   createCipheriv,
   createDecipheriv,
-  createECDH,
   hkdfSync,
+  pbkdf2Sync,
   randomBytes,
+  webcrypto,
 } from 'node:crypto';
 import { ICryptoService, KeyPair, SymmetricKey } from '@mo/application';
+import {
+  decodeEnvelope,
+  encodeEnvelope,
+  ECIES_EPHEMERAL_LENGTH,
+  ECIES_IV_LENGTH,
+} from './eciesEnvelope';
 
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const AES_ALGO = 'aes-256-gcm';
 const DERIVE_LENGTH = 32;
 const HKDF_SALT = Buffer.from('mo-local-v1', 'utf8');
-const CURVE = 'prime256v1';
+const CURVE = 'P-256';
 
 const toBuffer = (input: Uint8Array): Buffer =>
   Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -33,11 +40,46 @@ export class NodeCryptoService implements ICryptoService {
   }
 
   async generateKeyPair(): Promise<KeyPair> {
-    const ecdh = createECDH(CURVE);
-    ecdh.generateKeys();
+    return this.generateEncryptionKeyPair();
+  }
+
+  async generateEncryptionKeyPair(): Promise<KeyPair> {
+    const keyPair = await webcrypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: CURVE },
+      true,
+      ['deriveKey', 'deriveBits']
+    );
+    const publicKey = await webcrypto.subtle.exportKey(
+      'raw',
+      keyPair.publicKey
+    );
+    const privateKey = await webcrypto.subtle.exportKey(
+      'pkcs8',
+      keyPair.privateKey
+    );
     return {
-      publicKey: new Uint8Array(ecdh.getPublicKey()),
-      privateKey: new Uint8Array(ecdh.getPrivateKey()),
+      publicKey: new Uint8Array(publicKey),
+      privateKey: new Uint8Array(privateKey),
+    };
+  }
+
+  async generateSigningKeyPair(): Promise<KeyPair> {
+    const keyPair = await webcrypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: CURVE },
+      true,
+      ['sign', 'verify']
+    );
+    const publicKey = await webcrypto.subtle.exportKey(
+      'spki',
+      keyPair.publicKey
+    );
+    const privateKey = await webcrypto.subtle.exportKey(
+      'pkcs8',
+      keyPair.privateKey
+    );
+    return {
+      publicKey: new Uint8Array(publicKey),
+      privateKey: new Uint8Array(privateKey),
     };
   }
 
@@ -91,18 +133,88 @@ export class NodeCryptoService implements ICryptoService {
 
   async wrapKey(
     keyToWrap: Uint8Array,
-    wrappingKey: Uint8Array
+    recipientPublicKey: Uint8Array
   ): Promise<Uint8Array> {
-    assertKeyLength(wrappingKey);
-    return this.encrypt(keyToWrap, wrappingKey);
+    assertKeyLength(keyToWrap);
+    if (recipientPublicKey.length !== ECIES_EPHEMERAL_LENGTH) {
+      throw new Error('Invalid recipient public key length');
+    }
+    const publicKey = await webcrypto.subtle.importKey(
+      'raw',
+      recipientPublicKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      []
+    );
+    const ephemeral = await webcrypto.subtle.generateKey(
+      { name: 'ECDH', namedCurve: CURVE },
+      true,
+      ['deriveKey']
+    );
+
+    const aesKey = await webcrypto.subtle.deriveKey(
+      { name: 'ECDH', public: publicKey },
+      ephemeral.privateKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+
+    const iv = randomBytes(ECIES_IV_LENGTH);
+    const ciphertext = await webcrypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, tagLength: 128 },
+      aesKey,
+      keyToWrap
+    );
+    const ephemeralRaw = await webcrypto.subtle.exportKey(
+      'raw',
+      ephemeral.publicKey
+    );
+
+    return encodeEnvelope(
+      new Uint8Array(ephemeralRaw),
+      new Uint8Array(iv),
+      new Uint8Array(ciphertext)
+    );
   }
 
   async unwrapKey(
     wrappedKey: Uint8Array,
-    unwrappingKey: Uint8Array
+    recipientPrivateKey: Uint8Array
   ): Promise<Uint8Array> {
-    assertKeyLength(unwrappingKey);
-    return this.decrypt(wrappedKey, unwrappingKey);
+    const { ephemeralRaw, iv, payload } = decodeEnvelope(wrappedKey);
+
+    const privateKey = await webcrypto.subtle.importKey(
+      'pkcs8',
+      recipientPrivateKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      ['deriveKey']
+    );
+    const publicKey = await webcrypto.subtle.importKey(
+      'raw',
+      ephemeralRaw,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      []
+    );
+
+    const aesKey = await webcrypto.subtle.deriveKey(
+      { name: 'ECDH', public: publicKey },
+      privateKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['decrypt']
+    );
+
+    const plaintext = await webcrypto.subtle.decrypt(
+      { name: 'AES-GCM', iv, tagLength: 128 },
+      aesKey,
+      payload
+    );
+    const result = new Uint8Array(plaintext);
+    assertKeyLength(result);
+    return result;
   }
 
   async deriveKey(
@@ -118,5 +230,62 @@ export class NodeCryptoService implements ICryptoService {
       DERIVE_LENGTH
     );
     return new Uint8Array(derived);
+  }
+
+  async deriveKeyFromPassword(
+    password: string,
+    salt: Uint8Array
+  ): Promise<SymmetricKey> {
+    const derived = pbkdf2Sync(
+      password,
+      toBuffer(salt),
+      600_000,
+      DERIVE_LENGTH,
+      'sha256'
+    );
+    return new Uint8Array(derived);
+  }
+
+  async deriveSubKey(
+    rootKey: SymmetricKey,
+    info: 'remote' | 'local'
+  ): Promise<SymmetricKey> {
+    return this.deriveKey(rootKey, `subkey-${info}`);
+  }
+
+  async sign(data: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> {
+    const key = await webcrypto.subtle.importKey(
+      'pkcs8',
+      privateKey,
+      { name: 'ECDSA', namedCurve: CURVE },
+      false,
+      ['sign']
+    );
+    const signature = await webcrypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      data
+    );
+    return new Uint8Array(signature);
+  }
+
+  async verify(
+    data: Uint8Array,
+    signature: Uint8Array,
+    publicKey: Uint8Array
+  ): Promise<boolean> {
+    const key = await webcrypto.subtle.importKey(
+      'spki',
+      publicKey,
+      { name: 'ECDSA', namedCurve: CURVE },
+      false,
+      ['verify']
+    );
+    return webcrypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      signature,
+      data
+    );
   }
 }

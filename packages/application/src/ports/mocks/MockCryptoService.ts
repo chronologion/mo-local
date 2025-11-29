@@ -1,4 +1,4 @@
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, pbkdf2Sync } from 'node:crypto';
 import { ICryptoService } from '../ICryptoService';
 import { SymmetricKey, KeyPair } from '../types';
 
@@ -25,10 +25,19 @@ export class MockCryptoService implements ICryptoService {
     return randomBytes(32);
   }
 
+  async generateSigningKeyPair(): Promise<KeyPair> {
+    return this.generateKeyPair();
+  }
+
+  async generateEncryptionKeyPair(): Promise<KeyPair> {
+    return this.generateKeyPair();
+  }
+
   async generateKeyPair(): Promise<KeyPair> {
+    const key = randomBytes(32);
     return {
-      publicKey: randomBytes(32),
-      privateKey: randomBytes(32),
+      publicKey: key,
+      privateKey: key,
     };
   }
 
@@ -53,16 +62,16 @@ export class MockCryptoService implements ICryptoService {
 
   async wrapKey(
     keyToWrap: Uint8Array,
-    wrappingKey: Uint8Array
+    recipientPublicKey: Uint8Array
   ): Promise<Uint8Array> {
-    return xorBytes(keyToWrap, wrappingKey);
+    return xorBytes(keyToWrap, recipientPublicKey);
   }
 
   async unwrapKey(
     wrappedKey: Uint8Array,
-    unwrappingKey: Uint8Array
+    recipientPrivateKey: Uint8Array
   ): Promise<Uint8Array> {
-    return xorBytes(wrappedKey, unwrappingKey);
+    return xorBytes(wrappedKey, recipientPrivateKey);
   }
 
   async deriveKey(
@@ -70,5 +79,41 @@ export class MockCryptoService implements ICryptoService {
     context: string
   ): Promise<SymmetricKey> {
     return deriveKeyBytes(masterKey, context);
+  }
+
+  async deriveKeyFromPassword(
+    password: string,
+    salt: Uint8Array
+  ): Promise<SymmetricKey> {
+    return pbkdf2Sync(password, salt, 10_000, 32, 'sha256'); // deterministic mock; lower cost for tests
+  }
+
+  async deriveSubKey(
+    rootKey: SymmetricKey,
+    info: 'remote' | 'local'
+  ): Promise<SymmetricKey> {
+    return this.deriveKey(rootKey, `subkey-${info}`);
+  }
+
+  async sign(data: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> {
+    const hash = createHash('sha256');
+    hash.update(data);
+    hash.update(privateKey);
+    return hash.digest();
+  }
+
+  async verify(
+    data: Uint8Array,
+    signature: Uint8Array,
+    publicKey: Uint8Array
+  ): Promise<boolean> {
+    const hash = createHash('sha256');
+    hash.update(data);
+    hash.update(publicKey);
+    const expected = hash.digest();
+    return (
+      expected.length === signature.length &&
+      expected.every((value, index) => value === signature[index])
+    );
   }
 }

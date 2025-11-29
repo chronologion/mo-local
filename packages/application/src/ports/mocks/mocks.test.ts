@@ -80,11 +80,11 @@ describe('MockCryptoService', () => {
 
   it('wraps and unwraps keys', async () => {
     const crypto = new MockCryptoService();
-    const wrapping = Uint8Array.from([1, 2, 3, 4]);
+    const recipient = await crypto.generateEncryptionKeyPair();
     const keyToWrap = Uint8Array.from([5, 6, 7, 8]);
 
-    const wrapped = await crypto.wrapKey(keyToWrap, wrapping);
-    const unwrapped = await crypto.unwrapKey(wrapped, wrapping);
+    const wrapped = await crypto.wrapKey(keyToWrap, recipient.publicKey);
+    const unwrapped = await crypto.unwrapKey(wrapped, recipient.privateKey);
 
     expect(unwrapped).toEqual(keyToWrap);
   });
