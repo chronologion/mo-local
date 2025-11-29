@@ -10,3 +10,5 @@ export * from './livestore/adapters/LiveStoreToDomainAdapter';
 export * from './crypto/NodeCryptoService';
 export * from './crypto/SharingCrypto';
 export * from './crypto/AggregateKeyManager';
+export * from './crypto/KeyWrapping';
+export * from './crypto/IndexedDBKeyStore';
