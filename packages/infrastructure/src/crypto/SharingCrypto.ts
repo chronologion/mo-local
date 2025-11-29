@@ -1,6 +1,8 @@
 import { createECDH } from 'node:crypto';
 import { ICryptoService } from '@mo/application';
 
+const CURVE = 'prime256v1';
+
 type WrapParams = {
   keyToWrap: Uint8Array;
   senderPrivateKey: Uint8Array;
@@ -23,9 +25,15 @@ export class SharingCrypto {
     privateKey: Uint8Array,
     peerPublicKey: Uint8Array
   ): Uint8Array {
-    const ecdh = createECDH('prime256v1');
-    ecdh.setPrivateKey(privateKey);
-    return new Uint8Array(ecdh.computeSecret(peerPublicKey));
+    try {
+      const ecdh = createECDH(CURVE);
+      ecdh.setPrivateKey(privateKey);
+      return new Uint8Array(ecdh.computeSecret(peerPublicKey));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown ECDH error';
+      throw new Error(`Failed to derive shared secret: ${message}`);
+    }
   }
 
   async wrapForRecipient(params: WrapParams): Promise<Uint8Array> {

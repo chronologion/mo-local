@@ -16,6 +16,7 @@ type AcceptParams = {
 
 /**
  * Manages per-aggregate (goal) encryption keys and sharing flows.
+ * Key rotation is out of scope for this POC; idempotent create/accept guards against accidental overwrites.
  */
 export class AggregateKeyManager {
   constructor(
@@ -25,6 +26,11 @@ export class AggregateKeyManager {
   ) {}
 
   async createForOwner(goalId: string): Promise<Uint8Array> {
+    const existing = await this.keyStore.getAggregateKey(goalId);
+    if (existing) {
+      return existing;
+    }
+
     const kGoal = await this.crypto.generateKey();
     await this.keyStore.saveAggregateKey(goalId, kGoal);
     return kGoal;
@@ -56,6 +62,11 @@ export class AggregateKeyManager {
   }
 
   async acceptShared(params: AcceptParams): Promise<Uint8Array> {
+    const existing = await this.keyStore.getAggregateKey(params.goalId);
+    if (existing) {
+      return existing;
+    }
+
     const kGoal = await this.sharing.unwrapFromSender({
       wrappedKey: params.wrappedKey,
       senderPublicKey: params.senderPublicKey,

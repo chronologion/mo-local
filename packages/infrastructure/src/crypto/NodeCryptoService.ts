@@ -11,9 +11,17 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const AES_ALGO = 'aes-256-gcm';
 const DERIVE_LENGTH = 32;
+const HKDF_SALT = Buffer.from('mo-local-v1', 'utf8');
+const CURVE = 'prime256v1';
 
 const toBuffer = (input: Uint8Array): Buffer =>
   Buffer.isBuffer(input) ? input : Buffer.from(input);
+
+const assertKeyLength = (key: Uint8Array): void => {
+  if (key.length !== DERIVE_LENGTH) {
+    throw new Error(`Invalid key length: expected ${DERIVE_LENGTH} bytes`);
+  }
+};
 
 export class NodeCryptoService implements ICryptoService {
   async generateKey(): Promise<SymmetricKey> {
@@ -21,7 +29,7 @@ export class NodeCryptoService implements ICryptoService {
   }
 
   async generateKeyPair(): Promise<KeyPair> {
-    const ecdh = createECDH('prime256v1');
+    const ecdh = createECDH(CURVE);
     ecdh.generateKeys();
     return {
       publicKey: new Uint8Array(ecdh.getPublicKey()),
@@ -34,6 +42,7 @@ export class NodeCryptoService implements ICryptoService {
     key: SymmetricKey,
     aad?: Uint8Array
   ): Promise<Uint8Array> {
+    assertKeyLength(key);
     const iv = randomBytes(IV_LENGTH);
     const cipher = createCipheriv(AES_ALGO, toBuffer(key), iv);
     if (aad) {
@@ -54,7 +63,11 @@ export class NodeCryptoService implements ICryptoService {
     key: SymmetricKey,
     aad?: Uint8Array
   ): Promise<Uint8Array> {
+    assertKeyLength(key);
     const data = toBuffer(ciphertext);
+    if (data.length < IV_LENGTH + TAG_LENGTH + 1) {
+      throw new Error('Ciphertext too short');
+    }
     const iv = data.subarray(0, IV_LENGTH);
     const tag = data.subarray(data.length - TAG_LENGTH);
     const payload = data.subarray(IV_LENGTH, data.length - TAG_LENGTH);
@@ -76,6 +89,7 @@ export class NodeCryptoService implements ICryptoService {
     keyToWrap: Uint8Array,
     wrappingKey: Uint8Array
   ): Promise<Uint8Array> {
+    assertKeyLength(wrappingKey);
     return this.encrypt(keyToWrap, wrappingKey);
   }
 
@@ -83,6 +97,7 @@ export class NodeCryptoService implements ICryptoService {
     wrappedKey: Uint8Array,
     unwrappingKey: Uint8Array
   ): Promise<Uint8Array> {
+    assertKeyLength(unwrappingKey);
     return this.decrypt(wrappedKey, unwrappingKey);
   }
 
@@ -90,10 +105,11 @@ export class NodeCryptoService implements ICryptoService {
     masterKey: Uint8Array,
     context: string
   ): Promise<SymmetricKey> {
+    assertKeyLength(masterKey);
     const derived = hkdfSync(
       'sha256',
       toBuffer(masterKey),
-      Buffer.alloc(0),
+      HKDF_SALT,
       Buffer.from(context, 'utf8'),
       DERIVE_LENGTH
     );

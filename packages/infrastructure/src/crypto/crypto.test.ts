@@ -17,6 +17,24 @@ describe('NodeCryptoService', () => {
     expect(roundTrip).toEqual(plaintext);
   });
 
+  it('rejects decryption with wrong AAD or truncated ciphertext', async () => {
+    const crypto = new NodeCryptoService();
+    const key = await crypto.generateKey();
+    const aad = new TextEncoder().encode('aad');
+    const plaintext = new TextEncoder().encode('secret-data');
+
+    const ciphertext = await crypto.encrypt(plaintext, key, aad);
+
+    await expect(
+      crypto.decrypt(ciphertext, key, new TextEncoder().encode('x'))
+    ).rejects.toBeInstanceOf(Error);
+
+    const truncated = ciphertext.slice(0, ciphertext.length - 1);
+    await expect(crypto.decrypt(truncated, key, aad)).rejects.toBeInstanceOf(
+      Error
+    );
+  });
+
   it('derives deterministic sub-keys', async () => {
     const crypto = new NodeCryptoService();
     const key = await crypto.generateKey();
@@ -101,5 +119,29 @@ describe('AggregateKeyManager', () => {
 
     expect(accepted).toEqual(kGoal);
     expect(await recipientStore.getAggregateKey(goalId)).toEqual(kGoal);
+
+    // idempotent create/accept do not overwrite
+    const again = await ownerManager.createForOwner(goalId);
+    expect(again).toEqual(kGoal);
+
+    const secondAccept = await recipientManager.acceptShared({
+      goalId,
+      wrappedKey: share.wrappedKey,
+      senderPublicKey: share.senderPublicKey,
+      recipientKeyPair: recipientKeys,
+    });
+    expect(secondAccept).toEqual(kGoal);
+  });
+
+  it('fails on malformed public key', async () => {
+    const crypto = new NodeCryptoService();
+    const sharing = new SharingCrypto(crypto);
+    const senderKeys = await crypto.generateKeyPair();
+    await expect(() =>
+      sharing.deriveSharedSecret(
+        senderKeys.privateKey,
+        new Uint8Array([1, 2, 3])
+      )
+    ).toThrow();
   });
 });
