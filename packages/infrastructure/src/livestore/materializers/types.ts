@@ -1,3 +1,9 @@
+/**
+ * Materialized goal row.
+ *
+ * NOTE: `summary` is stored here in decrypted form for in-memory projections only.
+ * Persistence to LiveStore/DB must re-encrypt fields before writing (future work).
+ */
 export type GoalRow = {
   id: string;
   slice: string;
