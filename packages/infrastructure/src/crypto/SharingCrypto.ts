@@ -1,7 +1,8 @@
-import { createECDH } from 'node:crypto';
 import { ICryptoService } from '@mo/application';
+import { webcrypto } from 'node:crypto';
+import { ECIES_EPHEMERAL_LENGTH } from './eciesEnvelope';
 
-const CURVE = 'prime256v1';
+const CURVE = 'P-256';
 
 type WrapParams = {
   keyToWrap: Uint8Array;
@@ -21,23 +22,41 @@ type UnwrapParams = {
 export class SharingCrypto {
   constructor(private readonly crypto: ICryptoService) {}
 
-  deriveSharedSecret(
+  async deriveSharedSecret(
     privateKey: Uint8Array,
     peerPublicKey: Uint8Array
-  ): Uint8Array {
-    try {
-      const ecdh = createECDH(CURVE);
-      ecdh.setPrivateKey(privateKey);
-      return new Uint8Array(ecdh.computeSecret(peerPublicKey));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown ECDH error';
-      throw new Error(`Failed to derive shared secret: ${message}`);
+  ): Promise<Uint8Array> {
+    if (peerPublicKey.length !== ECIES_EPHEMERAL_LENGTH) {
+      throw new Error('Invalid peer public key length');
     }
+
+    const subtle = (globalThis.crypto ?? undefined)?.subtle ?? webcrypto.subtle;
+
+    const privateKeyHandle = await subtle.importKey(
+      'pkcs8',
+      privateKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      ['deriveBits']
+    );
+    const publicKeyHandle = await subtle.importKey(
+      'raw',
+      peerPublicKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      []
+    );
+
+    const bits = await subtle.deriveBits(
+      { name: 'ECDH', public: publicKeyHandle },
+      privateKeyHandle,
+      256
+    );
+    return new Uint8Array(bits);
   }
 
   async wrapForRecipient(params: WrapParams): Promise<Uint8Array> {
-    const sharedSecret = this.deriveSharedSecret(
+    const sharedSecret = await this.deriveSharedSecret(
       params.senderPrivateKey,
       params.recipientPublicKey
     );
@@ -46,7 +65,7 @@ export class SharingCrypto {
   }
 
   async unwrapFromSender(params: UnwrapParams): Promise<Uint8Array> {
-    const sharedSecret = this.deriveSharedSecret(
+    const sharedSecret = await this.deriveSharedSecret(
       params.recipientPrivateKey,
       params.senderPublicKey
     );

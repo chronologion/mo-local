@@ -1,11 +1,29 @@
-import { webcrypto } from 'node:crypto';
 import { ICryptoService, KeyPair, SymmetricKey } from '@mo/application';
+import type { webcrypto as NodeWebCrypto } from 'node:crypto';
+import {
+  decodeEnvelope,
+  encodeEnvelope,
+  ECIES_EPHEMERAL_LENGTH,
+  ECIES_IV_LENGTH,
+} from './eciesEnvelope';
 
-const subtle = webcrypto.subtle;
+type CryptoLike = Pick<typeof NodeWebCrypto, 'subtle' | 'getRandomValues'>;
+
+const resolveCrypto = (): CryptoLike => {
+  const cryptoLike = (globalThis as { crypto?: CryptoLike }).crypto;
+  if (!cryptoLike?.subtle || !cryptoLike.getRandomValues) {
+    throw new Error('Web Crypto API is not available');
+  }
+  return cryptoLike;
+};
+
+const cryptoApi = resolveCrypto();
+const subtle = cryptoApi.subtle;
 const IV_LENGTH = 12;
 const KEY_LENGTH = 32;
 const HKDF_SALT = new TextEncoder().encode('mo-local-v1');
 const CURVE = 'P-256';
+const PBKDF2_ITERATIONS = 600_000;
 
 const ensureKeyLength = (key: Uint8Array): void => {
   if (key.length !== KEY_LENGTH) {
@@ -29,6 +47,24 @@ export class WebCryptoService implements ICryptoService {
     return new Uint8Array(exported);
   }
 
+  async generateSigningKeyPair(): Promise<KeyPair> {
+    const keyPair = await subtle.generateKey(
+      { name: 'ECDSA', namedCurve: CURVE },
+      true,
+      ['sign', 'verify']
+    );
+    const publicKey = await subtle.exportKey('spki', keyPair.publicKey);
+    const privateKey = await subtle.exportKey('pkcs8', keyPair.privateKey);
+    return {
+      publicKey: new Uint8Array(publicKey),
+      privateKey: new Uint8Array(privateKey),
+    };
+  }
+
+  async generateEncryptionKeyPair(): Promise<KeyPair> {
+    return this.generateKeyPair();
+  }
+
   async generateKeyPair(): Promise<KeyPair> {
     const keyPair = await subtle.generateKey(
       { name: 'ECDH', namedCurve: CURVE },
@@ -49,7 +85,7 @@ export class WebCryptoService implements ICryptoService {
     aad?: Uint8Array
   ): Promise<Uint8Array> {
     ensureKeyLength(key);
-    const iv = webcrypto.getRandomValues(new Uint8Array(IV_LENGTH));
+    const iv = cryptoApi.getRandomValues(new Uint8Array(IV_LENGTH));
     const cryptoKey = await subtle.importKey(
       'raw',
       key,
@@ -111,18 +147,83 @@ export class WebCryptoService implements ICryptoService {
 
   async wrapKey(
     keyToWrap: Uint8Array,
-    wrappingKey: Uint8Array
+    recipientPublicKey: Uint8Array
   ): Promise<Uint8Array> {
-    ensureKeyLength(wrappingKey);
-    return this.encrypt(keyToWrap, wrappingKey);
+    ensureKeyLength(keyToWrap);
+    if (recipientPublicKey.length !== ECIES_EPHEMERAL_LENGTH) {
+      throw new Error('Invalid recipient public key length');
+    }
+
+    const publicKey = await subtle.importKey(
+      'raw',
+      recipientPublicKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      []
+    );
+    const ephemeral = await subtle.generateKey(
+      { name: 'ECDH', namedCurve: CURVE },
+      true,
+      ['deriveKey']
+    );
+    const aesKey = await subtle.deriveKey(
+      { name: 'ECDH', public: publicKey },
+      ephemeral.privateKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    const iv = cryptoApi.getRandomValues(new Uint8Array(ECIES_IV_LENGTH));
+    const ciphertext = await subtle.encrypt(
+      { name: 'AES-GCM', iv, tagLength: 128 },
+      aesKey,
+      keyToWrap
+    );
+    const ephemeralRaw = await subtle.exportKey('raw', ephemeral.publicKey);
+
+    return encodeEnvelope(
+      new Uint8Array(ephemeralRaw),
+      iv,
+      new Uint8Array(ciphertext)
+    );
   }
 
   async unwrapKey(
     wrappedKey: Uint8Array,
-    unwrappingKey: Uint8Array
+    recipientPrivateKey: Uint8Array
   ): Promise<Uint8Array> {
-    ensureKeyLength(unwrappingKey);
-    return this.decrypt(wrappedKey, unwrappingKey);
+    const { ephemeralRaw, iv, payload } = decodeEnvelope(wrappedKey);
+
+    const privateKey = await subtle.importKey(
+      'pkcs8',
+      recipientPrivateKey,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      ['deriveKey']
+    );
+    const publicKey = await subtle.importKey(
+      'raw',
+      ephemeralRaw,
+      { name: 'ECDH', namedCurve: CURVE },
+      false,
+      []
+    );
+    const aesKey = await subtle.deriveKey(
+      { name: 'ECDH', public: publicKey },
+      privateKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['decrypt']
+    );
+
+    const plaintext = await subtle.decrypt(
+      { name: 'AES-GCM', iv, tagLength: 128 },
+      aesKey,
+      payload
+    );
+    const result = new Uint8Array(plaintext);
+    ensureKeyLength(result);
+    return result;
   }
 
   async deriveKey(
@@ -149,5 +250,78 @@ export class WebCryptoService implements ICryptoService {
 
     const exported = await subtle.exportKey('raw', derived);
     return new Uint8Array(exported);
+  }
+
+  async deriveKeyFromPassword(
+    password: string,
+    salt: Uint8Array
+  ): Promise<SymmetricKey> {
+    const encoder = new TextEncoder();
+    const passwordKey = await subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+
+    const derived = await subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: PBKDF2_ITERATIONS,
+        hash: 'SHA-256',
+      },
+      passwordKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+
+    const exported = await subtle.exportKey('raw', derived);
+    return new Uint8Array(exported);
+  }
+
+  async deriveSubKey(
+    rootKey: SymmetricKey,
+    info: 'remote' | 'local'
+  ): Promise<SymmetricKey> {
+    return this.deriveKey(rootKey, `subkey-${info}`);
+  }
+
+  async sign(data: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> {
+    const key = await subtle.importKey(
+      'pkcs8',
+      privateKey,
+      { name: 'ECDSA', namedCurve: CURVE },
+      false,
+      ['sign']
+    );
+    const signature = await subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      data
+    );
+    return new Uint8Array(signature);
+  }
+
+  async verify(
+    data: Uint8Array,
+    signature: Uint8Array,
+    publicKey: Uint8Array
+  ): Promise<boolean> {
+    const key = await subtle.importKey(
+      'spki',
+      publicKey,
+      { name: 'ECDSA', namedCurve: CURVE },
+      false,
+      ['verify']
+    );
+    return subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      key,
+      signature,
+      data
+    );
   }
 }
