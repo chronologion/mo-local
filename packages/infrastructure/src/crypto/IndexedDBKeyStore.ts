@@ -24,6 +24,7 @@ interface IDBDatabaseLike {
   transaction(name: string, mode: IDBTransactionMode): IDBTransactionLike;
   objectStoreNames: { contains(name: string): boolean };
   createObjectStore(name: string, opts: { keyPath: string }): void;
+  close(): void;
 }
 
 interface IDBOpenDBRequestLike extends IDBRequestLike<IDBDatabaseLike> {
@@ -97,7 +98,16 @@ export class IndexedDBKeyStore implements IKeyStore {
     const tx = db.transaction(storeName, mode);
     const store = tx.objectStore(storeName);
     const request = action(store) as IDBRequestLike<T>;
-    return requestToPromise<T>(request);
+
+    return Promise.race([
+      requestToPromise<T>(request),
+      new Promise<never>((_, reject) => {
+        // best-effort transaction error handling
+        (tx as unknown as { onerror: ((ev: unknown) => void) | null }).onerror =
+          (ev) =>
+            reject((ev as { target?: { error?: unknown } }).target?.error);
+      }),
+    ]);
   }
 
   async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {
@@ -164,15 +174,21 @@ export class IndexedDBKeyStore implements IKeyStore {
     )) as IdentityKeys[];
 
     const identityKeys =
-      identities[0] ??
-      ({
-        signingPrivateKey: new Uint8Array(),
-        signingPublicKey: new Uint8Array(),
-        encryptionPrivateKey: new Uint8Array(),
-        encryptionPublicKey: new Uint8Array(),
-      } as IdentityKeys);
+      identities.length > 0
+        ? {
+            signingPrivateKey: toBytes(identities[0].signingPrivateKey),
+            signingPublicKey: toBytes(identities[0].signingPublicKey),
+            encryptionPrivateKey: toBytes(identities[0].encryptionPrivateKey),
+            encryptionPublicKey: toBytes(identities[0].encryptionPublicKey),
+          }
+        : null;
 
-    return { identityKeys, aggregateKeys };
+    const userId =
+      identities.length > 0
+        ? (identities[0] as { userId?: string }).userId
+        : undefined;
+
+    return { identityKeys, aggregateKeys, userId };
   }
 
   async importKeys(backup: KeyBackup): Promise<void> {
@@ -195,12 +211,22 @@ export class IndexedDBKeyStore implements IKeyStore {
     ]);
 
     if (backup.identityKeys) {
-      await this.saveIdentityKeys('imported', backup.identityKeys);
+      await this.saveIdentityKeys(
+        backup.userId ?? 'imported',
+        backup.identityKeys
+      );
     }
 
     const entries = Object.entries(backup.aggregateKeys);
-    for (const [aggregateId, wrappedKey] of entries) {
-      await this.saveAggregateKey(aggregateId, wrappedKey);
-    }
+    await Promise.all(
+      entries.map(([aggregateId, wrappedKey]) =>
+        this.saveAggregateKey(aggregateId, wrappedKey)
+      )
+    );
+  }
+
+  async close(): Promise<void> {
+    const db = await this.dbPromise;
+    db.close();
   }
 }

@@ -1,6 +1,7 @@
 import { randomBytes, webcrypto } from 'node:crypto';
 
 const KEY_LENGTH = 32;
+const WRAPPED_LENGTH = KEY_LENGTH + 8; // AES-KW adds 64-bit integrity block
 
 const subtle = webcrypto.subtle;
 
@@ -12,6 +13,7 @@ const ensureKeyLength = (key: Uint8Array): void => {
 
 /**
  * AES-KW wrapping/unwrapping helpers using WebCrypto.
+ * Wrapping key is provided by caller (e.g., password-derived or identity key).
  */
 export class KeyWrapping {
   static async wrapKey(
@@ -45,6 +47,9 @@ export class KeyWrapping {
     unwrappingKey: Uint8Array
   ): Promise<Uint8Array> {
     ensureKeyLength(unwrappingKey);
+    if (wrappedKey.length !== WRAPPED_LENGTH) {
+      throw new Error(`Invalid wrapped key length: expected ${WRAPPED_LENGTH}`);
+    }
 
     const unwrapKey = await subtle.importKey(
       'raw',

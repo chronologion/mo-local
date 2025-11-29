@@ -6,6 +6,14 @@ import { IndexedDBKeyStore } from './IndexedDBKeyStore';
 
 const KEY_STORE_DB = 'mo-local-keys';
 
+const resetDb = async () =>
+  new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase(KEY_STORE_DB);
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve();
+    req.onblocked = () => resolve();
+  });
+
 describe('KeyWrapping', () => {
   it('wraps and unwraps with AES-KW', async () => {
     const key = randomBytes(32);
@@ -16,6 +24,15 @@ describe('KeyWrapping', () => {
 
     expect(unwrapped).toEqual(new Uint8Array(key));
   });
+
+  it('rejects invalid key lengths and wrapped length', async () => {
+    await expect(
+      KeyWrapping.wrapKey(new Uint8Array(16), new Uint8Array(32))
+    ).rejects.toThrow();
+    await expect(
+      KeyWrapping.unwrapKey(new Uint8Array(10), new Uint8Array(32))
+    ).rejects.toThrow();
+  });
 });
 
 describe('IndexedDBKeyStore', () => {
@@ -25,11 +42,7 @@ describe('IndexedDBKeyStore', () => {
     globalThis.indexedDB = indexedDB;
     // @ts-expect-error fake indexeddb globals
     globalThis.IDBKeyRange = IDBKeyRange;
-    await new Promise<void>((resolve) => {
-      const req = indexedDB.deleteDatabase(KEY_STORE_DB);
-      req.onsuccess = () => resolve();
-      req.onerror = () => resolve(); // best effort cleanup
-    });
+    await resetDb();
   });
 
   it('stores and retrieves identity and aggregate keys, and exports/imports backups', async () => {
@@ -58,5 +71,39 @@ describe('IndexedDBKeyStore', () => {
     const restored = new IndexedDBKeyStore();
     await restored.importKeys(backup);
     expect(await restored.getAggregateKey('goal-1')).toEqual(wrappedKey);
+
+    await store.close();
+    await restored.close();
+  });
+
+  it('returns nulls when keys missing and overwrites on import', async () => {
+    const store = new IndexedDBKeyStore();
+    expect(await store.getIdentityKeys('nope')).toBeNull();
+    expect(await store.getAggregateKey('nope')).toBeNull();
+    const backup = await store.exportKeys();
+    expect(backup.identityKeys).toBeNull();
+
+    const identityKeys = {
+      signingPrivateKey: new Uint8Array([1]),
+      signingPublicKey: new Uint8Array([2]),
+      encryptionPrivateKey: new Uint8Array([3]),
+      encryptionPublicKey: new Uint8Array([4]),
+    };
+    await store.saveIdentityKeys('user-a', identityKeys);
+    await store.saveAggregateKey('goal-x', new Uint8Array([9]));
+
+    const overwrite = new IndexedDBKeyStore();
+    await overwrite.importKeys({
+      userId: 'user-b',
+      identityKeys,
+      aggregateKeys: { 'goal-y': new Uint8Array([7]) },
+    });
+    expect(await overwrite.getIdentityKeys('user-b')).toEqual(identityKeys);
+    expect(await overwrite.getAggregateKey('goal-y')).toEqual(
+      new Uint8Array([7])
+    );
+
+    await store.close();
+    await overwrite.close();
   });
 });

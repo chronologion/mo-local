@@ -34,21 +34,17 @@ export class InMemoryKeyStore implements IKeyStore {
       aggregateKeys[key] = value;
     });
 
-    const identityKeys =
-      this.identityKeys.size > 0
-        ? (this.identityKeys.values().next().value as IdentityKeys)
-        : {
-            signingPrivateKey: new Uint8Array(),
-            signingPublicKey: new Uint8Array(),
-            encryptionPrivateKey: new Uint8Array(),
-            encryptionPublicKey: new Uint8Array(),
-          };
+    const identityEntry = this.identityKeys.entries().next();
+    const identityKeys = identityEntry.done ? null : identityEntry.value[1];
+    const userId = identityEntry.done ? undefined : identityEntry.value[0];
 
-    return { identityKeys, aggregateKeys };
+    return { identityKeys, aggregateKeys, userId };
   }
 
   async importKeys(backup: KeyBackup): Promise<void> {
-    this.identityKeys.set('imported', backup.identityKeys);
+    if (backup.identityKeys) {
+      this.identityKeys.set(backup.userId ?? 'imported', backup.identityKeys);
+    }
     Object.entries(backup.aggregateKeys).forEach(([id, key]) => {
       this.aggregateKeys.set(id, key);
     });

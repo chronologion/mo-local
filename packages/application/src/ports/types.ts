@@ -15,7 +15,8 @@ export interface IdentityKeys {
 }
 
 export interface KeyBackup {
-  identityKeys: IdentityKeys;
+  userId?: string;
+  identityKeys: IdentityKeys | null;
   aggregateKeys: Record<string, Uint8Array>;
 }
 
