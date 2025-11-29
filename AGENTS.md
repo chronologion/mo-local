@@ -4,7 +4,6 @@ Read @goals-poc-prd-v2.md for the full PRD of what we're working on here.
 
 Key rules:
 
-- Break down work as subtasks under ALC-244 using the Linear MCP tools.
 - Follow the progress of each task by regularly committing and submitting comments what was achieved so far and what were the challenges.
 - Make a branch per subissue and use short conventional commit messages.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
