@@ -113,6 +113,7 @@ describe('RegisterUserCommand validation', () => {
 describe('ImportUserKeysCommand validation', () => {
   it('validates backup contents', () => {
     const backup: KeyBackup = {
+      userId: 'user-1',
       identityKeys: {
         signingPrivateKey: new Uint8Array(),
         signingPublicKey: new Uint8Array([1]),

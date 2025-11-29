@@ -7,8 +7,6 @@
  *
  * Uses Web Crypto (`crypto.getRandomValues`) when available; falls back to
  * `Math.random` only if necessary (e.g. in very constrained test environments).
- *
- * Note: we avoid `any` in types to comply with repo guidelines.
  */
 
 type CryptoLike = {
