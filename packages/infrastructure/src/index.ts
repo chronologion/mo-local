@@ -7,3 +7,6 @@ export * from './livestore/materializers/types';
 export * from './livestore/materializers/goalMaterializer';
 export * from './livestore/adapters/DomainToLiveStoreAdapter';
 export * from './livestore/adapters/LiveStoreToDomainAdapter';
+export * from './crypto/NodeCryptoService';
+export * from './crypto/SharingCrypto';
+export * from './crypto/AggregateKeyManager';
