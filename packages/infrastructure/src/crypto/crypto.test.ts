@@ -81,19 +81,45 @@ describe('NodeCryptoService', () => {
     expect(unwrapped).toEqual(keyToWrap);
   });
 
+  it('rejects unwrap with wrong private key or tampered payload', async () => {
+    const crypto = new NodeCryptoService();
+    const recipient = await crypto.generateEncryptionKeyPair();
+    const other = await crypto.generateEncryptionKeyPair();
+    const keyToWrap = await crypto.generateKey();
+    const wrapped = await crypto.wrapKey(keyToWrap, recipient.publicKey);
+
+    await expect(crypto.unwrapKey(wrapped, other.privateKey)).rejects.toThrow();
+
+    const tampered = wrapped.slice();
+    tampered[tampered.length - 1] ^= 0xff;
+    await expect(crypto.unwrapKey(tampered, recipient.privateKey)).rejects.toThrow();
+  });
+
   it('signs and verifies', async () => {
     const crypto = new NodeCryptoService();
     const keys = await crypto.generateSigningKeyPair();
     const data = new TextEncoder().encode('message');
     const sig = await crypto.sign(data, keys.privateKey);
     const ok = await crypto.verify(data, sig, keys.publicKey);
-    const bad = await crypto.verify(
+    const badData = await crypto.verify(
       new TextEncoder().encode('tampered'),
       sig,
       keys.publicKey
     );
+    const badSig = await crypto.verify(
+      data,
+      new Uint8Array(sig.map((b, i) => (i === 0 ? b ^ 0xff : b))),
+      keys.publicKey
+    );
+    const badKey = await crypto.verify(
+      data,
+      sig,
+      (await crypto.generateSigningKeyPair()).publicKey
+    );
     expect(ok).toBe(true);
-    expect(bad).toBe(false);
+    expect(badData).toBe(false);
+    expect(badSig).toBe(false);
+    expect(badKey).toBe(false);
   });
 });
 

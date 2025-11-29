@@ -43,19 +43,45 @@ describe('WebCryptoService', () => {
     expect(unwrapped).toEqual(target);
   });
 
+  it('rejects unwrap with wrong private key or tampered payload', async () => {
+    const svc = new WebCryptoService();
+    const recipient = await svc.generateEncryptionKeyPair();
+    const other = await svc.generateEncryptionKeyPair();
+    const target = await svc.generateKey();
+    const wrapped = await svc.wrapKey(target, recipient.publicKey);
+
+    await expect(svc.unwrapKey(wrapped, other.privateKey)).rejects.toThrow();
+
+    const tampered = wrapped.slice();
+    tampered[tampered.length - 1] ^= 0xff;
+    await expect(svc.unwrapKey(tampered, recipient.privateKey)).rejects.toThrow();
+  });
+
   it('signs and verifies data', async () => {
     const svc = new WebCryptoService();
     const keys = await svc.generateSigningKeyPair();
     const data = new TextEncoder().encode('msg');
     const sig = await svc.sign(data, keys.privateKey);
     const ok = await svc.verify(data, sig, keys.publicKey);
-    const bad = await svc.verify(
+    const badData = await svc.verify(
       new TextEncoder().encode('tampered'),
       sig,
       keys.publicKey
     );
+    const badSig = await svc.verify(
+      data,
+      new Uint8Array(sig.map((b, i) => (i === 0 ? b ^ 0xff : b))),
+      keys.publicKey
+    );
+    const badKey = await svc.verify(
+      data,
+      sig,
+      (await svc.generateSigningKeyPair()).publicKey
+    );
     expect(ok).toBe(true);
-    expect(bad).toBe(false);
+    expect(badData).toBe(false);
+    expect(badSig).toBe(false);
+    expect(badKey).toBe(false);
   });
 
   it('derives password keys deterministically per salt', async () => {
