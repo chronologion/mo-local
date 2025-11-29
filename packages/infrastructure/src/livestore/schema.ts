@@ -43,8 +43,22 @@ export const goalsSchema: SchemaDefinition = {
   },
   indexes: [
     { name: 'idx_goals_deleted_at', table: 'goals', columns: ['deleted_at'] },
-    { name: 'idx_goal_access_goal_user', table: 'goal_access', columns: ['goal_id', 'user_id', 'revoked_at'] },
-    { name: 'idx_goal_events_aggregate_version', table: 'goal_events', columns: ['aggregate_id', 'version'] },
-    { name: 'idx_goal_events_sequence', table: 'goal_events', columns: ['sequence'] },
+    { name: 'idx_goals_created_by', table: 'goals', columns: ['created_by'] },
+    { name: 'idx_goals_target_month', table: 'goals', columns: ['target_month'] },
+    {
+      name: 'idx_goal_access_goal_user',
+      table: 'goal_access',
+      columns: ['goal_id', 'user_id', 'revoked_at'],
+    },
+    {
+      name: 'idx_goal_events_aggregate_version',
+      table: 'goal_events',
+      columns: ['aggregate_id', 'version'],
+    },
+    {
+      name: 'idx_goal_events_sequence',
+      table: 'goal_events',
+      columns: ['sequence'],
+    },
   ],
 };

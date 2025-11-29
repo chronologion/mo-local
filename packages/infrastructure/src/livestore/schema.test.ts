@@ -13,5 +13,7 @@ describe('goalsSchema', () => {
     const indexNames = goalsSchema.indexes.map((i) => i.name);
     expect(indexNames).toContain('idx_goal_events_sequence');
     expect(indexNames).toContain('idx_goal_access_goal_user');
+    expect(indexNames).toContain('idx_goals_created_by');
+    expect(indexNames).toContain('idx_goals_target_month');
   });
 });
