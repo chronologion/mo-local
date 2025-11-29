@@ -49,7 +49,10 @@ export class NodeCryptoService implements ICryptoService {
       true,
       ['deriveKey', 'deriveBits']
     );
-    const publicKey = await webcrypto.subtle.exportKey('raw', keyPair.publicKey);
+    const publicKey = await webcrypto.subtle.exportKey(
+      'raw',
+      keyPair.publicKey
+    );
     const privateKey = await webcrypto.subtle.exportKey(
       'pkcs8',
       keyPair.privateKey
@@ -233,7 +236,13 @@ export class NodeCryptoService implements ICryptoService {
     password: string,
     salt: Uint8Array
   ): Promise<SymmetricKey> {
-    const derived = pbkdf2Sync(password, toBuffer(salt), 600_000, DERIVE_LENGTH, 'sha256');
+    const derived = pbkdf2Sync(
+      password,
+      toBuffer(salt),
+      600_000,
+      DERIVE_LENGTH,
+      'sha256'
+    );
     return new Uint8Array(derived);
   }
 
