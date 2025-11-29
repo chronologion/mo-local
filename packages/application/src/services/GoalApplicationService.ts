@@ -18,7 +18,7 @@ import {
 } from '../commands';
 import { CommandResult, failure } from '../results/CommandResult';
 import { GoalCommandHandler, GoalCommandResult } from '../handlers/GoalCommandHandler';
-import { ValidationError as CommandValidationError } from '../errors/ValidationError';
+import { ValidationException } from '../errors/ValidationError';
 
 type GoalCommand =
   | CreateGoalCommand
@@ -83,7 +83,7 @@ export class GoalApplicationService {
           return failure([{ field: 'type', message: `Unsupported command ${command.type}` }]);
       }
     } catch (error) {
-      if (error instanceof CommandValidationError) {
+      if (error instanceof ValidationException) {
         return failure(error.details);
       }
       const message = error instanceof Error ? error.message : 'Unknown error';

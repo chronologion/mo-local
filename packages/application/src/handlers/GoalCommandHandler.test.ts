@@ -7,6 +7,7 @@ import {
   InMemoryKeyStore,
   MockCryptoService,
 } from '..';
+import { ConcurrencyError } from '../errors/ConcurrencyError';
 
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
 const userId = 'user-1';
@@ -84,6 +85,40 @@ describe('GoalCommandHandler + GoalApplicationService', () => {
     await app.handle(baseCreate);
     const before = eventBus.getPublished().length;
     repo.failNextSave();
+
+    const result = await app.handle({
+      type: 'ChangeGoalPriority',
+      goalId,
+      priority: 'should',
+      userId,
+      timestamp: Date.now(),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(eventBus.getPublished().length).toBe(before);
+  });
+
+  it('surfaces concurrency errors from repository', async () => {
+    const { app, repo } = setup();
+    await app.handle(baseCreate);
+    repo.failWith(new ConcurrencyError());
+
+    const result = await app.handle({
+      type: 'ChangeGoalSlice',
+      goalId,
+      slice: 'Work',
+      userId,
+      timestamp: Date.now(),
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('fails when event bus publish fails', async () => {
+    const { app, eventBus } = setup();
+    await app.handle(baseCreate);
+    const before = eventBus.getPublished().length;
+    eventBus.failNext(new Error('publish failed'));
 
     const result = await app.handle({
       type: 'ChangeGoalPriority',

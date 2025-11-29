@@ -12,13 +12,20 @@ type StoredGoal = {
 export class InMemoryGoalRepository implements IGoalRepository {
   private readonly store = new Map<string, StoredGoal>();
   private failSave = false;
+  private errorToThrow: Error | null = null;
 
   async findById(id: GoalId): Promise<Goal | null> {
     return this.store.get(id.value)?.goal ?? null;
   }
 
   async save(goal: Goal, encryptionKey: Uint8Array): Promise<void> {
+    if (this.errorToThrow) {
+      const error = this.errorToThrow;
+      this.errorToThrow = null;
+      throw error;
+    }
     if (this.failSave) {
+      this.failSave = false;
       throw new Error('save failed');
     }
     this.store.set(goal.id.value, { goal, encryptionKey });
@@ -37,5 +44,9 @@ export class InMemoryGoalRepository implements IGoalRepository {
 
   failNextSave(): void {
     this.failSave = true;
+  }
+
+  failWith(error: Error): void {
+    this.errorToThrow = error;
   }
 }
