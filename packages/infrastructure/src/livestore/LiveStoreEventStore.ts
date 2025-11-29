@@ -8,7 +8,7 @@ import { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
  * monotonic versions per aggregate, and supports basic filtering.
  */
 export class LiveStoreEventStore implements IEventStore {
-  private readonly eventsByAggregate = new Map<string, EncryptedEvent[]>();
+  private readonly eventsByAggregate = new Map<string, StoredEvent[]>();
   private globalSequence = 0;
 
   async append(aggregateId: string, events: EncryptedEvent[]): Promise<void> {
@@ -26,28 +26,31 @@ export class LiveStoreEventStore implements IEventStore {
     });
 
     const assigned = events.map((event) => {
-      this.globalSequence += 1;
-      return { ...event, sequence: this.globalSequence };
+      const sequence = this.globalSequence + 1;
+      this.globalSequence = sequence;
+      return { ...event, sequence };
     });
 
     this.eventsByAggregate.set(aggregateId, [...current, ...assigned]);
   }
 
-  async getEvents(aggregateId: string, fromVersion = 1): Promise<EncryptedEvent[]> {
+  async getEvents(aggregateId: string, fromVersion = 1): Promise<StoredEvent[]> {
     const events = this.eventsByAggregate.get(aggregateId) ?? [];
     return events.filter((e) => e.version >= fromVersion).sort((a, b) => a.version - b.version);
   }
 
-  async getAllEvents(filter?: EventFilter): Promise<EncryptedEvent[]> {
+  async getAllEvents(filter?: EventFilter): Promise<StoredEvent[]> {
     const all = Array.from(this.eventsByAggregate.values()).flat();
 
     return all
       .filter((e) => {
         if (filter?.aggregateId && e.aggregateId !== filter.aggregateId) return false;
         if (filter?.eventType && e.eventType !== filter.eventType) return false;
-        if (filter?.since && e.sequence && e.sequence <= filter.since) return false;
+        if (filter?.since && e.sequence <= filter.since) return false;
         return true;
       })
-      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+      .sort((a, b) => a.sequence - b.sequence);
   }
 }
+
+type StoredEvent = EncryptedEvent & { sequence: number };

@@ -1,10 +1,9 @@
 import { Goal, GoalId } from '@mo/domain';
-import { EncryptedEvent, IEventStore } from '@mo/application';
-import { ConcurrencyError, NotFoundError } from '@mo/application';
+import { ApplicationError, ConcurrencyError, EncryptedEvent, IEventStore, NotFoundError } from '@mo/application';
 
 export interface EventAdapter {
-  toEncrypted(event: any, version: number): EncryptedEvent;
-  toDomain(event: EncryptedEvent): any;
+  toEncrypted(event: any, version: number, encryptionKey: Uint8Array): EncryptedEvent;
+  toDomain(event: EncryptedEvent, encryptionKey: Uint8Array): any;
 }
 
 /**
@@ -15,32 +14,33 @@ export interface EventAdapter {
 export class LiveStoreGoalRepository {
   constructor(
     private readonly eventStore: IEventStore,
-    private readonly adapter: EventAdapter
+    private readonly adapter: EventAdapter,
+    private readonly keyProvider: (aggregateId: string) => Promise<Uint8Array | null>
   ) {}
 
   async findById(id: GoalId): Promise<Goal | null> {
     const encryptedEvents = await this.eventStore.getEvents(id.value);
     if (encryptedEvents.length === 0) return null;
 
-    const domainEvents = encryptedEvents.map((e) => this.adapter.toDomain(e));
-    const goal = new (Goal as any)(id) as Goal;
-    goal.loadFromHistory(domainEvents);
-    goal.markEventsAsCommitted();
-    return goal;
+    const kGoal = await this.keyProvider(id.value);
+    if (!kGoal) {
+      throw new NotFoundError(`Encryption key for aggregate ${id.value} not found`);
+    }
+
+    const domainEvents = encryptedEvents.map((e) => this.adapter.toDomain(e, kGoal));
+    return Goal.reconstitute(id, domainEvents);
   }
 
   async save(goal: Goal, encryptionKey: Uint8Array): Promise<void> {
-    // encryptionKey included for parity with interface; adapter may use it in future extension
     const pending = goal.getUncommittedEvents();
     if (pending.length === 0) return;
 
     const existing = await this.eventStore.getEvents(goal.id.value);
     const startVersion = existing.length + 1;
-    const encryptedBatch = pending.map((event, idx) =>
-      this.adapter.toEncrypted(event, startVersion + idx)
-    );
-
     try {
+      const encryptedBatch = pending.map((event, idx) =>
+        this.adapter.toEncrypted(event, startVersion + idx, encryptionKey)
+      );
       await this.eventStore.append(goal.id.value, encryptedBatch);
       goal.markEventsAsCommitted();
     } catch (error) {
@@ -48,7 +48,7 @@ export class LiveStoreGoalRepository {
         throw error;
       }
       const message = error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new Error(message);
+      throw new ApplicationError(`Failed to save goal ${goal.id.value}: ${message}`, 'event_store_save_failed');
     }
   }
 }

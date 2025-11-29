@@ -2,20 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { LiveStoreGoalRepository, EventAdapter } from './LiveStoreGoalRepository';
 import { LiveStoreEventStore } from './LiveStoreEventStore';
 import { Goal, GoalId, Slice, Summary, Month, Priority, UserId } from '@mo/domain';
+import { ApplicationError } from '@mo/application';
 
 const adapter: EventAdapter = {
-  toEncrypted(event: any, version: number) {
+  toEncrypted(event: any, version: number, encryptionKey: Uint8Array) {
     return {
       id: `${event.eventType}-${version}`,
       aggregateId: event.aggregateId,
       eventType: event.eventType,
-      payload: new TextEncoder().encode(JSON.stringify(event)),
+      payload: new TextEncoder().encode(JSON.stringify({ ...event, encryptionKey: Array.from(encryptionKey) })),
       version,
       occurredAt: Date.now(),
     };
   },
-  toDomain(event) {
+  toDomain(event, encryptionKey: Uint8Array) {
     const json = JSON.parse(new TextDecoder().decode(event.payload));
+    // ensure key was provided
+    expect(json.encryptionKey).toEqual(Array.from(encryptionKey));
     return {
       ...json,
       occurredAt: new Date(json.occurredAt ?? Date.now()),
@@ -26,7 +29,8 @@ const adapter: EventAdapter = {
 describe('LiveStoreGoalRepository', () => {
   it('saves and reloads a goal via event replay', async () => {
     const store = new LiveStoreEventStore();
-    const repo = new LiveStoreGoalRepository(store, adapter);
+    const key = new Uint8Array([1, 2, 3]);
+    const repo = new LiveStoreGoalRepository(store, adapter, async () => key);
 
     const goal = Goal.create({
       id: GoalId.create(),
@@ -37,10 +41,33 @@ describe('LiveStoreGoalRepository', () => {
       createdBy: UserId.of('user-1'),
     });
 
-    await repo.save(goal, new Uint8Array([1]));
+    await repo.save(goal, key);
 
     const loaded = await repo.findById(goal.id);
     expect(loaded).not.toBeNull();
     expect(loaded?.summary.value).toBe('Test');
+  });
+
+  it('wraps persistence errors', async () => {
+    const store = new LiveStoreEventStore();
+    const repo = new LiveStoreGoalRepository(store, adapter, async () => new Uint8Array([9]));
+    const goal = Goal.create({
+      id: GoalId.create(),
+      slice: Slice.Health,
+      summary: Summary.of('Test'),
+      targetMonth: Month.fromString('2025-12'),
+      priority: Priority.Must,
+      createdBy: UserId.of('user-1'),
+    });
+
+    const adapterThrowing: EventAdapter = {
+      ...adapter,
+      toEncrypted() {
+        throw new Error('boom');
+      },
+    };
+    const failingRepo = new LiveStoreGoalRepository(store, adapterThrowing, async () => new Uint8Array([9]));
+
+    await expect(failingRepo.save(goal, new Uint8Array([9]))).rejects.toBeInstanceOf(ApplicationError);
   });
 });

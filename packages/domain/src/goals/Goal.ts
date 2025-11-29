@@ -58,6 +58,16 @@ export class Goal extends AggregateRoot<GoalId> {
   }
 
   /**
+   * Reconstitute a Goal from historical events.
+   */
+  static reconstitute(id: GoalId, events: readonly DomainEvent[]): Goal {
+    const goal = new Goal(id);
+    goal.loadFromHistory(events as DomainEvent[]);
+    goal.markEventsAsCommitted();
+    return goal;
+  }
+
+  /**
    * Create a new Goal.
    *
    * This is the only way to create a Goal. It emits a GoalCreated event.

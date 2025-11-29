@@ -40,4 +40,15 @@ describe('LiveStoreEventStore', () => {
     const since = await store.getAllEvents({ since: filtered[0].sequence });
     expect(since.find((e) => e.aggregateId === 'a1')).toBeUndefined();
   });
+
+  it('assigns global sequence across aggregates', async () => {
+    const store = new LiveStoreEventStore();
+    await store.append('a1', [baseEvent('a1', 1)]);
+    await store.append('a2', [baseEvent('a2', 1)]);
+    await store.append('a1', [baseEvent('a1', 2)]);
+
+    const all = await store.getAllEvents();
+    const sequences = all.map((e) => e.sequence);
+    expect(sequences).toEqual([1, 2, 3]);
+  });
 });
