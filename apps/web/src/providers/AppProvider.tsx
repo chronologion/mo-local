@@ -4,7 +4,6 @@ import {
   GoalApplicationService,
   GoalCommandHandler,
   IEventBus,
-  IEventStore,
   IKeyStore,
 } from '@mo/application';
 import {
@@ -16,7 +15,10 @@ import { InMemoryEventBus } from '@mo/application';
 import { GoalQueries } from '../services/GoalQueries';
 import { GoalRepository } from '../services/GoalRepository';
 import { DebugPanel } from '../components/DebugPanel';
-import { WorkerEventStore } from '../services/WorkerEventStore';
+import { createStorePromise, type Store } from '@livestore/livestore';
+import { adapter } from './LiveStoreAdapter';
+import { schema } from '../livestore/schema';
+import { LiveStoreEventStore } from '../services/LiveStoreEventStore';
 
 const USER_META_KEY = 'mo-local-user';
 
@@ -36,7 +38,7 @@ type SessionState =
 type Services = {
   crypto: WebCryptoService;
   keyStore: IKeyStore;
-  eventStore: IEventStore;
+  eventStore: LiveStoreEventStore;
   eventBus: IEventBus;
   goalRepo: GoalRepository;
   goalService: GoalApplicationService;
@@ -69,12 +71,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [services, setServices] = useState<Services | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<{
-    vfsName: string;
+    storeId: string;
     opfsAvailable: boolean;
-    syncAccessHandle: boolean;
     note?: string;
-    tables?: string[];
-    capabilities?: { syncAccessHandle: boolean; opfs: boolean };
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -85,7 +84,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const crypto = new WebCryptoService();
         const keyStore = new IndexedDBKeyStore();
-        const { store: eventStore, debug } = await WorkerEventStore.create();
+        const store = (await createStorePromise({
+          schema,
+          adapter,
+          storeId: 'mo-local',
+        })) as unknown as Store;
+        const eventStore = new LiveStoreEventStore(store);
         const eventBus = new InMemoryEventBus();
         const goalRepo = new GoalRepository(
           eventStore,
@@ -106,7 +110,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         );
 
         if (!cancelled) {
-          const tables = await eventStore.debugTables().catch(() => []);
           setServices({
             crypto,
             keyStore,
@@ -117,24 +120,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             goalQueries,
           });
           setDebugInfo({
-            vfsName: debug.vfsName ?? 'unknown',
-            opfsAvailable: Boolean(
-              debug.capabilities?.opfs ||
-                (typeof navigator !== 'undefined' &&
-                  !!navigator.storage &&
-                  typeof navigator.storage.getDirectory === 'function')
-            ),
-            syncAccessHandle: Boolean(
-              debug.capabilities?.syncAccessHandle ||
-                typeof (
-                  globalThis as {
-                    FileSystemSyncAccessHandle?: unknown;
-                  }
-                ).FileSystemSyncAccessHandle !== 'undefined'
-            ),
-            note: 'Worker-hosted SQLite',
-            tables: debug.tables ?? tables,
-            capabilities: debug.capabilities,
+            storeId: store.storeId,
+            opfsAvailable:
+              typeof navigator !== 'undefined' &&
+              !!navigator.storage &&
+              typeof navigator.storage.getDirectory === 'function',
+            note: 'LiveStore adapter (opfs)',
           });
         }
       } catch (error) {
@@ -212,7 +203,22 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       <AppContext.Provider value={{ services, session, completeOnboarding }}>
         {children}
       </AppContext.Provider>
-      {debugInfo ? <DebugPanel info={debugInfo} /> : null}
+      {debugInfo ? (
+        <DebugPanel
+          info={{
+            vfsName: 'adapter-web',
+            opfsAvailable: debugInfo.opfsAvailable,
+            syncAccessHandle:
+              typeof (
+                globalThis as {
+                  FileSystemSyncAccessHandle?: unknown;
+                }
+              ).FileSystemSyncAccessHandle !== 'undefined',
+            tables: [],
+            note: debugInfo.note,
+          }}
+        />
+      ) : null}
     </>
   );
 };

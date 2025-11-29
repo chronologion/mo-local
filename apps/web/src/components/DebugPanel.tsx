@@ -6,7 +6,6 @@ type DebugInfo = {
   syncAccessHandle: boolean;
   tables?: string[];
   note?: string;
-  capabilities?: { syncAccessHandle: boolean; opfs: boolean };
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -34,14 +33,6 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
       <div>Sync Access Handle: {info.syncAccessHandle ? 'yes' : 'no'}</div>
       <div>Tables: {tables}</div>
       {info.note ? <div>Note: {info.note}</div> : null}
-      {info.capabilities ? (
-        <div>
-          <div>Worker OPFS: {info.capabilities.opfs ? 'yes' : 'no'}</div>
-          <div>
-            Worker Sync Handle: {info.capabilities.syncAccessHandle ? 'yes' : 'no'}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 };
