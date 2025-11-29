@@ -29,3 +29,4 @@ export * from './events/GoalPriorityChanged';
 export * from './events/GoalDeleted';
 export * from './events/GoalAccessGranted';
 export * from './events/GoalAccessRevoked';
+export * from './utils/uuid';

@@ -39,7 +39,11 @@ describe('goalMaterializer', () => {
     );
     applyGoalEvent(
       state,
-      new GoalSliceChanged({ goalId: aggregateId, slice: 'Work', changedAt: baseDate })
+      new GoalSliceChanged({
+        goalId: aggregateId,
+        slice: 'Work',
+        changedAt: baseDate,
+      })
     );
     applyGoalEvent(
       state,
@@ -70,7 +74,10 @@ describe('goalMaterializer', () => {
   it('handles delete', () => {
     const state = createEmptyState();
     applyGoalEvent(state, created);
-    applyGoalEvent(state, new GoalDeleted({ goalId: aggregateId, deletedAt: baseDate }));
+    applyGoalEvent(
+      state,
+      new GoalDeleted({ goalId: aggregateId, deletedAt: baseDate })
+    );
     const row = state.goals.get(aggregateId);
     expect(row?.deleted_at).not.toBeNull();
   });
