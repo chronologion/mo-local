@@ -8,6 +8,7 @@ Key rules:
 - Make a branch per subissue and use short conventional commit messages.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
+- Don't "hand-code" dependency versions in package.json! Just install latest, unless there's a reason not to.
 - In case of blocking issues and PRD divergence you can't reconcile – stop and ask.
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.
 - Use the docker compose stack to run and debug the app, and run e2e tests.

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
 import {
   GoalApplicationService,
@@ -9,12 +9,14 @@ import {
 } from '@mo/application';
 import {
   IndexedDBKeyStore,
+  LiveStoreToDomainAdapter,
   WebCryptoService,
 } from '@mo/infrastructure/browser';
 import { InMemoryEventBus } from '@mo/application';
-import { LocalEventStore } from '../services/LocalEventStore';
 import { GoalQueries } from '../services/GoalQueries';
 import { GoalRepository } from '../services/GoalRepository';
+import { DebugPanel } from '../components/DebugPanel';
+import { WorkerEventStore } from '../services/WorkerEventStore';
 
 const USER_META_KEY = 'mo-local-user';
 
@@ -64,39 +66,92 @@ const saveMeta = (meta: UserMeta): void => {
 };
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const services = useMemo<Services>(() => {
-    const crypto = new WebCryptoService();
-    const keyStore = new IndexedDBKeyStore();
-    const eventStore = new LocalEventStore();
-    const eventBus = new InMemoryEventBus();
-    const goalRepo = new GoalRepository(
-      eventStore,
-      crypto,
-      async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
-    );
-    const goalHandler = new GoalCommandHandler(
-      goalRepo,
-      keyStore,
-      crypto,
-      eventBus
-    );
-    const goalService = new GoalApplicationService(goalHandler);
-    const goalQueries = new GoalQueries(eventStore, goalRepo);
-
-    return {
-      crypto,
-      keyStore,
-      eventStore,
-      eventBus,
-      goalRepo,
-      goalService,
-      goalQueries,
-    };
-  }, []);
+  const [services, setServices] = useState<Services | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    vfsName: string;
+    opfsAvailable: boolean;
+    syncAccessHandle: boolean;
+    note?: string;
+    tables?: string[];
+    capabilities?: { syncAccessHandle: boolean; opfs: boolean };
+  } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const crypto = new WebCryptoService();
+        const keyStore = new IndexedDBKeyStore();
+        const { store: eventStore, debug } = await WorkerEventStore.create();
+        const eventBus = new InMemoryEventBus();
+        const goalRepo = new GoalRepository(
+          eventStore,
+          crypto,
+          async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+        );
+        const goalHandler = new GoalCommandHandler(
+          goalRepo,
+          keyStore,
+          crypto,
+          eventBus
+        );
+        const goalService = new GoalApplicationService(goalHandler);
+        const goalQueries = new GoalQueries(
+          eventStore,
+          new LiveStoreToDomainAdapter(crypto),
+          async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+        );
+
+        if (!cancelled) {
+          const tables = await eventStore.debugTables().catch(() => []);
+          setServices({
+            crypto,
+            keyStore,
+            eventStore,
+            eventBus,
+            goalRepo,
+            goalService,
+            goalQueries,
+          });
+          setDebugInfo({
+            vfsName: debug.vfsName ?? 'unknown',
+            opfsAvailable: Boolean(
+              debug.capabilities?.opfs ||
+                (typeof navigator !== 'undefined' &&
+                  !!navigator.storage &&
+                  typeof navigator.storage.getDirectory === 'function')
+            ),
+            syncAccessHandle: Boolean(
+              debug.capabilities?.syncAccessHandle ||
+                typeof (
+                  globalThis as {
+                    FileSystemSyncAccessHandle?: unknown;
+                  }
+                ).FileSystemSyncAccessHandle !== 'undefined'
+            ),
+            note: 'Worker-hosted SQLite',
+            tables: debug.tables ?? tables,
+            capabilities: debug.capabilities,
+          });
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to initialize app';
+        if (!cancelled) {
+          setInitError(message);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!services) return;
     let cancelled = false;
     (async () => {
       const meta = loadMeta();
@@ -116,9 +171,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [services.keyStore]);
+  }, [services]);
 
   const completeOnboarding = async ({ password }: { password: string }) => {
+    if (!services) {
+      throw new Error('Services not initialized');
+    }
     const userId = uuidv7();
     const salt =
       globalThis.crypto?.getRandomValues(new Uint8Array(16)) ||
@@ -141,10 +199,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setSession({ status: 'ready', userId });
   };
 
+  if (initError) {
+    return <div>Failed to initialize LiveStore: {initError}</div>;
+  }
+
+  if (!services) {
+    return <div>Loading app...</div>;
+  }
+
   return (
-    <AppContext.Provider value={{ services, session, completeOnboarding }}>
-      {children}
-    </AppContext.Provider>
+    <>
+      <AppContext.Provider value={{ services, session, completeOnboarding }}>
+        {children}
+      </AppContext.Provider>
+      {debugInfo ? <DebugPanel info={debugInfo} /> : null}
+    </>
   );
 };
 

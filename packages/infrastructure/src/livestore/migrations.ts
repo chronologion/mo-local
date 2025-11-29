@@ -7,9 +7,9 @@ export const migrations: MigrationStep[] = [
     from: 0,
     to: goalsSchema.version,
     up: [
-      'CREATE TABLE goals (id TEXT PRIMARY KEY, slice TEXT, summary_encrypted BLOB, target_month TEXT, priority TEXT, created_by TEXT, created_at INTEGER, deleted_at INTEGER, version INTEGER);',
-      'CREATE TABLE goal_access (id TEXT PRIMARY KEY, goal_id TEXT, user_id TEXT, permission TEXT, granted_at INTEGER, revoked_at INTEGER);',
-      'CREATE TABLE goal_events (id TEXT PRIMARY KEY, aggregate_id TEXT, event_type TEXT, payload_encrypted BLOB, version INTEGER, occurred_at INTEGER, sequence INTEGER UNIQUE);',
+      'CREATE TABLE goals (id TEXT PRIMARY KEY, slice TEXT NOT NULL, summary_encrypted BLOB NOT NULL, target_month TEXT NOT NULL, priority TEXT NOT NULL, created_by TEXT NOT NULL, created_at INTEGER NOT NULL, deleted_at INTEGER, version INTEGER NOT NULL);',
+      'CREATE TABLE goal_access (id TEXT PRIMARY KEY, goal_id TEXT NOT NULL, user_id TEXT NOT NULL, permission TEXT NOT NULL, granted_at INTEGER NOT NULL, revoked_at INTEGER);',
+      'CREATE TABLE goal_events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL, aggregate_id TEXT NOT NULL, event_type TEXT NOT NULL, payload_encrypted BLOB NOT NULL, version INTEGER NOT NULL, occurred_at INTEGER NOT NULL);',
       'CREATE INDEX idx_goals_deleted_at ON goals(deleted_at);',
       'CREATE INDEX idx_goals_created_by ON goals(created_by);',
       'CREATE INDEX idx_goals_target_month ON goals(target_month);',

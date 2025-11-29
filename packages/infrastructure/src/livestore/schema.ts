@@ -31,13 +31,17 @@ export const goalsSchema: SchemaDefinition = {
     goal_events: {
       name: 'goal_events',
       columns: {
-        id: { type: 'text', primaryKey: true },
+        id: { type: 'text', unique: true },
         aggregate_id: { type: 'text' },
         event_type: { type: 'text' },
         payload_encrypted: { type: 'blob' },
         version: { type: 'integer' },
         occurred_at: { type: 'integer' },
-        sequence: { type: 'integer', autoIncrement: true, unique: true },
+        sequence: {
+          type: 'integer',
+          autoIncrement: true,
+          primaryKey: true,
+        },
       },
     },
   },

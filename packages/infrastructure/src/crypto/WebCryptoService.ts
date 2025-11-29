@@ -10,7 +10,7 @@ import {
 type CryptoLike = Pick<typeof NodeWebCrypto, 'subtle' | 'getRandomValues'>;
 
 const resolveCrypto = (): CryptoLike => {
-  const cryptoLike = (globalThis as { crypto?: CryptoLike }).crypto;
+  const cryptoLike = (globalThis as unknown as { crypto?: CryptoLike }).crypto;
   if (!cryptoLike?.subtle || !cryptoLike.getRandomValues) {
     throw new Error('Web Crypto API is not available');
   }
