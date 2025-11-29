@@ -1,4 +1,5 @@
 import {
+  ALL_SLICES,
   GoalAccessGranted,
   GoalAccessRevoked,
   GoalCreated,
@@ -7,12 +8,13 @@ import {
   GoalSliceChanged,
   GoalSummaryChanged,
   GoalTargetChanged,
-  SliceValue,
   PriorityLevel,
   Permission,
+  SliceValue,
   DomainEvent,
 } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
+import { z } from 'zod';
 
 type GoalPayloadMap = {
   GoalCreated: GoalCreatedPayload;
@@ -40,6 +42,83 @@ const supportedEvents: readonly EventType[] = [
 
 const isEventType = (value: string): value is EventType =>
   (supportedEvents as readonly string[]).includes(value);
+
+const timestampSchema = z
+  .union([z.string(), z.number(), z.date()])
+  .transform((value, ctx) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid timestamp',
+      });
+      return z.NEVER;
+    }
+    return parsed;
+  });
+
+const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
+  GoalCreated: z
+    .object({
+      goalId: z.string(),
+      slice: z.enum(ALL_SLICES as [SliceValue, ...SliceValue[]]),
+      summary: z.string(),
+      targetMonth: z.string(),
+      priority: z.enum(['must', 'should', 'maybe'] as const),
+      createdBy: z.string(),
+      createdAt: timestampSchema,
+    })
+    .strict(),
+  GoalSummaryChanged: z
+    .object({
+      goalId: z.string(),
+      summary: z.string(),
+      changedAt: timestampSchema,
+    })
+    .strict(),
+  GoalSliceChanged: z
+    .object({
+      goalId: z.string(),
+      slice: z.enum(ALL_SLICES as [SliceValue, ...SliceValue[]]),
+      changedAt: timestampSchema,
+    })
+    .strict(),
+  GoalTargetChanged: z
+    .object({
+      goalId: z.string(),
+      targetMonth: z.string(),
+      changedAt: timestampSchema,
+    })
+    .strict(),
+  GoalPriorityChanged: z
+    .object({
+      goalId: z.string(),
+      priority: z.enum(['must', 'should', 'maybe'] as const),
+      changedAt: timestampSchema,
+    })
+    .strict(),
+  GoalDeleted: z
+    .object({
+      goalId: z.string(),
+      deletedAt: timestampSchema,
+    })
+    .strict(),
+  GoalAccessGranted: z
+    .object({
+      goalId: z.string(),
+      grantedTo: z.string(),
+      permission: z.enum(['owner', 'edit', 'view'] as const),
+      grantedAt: timestampSchema,
+    })
+    .strict(),
+  GoalAccessRevoked: z
+    .object({
+      goalId: z.string(),
+      revokedFrom: z.string(),
+      revokedAt: timestampSchema,
+    })
+    .strict(),
+};
 
 /**
  * Converts encrypted LiveStore events into domain events.
@@ -133,83 +212,13 @@ export class LiveStoreToDomainAdapter {
     eventType: T,
     payload: unknown
   ): GoalPayloadMap[T] {
-    if (typeof payload !== 'object' || payload === null) {
-      throw new Error(`Payload for ${eventType} must be an object`);
-    }
-    const p = payload as Record<string, unknown>;
-    const requireString = (key: string) => {
-      if (typeof p[key] !== 'string')
-        throw new Error(`Payload.${key} must be string`);
-      return p[key] as string;
-    };
-    const parseTimestamp = (value: unknown, key: string) => {
-      const date = new Date(value as string | number | Date);
-      if (Number.isNaN(date.getTime())) {
-        throw new Error(`Payload.${key} is not a valid timestamp`);
-      }
-      return date;
-    };
-
-    if (!supportedEvents.includes(eventType)) {
-      throw new Error(`Unsupported event type: ${eventType}`);
+    const result = schemas[eventType].safeParse(payload);
+    if (result.success) {
+      return result.data;
     }
 
-    switch (eventType) {
-      case 'GoalCreated':
-        return {
-          goalId: requireString('goalId'),
-          slice: requireString('slice') as SliceValue,
-          summary: requireString('summary'),
-          targetMonth: requireString('targetMonth'),
-          priority: requireString('priority') as PriorityLevel,
-          createdBy: requireString('createdBy'),
-          createdAt: parseTimestamp(p.createdAt, 'createdAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalSummaryChanged':
-        return {
-          goalId: requireString('goalId'),
-          summary: requireString('summary'),
-          changedAt: parseTimestamp(p.changedAt, 'changedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalSliceChanged':
-        return {
-          goalId: requireString('goalId'),
-          slice: requireString('slice') as SliceValue,
-          changedAt: parseTimestamp(p.changedAt, 'changedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalTargetChanged':
-        return {
-          goalId: requireString('goalId'),
-          targetMonth: requireString('targetMonth'),
-          changedAt: parseTimestamp(p.changedAt, 'changedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalPriorityChanged':
-        return {
-          goalId: requireString('goalId'),
-          priority: requireString('priority') as PriorityLevel,
-          changedAt: parseTimestamp(p.changedAt, 'changedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalDeleted':
-        return {
-          goalId: requireString('goalId'),
-          deletedAt: parseTimestamp(p.deletedAt, 'deletedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalAccessGranted':
-        return {
-          goalId: requireString('goalId'),
-          grantedTo: requireString('grantedTo'),
-          permission: requireString('permission') as Permission,
-          grantedAt: parseTimestamp(p.grantedAt, 'grantedAt'),
-        } as GoalPayloadMap[T];
-      case 'GoalAccessRevoked':
-        return {
-          goalId: requireString('goalId'),
-          revokedFrom: requireString('revokedFrom'),
-          revokedAt: parseTimestamp(p.revokedAt, 'revokedAt'),
-        } as GoalPayloadMap[T];
-      default:
-        throw new Error(`Unsupported event type: ${eventType}`);
-    }
+    const issues = result.error.issues.map((issue) => issue.message).join('; ');
+    throw new Error(`Invalid payload for ${eventType}: ${issues}`);
   }
 }
 
