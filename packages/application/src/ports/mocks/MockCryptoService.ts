@@ -37,7 +37,9 @@ export class MockCryptoService implements ICryptoService {
     key: SymmetricKey,
     aad?: Uint8Array
   ): Promise<Uint8Array> {
-    const effectiveKey = aad ? deriveKeyBytes(key, Buffer.from(aad).toString('hex')) : key;
+    const effectiveKey = aad
+      ? deriveKeyBytes(key, Buffer.from(aad).toString('hex'))
+      : key;
     return xorBytes(plaintext, effectiveKey);
   }
 
@@ -63,7 +65,10 @@ export class MockCryptoService implements ICryptoService {
     return xorBytes(wrappedKey, unwrappingKey);
   }
 
-  async deriveKey(masterKey: Uint8Array, context: string): Promise<SymmetricKey> {
+  async deriveKey(
+    masterKey: Uint8Array,
+    context: string
+  ): Promise<SymmetricKey> {
     return deriveKeyBytes(masterKey, context);
   }
 }

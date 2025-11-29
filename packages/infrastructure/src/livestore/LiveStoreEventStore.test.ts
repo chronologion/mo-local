@@ -31,7 +31,10 @@ describe('LiveStoreEventStore', () => {
 
   it('filters by since and event type', async () => {
     const store = new LiveStoreEventStore();
-    await store.append('a1', [baseEvent('a1', 1), { ...baseEvent('a1', 2), eventType: 'Other' }]);
+    await store.append('a1', [
+      baseEvent('a1', 1),
+      { ...baseEvent('a1', 2), eventType: 'Other' },
+    ]);
     await store.append('a2', [baseEvent('a2', 1)]);
 
     const filtered = await store.getAllEvents({ eventType: 'Other' });

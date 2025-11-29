@@ -1,16 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { LiveStoreGoalRepository, EventAdapter } from './LiveStoreGoalRepository';
+import {
+  LiveStoreGoalRepository,
+  EventAdapter,
+} from './LiveStoreGoalRepository';
 import { LiveStoreEventStore } from './LiveStoreEventStore';
-import { Goal, GoalId, Slice, Summary, Month, Priority, UserId } from '@mo/domain';
+import {
+  Goal,
+  GoalId,
+  Slice,
+  Summary,
+  Month,
+  Priority,
+  UserId,
+  DomainEvent,
+} from '@mo/domain';
 import { ApplicationError } from '@mo/application';
 
 const adapter: EventAdapter = {
-  toEncrypted(event: any, version: number, encryptionKey: Uint8Array) {
+  toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
     return {
       id: `${event.eventType}-${version}`,
       aggregateId: event.aggregateId,
       eventType: event.eventType,
-      payload: new TextEncoder().encode(JSON.stringify({ ...event, encryptionKey: Array.from(encryptionKey) })),
+      payload: new TextEncoder().encode(
+        JSON.stringify({ ...event, encryptionKey: Array.from(encryptionKey) })
+      ),
       version,
       occurredAt: Date.now(),
     };
@@ -50,7 +64,6 @@ describe('LiveStoreGoalRepository', () => {
 
   it('wraps persistence errors', async () => {
     const store = new LiveStoreEventStore();
-    const repo = new LiveStoreGoalRepository(store, adapter, async () => new Uint8Array([9]));
     const goal = Goal.create({
       id: GoalId.create(),
       slice: Slice.Health,
@@ -66,8 +79,14 @@ describe('LiveStoreGoalRepository', () => {
         throw new Error('boom');
       },
     };
-    const failingRepo = new LiveStoreGoalRepository(store, adapterThrowing, async () => new Uint8Array([9]));
+    const failingRepo = new LiveStoreGoalRepository(
+      store,
+      adapterThrowing,
+      async () => new Uint8Array([9])
+    );
 
-    await expect(failingRepo.save(goal, new Uint8Array([9]))).rejects.toBeInstanceOf(ApplicationError);
+    await expect(
+      failingRepo.save(goal, new Uint8Array([9]))
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 });

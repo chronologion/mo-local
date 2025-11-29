@@ -4,7 +4,11 @@ import { goalsSchema } from './schema';
 describe('goalsSchema', () => {
   it('includes required tables and columns', () => {
     const { tables } = goalsSchema;
-    expect(Object.keys(tables)).toEqual(['goals', 'goal_access', 'goal_events']);
+    expect(Object.keys(tables)).toEqual([
+      'goals',
+      'goal_access',
+      'goal_events',
+    ]);
     expect(tables.goals.columns.id.primaryKey).toBe(true);
     expect(tables.goal_events.columns.sequence.autoIncrement).toBe(true);
   });

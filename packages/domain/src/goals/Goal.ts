@@ -16,6 +16,7 @@ import { GoalPriorityChanged } from '../events/GoalPriorityChanged';
 import { GoalDeleted } from '../events/GoalDeleted';
 import { GoalAccessGranted, Permission } from '../events/GoalAccessGranted';
 import { GoalAccessRevoked } from '../events/GoalAccessRevoked';
+import { DomainEvent } from '../shared/DomainEvent';
 
 /**
  * Goal aggregate root.

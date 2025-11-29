@@ -1,5 +1,10 @@
 import { GoalId, Summary, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface ChangeGoalSummaryCommand {
@@ -23,7 +28,11 @@ export function validateChangeGoalSummaryCommand(
   const errors: ValidationError[] = [];
 
   const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const summary = safeConvert(() => Summary.of(command.summary), 'summary', errors);
+  const summary = safeConvert(
+    () => Summary.of(command.summary),
+    'summary',
+    errors
+  );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 

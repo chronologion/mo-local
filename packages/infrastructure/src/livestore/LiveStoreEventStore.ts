@@ -34,9 +34,14 @@ export class LiveStoreEventStore implements IEventStore {
     this.eventsByAggregate.set(aggregateId, [...current, ...assigned]);
   }
 
-  async getEvents(aggregateId: string, fromVersion = 1): Promise<StoredEvent[]> {
+  async getEvents(
+    aggregateId: string,
+    fromVersion = 1
+  ): Promise<StoredEvent[]> {
     const events = this.eventsByAggregate.get(aggregateId) ?? [];
-    return events.filter((e) => e.version >= fromVersion).sort((a, b) => a.version - b.version);
+    return events
+      .filter((e) => e.version >= fromVersion)
+      .sort((a, b) => a.version - b.version);
   }
 
   async getAllEvents(filter?: EventFilter): Promise<StoredEvent[]> {
@@ -44,7 +49,8 @@ export class LiveStoreEventStore implements IEventStore {
 
     return all
       .filter((e) => {
-        if (filter?.aggregateId && e.aggregateId !== filter.aggregateId) return false;
+        if (filter?.aggregateId && e.aggregateId !== filter.aggregateId)
+          return false;
         if (filter?.eventType && e.eventType !== filter.eventType) return false;
         if (filter?.since && e.sequence <= filter.since) return false;
         return true;

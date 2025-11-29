@@ -1,5 +1,10 @@
 import { GoalId, Month, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface ChangeGoalTargetMonthCommand {
@@ -23,7 +28,11 @@ export function validateChangeGoalTargetMonthCommand(
   const errors: ValidationError[] = [];
 
   const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const targetMonth = safeConvert(() => Month.fromString(command.targetMonth), 'targetMonth', errors);
+  const targetMonth = safeConvert(
+    () => Month.fromString(command.targetMonth),
+    'targetMonth',
+    errors
+  );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 

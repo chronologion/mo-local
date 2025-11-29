@@ -1,9 +1,19 @@
-import { Goal, GoalId } from '@mo/domain';
-import { ApplicationError, ConcurrencyError, EncryptedEvent, IEventStore, NotFoundError } from '@mo/application';
+import { Goal, GoalId, DomainEvent } from '@mo/domain';
+import {
+  ApplicationError,
+  ConcurrencyError,
+  EncryptedEvent,
+  IEventStore,
+  NotFoundError,
+} from '@mo/application';
 
 export interface EventAdapter {
-  toEncrypted(event: any, version: number, encryptionKey: Uint8Array): EncryptedEvent;
-  toDomain(event: EncryptedEvent, encryptionKey: Uint8Array): any;
+  toEncrypted(
+    event: DomainEvent,
+    version: number,
+    encryptionKey: Uint8Array
+  ): EncryptedEvent;
+  toDomain(event: EncryptedEvent, encryptionKey: Uint8Array): DomainEvent;
 }
 
 /**
@@ -15,7 +25,9 @@ export class LiveStoreGoalRepository {
   constructor(
     private readonly eventStore: IEventStore,
     private readonly adapter: EventAdapter,
-    private readonly keyProvider: (aggregateId: string) => Promise<Uint8Array | null>
+    private readonly keyProvider: (
+      aggregateId: string
+    ) => Promise<Uint8Array | null>
   ) {}
 
   async findById(id: GoalId): Promise<Goal | null> {
@@ -24,10 +36,14 @@ export class LiveStoreGoalRepository {
 
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
-      throw new NotFoundError(`Encryption key for aggregate ${id.value} not found`);
+      throw new NotFoundError(
+        `Encryption key for aggregate ${id.value} not found`
+      );
     }
 
-    const domainEvents = encryptedEvents.map((e) => this.adapter.toDomain(e, kGoal));
+    const domainEvents = encryptedEvents.map((e) =>
+      this.adapter.toDomain(e, kGoal)
+    );
     return Goal.reconstitute(id, domainEvents);
   }
 
@@ -47,8 +63,12 @@ export class LiveStoreGoalRepository {
       if (error instanceof ConcurrencyError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new ApplicationError(`Failed to save goal ${goal.id.value}: ${message}`, 'event_store_save_failed');
+      const message =
+        error instanceof Error ? error.message : 'Unknown persistence error';
+      throw new ApplicationError(
+        `Failed to save goal ${goal.id.value}: ${message}`,
+        'event_store_save_failed'
+      );
     }
   }
 }

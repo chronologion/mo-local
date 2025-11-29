@@ -13,7 +13,10 @@ export class InMemoryKeyStore implements IKeyStore {
     return this.identityKeys.get(userId) ?? null;
   }
 
-  async saveAggregateKey(aggregateId: string, wrappedKey: Uint8Array): Promise<void> {
+  async saveAggregateKey(
+    aggregateId: string,
+    wrappedKey: Uint8Array
+  ): Promise<void> {
     this.aggregateKeys.set(aggregateId, wrappedKey);
   }
 
@@ -33,7 +36,7 @@ export class InMemoryKeyStore implements IKeyStore {
 
     const identityKeys =
       this.identityKeys.size > 0
-        ? this.identityKeys.values().next().value
+        ? (this.identityKeys.values().next().value as IdentityKeys)
         : {
             signingPrivateKey: new Uint8Array(),
             signingPublicKey: new Uint8Array(),

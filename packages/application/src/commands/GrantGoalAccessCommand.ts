@@ -1,5 +1,10 @@
 import { GoalId, UserId } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export type AccessPermission = 'view' | 'edit';
@@ -33,10 +38,21 @@ export function validateGrantGoalAccessCommand(
     errors
   );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
-  const permission = validatePermission(command.permission, 'permission', errors);
+  const permission = validatePermission(
+    command.permission,
+    'permission',
+    errors
+  );
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 
-  if (errors.length > 0 || !goalId || !grantToUserId || !userId || !permission || !timestamp) {
+  if (
+    errors.length > 0 ||
+    !goalId ||
+    !grantToUserId ||
+    !userId ||
+    !permission ||
+    !timestamp
+  ) {
     return failure(errors);
   }
 

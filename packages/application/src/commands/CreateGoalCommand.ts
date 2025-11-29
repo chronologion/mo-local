@@ -8,7 +8,12 @@ import {
   Summary,
   UserId,
 } from '@mo/domain';
-import { CommandResult, ValidationError, failure, success } from '../results/CommandResult';
+import {
+  CommandResult,
+  ValidationError,
+  failure,
+  success,
+} from '../results/CommandResult';
 import { safeConvert, validateTimestamp } from './validation';
 
 export interface CreateGoalCommand {
@@ -39,13 +44,34 @@ export function validateCreateGoalCommand(
 
   const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
   const slice = safeConvert(() => Slice.of(command.slice), 'slice', errors);
-  const summary = safeConvert(() => Summary.of(command.summary), 'summary', errors);
-  const targetMonth = safeConvert(() => Month.fromString(command.targetMonth), 'targetMonth', errors);
-  const priority = safeConvert(() => Priority.of(command.priority), 'priority', errors);
+  const summary = safeConvert(
+    () => Summary.of(command.summary),
+    'summary',
+    errors
+  );
+  const targetMonth = safeConvert(
+    () => Month.fromString(command.targetMonth),
+    'targetMonth',
+    errors
+  );
+  const priority = safeConvert(
+    () => Priority.of(command.priority),
+    'priority',
+    errors
+  );
   const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 
-  if (errors.length > 0 || !goalId || !slice || !summary || !targetMonth || !priority || !userId || !timestamp) {
+  if (
+    errors.length > 0 ||
+    !goalId ||
+    !slice ||
+    !summary ||
+    !targetMonth ||
+    !priority ||
+    !userId ||
+    !timestamp
+  ) {
     return failure(errors);
   }
 
