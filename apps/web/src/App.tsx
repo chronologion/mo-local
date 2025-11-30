@@ -264,9 +264,8 @@ function Unlock() {
                     if (!file) return;
                     setSelectedFileName(file.name);
                     try {
-                      const buf = await file.arrayBuffer();
-                      const b64 = toBase64(new Uint8Array(buf));
-                      setBackupInput(b64);
+                      const text = (await file.text()).trim();
+                      setBackupInput(text);
                       setRestoreError(null);
                     } catch (err) {
                       const message =
@@ -284,16 +283,11 @@ function Unlock() {
                 ) : null}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Backup blob (paste if needed)</Label>
-              <textarea
-                className="w-full rounded-md border border-white/10 bg-white/5 p-3 text-sm text-slate-100"
-                rows={6}
-                value={backupInput}
-                onChange={(e) => setBackupInput(e.target.value)}
-                placeholder='{"cipher":"...","salt":"..."}'
-              />
-            </div>
+            <Input
+              type="hidden"
+              value={backupInput}
+              onChange={(e) => setBackupInput(e.target.value)}
+            />
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
