@@ -92,7 +92,7 @@ function Onboarding() {
         </Badge>
         <div className="flex items-center gap-2 text-sm text-slate-400">
           <Lock className="h-4 w-4 text-accent2" />
-          Keys stay local — no sync yet
+          Keys stay local — data stays local (no sync)
         </div>
       </div>
       <Card>
