@@ -1,5 +1,7 @@
-import { Events, makeSchema, State } from '@livestore/livestore';
-import * as S from 'effect/Schema';
+import { Events, makeSchema, Schema, State } from '@livestore/livestore';
+
+// Schema from livestore exports runtime helpers; cast to access static builders despite d.ts limits.
+const S = Schema as unknown as typeof import('effect/Schema');
 
 // LiveStore schema mirroring our encrypted goal event log.
 // Payloads remain ciphertext (Uint8Array); no plaintext at rest.
@@ -27,6 +29,15 @@ export const tables = {
 
 // We treat all domain events as a single generic "goal.event" with an encrypted payload.
 // The payload schema is Uint8Array to keep ciphertext opaque to LiveStore.
+type GoalEventPayload = {
+  id: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Uint8Array<ArrayBufferLike>;
+  version: number;
+  occurredAt: number;
+};
+
 export const events = {
   goalEvent: Events.synced({
     name: 'goal.event',
@@ -49,7 +60,7 @@ const materializers = State.SQLite.materializers(events, {
     payload,
     version,
     occurredAt,
-  }) =>
+  }: GoalEventPayload) =>
     tables.goal_events.insert({
       id,
       aggregate_id: aggregateId,
