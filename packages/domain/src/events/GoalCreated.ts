@@ -1,6 +1,7 @@
 import { DomainEvent } from '../shared/DomainEvent';
 import { SliceValue } from '../goals/Slice';
 import { PriorityLevel } from '../goals/Priority';
+import { eventTypes } from './eventTypes';
 
 /**
  * Event emitted when a new Goal is created.
@@ -8,7 +9,7 @@ import { PriorityLevel } from '../goals/Priority';
  * This is the first event in a Goal's lifecycle and establishes its initial state.
  */
 export class GoalCreated implements DomainEvent {
-  readonly eventType = 'GoalCreated';
+  readonly eventType = eventTypes.goalCreated;
   readonly occurredAt: Date;
   readonly aggregateId: string;
 

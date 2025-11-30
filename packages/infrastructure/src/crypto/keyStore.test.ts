@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { indexedDB, IDBKeyRange } from 'fake-indexeddb';
 import { KeyWrapping } from './KeyWrapping';
 import { IndexedDBKeyStore } from './IndexedDBKeyStore';
+import { WebCryptoService } from './WebCryptoService';
 
 const KEY_STORE_DB = 'mo-local-keys';
 
@@ -36,6 +37,9 @@ describe('KeyWrapping', () => {
 });
 
 describe('IndexedDBKeyStore', () => {
+  const crypto = new WebCryptoService();
+  let masterKey: Uint8Array;
+
   beforeEach(async () => {
     // Ensure indexedDB exists for tests
     // @ts-expect-error fake indexeddb globals
@@ -43,10 +47,12 @@ describe('IndexedDBKeyStore', () => {
     // @ts-expect-error fake indexeddb globals
     globalThis.IDBKeyRange = IDBKeyRange;
     await resetDb();
+    masterKey = await crypto.generateKey();
   });
 
   it('stores and retrieves identity and aggregate keys, and exports/imports backups', async () => {
     const store = new IndexedDBKeyStore();
+    store.setMasterKey(masterKey);
     const identityKeys = {
       signingPrivateKey: new Uint8Array(randomBytes(32)),
       signingPublicKey: new Uint8Array(randomBytes(32)),
@@ -69,6 +75,7 @@ describe('IndexedDBKeyStore', () => {
     expect(backup.aggregateKeys['goal-1']).toEqual(wrappedKey);
 
     const restored = new IndexedDBKeyStore();
+    restored.setMasterKey(masterKey);
     await restored.importKeys(backup);
     expect(await restored.getAggregateKey('goal-1')).toEqual(wrappedKey);
 
@@ -78,6 +85,7 @@ describe('IndexedDBKeyStore', () => {
 
   it('returns nulls when keys missing and overwrites on import', async () => {
     const store = new IndexedDBKeyStore();
+    store.setMasterKey(masterKey);
     expect(await store.getIdentityKeys('nope')).toBeNull();
     expect(await store.getAggregateKey('nope')).toBeNull();
     const backup = await store.exportKeys();
@@ -93,6 +101,7 @@ describe('IndexedDBKeyStore', () => {
     await store.saveAggregateKey('goal-x', new Uint8Array([9]));
 
     const overwrite = new IndexedDBKeyStore();
+    overwrite.setMasterKey(masterKey);
     await overwrite.importKeys({
       userId: 'user-b',
       identityKeys,

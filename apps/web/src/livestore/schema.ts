@@ -25,8 +25,6 @@ export const tables = {
   goal_events: goalEventsTable,
 };
 
-// We treat all domain events as a single generic "goal.event" with an encrypted payload.
-// The payload schema is Uint8Array to keep ciphertext opaque to LiveStore.
 type GoalEventPayload = {
   id: string;
   aggregateId: string;

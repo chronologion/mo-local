@@ -27,6 +27,7 @@ export * from './events/GoalSliceChanged';
 export * from './events/GoalTargetChanged';
 export * from './events/GoalPriorityChanged';
 export * from './events/GoalDeleted';
+export * from './events/eventTypes';
 export * from './events/GoalAccessGranted';
 export * from './events/GoalAccessRevoked';
 export * from './utils/uuid';

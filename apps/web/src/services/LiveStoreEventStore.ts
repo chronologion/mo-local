@@ -1,6 +1,10 @@
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { events } from '../livestore/schema';
+import { sleep } from '../lib/sleep';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 50;
 
 /**
  * Bridges LiveStore's commit/query APIs to the IEventStore interface used by our domain services.
@@ -18,18 +22,50 @@ export class LiveStoreEventStore implements IEventStore {
     eventsToAppend: EncryptedEvent[]
   ): Promise<void> {
     if (eventsToAppend.length === 0) return;
-    this.store.commit(
-      ...eventsToAppend.map((event) =>
-        events.goalEvent({
-          id: event.id,
-          aggregateId,
-          eventType: event.eventType,
-          payload: event.payload,
-          version: event.version,
-          occurredAt: event.occurredAt,
-        })
-      )
-    );
+
+    const existing = this.store.query<{ version: number | null }[]>({
+      query:
+        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
+      bindValues: [aggregateId],
+    });
+    const expectedStartVersion = Number(existing[0]?.version ?? 0) + 1;
+    const sorted = [...eventsToAppend].sort((a, b) => a.version - b.version);
+    if (sorted[0]?.version !== expectedStartVersion) {
+      throw new Error(
+        `Version conflict for ${aggregateId}: expected ${expectedStartVersion}`
+      );
+    }
+    for (let idx = 1; idx < sorted.length; idx += 1) {
+      const expected = expectedStartVersion + idx;
+      if (sorted[idx]?.version !== expected) {
+        throw new Error(
+          `Non-monotonic versions for ${aggregateId}: expected ${expected}`
+        );
+      }
+    }
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+      try {
+        this.store.commit(
+          ...sorted.map((event) =>
+            events.goalEvent({
+              id: event.id,
+              aggregateId,
+              eventType: event.eventType,
+              payload: event.payload,
+              version: event.version,
+              occurredAt: event.occurredAt,
+            })
+          )
+        );
+        return;
+      } catch (error) {
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+        await sleep(RETRY_DELAY_MS * attempt);
+      }
+    }
   }
 
   async getEvents(

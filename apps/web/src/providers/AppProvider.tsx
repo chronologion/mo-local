@@ -19,12 +19,14 @@ import { createStorePromise, type Store } from '@livestore/livestore';
 import { adapter } from './LiveStoreAdapter';
 import { schema, tables } from '../livestore/schema';
 import { LiveStoreEventStore } from '../services/LiveStoreEventStore';
+import { deriveSaltForUser } from '../lib/deriveSalt';
+import { z } from 'zod';
 
 const USER_META_KEY = 'mo-local-user';
 
 type UserMeta = {
   userId: string;
-  pwdSalt: string;
+  pwdSalt?: string;
 };
 
 type SessionState =
@@ -92,7 +94,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
         const crypto = new WebCryptoService();
@@ -173,14 +177,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         // Subscribe to LiveStore commits to refresh debug stats
-        const unsubscribe = store.subscribe(tables.goal_events.count(), () =>
+        unsubscribe = store.subscribe(tables.goal_events.count(), () =>
           updateDebug()
         );
 
         // Prime initial state
         updateDebug();
 
-        if (!cancelled) {
+        if (signal.aborted) return;
+        if (!signal.aborted) {
           setServices({
             crypto,
             keyStore,
@@ -199,29 +204,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to initialize app';
-        if (!cancelled) {
+        if (!signal.aborted) {
           setInitError(message);
         }
       }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
+      unsubscribe?.();
     };
   }, []);
 
   useEffect(() => {
     if (!services) return;
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     (async () => {
       const meta = loadMeta();
       if (!meta) {
-        if (!cancelled) setSession({ status: 'needs-onboarding' });
+        if (!signal.aborted) setSession({ status: 'needs-onboarding' });
         return;
       }
-      if (!cancelled) setSession({ status: 'locked', userId: meta.userId });
+      if (!signal.aborted) {
+        setSession({ status: 'locked', userId: meta.userId });
+      }
     })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [services]);
 
@@ -230,9 +239,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error('Services not initialized');
     }
     const userId = uuidv7();
-    const salt =
-      globalThis.crypto?.getRandomValues(new Uint8Array(16)) ||
-      new Uint8Array(16).map(() => Math.floor(Math.random() * 256));
+    const salt = await deriveSaltForUser(userId);
 
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
@@ -248,14 +255,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
-    saveMeta({ userId, pwdSalt: btoa(String.fromCharCode(...salt)) });
+    saveMeta({ userId });
     setSession({ status: 'ready', userId });
   };
   const unlock = async ({ password }: { password: string }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const salt = Uint8Array.from(atob(meta.pwdSalt), (c) => c.charCodeAt(0));
+    const salt = meta.pwdSalt
+      ? Uint8Array.from(atob(meta.pwdSalt), (c) => c.charCodeAt(0))
+      : await deriveSaltForUser(meta.userId);
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
     const keys = await services.keyStore.getIdentityKeys(meta.userId);
@@ -274,40 +283,47 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     backup: string;
   }) => {
     if (!services) throw new Error('Services not initialized');
-    let cipherB64: string | null = null;
-    let saltB64: string | null = null;
-    try {
-      const parsed = JSON.parse(backup) as { cipher?: string; salt?: string };
-      cipherB64 = parsed.cipher ?? null;
-      saltB64 = parsed.salt ?? null;
-    } catch {
-      cipherB64 = backup.trim();
-    }
-    if (!cipherB64) {
-      throw new Error('Backup missing cipher');
+    const envelopeSchema = z.object({
+      cipher: z.string().min(1),
+      salt: z.string().optional(),
+    });
+    const parsedEnvelope = (() => {
+      try {
+        return envelopeSchema.parse(JSON.parse(backup));
+      } catch {
+        return envelopeSchema.parse({ cipher: backup.trim() });
+      }
+    })();
+    const cipherB64 = parsedEnvelope.cipher;
+    const meta = loadMeta();
+    let saltB64 = parsedEnvelope.salt ?? meta?.pwdSalt ?? null;
+    if (!saltB64 && meta?.userId) {
+      const derivedSalt = await deriveSaltForUser(meta.userId);
+      saltB64 = btoa(String.fromCharCode(...derivedSalt));
     }
     if (!saltB64) {
-      const meta = loadMeta();
-      if (!meta) {
-        throw new Error('Backup missing salt; please export a new backup');
-      }
-      saltB64 = meta.pwdSalt;
+      throw new Error('Backup missing salt and no local metadata available');
     }
     const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, kek);
-    const payload = JSON.parse(new TextDecoder().decode(decrypted)) as {
-      userId: string;
-      identityKeys: {
-        signingPrivateKey: string;
-        signingPublicKey: string;
-        encryptionPrivateKey: string;
-        encryptionPublicKey: string;
-      } | null;
-      aggregateKeys: Record<string, string>;
-    };
+    const payloadSchema = z.object({
+      userId: z.string().min(1),
+      identityKeys: z
+        .object({
+          signingPrivateKey: z.string().min(1),
+          signingPublicKey: z.string().min(1),
+          encryptionPrivateKey: z.string().min(1),
+          encryptionPublicKey: z.string().min(1),
+        })
+        .nullable(),
+      aggregateKeys: z.record(z.string(), z.string().min(1)),
+    });
+    const payload = payloadSchema.parse(
+      JSON.parse(new TextDecoder().decode(decrypted))
+    );
 
     await services.keyStore.clearAll();
     if (payload.identityKeys) {
@@ -330,7 +346,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         ),
       });
     }
-    const aggregateEntries = Object.entries(payload.aggregateKeys);
+    const aggregateEntries: Array<[string, string]> = Object.entries(
+      payload.aggregateKeys
+    );
     for (const [aggregateId, keyB64] of aggregateEntries) {
       await services.keyStore.saveAggregateKey(
         aggregateId,
@@ -340,7 +358,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     saveMeta({
       userId: payload.userId,
-      pwdSalt: saltB64,
     });
     setMasterKey(kek);
     setSession({ status: 'ready', userId: payload.userId });
@@ -368,7 +385,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       >
         {children}
       </AppContext.Provider>
-      {debugInfo ? (
+      {debugInfo && import.meta.env.DEV ? (
         <DebugPanel
           info={{
             vfsName: 'adapter-web',

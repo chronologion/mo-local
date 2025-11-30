@@ -1,11 +1,12 @@
 import { DomainEvent } from '../shared/DomainEvent';
+import { eventTypes } from './eventTypes';
 import { PriorityLevel } from '../goals/Priority';
 
 /**
  * Event emitted when a Goal's priority is changed.
  */
 export class GoalPriorityChanged implements DomainEvent {
-  readonly eventType = 'GoalPriorityChanged';
+  readonly eventType = eventTypes.goalPriorityChanged;
   readonly occurredAt: Date;
   readonly aggregateId: string;
 

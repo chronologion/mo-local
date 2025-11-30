@@ -33,6 +33,10 @@ export class GoalQueries {
       const kGoal = await this.keyProvider(aggregateId);
       if (!kGoal) {
         // Skip aggregates we cannot decrypt (stale data without keys)
+        console.warn(
+          '[GoalQueries] Missing encryption key, skipping aggregate',
+          aggregateId
+        );
         continue;
       }
 
