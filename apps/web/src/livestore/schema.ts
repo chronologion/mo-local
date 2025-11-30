@@ -1,7 +1,5 @@
-import { Events, makeSchema, Schema, State } from '@livestore/livestore';
-
-// Schema from livestore exports runtime helpers; cast to access static builders despite d.ts limits.
-const S = Schema as unknown as typeof import('effect/Schema');
+import { Events, makeSchema, State } from '@livestore/livestore';
+import * as S from 'effect/Schema';
 
 // LiveStore schema mirroring our encrypted goal event log.
 // Payloads remain ciphertext (Uint8Array); no plaintext at rest.
