@@ -170,6 +170,7 @@ function Unlock() {
   const [backupInput, setBackupInput] = useState('');
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -252,6 +253,36 @@ function Unlock() {
         </CardHeader>
         <CardContent className="space-y-3">
           <form className="space-y-3" onSubmit={handleRestore}>
+            <div className="space-y-2">
+              <Label>Backup file</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".backup,application/json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setSelectedFileName(file.name);
+                    try {
+                      const text = await file.text();
+                      setBackupInput(text);
+                      setRestoreError(null);
+                    } catch (err) {
+                      const message =
+                        err instanceof Error
+                          ? err.message
+                          : 'Failed to read backup file';
+                      setRestoreError(message);
+                    }
+                  }}
+                />
+                {selectedFileName ? (
+                  <span className="text-xs text-slate-400">
+                    {selectedFileName}
+                  </span>
+                ) : null}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Backup blob</Label>
               <textarea
