@@ -14,6 +14,8 @@ type DebugInfo = {
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
   const tables = info.tables && info.tables.length > 0 ? info.tables.join(', ') : 'none';
+  const tableCount =
+    info.tables && info.tables.length > 0 ? info.tables.length : 0;
   return (
     <div
       style={{
@@ -43,7 +45,7 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
       {typeof info.aggregateCount === 'number' ? (
         <div>Aggregates: {info.aggregateCount}</div>
       ) : null}
-      <div>Tables: {tables}</div>
+      <div>Tables: {tableCount}</div>
       {info.note ? <div>Note: {info.note}</div> : null}
     </div>
   );
