@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { SliceValue } from '@mo/domain';
 import {
   ArrowRight,
@@ -376,7 +376,7 @@ function GoalForm({
 }
 
 function GoalDashboard() {
-  const { session } = useApp();
+  const { session, services } = useApp();
   const { goals, loading, error, refresh } = useGoals();
   const {
     createGoal,
@@ -393,6 +393,10 @@ function GoalDashboard() {
     priority: 'must',
     targetMonth: getDefaultTargetMonth(),
   });
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [backupJson, setBackupJson] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   const sortedGoals = useMemo(
     () => [...goals].sort((a, b) => a.targetMonth.localeCompare(b.targetMonth)),
@@ -424,6 +428,54 @@ function GoalDashboard() {
     setEditingId(null);
   };
 
+  useEffect(() => {
+    if (!backupOpen || session.status !== 'ready') return;
+    setBackupLoading(true);
+    setBackupError(null);
+    services.keyStore
+      .getIdentityKeys(session.userId)
+      .then((keys) => {
+        if (!keys) {
+          setBackupError('No keys found in keystore');
+          setBackupJson(null);
+          return;
+        }
+        const encode = (data: Uint8Array) =>
+          btoa(String.fromCharCode(...Array.from(data)));
+        const payload = {
+          userId: session.userId,
+          exportedAt: new Date().toISOString(),
+          signing: {
+            publicKey: encode(keys.signingPublicKey),
+            privateKey: encode(keys.signingPrivateKey),
+          },
+          encryption: {
+            publicKey: encode(keys.encryptionPublicKey),
+            privateKey: encode(keys.encryptionPrivateKey),
+          },
+        };
+        setBackupJson(JSON.stringify(payload, null, 2));
+      })
+      .catch((err) => {
+        const message =
+          err instanceof Error ? err.message : 'Failed to load keys';
+        setBackupError(message);
+        setBackupJson(null);
+      })
+      .finally(() => setBackupLoading(false));
+  }, [backupOpen, services.keyStore, session]);
+
+  const downloadBackup = () => {
+    if (!backupJson) return;
+    const blob = new Blob([backupJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mo-local-backup-${session.status === 'ready' ? session.userId : 'user'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
       <div className="flex flex-col gap-3">
@@ -443,12 +495,17 @@ function GoalDashboard() {
               No sync or sharing yet. Everything persists in OPFS/LiveStore.
             </p>
           </div>
-          <Button variant="secondary" onClick={refresh} disabled={loading}>
-            <RefreshCw
-              className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
-            />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setBackupOpen(true)}>
+              Backup keys
+            </Button>
+            <Button variant="secondary" onClick={refresh} disabled={loading}>
+              <RefreshCw
+                className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
+              />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -648,6 +705,64 @@ function GoalDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {backupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-panel/90 p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Backup identity keys
+                </h3>
+                <p className="text-sm text-slate-400">
+                  Save this file securely. It contains your signing/encryption
+                  keypairs.
+                </p>
+              </div>
+              <Button variant="ghost" onClick={() => setBackupOpen(false)}>
+                Close
+              </Button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {backupLoading ? (
+                <div className="flex items-center gap-2 text-slate-300">
+                  <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
+                  Loading keys…
+                </div>
+              ) : backupError ? (
+                <p className="text-sm text-red-400">{backupError}</p>
+              ) : backupJson ? (
+                <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-black/60 p-3 text-xs text-slate-200">
+                  {backupJson}
+                </pre>
+              ) : null}
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={downloadBackup}
+                  disabled={!backupJson || backupLoading}
+                  variant="secondary"
+                >
+                  Download .json
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (backupJson) {
+                      void navigator.clipboard.writeText(backupJson);
+                    }
+                  }}
+                  disabled={!backupJson || backupLoading}
+                  variant="ghost"
+                >
+                  Copy
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Keep backups offline. Anyone with this file can impersonate you.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
