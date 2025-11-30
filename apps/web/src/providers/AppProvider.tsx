@@ -73,7 +73,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [debugInfo, setDebugInfo] = useState<{
     storeId: string;
     opfsAvailable: boolean;
+    storage: string;
     note?: string;
+    eventCount?: number;
+    aggregateCount?: number;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -125,7 +128,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               typeof navigator !== 'undefined' &&
               !!navigator.storage &&
               typeof navigator.storage.getDirectory === 'function',
+            storage: 'opfs',
             note: 'LiveStore adapter (opfs)',
+            eventCount: (() => {
+              try {
+                const res = store.query<{ count: number }[]>({
+                  query: 'SELECT COUNT(*) as count FROM goal_events',
+                  bindValues: [],
+                });
+                return Number(res?.[0]?.count ?? 0);
+              } catch {
+                return 0;
+              }
+            })(),
+            aggregateCount: (() => {
+              try {
+                const res = store.query<{ count: number }[]>({
+                  query:
+                    'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
+                  bindValues: [],
+                });
+                return Number(res?.[0]?.count ?? 0);
+              } catch {
+                return 0;
+              }
+            })(),
           });
         }
       } catch (error) {

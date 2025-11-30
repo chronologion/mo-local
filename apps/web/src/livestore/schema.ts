@@ -1,9 +1,5 @@
-import { Events, makeSchema, Schema, State } from '@livestore/livestore';
-
-// LiveStore re-exports the Effect Schema utilities; the type surface lacks static members in the d.ts,
-// so we cast to any for the builder helpers.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const S: any = Schema;
+import { Events, makeSchema, State } from '@livestore/livestore';
+import * as S from 'effect/Schema';
 
 // LiveStore schema mirroring our encrypted goal event log.
 // Payloads remain ciphertext (Uint8Array); no plaintext at rest.
@@ -11,14 +7,15 @@ const S: any = Schema;
 const goalEventsTable = State.SQLite.table({
   name: 'goal_events',
   columns: {
-    sequence: State.SQLite.integer({ primaryKey: true, autoIncrement: true }),
+    sequence: State.SQLite.integer({
+      primaryKey: true,
+      autoIncrement: true,
+      nullable: true,
+    }),
     id: State.SQLite.text({ nullable: false }),
     aggregate_id: State.SQLite.text({ nullable: false }),
     event_type: State.SQLite.text({ nullable: false }),
-    payload_encrypted: State.SQLite.blob({
-      schema: S.Uint8ArrayFromSelf,
-      nullable: false,
-    }),
+    payload_encrypted: State.SQLite.blob({ nullable: false }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
   },
@@ -45,12 +42,20 @@ export const events = {
 };
 
 const materializers = State.SQLite.materializers(events, {
-  'goal.event': ({ id, aggregateId, eventType, payload, version, occurredAt }) =>
+  'goal.event': ({
+    id,
+    aggregateId,
+    eventType,
+    payload,
+    version,
+    occurredAt,
+  }) =>
     tables.goal_events.insert({
       id,
       aggregate_id: aggregateId,
       event_type: eventType,
-      payload_encrypted: payload,
+      // LiveStore decodes payload as Uint8Array<ArrayBufferLike>; insert expects Uint8Array<ArrayBuffer>.
+      payload_encrypted: payload as Uint8Array<ArrayBuffer>,
       version,
       occurred_at: occurredAt,
     }),

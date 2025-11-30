@@ -6,6 +6,10 @@ type DebugInfo = {
   syncAccessHandle: boolean;
   tables?: string[];
   note?: string;
+  storeId?: string;
+  storage?: string;
+  eventCount?: number;
+  aggregateCount?: number;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -29,8 +33,16 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
     >
       <div style={{ fontWeight: 700, marginBottom: 4 }}>LiveStore Debug</div>
       <div>VFS: {info.vfsName}</div>
+      {info.storage ? <div>Storage: {info.storage}</div> : null}
+      {info.storeId ? <div>StoreId: {info.storeId}</div> : null}
       <div>OPFS: {info.opfsAvailable ? 'yes' : 'no'}</div>
       <div>Sync Access Handle: {info.syncAccessHandle ? 'yes' : 'no'}</div>
+      {typeof info.eventCount === 'number' ? (
+        <div>Events: {info.eventCount}</div>
+      ) : null}
+      {typeof info.aggregateCount === 'number' ? (
+        <div>Aggregates: {info.aggregateCount}</div>
+      ) : null}
       <div>Tables: {tables}</div>
       {info.note ? <div>Note: {info.note}</div> : null}
     </div>
