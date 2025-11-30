@@ -166,31 +166,53 @@ export class IndexedDBKeyStore implements IKeyStore {
     aggregateId: string,
     wrappedKey: Uint8Array
   ): Promise<void> {
+    if (!this.masterKey) {
+      throw new Error('Master key not set');
+    }
+    const encrypted = await this.crypto.encrypt(wrappedKey, this.masterKey);
     await this.withStore<void>(STORE_AGGREGATE, 'readwrite', (store) =>
-      store.put({ aggregateId, wrappedKey })
+      store.put({ aggregateId, blob: encrypted })
     );
   }
 
   async getAggregateKey(aggregateId: string): Promise<Uint8Array | null> {
-    const record = await this.withStore<{
-      aggregateId: string;
-      wrappedKey: Uint8Array;
-    } | null>(STORE_AGGREGATE, 'readonly', (store) => store.get(aggregateId));
-    return record ? toBytes(record.wrappedKey) : null;
+    if (!this.masterKey) {
+      throw new Error('Master key not set');
+    }
+    const record = await this.withStore<
+      { aggregateId: string; blob: Uint8Array } | null
+    >(STORE_AGGREGATE, 'readonly', (store) => store.get(aggregateId));
+    if (!record) return null;
+    if (!('blob' in record)) {
+      throw new Error(
+        'Legacy aggregate key format detected; please clear local data and re-onboard.'
+      );
+    }
+    const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
+    return new Uint8Array(decrypted);
   }
 
   async exportKeys(): Promise<KeyBackup> {
     const aggregates = (await this.withStore<
-      { aggregateId: string; wrappedKey: Uint8Array }[]
+      { aggregateId: string; blob: Uint8Array }[]
     >(STORE_AGGREGATE, 'readonly', (store) => store.getAll())) as {
       aggregateId: string;
-      wrappedKey: Uint8Array;
+      blob: Uint8Array;
     }[];
 
     const aggregateKeys: Record<string, Uint8Array> = {};
-    aggregates.forEach(({ aggregateId, wrappedKey }) => {
-      aggregateKeys[aggregateId] = toBytes(wrappedKey);
-    });
+    for (const { aggregateId, blob } of aggregates) {
+      if (!this.masterKey) {
+        throw new Error('Master key not set');
+      }
+      if (!('blob' in { blob })) {
+        throw new Error(
+          'Legacy aggregate key format detected; please clear local data and re-onboard.'
+        );
+      }
+      const decrypted = await this.crypto.decrypt(blob, this.masterKey);
+      aggregateKeys[aggregateId] = new Uint8Array(decrypted);
+    }
 
     const records = (await this.withStore<
       { userId: string; blob: Uint8Array }[]
