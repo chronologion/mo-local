@@ -1,8 +1,32 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { SliceValue } from '@mo/domain';
+import {
+  ArrowRight,
+  BadgeCheck,
+  Check,
+  KeyRound,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  Wand2,
+} from 'lucide-react';
 import { useApp } from './providers/AppProvider';
 import { useGoals } from './hooks/useGoals';
 import { useGoalCommands } from './hooks/useGoalCommands';
+import { Button } from './components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './components/ui/card';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Select } from './components/ui/select';
+import { Badge } from './components/ui/badge';
+import { cn } from './lib/utils';
 
 const sliceOptions: SliceValue[] = [
   'Health',
@@ -20,6 +44,11 @@ const priorityOptions: Array<'must' | 'should' | 'maybe'> = [
   'should',
   'maybe',
 ];
+
+const getDefaultTargetMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 function Onboarding() {
   const { completeOnboarding } = useApp();
@@ -111,198 +140,220 @@ function Onboarding() {
   };
 
   return (
-    <div className="content">
-      <div className="panel">
-        {step === 'password' && (
-          <>
-            <h2>Welcome to MO Local</h2>
-            <p className="muted">
-              Offline-first workspace. We create an identity locally and keep
-              keys on this device only. No sync or sharing yet.
-            </p>
-            <form className="form-grid" onSubmit={handleSubmitPassword}>
-              <div className="field">
-                <label>Password (for deriving K_pwd)</label>
-                <input
-                  className="input"
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10">
+      <div className="flex items-center gap-3">
+        <Badge tone="accent" className="uppercase tracking-widest">
+          Offline-first
+        </Badge>
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Lock className="h-4 w-4 text-accent2" />
+          Keys stay local — no sync yet
+        </div>
+      </div>
+      <Card>
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-2 text-accent">
+            <Wand2 className="h-5 w-5" />
+            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
+              Step {step === 'password' ? '1' : '2'} of 2
+            </span>
+          </div>
+          <CardTitle>Set up your local identity</CardTitle>
+          <CardDescription>
+            Generate keys on-device, protect them with a password, and back up
+            your recovery words.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {step === 'password' && (
+            <form
+              className="grid gap-4 md:grid-cols-2"
+              onSubmit={handleSubmitPassword}
+            >
+              <div className="space-y-2">
+                <Label>Password (derives K_pwd)</Label>
+                <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   minLength={8}
+                  required
                   placeholder="Create a password"
                 />
               </div>
-              <div className="field">
-                <label>Confirm password</label>
-                <input
-                  className="input"
+              <div className="space-y-2">
+                <Label>Confirm password</Label>
+                <Input
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  required
                   minLength={8}
+                  required
                   placeholder="Repeat password"
                 />
               </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12 }}>
-                <button className="button" type="submit" disabled={loading}>
+              <div className="md:col-span-2 flex items-center gap-3">
+                <Button type="submit" disabled={loading}>
                   Next: backup keys
-                </button>
-                {error && <span className="danger">{error}</span>}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                {error && <span className="text-sm text-red-400">{error}</span>}
               </div>
             </form>
-          </>
-        )}
-        {step === 'backup' && (
-          <>
-            <h2>Backup your recovery phrase</h2>
-            <p className="muted">
-              Write these 12 words down. If you lose them, you lose access to
-              your data. We never send keys to a server.
-            </p>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 8,
-                background: '#0b1221',
-                padding: 12,
-                borderRadius: 8,
-                fontFamily: 'monospace',
-                fontSize: 13,
-              }}
-            >
-              {phrase.map((word, idx) => (
-                <div key={idx}>
-                  {idx + 1}. {word}
-                </div>
-              ))}
-            </div>
-            <form className="form-grid" onSubmit={handleSubmitBackup}>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Confirm selected words</label>
-                <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                  {challenge.map((idx) => (
-                    <input
+          )}
+          {step === 'backup' && (
+            <>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-300">
+                  Write these 12 words down. If you lose them, you lose access.
+                  We never send keys to a server.
+                </p>
+                <div className="grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-white/5 p-4 font-mono text-sm md:grid-cols-3">
+                  {phrase.map((word, idx) => (
+                    <div
                       key={idx}
-                      className="input"
-                      style={{ width: 120 }}
-                      placeholder={`Word ${idx + 1}`}
-                      value={answers[idx] ?? ''}
-                      onChange={(e) =>
-                        setAnswers((prev) => ({
-                          ...prev,
-                          [idx]: e.target.value,
-                        }))
-                      }
-                    />
+                      className="flex items-center gap-2 text-slate-200"
+                    >
+                      <span className="text-xs text-slate-500">{idx + 1}.</span>
+                      <span>{word}</span>
+                    </div>
                   ))}
                 </div>
               </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12 }}>
-                <button className="button" type="submit" disabled={loading}>
-                  {loading ? 'Creating keys…' : 'Finish onboarding'}
-                </button>
-                <button
-                  className="button"
-                  type="button"
-                  style={{ background: 'transparent', color: '#e2e8f0' }}
-                  onClick={() => setStep('password')}
-                >
-                  Back
-                </button>
-                {error && <span className="danger">{error}</span>}
-              </div>
-            </form>
-          </>
-        )}
-      </div>
+              <form className="space-y-4" onSubmit={handleSubmitBackup}>
+                <div className="space-y-2">
+                  <Label>Confirm these words</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {challenge.map((idx) => (
+                      <Input
+                        key={idx}
+                        className="w-32"
+                        placeholder={`Word ${idx + 1}`}
+                        value={answers[idx] ?? ''}
+                        onChange={(e) =>
+                          setAnswers((prev) => ({
+                            ...prev,
+                            [idx]: e.target.value,
+                          }))
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Creating keys…' : 'Finish onboarding'}
+                    <BadgeCheck className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setStep('password')}
+                  >
+                    Back
+                  </Button>
+                  {error && (
+                    <span className="text-sm text-red-400">{error}</span>
+                  )}
+                </div>
+              </form>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
+type GoalFormValues = {
+  summary: string;
+  slice: SliceValue;
+  priority: 'must' | 'should' | 'maybe';
+  targetMonth: string;
+};
+
 function GoalForm({
   onSubmit,
 }: {
-  onSubmit: (params: {
-    summary: string;
-    slice: SliceValue;
-    priority: 'must' | 'should' | 'maybe';
-    targetMonth: string;
-  }) => Promise<void>;
+  onSubmit: (params: GoalFormValues) => Promise<void>;
 }) {
-  const [summary, setSummary] = useState('');
-  const [slice, setSlice] = useState<SliceValue>('Health');
-  const [priority, setPriority] = useState<'must' | 'should' | 'maybe'>('must');
-  const [targetMonth, setTargetMonth] = useState(() => {
-    const now = new Date();
-    const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-      2,
-      '0'
-    )}`;
-    return m;
+  const [values, setValues] = useState<GoalFormValues>({
+    summary: '',
+    slice: 'Health',
+    priority: 'must',
+    targetMonth: getDefaultTargetMonth(),
   });
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    await onSubmit({ summary, slice, priority, targetMonth });
-    setSummary('');
+    await onSubmit(values);
+    setValues((prev) => ({ ...prev, summary: '' }));
   };
 
   return (
-    <form className="form-grid" onSubmit={handleSubmit}>
-      <div className="field">
-        <label>Summary</label>
-        <input
-          className="input"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
+    <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <Label>Summary</Label>
+        <Input
+          value={values.summary}
+          onChange={(e) =>
+            setValues((prev) => ({ ...prev, summary: e.target.value }))
+          }
           required
           placeholder="Define a concrete goal"
         />
       </div>
-      <div className="field">
-        <label>Slice</label>
-        <select
-          className="input"
-          value={slice}
-          onChange={(e) => setSlice(e.target.value as SliceValue)}
+      <div className="space-y-2">
+        <Label>Slice</Label>
+        <Select
+          value={values.slice}
+          onChange={(e) =>
+            setValues((prev) => ({
+              ...prev,
+              slice: e.target.value as SliceValue,
+            }))
+          }
         >
           {sliceOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
-      <div className="field">
-        <label>Priority</label>
-        <select
-          className="input"
-          value={priority}
-          onChange={(e) => setPriority(e.target.value as typeof priority)}
+      <div className="space-y-2">
+        <Label>Priority</Label>
+        <Select
+          value={values.priority}
+          onChange={(e) =>
+            setValues((prev) => ({
+              ...prev,
+              priority: e.target.value as GoalFormValues['priority'],
+            }))
+          }
         >
           {priorityOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
-      <div className="field">
-        <label>Target month</label>
-        <input
-          className="input"
+      <div className="space-y-2">
+        <Label>Target month</Label>
+        <Input
           type="month"
-          value={targetMonth}
-          onChange={(e) => setTargetMonth(e.target.value)}
+          value={values.targetMonth}
+          onChange={(e) =>
+            setValues((prev) => ({ ...prev, targetMonth: e.target.value }))
+          }
         />
       </div>
-      <div style={{ gridColumn: '1 / -1' }}>
-        <button className="button" type="submit">
+      <div className="md:col-span-2">
+        <Button type="submit" className="w-full md:w-auto">
           Create goal
-        </button>
+          <Sparkles className="ml-2 h-4 w-4" />
+        </Button>
       </div>
     </form>
   );
@@ -320,89 +371,146 @@ function GoalDashboard() {
   } = useGoalCommands();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editSummary, setEditSummary] = useState('');
-  const [editSlice, setEditSlice] = useState<SliceValue>('Health');
-  const [editPriority, setEditPriority] = useState<'must' | 'should' | 'maybe'>(
-    'must'
-  );
-  const [editTargetMonth, setEditTargetMonth] = useState('');
+  const [editValues, setEditValues] = useState<GoalFormValues>({
+    summary: '',
+    slice: 'Health',
+    priority: 'must',
+    targetMonth: getDefaultTargetMonth(),
+  });
 
   const sortedGoals = useMemo(
     () => [...goals].sort((a, b) => a.targetMonth.localeCompare(b.targetMonth)),
     [goals]
   );
 
+  const activeGoal = editingId ? goals.find((g) => g.id === editingId) : null;
+
+  const saveEdit = async () => {
+    if (!activeGoal) return;
+    const changes: Partial<GoalFormValues> & { goalId: string } = {
+      goalId: activeGoal.id,
+    };
+    if (editValues.summary !== activeGoal.summary)
+      changes.summary = editValues.summary;
+    if (editValues.slice !== (activeGoal.slice as SliceValue))
+      changes.slice = editValues.slice;
+    if (editValues.priority !== activeGoal.priority)
+      changes.priority = editValues.priority;
+    if (editValues.targetMonth !== activeGoal.targetMonth)
+      changes.targetMonth = editValues.targetMonth;
+
+    if (Object.keys(changes).length === 1) {
+      setEditingId(null);
+      return;
+    }
+    await updateGoal(changes);
+    await refresh();
+    setEditingId(null);
+  };
+
   return (
-    <div className="content">
-      <div className="panel">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 style={{ margin: 0 }}>Goals (offline)</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              User: {session.status === 'ready' ? session.userId : '—'}
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Badge tone="accent">local-only</Badge>
+              <span className="flex items-center gap-1">
+                <KeyRound className="h-4 w-4 text-accent2" /> User:{' '}
+                {session.status === 'ready' ? session.userId : '—'}
+              </span>
+            </div>
+            <h1 className="text-2xl font-semibold text-white">
+              Goals (offline)
+            </h1>
+            <p className="text-sm text-slate-400">
+              No sync or sharing yet. Everything persists in OPFS/LiveStore.
             </p>
           </div>
-          <button className="button" onClick={refresh} disabled={loading}>
+          <Button variant="secondary" onClick={refresh} disabled={loading}>
+            <RefreshCw
+              className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
+            />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="panel">
-        <h3 style={{ marginTop: 0 }}>New goal</h3>
-        <GoalForm
-          onSubmit={async (params) => {
-            await createGoal(params);
-            await refresh();
-          }}
-        />
-        {(mutationError || error) && (
-          <p className="danger" style={{ marginTop: 10 }}>
-            {mutationError || error}
-          </p>
-        )}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>New goal</CardTitle>
+          <CardDescription>
+            All data is encrypted locally before hitting storage.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GoalForm
+            onSubmit={async (params) => {
+              await createGoal(params);
+              await refresh();
+            }}
+          />
+          {(mutationError || error) && (
+            <p className="text-sm text-red-400">{mutationError || error}</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="panel">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0 }}>Your goals</h3>
-          {loading && <span className="muted">Loading…</span>}
-        </div>
-        {sortedGoals.length === 0 && !loading && (
-          <p className="muted">No goals yet. Start by creating one.</p>
-        )}
-        <div className="goal-list">
-          {sortedGoals.map((goal) => (
-            <div key={goal.id} className="goal-card">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>{goal.summary}</strong>
-                <span className="tag">{goal.priority}</span>
-              </div>
-              <div className="row">
-                <span className="tag">Slice: {goal.slice}</span>
-                <span className="tag">Target: {goal.targetMonth}</span>
-              </div>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <small className="muted">{goal.id}</small>
-                <div className="row" style={{ gap: 8 }}>
-                  <button
-                    className="button"
-                    style={{ background: 'transparent', color: '#e2e8f0' }}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Your goals</CardTitle>
+            <CardDescription>
+              Reacts to LiveStore commits; keeps projections current without
+              reload.
+            </CardDescription>
+          </div>
+          {loading && <span className="text-sm text-slate-400">Loading…</span>}
+        </CardHeader>
+        <CardContent>
+          {sortedGoals.length === 0 && !loading ? (
+            <div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-slate-400">
+              No goals yet. Start by creating one.
+            </div>
+          ) : null}
+          <div className="grid gap-4 md:grid-cols-2">
+            {sortedGoals.map((goal) => (
+              <div
+                key={goal.id}
+                className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge tone="muted">{goal.slice}</Badge>
+                    <Badge tone="accent">{goal.priority}</Badge>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {goal.targetMonth}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="font-semibold text-white">{goal.summary}</div>
+                  <div className="text-[11px] text-slate-500">{goal.id}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       setEditingId(goal.id);
-                      setEditSummary(goal.summary);
-                      setEditSlice(goal.slice as SliceValue);
-                      setEditPriority(
-                        goal.priority as 'must' | 'should' | 'maybe'
-                      );
-                      setEditTargetMonth(goal.targetMonth);
+                      setEditValues({
+                        summary: goal.summary,
+                        slice: goal.slice as SliceValue,
+                        priority: goal.priority as GoalFormValues['priority'],
+                        targetMonth: goal.targetMonth,
+                      });
                     }}
                   >
                     Edit
-                  </button>
-                  <button
-                    className="button"
-                    style={{ background: 'transparent', color: '#e2e8f0' }}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={async () => {
                       setDeletingId(goal.id);
                       try {
@@ -414,110 +522,107 @@ function GoalDashboard() {
                     }}
                     disabled={mutating && deletingId === goal.id}
                   >
-                    {mutating && deletingId === goal.id
-                      ? 'Deleting…'
-                      : 'Delete'}
-                  </button>
+                    {mutating && deletingId === goal.id ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-              </div>
-              {editingId === goal.id && (
-                <form
-                  className="form-grid"
-                  style={{
-                    marginTop: 12,
-                    borderTop: '1px solid #2d3748',
-                    paddingTop: 12,
-                  }}
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await updateGoal({
-                      goalId: goal.id,
-                      summary: editSummary,
-                      slice: editSlice,
-                      priority: editPriority,
-                      targetMonth: editTargetMonth,
-                    });
-                    await refresh();
-                    setEditingId(null);
-                  }}
-                >
-                  <div className="field">
-                    <label>Summary</label>
-                    <input
-                      className="input"
-                      value={editSummary}
-                      onChange={(ev) => setEditSummary(ev.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Slice</label>
-                    <select
-                      className="input"
-                      value={editSlice}
-                      onChange={(ev) =>
-                        setEditSlice(ev.target.value as SliceValue)
-                      }
-                    >
-                      {sliceOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label>Priority</label>
-                    <select
-                      className="input"
-                      value={editPriority}
-                      onChange={(ev) =>
-                        setEditPriority(
-                          ev.target.value as 'must' | 'should' | 'maybe'
-                        )
-                      }
-                    >
-                      {priorityOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label>Target month</label>
-                    <input
-                      className="input"
-                      type="month"
-                      value={editTargetMonth}
-                      onChange={(ev) => setEditTargetMonth(ev.target.value)}
-                    />
-                  </div>
-                  <div
-                    style={{ gridColumn: '1 / -1', display: 'flex', gap: 8 }}
+                {editingId === goal.id && (
+                  <form
+                    className="mt-3 grid gap-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      await saveEdit();
+                    }}
                   >
-                    <button
-                      className="button"
-                      type="submit"
-                      disabled={mutating}
-                    >
-                      {mutating ? 'Saving…' : 'Save changes'}
-                    </button>
-                    <button
-                      className="button"
-                      type="button"
-                      style={{ background: 'transparent', color: '#e2e8f0' }}
-                      onClick={() => setEditingId(null)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+                    <div className="space-y-1">
+                      <Label>Summary</Label>
+                      <Input
+                        value={editValues.summary}
+                        onChange={(ev) =>
+                          setEditValues((prev) => ({
+                            ...prev,
+                            summary: ev.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label>Slice</Label>
+                        <Select
+                          value={editValues.slice}
+                          onChange={(ev) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              slice: ev.target.value as SliceValue,
+                            }))
+                          }
+                        >
+                          {sliceOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Priority</Label>
+                        <Select
+                          value={editValues.priority}
+                          onChange={(ev) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              priority: ev.target
+                                .value as GoalFormValues['priority'],
+                            }))
+                          }
+                        >
+                          {priorityOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Target month</Label>
+                        <Input
+                          type="month"
+                          value={editValues.targetMonth}
+                          onChange={(ev) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              targetMonth: ev.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button type="submit" size="sm" disabled={mutating}>
+                        <Check className="mr-1 h-4 w-4" />
+                        {mutating ? 'Saving…' : 'Save'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -526,18 +631,36 @@ export default function App() {
   const { session } = useApp();
 
   return (
-    <div className="app-shell">
-      <header className="header">
-        <div className="title">MO Local · Offline POC</div>
-        <div className="muted" style={{ fontSize: 12 }}>
-          No sync/sharing yet. Data stored locally.
+    <div className="min-h-screen">
+      <header className="border-b border-white/5 bg-panel/70 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent2 text-slate-950 font-bold">
+              MO
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-widest text-slate-500">
+                MO Local
+              </div>
+              <div className="text-sm text-slate-200">
+                Offline POC · LiveStore/OPFS
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Sparkles className="h-4 w-4 text-accent2" />
+            Zero-knowledge, local-first
+          </div>
         </div>
       </header>
       {session.status === 'loading' && (
-        <div className="content">
-          <div className="panel">
-            <p className="muted">Loading identity…</p>
-          </div>
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <Card>
+            <CardContent className="flex items-center gap-3 text-slate-300">
+              <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
+              Loading identity…
+            </CardContent>
+          </Card>
         </div>
       )}
       {session.status === 'needs-onboarding' && <Onboarding />}
