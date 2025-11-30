@@ -57,7 +57,7 @@ export const useGoalCommands = () => {
     try {
       const userId = ensureUser();
       const timestamp = Date.now();
-      if (params.summary) {
+      if (params.summary !== undefined) {
         const cmd = {
           type: 'ChangeGoalSummary' as const,
           goalId: params.goalId,
@@ -70,7 +70,7 @@ export const useGoalCommands = () => {
           throw new Error(result.errors.map((e) => e.message).join(', '));
         }
       }
-      if (params.slice) {
+      if (params.slice !== undefined) {
         const cmd = {
           type: 'ChangeGoalSlice' as const,
           goalId: params.goalId,
@@ -83,7 +83,7 @@ export const useGoalCommands = () => {
           throw new Error(result.errors.map((e) => e.message).join(', '));
         }
       }
-      if (params.priority) {
+      if (params.priority !== undefined) {
         const cmd = {
           type: 'ChangeGoalPriority' as const,
           goalId: params.goalId,
@@ -96,7 +96,7 @@ export const useGoalCommands = () => {
           throw new Error(result.errors.map((e) => e.message).join(', '));
         }
       }
-      if (params.targetMonth) {
+      if (params.targetMonth !== undefined) {
         const cmd = {
           type: 'ChangeGoalTargetMonth' as const,
           goalId: params.goalId,

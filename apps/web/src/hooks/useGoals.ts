@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { GoalListItem } from '../services/GoalQueries';
 import { useApp } from '../providers/AppProvider';
+import { tables } from '../livestore/schema';
 
 export const useGoals = () => {
   const { services } = useApp();
@@ -24,7 +25,13 @@ export const useGoals = () => {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    const sub = services.store.subscribe(tables.goal_events.count(), () => {
+      void refresh();
+    });
+    return () => {
+      sub?.();
+    };
+  }, [refresh, services.store]);
 
   return { goals, loading, error, refresh };
 };

@@ -9,6 +9,10 @@ import { events } from '../livestore/schema';
 export class LiveStoreEventStore implements IEventStore {
   constructor(private readonly store: Store) {}
 
+  getStore(): Store {
+    return this.store;
+  }
+
   async append(
     aggregateId: string,
     eventsToAppend: EncryptedEvent[]

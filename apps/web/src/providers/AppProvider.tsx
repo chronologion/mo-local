@@ -38,6 +38,7 @@ type SessionState =
 type Services = {
   crypto: WebCryptoService;
   keyStore: IKeyStore;
+  store: Store;
   eventStore: LiveStoreEventStore;
   eventBus: IEventBus;
   goalRepo: GoalRepository;
@@ -175,6 +176,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           setServices({
             crypto,
             keyStore,
+            store,
             eventStore,
             eventBus,
             goalRepo,

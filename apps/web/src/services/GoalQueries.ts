@@ -67,4 +67,27 @@ export class GoalQueries {
       return acc;
     }, new Map());
   }
+
+  async getGoalById(goalId: string): Promise<GoalListItem | null> {
+    const events = await this.eventStore.getEvents(goalId);
+    if (!events.length) return null;
+    const kGoal = await this.keyProvider(goalId);
+    if (!kGoal) {
+      throw new ApplicationError(
+        `Missing encryption key for ${goalId}`,
+        'missing_key'
+      );
+    }
+    const domainEvents = await this.toDomain.toDomainBatch(events, kGoal);
+    const goal = Goal.reconstitute(GoalId.of(goalId), domainEvents);
+    if (goal.isDeleted) return null;
+    return {
+      id: goal.id.value,
+      summary: goal.summary.value,
+      slice: goal.slice.value,
+      priority: goal.priority.level,
+      targetMonth: goal.targetMonth.value,
+      createdAt: goal.createdAt.value.getTime(),
+    };
+  }
 }
