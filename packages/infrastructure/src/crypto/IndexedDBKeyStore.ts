@@ -146,6 +146,11 @@ export class IndexedDBKeyStore implements IKeyStore {
       (store) => store.get(userId)
     );
     if (!record) return null;
+    if (!('blob' in record)) {
+      throw new Error(
+        'Legacy key format detected; please re-onboard to regenerate encrypted keys.'
+      );
+    }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
     const json = new TextDecoder().decode(decrypted);
     const parsed = JSON.parse(json) as IdentityKeys;
@@ -200,6 +205,11 @@ export class IndexedDBKeyStore implements IKeyStore {
     if (identityRecord) {
       if (!this.masterKey) {
         throw new Error('Master key not set');
+      }
+      if (!('blob' in identityRecord)) {
+        throw new Error(
+          'Legacy key format detected; please re-onboard to regenerate encrypted keys.'
+        );
       }
       const decrypted = await this.crypto.decrypt(
         identityRecord.blob,
