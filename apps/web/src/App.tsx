@@ -24,7 +24,13 @@ import {
 } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
-import { Select } from './components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './components/ui/select';
 import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
 
@@ -142,7 +148,7 @@ function Onboarding() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-10">
       <div className="flex items-center gap-3">
-        <Badge tone="accent" className="uppercase tracking-widest">
+        <Badge variant="secondary" className="uppercase tracking-widest">
           Offline-first
         </Badge>
         <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -307,36 +313,46 @@ function GoalForm({
         <Label>Slice</Label>
         <Select
           value={values.slice}
-          onChange={(e) =>
+          onValueChange={(val) =>
             setValues((prev) => ({
               ...prev,
-              slice: e.target.value as SliceValue,
+              slice: val as SliceValue,
             }))
           }
         >
-          {sliceOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+          <SelectTrigger>
+            <SelectValue placeholder="Choose slice" />
+          </SelectTrigger>
+          <SelectContent>
+            {sliceOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
         <Label>Priority</Label>
         <Select
           value={values.priority}
-          onChange={(e) =>
+          onValueChange={(val) =>
             setValues((prev) => ({
               ...prev,
-              priority: e.target.value as GoalFormValues['priority'],
+              priority: val as GoalFormValues['priority'],
             }))
           }
         >
-          {priorityOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+          <SelectTrigger>
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            {priorityOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
@@ -414,7 +430,7 @@ function GoalDashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Badge tone="accent">local-only</Badge>
+              <Badge variant="secondary">local-only</Badge>
               <span className="flex items-center gap-1">
                 <KeyRound className="h-4 w-4 text-accent2" /> User:{' '}
                 {session.status === 'ready' ? session.userId : '—'}
@@ -481,8 +497,8 @@ function GoalDashboard() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge tone="muted">{goal.slice}</Badge>
-                    <Badge tone="accent">{goal.priority}</Badge>
+                    <Badge variant="secondary">{goal.slice}</Badge>
+                    <Badge>{goal.priority}</Badge>
                   </div>
                   <span className="text-xs text-slate-500">
                     {goal.targetMonth}
@@ -555,37 +571,46 @@ function GoalDashboard() {
                         <Label>Slice</Label>
                         <Select
                           value={editValues.slice}
-                          onChange={(ev) =>
+                          onValueChange={(val) =>
                             setEditValues((prev) => ({
                               ...prev,
-                              slice: ev.target.value as SliceValue,
+                              slice: val as SliceValue,
                             }))
                           }
                         >
-                          {sliceOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose slice" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sliceOptions.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
                         <Label>Priority</Label>
                         <Select
                           value={editValues.priority}
-                          onChange={(ev) =>
+                          onValueChange={(val) =>
                             setEditValues((prev) => ({
                               ...prev,
-                              priority: ev.target
-                                .value as GoalFormValues['priority'],
+                              priority: val as GoalFormValues['priority'],
                             }))
                           }
                         >
-                          {priorityOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
+                          <SelectTrigger>
+                            <SelectValue placeholder="Priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {priorityOptions.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1">
