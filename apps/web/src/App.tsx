@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { SliceValue } from '@mo/domain';
 import {
   ArrowRight,
-  BadgeCheck,
   Check,
   KeyRound,
   Lock,
@@ -62,47 +61,8 @@ function Onboarding() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'password' | 'backup'>('password');
-  const [phrase, setPhrase] = useState<string[]>([]);
-  const [challenge, setChallenge] = useState<number[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
 
-  const generatePhrase = () => {
-    const words = [
-      'anchor',
-      'beacon',
-      'canyon',
-      'daring',
-      'ember',
-      'fabric',
-      'galaxy',
-      'harbor',
-      'island',
-      'jungle',
-      'kernel',
-      'lantern',
-      'meadow',
-      'nectar',
-      'opal',
-      'prairie',
-      'quartz',
-      'ripple',
-      'signal',
-      'timber',
-      'uplift',
-      'valor',
-      'willow',
-      'zenith',
-    ];
-    const chosen: string[] = [];
-    for (let i = 0; i < 12; i++) {
-      const idx = Math.floor(Math.random() * words.length);
-      chosen.push(words[idx]);
-    }
-    return chosen;
-  };
-
-  const handleSubmitPassword = (event: FormEvent) => {
+  const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault();
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
@@ -110,27 +70,6 @@ function Onboarding() {
     }
     if (password !== confirm) {
       setError('Passwords do not match');
-      return;
-    }
-    const generated = generatePhrase();
-    const picks = [
-      Math.floor(Math.random() * generated.length),
-      Math.floor(Math.random() * generated.length),
-      Math.floor(Math.random() * generated.length),
-    ];
-    setPhrase(generated);
-    setChallenge(picks);
-    setStep('backup');
-    setError(null);
-  };
-
-  const handleSubmitBackup = async (event: FormEvent) => {
-    event.preventDefault();
-    const mismatched = challenge.some(
-      (idx) => (answers[idx] ?? '').trim().toLowerCase() !== phrase[idx]
-    );
-    if (mismatched) {
-      setError('Recovery words do not match. Please retype them.');
       return;
     }
     setLoading(true);
@@ -161,110 +100,49 @@ function Onboarding() {
           <div className="flex items-center gap-2 text-accent">
             <Wand2 className="h-5 w-5" />
             <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
-              Step {step === 'password' ? '1' : '2'} of 2
+              Set passphrase
             </span>
           </div>
           <CardTitle>Set up your local identity</CardTitle>
           <CardDescription>
-            Generate keys on-device, protect them with a password, and back up
-            your recovery words.
+            Generate keys on-device and encrypt them with your passphrase.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {step === 'password' && (
-            <form
-              className="grid gap-4 md:grid-cols-2"
-              onSubmit={handleSubmitPassword}
-            >
-              <div className="space-y-2">
-                <Label>Password (derives K_pwd)</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={8}
-                  required
-                  placeholder="Create a password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Confirm password</Label>
-                <Input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  minLength={8}
-                  required
-                  placeholder="Repeat password"
-                />
-              </div>
-              <div className="md:col-span-2 flex items-center gap-3">
-                <Button type="submit" disabled={loading}>
-                  Next: backup keys
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                {error && <span className="text-sm text-red-400">{error}</span>}
-              </div>
-            </form>
-          )}
-          {step === 'backup' && (
-            <>
-              <div className="space-y-2">
-                <p className="text-sm text-slate-300">
-                  Write these 12 words down. If you lose them, you lose access.
-                  We never send keys to a server.
-                </p>
-                <div className="grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-white/5 p-4 font-mono text-sm md:grid-cols-3">
-                  {phrase.map((word, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 text-slate-200"
-                    >
-                      <span className="text-xs text-slate-500">{idx + 1}.</span>
-                      <span>{word}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <form className="space-y-4" onSubmit={handleSubmitBackup}>
-                <div className="space-y-2">
-                  <Label>Confirm these words</Label>
-                  <div className="flex flex-wrap gap-3">
-                    {challenge.map((idx) => (
-                      <Input
-                        key={idx}
-                        className="w-32"
-                        placeholder={`Word ${idx + 1}`}
-                        value={answers[idx] ?? ''}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [idx]: e.target.value,
-                          }))
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Creating keys…' : 'Finish onboarding'}
-                    <BadgeCheck className="ml-2 h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep('password')}
-                  >
-                    Back
-                  </Button>
-                  {error && (
-                    <span className="text-sm text-red-400">{error}</span>
-                  )}
-                </div>
-              </form>
-            </>
-          )}
+          <form
+            className="grid gap-4 md:grid-cols-2"
+            onSubmit={handleSubmitPassword}
+          >
+            <div className="space-y-2">
+              <Label>Password (derives KEK)</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                required
+                placeholder="Create a passphrase"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirm password</Label>
+              <Input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                minLength={8}
+                required
+                placeholder="Repeat passphrase"
+              />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-3">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Creating keys…' : 'Finish onboarding'}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              {error && <span className="text-sm text-red-400">{error}</span>}
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
