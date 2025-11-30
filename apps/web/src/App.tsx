@@ -33,6 +33,19 @@ import {
 import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
 
+const toBase64 = (data: Uint8Array) =>
+  btoa(String.fromCharCode(...Array.from(data)));
+const USER_META_KEY = 'mo-local-user';
+const loadMetaLocal = (): { userId: string; pwdSalt: string } | null => {
+  const raw = localStorage.getItem(USER_META_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as { userId: string; pwdSalt: string };
+  } catch {
+    return null;
+  }
+};
+
 const sliceOptions: SliceValue[] = [
   'Health',
   'Family',
@@ -150,10 +163,13 @@ function Onboarding() {
 }
 
 function Unlock() {
-  const { unlock, session } = useApp();
+  const { unlock, restoreBackup, session } = useApp();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [backupInput, setBackupInput] = useState('');
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -169,8 +185,30 @@ function Unlock() {
     }
   };
 
+  const handleRestore = async (event: FormEvent) => {
+    event.preventDefault();
+    setRestoreError(null);
+    if (!backupInput.trim()) {
+      setRestoreError('Paste your encrypted backup first');
+      return;
+    }
+    if (!password) {
+      setRestoreError('Enter the passphrase used to create the backup');
+      return;
+    }
+    setRestoreLoading(true);
+    try {
+      await restoreBackup({ password, backup: backupInput });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Restore failed';
+      setRestoreError(message);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-10 space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Unlock your vault</CardTitle>
@@ -200,6 +238,41 @@ function Unlock() {
                 </span>
               ) : null}
               {error && <span className="text-sm text-red-400">{error}</span>}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Restore from backup</CardTitle>
+          <CardDescription>
+            Paste the encrypted backup (.backup) and the passphrase you used
+            when exporting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <form className="space-y-3" onSubmit={handleRestore}>
+            <div className="space-y-2">
+              <Label>Backup blob</Label>
+              <textarea
+                className="w-full rounded-md border border-white/10 bg-white/5 p-3 text-sm text-slate-100"
+                rows={6}
+                value={backupInput}
+                onChange={(e) => setBackupInput(e.target.value)}
+                placeholder='{"cipher":"...","salt":"..."}'
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={restoreLoading}
+              >
+                {restoreLoading ? 'Restoring…' : 'Restore'}
+              </Button>
+              {restoreError && (
+                <span className="text-sm text-red-400">{restoreError}</span>
+              )}
             </div>
           </form>
         </CardContent>
@@ -382,17 +455,38 @@ function GoalDashboard() {
           setBackupCipher(null);
           return;
         }
-        const plaintext = new TextEncoder().encode(
-          JSON.stringify({
-            userId: backup.userId ?? session.userId,
-            identityKeys: backup.identityKeys,
-            aggregateKeys: backup.aggregateKeys,
-            exportedAt: new Date().toISOString(),
-          })
+        const identityEncoded = backup.identityKeys
+          ? {
+              signingPrivateKey: toBase64(
+                backup.identityKeys.signingPrivateKey
+              ),
+              signingPublicKey: toBase64(backup.identityKeys.signingPublicKey),
+              encryptionPrivateKey: toBase64(
+                backup.identityKeys.encryptionPrivateKey
+              ),
+              encryptionPublicKey: toBase64(
+                backup.identityKeys.encryptionPublicKey
+              ),
+            }
+          : null;
+        const aggregateEncoded = Object.fromEntries(
+          Object.entries(backup.aggregateKeys).map(([id, key]) => [
+            id,
+            toBase64(key),
+          ])
         );
+        const payload = {
+          userId: backup.userId ?? session.userId,
+          identityKeys: identityEncoded,
+          aggregateKeys: aggregateEncoded,
+          exportedAt: new Date().toISOString(),
+        };
+        const plaintext = new TextEncoder().encode(JSON.stringify(payload));
         const encrypted = await services.crypto.encrypt(plaintext, masterKey);
-        const b64 = btoa(String.fromCharCode(...Array.from(encrypted)));
-        setBackupCipher(b64);
+        const b64 = toBase64(encrypted);
+        const meta = loadMetaLocal();
+        const salt = meta ? meta.pwdSalt : null;
+        setBackupCipher(JSON.stringify({ cipher: b64, salt }, null, 2));
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to load keys';
@@ -407,12 +501,13 @@ function GoalDashboard() {
 
   const downloadBackup = () => {
     if (!backupCipher) return;
-    const bytes = Uint8Array.from(atob(backupCipher), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const blob = new Blob([backupCipher], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mo-local-backup-${session.status === 'ready' ? session.userId : 'user'}.json`;
+    a.download = `mo-local-backup-${
+      session.status === 'ready' ? session.userId : 'user'
+    }.backup`;
     a.click();
     URL.revokeObjectURL(url);
   };

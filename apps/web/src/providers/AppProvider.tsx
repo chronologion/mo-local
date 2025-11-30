@@ -53,6 +53,10 @@ type AppContextValue = {
   completeOnboarding: (params: { password: string }) => Promise<void>;
   unlock: (params: { password: string }) => Promise<void>;
   masterKey: Uint8Array | null;
+  restoreBackup: (params: {
+    password: string;
+    backup: string;
+  }) => Promise<void>;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -262,6 +266,73 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setSession({ status: 'ready', userId: meta.userId });
   };
 
+  const restoreBackup = async ({
+    password,
+    backup,
+  }: {
+    password: string;
+    backup: string;
+  }) => {
+    if (!services) throw new Error('Services not initialized');
+    const parsed = JSON.parse(backup) as { cipher: string; salt?: string };
+    if (!parsed.cipher || !parsed.salt) {
+      throw new Error('Backup missing cipher or salt');
+    }
+    const salt = Uint8Array.from(atob(parsed.salt), (c) => c.charCodeAt(0));
+    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
+    services.keyStore.setMasterKey(kek);
+    const encrypted = Uint8Array.from(atob(parsed.cipher), (c) =>
+      c.charCodeAt(0)
+    );
+    const decrypted = await services.crypto.decrypt(encrypted, kek);
+    const payload = JSON.parse(new TextDecoder().decode(decrypted)) as {
+      userId: string;
+      identityKeys: {
+        signingPrivateKey: string;
+        signingPublicKey: string;
+        encryptionPrivateKey: string;
+        encryptionPublicKey: string;
+      } | null;
+      aggregateKeys: Record<string, string>;
+    };
+
+    await services.keyStore.clearAll();
+    if (payload.identityKeys) {
+      await services.keyStore.saveIdentityKeys(payload.userId, {
+        signingPrivateKey: Uint8Array.from(
+          atob(payload.identityKeys.signingPrivateKey),
+          (c) => c.charCodeAt(0)
+        ),
+        signingPublicKey: Uint8Array.from(
+          atob(payload.identityKeys.signingPublicKey),
+          (c) => c.charCodeAt(0)
+        ),
+        encryptionPrivateKey: Uint8Array.from(
+          atob(payload.identityKeys.encryptionPrivateKey),
+          (c) => c.charCodeAt(0)
+        ),
+        encryptionPublicKey: Uint8Array.from(
+          atob(payload.identityKeys.encryptionPublicKey),
+          (c) => c.charCodeAt(0)
+        ),
+      });
+    }
+    const aggregateEntries = Object.entries(payload.aggregateKeys);
+    for (const [aggregateId, keyB64] of aggregateEntries) {
+      await services.keyStore.saveAggregateKey(
+        aggregateId,
+        Uint8Array.from(atob(keyB64), (c) => c.charCodeAt(0))
+      );
+    }
+
+    saveMeta({
+      userId: payload.userId,
+      pwdSalt: parsed.salt,
+    });
+    setMasterKey(kek);
+    setSession({ status: 'ready', userId: payload.userId });
+  };
+
   if (initError) {
     return <div>Failed to initialize LiveStore: {initError}</div>;
   }
@@ -273,7 +344,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
       <AppContext.Provider
-        value={{ services, session, completeOnboarding, unlock, masterKey }}
+        value={{
+          services,
+          session,
+          completeOnboarding,
+          unlock,
+          masterKey,
+          restoreBackup,
+        }}
       >
         {children}
       </AppContext.Provider>
