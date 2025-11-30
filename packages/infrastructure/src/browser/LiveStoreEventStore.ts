@@ -1,17 +1,28 @@
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-import { events } from '../livestore/schema';
-import { sleep } from '../lib/sleep';
+import { sleep } from './sleep';
+
+type GoalEventFactory = (payload: {
+  id: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Uint8Array;
+  version: number;
+  occurredAt: number;
+}) => unknown;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 50;
 
 /**
- * Bridges LiveStore's commit/query APIs to the IEventStore interface used by our domain services.
- * Events are stored as ciphertext (Uint8Array payload); no plaintext is persisted.
+ * LiveStore-backed event store for browser, with version checks and retries.
+ * Accepts the LiveStore `events` factory to avoid schema coupling.
  */
-export class LiveStoreEventStore implements IEventStore {
-  constructor(private readonly store: Store) {}
+export class BrowserLiveStoreEventStore implements IEventStore {
+  constructor(
+    private readonly store: Store,
+    private readonly goalEvent: GoalEventFactory
+  ) {}
 
   getStore(): Store {
     return this.store;
@@ -48,14 +59,14 @@ export class LiveStoreEventStore implements IEventStore {
       try {
         this.store.commit(
           ...sorted.map((event) =>
-            events.goalEvent({
+            this.goalEvent({
               id: event.id,
               aggregateId,
               eventType: event.eventType,
               payload: event.payload,
               version: event.version,
               occurredAt: event.occurredAt,
-            })
+            }) as never
           )
         );
         return;

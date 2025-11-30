@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../providers/AppProvider';
-import type { GoalListItem } from '../services/GoalQueries';
+import type { GoalListItem } from '@mo/infrastructure/browser';
 
 export const useGoalById = (goalId: string | null) => {
   const { services } = useApp();
@@ -15,10 +15,10 @@ export const useGoalById = (goalId: string | null) => {
     setError(null);
     services.goalQueries
       .getGoalById(goalId)
-      .then((result) => {
+      .then((result: GoalListItem | null) => {
         if (!cancelled) setGoal(result);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Unknown error';
         if (!cancelled) setError(message);
       })

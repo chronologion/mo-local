@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GoalListItem } from '../services/GoalQueries';
+import { GoalListItem } from '@mo/infrastructure/browser';
 import { useApp } from '../providers/AppProvider';
 import { tables } from '../livestore/schema';
 

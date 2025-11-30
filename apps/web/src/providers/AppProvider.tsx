@@ -1,24 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
+import { GoalApplicationService, GoalCommandHandler } from '@mo/application';
 import {
-  GoalApplicationService,
-  GoalCommandHandler,
-  IEventBus,
-  IKeyStore,
-} from '@mo/application';
-import {
+  createBrowserServices,
   IndexedDBKeyStore,
-  LiveStoreToDomainAdapter,
   WebCryptoService,
 } from '@mo/infrastructure/browser';
-import { InMemoryEventBus } from '@mo/application';
-import { GoalQueries } from '../services/GoalQueries';
-import { GoalRepository } from '../services/GoalRepository';
 import { DebugPanel } from '../components/DebugPanel';
-import { createStorePromise, type Store } from '@livestore/livestore';
+import type { Store } from '@livestore/livestore';
 import { adapter } from './LiveStoreAdapter';
 import { schema, tables } from '../livestore/schema';
-import { LiveStoreEventStore } from '../services/LiveStoreEventStore';
 import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 
@@ -38,16 +29,7 @@ type SessionState =
       userId: string;
     };
 
-type Services = {
-  crypto: WebCryptoService;
-  keyStore: IKeyStore;
-  store: Store;
-  eventStore: LiveStoreEventStore;
-  eventBus: IEventBus;
-  goalRepo: GoalRepository;
-  goalService: GoalApplicationService;
-  goalQueries: GoalQueries;
-};
+type Services = Awaited<ReturnType<typeof createBrowserServices>>;
 
 type AppContextValue = {
   services: Services;
@@ -99,37 +81,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
-        const crypto = new WebCryptoService();
-        const keyStore = new IndexedDBKeyStore();
-        const store = (await createStorePromise({
-          schema,
-          adapter,
-          storeId: 'mo-local',
-        })) as unknown as Store;
-        const eventStore = new LiveStoreEventStore(store);
-        const eventBus = new InMemoryEventBus();
-        const goalRepo = new GoalRepository(
-          eventStore,
-          crypto,
-          async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
-        );
-        const goalHandler = new GoalCommandHandler(
-          goalRepo,
-          keyStore,
-          crypto,
-          eventBus
-        );
-        const goalService = new GoalApplicationService(goalHandler);
-        const goalQueries = new GoalQueries(
-          eventStore,
-          new LiveStoreToDomainAdapter(crypto),
-          async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
-        );
-
+        const svc = await createBrowserServices({ schema, adapter });
         const updateDebug = () => {
-          const tables = (() => {
+          const tablesList = (() => {
             try {
-              const res = store.query<{ name: string }[]>({
+              const res = svc.store.query<{ name: string }[]>({
                 query: "SELECT name FROM sqlite_master WHERE type = 'table'",
                 bindValues: [],
               });
@@ -140,7 +96,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })();
           const eventCount = (() => {
             try {
-              const res = store.query<{ count: number }[]>({
+              const res = svc.store.query<{ count: number }[]>({
                 query: 'SELECT COUNT(*) as count FROM goal_events',
                 bindValues: [],
               });
@@ -151,7 +107,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })();
           const aggregateCount = (() => {
             try {
-              const res = store.query<{ count: number }[]>({
+              const res = svc.store.query<{ count: number }[]>({
                 query:
                   'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
                 bindValues: [],
@@ -163,7 +119,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })();
 
           setDebugInfo({
-            storeId: store.storeId,
+            storeId: svc.store.storeId,
             opfsAvailable:
               typeof navigator !== 'undefined' &&
               !!navigator.storage &&
@@ -172,35 +128,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             note: 'LiveStore adapter (opfs)',
             eventCount,
             aggregateCount,
-            tables,
+            tables: tablesList,
           });
         };
 
-        // Subscribe to LiveStore commits to refresh debug stats
-        unsubscribe = store.subscribe(tables.goal_events.count(), () =>
+        unsubscribe = svc.store.subscribe(tables.goal_events.count(), () =>
           updateDebug()
         );
-
-        // Prime initial state
         updateDebug();
 
-        if (signal.aborted) return;
         if (!signal.aborted) {
-          setServices({
-            crypto,
-            keyStore,
-            store,
-            eventStore,
-            eventBus,
-            goalRepo,
-            goalService,
-            goalQueries,
-          });
+          setServices(svc);
         }
-
-        return () => {
-          unsubscribe?.();
-        };
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to initialize app';

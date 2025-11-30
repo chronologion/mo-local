@@ -9,10 +9,10 @@ import {
   DomainToLiveStoreAdapter,
   LiveStoreToDomainAdapter,
   WebCryptoService,
-} from '@mo/infrastructure/browser';
+} from '..';
 
 /**
- * Browser-friendly goal repository that uses the async adapters directly.
+ * Browser-friendly goal repository that uses async adapters with encryption.
  */
 export class GoalRepository implements IGoalRepository {
   private readonly toEncrypted: DomainToLiveStoreAdapter;
@@ -78,7 +78,6 @@ export class GoalRepository implements IGoalRepository {
     }
   }
 
-  // The domain emits GoalDeleted; physical deletion is out of scope here.
   async delete(id: GoalId): Promise<void> {
     const goal = await this.findById(id);
     if (!goal) return;

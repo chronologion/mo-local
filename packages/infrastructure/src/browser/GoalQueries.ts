@@ -1,6 +1,6 @@
 import { Goal, GoalId } from '@mo/domain';
 import { ApplicationError, EncryptedEvent, IEventStore } from '@mo/application';
-import { LiveStoreToDomainAdapter } from '@mo/infrastructure/browser';
+import { LiveStoreToDomainAdapter } from '..';
 
 export type GoalListItem = {
   id: string;

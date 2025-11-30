@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GoalListItem } from '../../services/GoalQueries';
+import { GoalListItem } from '@mo/infrastructure/browser';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';

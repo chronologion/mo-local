@@ -60,7 +60,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         const aggregateEncoded = Object.fromEntries(
           Object.entries(backup.aggregateKeys).map(([id, key]) => [
             id,
-            toBase64(key),
+            toBase64(key as Uint8Array),
           ])
         );
         const payload = {

@@ -144,12 +144,14 @@ export function GoalDashboard() {
                 onDelete={() => handleDeleteGoal(goal.id)}
                 isUpdating={
                   mutating &&
-                  pending?.id === goal.id &&
+                  !!pending &&
+                  pending.id === goal.id &&
                   pending.action === 'update'
                 }
                 isDeleting={
                   mutating &&
-                  pending?.id === goal.id &&
+                  !!pending &&
+                  pending.id === goal.id &&
                   pending.action === 'delete'
                 }
               />

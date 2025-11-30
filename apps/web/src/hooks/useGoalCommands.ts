@@ -40,7 +40,9 @@ export const useGoalCommands = () => {
       };
       const result = await services.goalService.handle(cmd);
       if (!result.ok) {
-        throw new Error(result.errors.map((e) => e.message).join(', '));
+        throw new Error(
+          result.errors.map((err: { message: string }) => err.message).join(', ')
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -67,7 +69,11 @@ export const useGoalCommands = () => {
         };
         const result = await services.goalService.handle(cmd);
         if (!result.ok) {
-          throw new Error(result.errors.map((e) => e.message).join(', '));
+          throw new Error(
+            result.errors
+              .map((err: { message: string }) => err.message)
+              .join(', ')
+          );
         }
       }
       if (params.slice !== undefined) {
@@ -80,7 +86,11 @@ export const useGoalCommands = () => {
         };
         const result = await services.goalService.handle(cmd);
         if (!result.ok) {
-          throw new Error(result.errors.map((e) => e.message).join(', '));
+          throw new Error(
+            result.errors
+              .map((err: { message: string }) => err.message)
+              .join(', ')
+          );
         }
       }
       if (params.priority !== undefined) {
@@ -93,7 +103,11 @@ export const useGoalCommands = () => {
         };
         const result = await services.goalService.handle(cmd);
         if (!result.ok) {
-          throw new Error(result.errors.map((e) => e.message).join(', '));
+          throw new Error(
+            result.errors
+              .map((err: { message: string }) => err.message)
+              .join(', ')
+          );
         }
       }
       if (params.targetMonth !== undefined) {
@@ -106,7 +120,11 @@ export const useGoalCommands = () => {
         };
         const result = await services.goalService.handle(cmd);
         if (!result.ok) {
-          throw new Error(result.errors.map((e) => e.message).join(', '));
+          throw new Error(
+            result.errors
+              .map((err: { message: string }) => err.message)
+              .join(', ')
+          );
         }
       }
     } catch (err) {
@@ -131,7 +149,9 @@ export const useGoalCommands = () => {
       };
       const result = await services.goalService.handle(cmd);
       if (!result.ok) {
-        throw new Error(result.errors.map((e) => e.message).join(', '));
+        throw new Error(
+          result.errors.map((err: { message: string }) => err.message).join(', ')
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
