@@ -58,15 +58,16 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         this.store.commit(
-          ...sorted.map((event) =>
-            this.goalEvent({
-              id: event.id,
-              aggregateId,
-              eventType: event.eventType,
-              payload: event.payload,
-              version: event.version,
-              occurredAt: event.occurredAt,
-            }) as never
+          ...sorted.map(
+            (event) =>
+              this.goalEvent({
+                id: event.id,
+                aggregateId,
+                eventType: event.eventType,
+                payload: event.payload,
+                version: event.version,
+                occurredAt: event.occurredAt,
+              }) as never
           )
         );
         return;

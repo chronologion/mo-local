@@ -5,11 +5,9 @@ import {
   IEventStore,
   IGoalRepository,
 } from '@mo/application';
-import {
-  DomainToLiveStoreAdapter,
-  LiveStoreToDomainAdapter,
-  WebCryptoService,
-} from '..';
+import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
+import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import { WebCryptoService } from '../crypto/WebCryptoService';
 
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.

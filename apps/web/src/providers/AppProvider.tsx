@@ -1,15 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
-import { GoalApplicationService, GoalCommandHandler } from '@mo/application';
-import {
-  createBrowserServices,
-  IndexedDBKeyStore,
-  WebCryptoService,
-} from '@mo/infrastructure/browser';
+import { createBrowserServices } from '@mo/infrastructure/browser';
 import { DebugPanel } from '../components/DebugPanel';
-import type { Store } from '@livestore/livestore';
 import { adapter } from './LiveStoreAdapter';
-import { schema, tables } from '@mo/infrastructure/browser';
+import { tables } from '@mo/infrastructure/browser';
 import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 
@@ -81,7 +75,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
-        const svc = await createBrowserServices({ schema, adapter });
+        const svc = await createBrowserServices({ adapter });
         const updateDebug = () => {
           const tablesList = (() => {
             try {

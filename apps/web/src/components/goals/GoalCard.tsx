@@ -12,11 +12,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { Check, RefreshCw, Trash2 } from 'lucide-react';
-import {
-  GoalFormValues,
-  priorityOptions,
-  sliceOptions,
-} from './goalFormTypes';
+import { GoalFormValues, priorityOptions, sliceOptions } from './goalFormTypes';
 
 type GoalCardProps = {
   goal: GoalListItem;

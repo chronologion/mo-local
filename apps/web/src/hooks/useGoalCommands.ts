@@ -41,7 +41,9 @@ export const useGoalCommands = () => {
       const result = await services.goalService.handle(cmd);
       if (!result.ok) {
         throw new Error(
-          result.errors.map((err: { message: string }) => err.message).join(', ')
+          result.errors
+            .map((err: { message: string }) => err.message)
+            .join(', ')
         );
       }
     } catch (err) {
@@ -150,7 +152,9 @@ export const useGoalCommands = () => {
       const result = await services.goalService.handle(cmd);
       if (!result.ok) {
         throw new Error(
-          result.errors.map((err: { message: string }) => err.message).join(', ')
+          result.errors
+            .map((err: { message: string }) => err.message)
+            .join(', ')
         );
       }
     } catch (err) {

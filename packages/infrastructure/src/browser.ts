@@ -1,14 +1,4 @@
-export * from './livestore/types';
-export * from './livestore/schema';
-export * from './livestore/migrations';
-export * from './livestore/LiveStoreEventStore';
-export * from './livestore/WaSqliteEventStore';
-export * from './livestore/LiveStoreGoalRepository';
-export * from './livestore/materializers/types';
-export * from './livestore/materializers/goalMaterializer';
-export * from './livestore/adapters/DomainToLiveStoreAdapter';
-export * from './livestore/adapters/LiveStoreToDomainAdapter';
-export * from './crypto/SharingCrypto';
+// Browser-focused exports only; avoid re-exporting Node/wa-sqlite or non-browser schemas.
 export * from './crypto/IndexedDBKeyStore';
 export * from './crypto/WebCryptoService';
 export * from './browser/LiveStoreEventStore';
@@ -18,3 +8,4 @@ export type { GoalListItem } from './browser/GoalQueries';
 export * from './browser/createBrowserServices';
 export * from './browser/sleep';
 export * from './browser/schema';
+export * from './browser/worker';

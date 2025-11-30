@@ -1,9 +1,6 @@
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { useApp } from './providers/AppProvider';
-import {
-  Card,
-  CardContent,
-} from './components/ui/card';
+import { Card, CardContent } from './components/ui/card';
 import { Onboarding } from './components/auth/Onboarding';
 import { Unlock } from './components/auth/Unlock';
 import { GoalDashboard } from './components/goals/GoalDashboard';

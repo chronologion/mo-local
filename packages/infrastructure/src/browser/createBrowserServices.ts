@@ -10,7 +10,8 @@ import { WebCryptoService } from '../crypto/WebCryptoService';
 import { BrowserLiveStoreEventStore } from './LiveStoreEventStore';
 import { GoalRepository } from './GoalRepository';
 import { GoalQueries } from './GoalQueries';
-import { LiveStoreToDomainAdapter } from '..';
+import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import { schema as defaultSchema, events as goalEvents } from './schema';
 
 type Adapter = unknown;
 
@@ -26,7 +27,6 @@ export type BrowserServices = {
 };
 
 export type BrowserServicesOptions = {
-  schema: any;
   adapter: any;
   storeId?: string;
 };
@@ -36,21 +36,20 @@ export type BrowserServicesOptions = {
  * The caller supplies the schema and adapter (e.g., from @livestore/adapter-web).
  */
 export const createBrowserServices = async ({
-  schema,
   adapter,
   storeId = 'mo-local',
 }: BrowserServicesOptions): Promise<BrowserServices> => {
+  const effectiveSchema = defaultSchema;
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();
   const store = (await createStorePromise({
-    schema: schema as never,
+    schema: effectiveSchema as never,
     adapter: adapter as never,
     storeId,
   })) as unknown as Store;
   const eventStore = new BrowserLiveStoreEventStore(
     store,
-    (schema as { events: { goalEvent: (payload: unknown) => unknown } }).events
-      .goalEvent as (payload: {
+    goalEvents.goalEvent as (payload: {
       id: string;
       aggregateId: string;
       eventType: string;

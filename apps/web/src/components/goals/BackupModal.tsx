@@ -47,7 +47,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         }
         const identityEncoded = backup.identityKeys
           ? {
-              signingPrivateKey: toBase64(backup.identityKeys.signingPrivateKey),
+              signingPrivateKey: toBase64(
+                backup.identityKeys.signingPrivateKey
+              ),
               signingPublicKey: toBase64(backup.identityKeys.signingPublicKey),
               encryptionPrivateKey: toBase64(
                 backup.identityKeys.encryptionPrivateKey
@@ -74,7 +76,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         const b64 = toBase64(encrypted);
         const salt = await deriveSaltForUser(payload.userId);
         const saltB64 = toBase64(salt);
-        setBackupCipher(JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2));
+        setBackupCipher(
+          JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2)
+        );
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to load keys';

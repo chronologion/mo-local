@@ -146,13 +146,10 @@ export class IndexedDBKeyStore implements IKeyStore {
     if (!this.masterKey) {
       throw new Error('Master key not set');
     }
-    const record = await this.withStore<
-      { userId: string; blob: Uint8Array } | null
-    >(
-      STORE_IDENTITY,
-      'readonly',
-      (store) => store.get(userId)
-    );
+    const record = await this.withStore<{
+      userId: string;
+      blob: Uint8Array;
+    } | null>(STORE_IDENTITY, 'readonly', (store) => store.get(userId));
     if (!record) return null;
     if (!('blob' in record)) {
       throw new Error(
@@ -192,9 +189,10 @@ export class IndexedDBKeyStore implements IKeyStore {
     if (!this.masterKey) {
       throw new Error('Master key not set');
     }
-    const record = await this.withStore<
-      { aggregateId: string; blob: Uint8Array } | null
-    >(STORE_AGGREGATE, 'readonly', (store) => store.get(aggregateId));
+    const record = await this.withStore<{
+      aggregateId: string;
+      blob: Uint8Array;
+    } | null>(STORE_AGGREGATE, 'readonly', (store) => store.get(aggregateId));
     if (!record) return null;
     if (!('blob' in record)) {
       throw new Error(
