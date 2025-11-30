@@ -9,7 +9,7 @@ import {
 import { DebugPanel } from '../components/DebugPanel';
 import type { Store } from '@livestore/livestore';
 import { adapter } from './LiveStoreAdapter';
-import { schema, tables } from '../livestore/schema';
+import { schema, tables } from '@mo/infrastructure/browser';
 import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 

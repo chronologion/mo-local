@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GoalListItem } from '@mo/infrastructure/browser';
+import { GoalListItem, tables } from '@mo/infrastructure/browser';
 import { useApp } from '../providers/AppProvider';
-import { tables } from '../livestore/schema';
 
 export const useGoals = () => {
   const { services } = useApp();

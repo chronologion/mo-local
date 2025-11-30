@@ -17,3 +17,4 @@ export * from './browser/GoalQueries';
 export type { GoalListItem } from './browser/GoalQueries';
 export * from './browser/createBrowserServices';
 export * from './browser/sleep';
+export * from './browser/schema';

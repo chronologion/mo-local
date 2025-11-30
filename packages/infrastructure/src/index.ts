@@ -20,3 +20,4 @@ export * from './browser/GoalRepository';
 export * from './browser/GoalQueries';
 export * from './browser/createBrowserServices';
 export type { GoalListItem } from './browser/GoalQueries';
+export * from './browser/schema';

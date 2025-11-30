@@ -1,9 +1,7 @@
 import { Events, makeSchema, State } from '@livestore/livestore';
 import * as S from 'effect/Schema';
 
-// LiveStore schema mirroring our encrypted goal event log.
-// Payloads remain ciphertext (Uint8Array); no plaintext at rest.
-
+// LiveStore schema mirroring encrypted goal event log (ciphertext only).
 const goalEventsTable = State.SQLite.table({
   name: 'goal_events',
   columns: {
@@ -43,7 +41,7 @@ export const events = {
       eventType: S.String,
       payload: S.Uint8ArrayFromSelf,
       version: S.Number,
-      occurredAt: S.Number, // epoch millis
+      occurredAt: S.Number,
     }),
   }),
 };
@@ -61,7 +59,6 @@ const materializers = State.SQLite.materializers(events, {
       id,
       aggregate_id: aggregateId,
       event_type: eventType,
-      // LiveStore decodes payload as Uint8Array<ArrayBufferLike>; insert expects Uint8Array<ArrayBuffer>.
       payload_encrypted: payload as Uint8Array<ArrayBuffer>,
       version,
       occurred_at: occurredAt,

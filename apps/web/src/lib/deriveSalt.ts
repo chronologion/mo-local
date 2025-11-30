@@ -1,4 +1,6 @@
-export const deriveSaltForUser = async (userId: string): Promise<Uint8Array> => {
+export const deriveSaltForUser = async (
+  userId: string
+): Promise<Uint8Array> => {
   const cryptoApi = globalThis.crypto;
   if (!cryptoApi?.subtle) {
     throw new Error('Web Crypto API unavailable for salt derivation');
