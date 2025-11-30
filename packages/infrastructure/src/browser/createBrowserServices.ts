@@ -13,8 +13,6 @@ import { GoalQueries } from './GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { schema as defaultSchema, events as goalEvents } from './schema';
 
-type Adapter = unknown;
-
 export type BrowserServices = {
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
@@ -27,7 +25,7 @@ export type BrowserServices = {
 };
 
 export type BrowserServicesOptions = {
-  adapter: any;
+  adapter: unknown;
   storeId?: string;
 };
 
@@ -43,8 +41,8 @@ export const createBrowserServices = async ({
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();
   const store = (await createStorePromise({
-    schema: effectiveSchema as never,
-    adapter: adapter as never,
+    schema: effectiveSchema,
+    adapter,
     storeId,
   })) as unknown as Store;
   const eventStore = new BrowserLiveStoreEventStore(

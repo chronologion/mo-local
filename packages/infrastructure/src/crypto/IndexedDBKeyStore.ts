@@ -47,15 +47,6 @@ const DB_VERSION = 1;
 const STORE_IDENTITY = 'identity_keys';
 const STORE_AGGREGATE = 'aggregate_keys';
 
-const toBytes = (value: unknown): Uint8Array => {
-  if (value instanceof Uint8Array) return value;
-  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) {
-    return new Uint8Array(value);
-  }
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  throw new Error('Invalid key bytes');
-};
-
 const requestToPromise = <T>(request: IDBRequestLike<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result as T);
