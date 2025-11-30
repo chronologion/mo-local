@@ -69,11 +69,18 @@ const getDefaultTargetMonth = () => {
 };
 
 function Onboarding() {
-  const { completeOnboarding } = useApp();
+  const { completeOnboarding, restoreBackup } = useApp();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [restorePass, setRestorePass] = useState('');
+  const [restoreInput, setRestoreInput] = useState('');
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [selectedRestoreFile, setSelectedRestoreFile] = useState<string | null>(
+    null
+  );
 
   const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault();
@@ -94,6 +101,28 @@ function Onboarding() {
       setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRestore = async (event: FormEvent) => {
+    event.preventDefault();
+    setRestoreError(null);
+    if (!restoreInput.trim()) {
+      setRestoreError('Choose a backup file first');
+      return;
+    }
+    if (!restorePass) {
+      setRestoreError('Enter the passphrase used to create the backup');
+      return;
+    }
+    setRestoreLoading(true);
+    try {
+      await restoreBackup({ password: restorePass, backup: restoreInput });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Restore failed';
+      setRestoreError(message);
+    } finally {
+      setRestoreLoading(false);
     }
   };
 
@@ -158,19 +187,85 @@ function Onboarding() {
           </form>
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-2 text-accent">
+            <Wand2 className="h-5 w-5" />
+            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
+              Restore from backup
+            </span>
+          </div>
+          <CardTitle>Import keys from encrypted backup</CardTitle>
+          <CardDescription>
+            Select your .backup file and enter the passphrase you used when
+            exporting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form className="space-y-4" onSubmit={handleRestore}>
+            <div className="space-y-2">
+              <Label>Passphrase</Label>
+              <Input
+                type="password"
+                value={restorePass}
+                onChange={(e) => setRestorePass(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Backup file</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".backup,application/json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setSelectedRestoreFile(file.name);
+                    try {
+                      const text = (await file.text()).trim();
+                      setRestoreInput(text);
+                      setRestoreError(null);
+                    } catch (err) {
+                      const message =
+                        err instanceof Error
+                          ? err.message
+                          : 'Failed to read backup file';
+                      setRestoreError(message);
+                    }
+                  }}
+                />
+                {selectedRestoreFile ? (
+                  <span className="text-xs text-slate-400">
+                    {selectedRestoreFile}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={restoreLoading}
+              >
+                {restoreLoading ? 'Restoring…' : 'Restore from backup'}
+              </Button>
+              {restoreError && (
+                <span className="text-sm text-red-400">{restoreError}</span>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function Unlock() {
-  const { unlock, restoreBackup, session } = useApp();
+  const { unlock, session } = useApp();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [backupInput, setBackupInput] = useState('');
-  const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [restoreLoading, setRestoreLoading] = useState(false);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -183,28 +278,6 @@ function Unlock() {
       setError(message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRestore = async (event: FormEvent) => {
-    event.preventDefault();
-    setRestoreError(null);
-    if (!backupInput.trim()) {
-      setRestoreError('Paste your encrypted backup first');
-      return;
-    }
-    if (!password) {
-      setRestoreError('Enter the passphrase used to create the backup');
-      return;
-    }
-    setRestoreLoading(true);
-    try {
-      await restoreBackup({ password, backup: backupInput });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Restore failed';
-      setRestoreError(message);
-    } finally {
-      setRestoreLoading(false);
     }
   };
 
@@ -239,66 +312,6 @@ function Unlock() {
                 </span>
               ) : null}
               {error && <span className="text-sm text-red-400">{error}</span>}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Restore from backup</CardTitle>
-          <CardDescription>
-            Choose your encrypted backup (.backup) or paste the blob, then enter
-            the passphrase you used when exporting.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <form className="space-y-3" onSubmit={handleRestore}>
-            <div className="space-y-2">
-              <Label>Backup file</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="file"
-                  accept=".backup,application/json"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setSelectedFileName(file.name);
-                    try {
-                      const text = (await file.text()).trim();
-                      setBackupInput(text);
-                      setRestoreError(null);
-                    } catch (err) {
-                      const message =
-                        err instanceof Error
-                          ? err.message
-                          : 'Failed to read backup file';
-                      setRestoreError(message);
-                    }
-                  }}
-                />
-                {selectedFileName ? (
-                  <span className="text-xs text-slate-400">
-                    {selectedFileName}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            <Input
-              type="hidden"
-              value={backupInput}
-              onChange={(e) => setBackupInput(e.target.value)}
-            />
-            <div className="flex items-center gap-3">
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={restoreLoading}
-              >
-                {restoreLoading ? 'Restoring…' : 'Restore'}
-              </Button>
-              {restoreError && (
-                <span className="text-sm text-red-400">{restoreError}</span>
-              )}
             </div>
           </form>
         </CardContent>
