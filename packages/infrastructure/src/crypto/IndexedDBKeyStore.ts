@@ -92,6 +92,14 @@ export class IndexedDBKeyStore implements IKeyStore {
     this.dbPromise = openDb();
   }
 
+  private encodeBase64(data: Uint8Array): string {
+    return btoa(String.fromCharCode(...Array.from(data)));
+  }
+
+  private decodeBase64(data: string): Uint8Array {
+    return Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  }
+
   setMasterKey(key: Uint8Array): void {
     this.masterKey = new Uint8Array(key);
   }
@@ -122,10 +130,10 @@ export class IndexedDBKeyStore implements IKeyStore {
       throw new Error('Master key not set');
     }
     const payload = {
-      signingPrivateKey: keys.signingPrivateKey,
-      signingPublicKey: keys.signingPublicKey,
-      encryptionPrivateKey: keys.encryptionPrivateKey,
-      encryptionPublicKey: keys.encryptionPublicKey,
+      signingPrivateKey: this.encodeBase64(keys.signingPrivateKey),
+      signingPublicKey: this.encodeBase64(keys.signingPublicKey),
+      encryptionPrivateKey: this.encodeBase64(keys.encryptionPrivateKey),
+      encryptionPublicKey: this.encodeBase64(keys.encryptionPublicKey),
     };
     const encoded = new TextEncoder().encode(JSON.stringify(payload));
     const encrypted = await this.crypto.encrypt(encoded, this.masterKey);
@@ -153,12 +161,17 @@ export class IndexedDBKeyStore implements IKeyStore {
     }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
     const json = new TextDecoder().decode(decrypted);
-    const parsed = JSON.parse(json) as IdentityKeys;
+    const parsed = JSON.parse(json) as {
+      signingPrivateKey: string;
+      signingPublicKey: string;
+      encryptionPrivateKey: string;
+      encryptionPublicKey: string;
+    };
     return {
-      signingPrivateKey: toBytes(parsed.signingPrivateKey),
-      signingPublicKey: toBytes(parsed.signingPublicKey),
-      encryptionPrivateKey: toBytes(parsed.encryptionPrivateKey),
-      encryptionPublicKey: toBytes(parsed.encryptionPublicKey),
+      signingPrivateKey: this.decodeBase64(parsed.signingPrivateKey),
+      signingPublicKey: this.decodeBase64(parsed.signingPublicKey),
+      encryptionPrivateKey: this.decodeBase64(parsed.encryptionPrivateKey),
+      encryptionPublicKey: this.decodeBase64(parsed.encryptionPublicKey),
     } satisfies IdentityKeys;
   }
 
@@ -238,12 +251,17 @@ export class IndexedDBKeyStore implements IKeyStore {
         this.masterKey
       );
       const json = new TextDecoder().decode(decrypted);
-      const parsed = JSON.parse(json) as IdentityKeys;
+      const parsed = JSON.parse(json) as {
+        signingPrivateKey: string;
+        signingPublicKey: string;
+        encryptionPrivateKey: string;
+        encryptionPublicKey: string;
+      };
       identityKeys = {
-        signingPrivateKey: toBytes(parsed.signingPrivateKey),
-        signingPublicKey: toBytes(parsed.signingPublicKey),
-        encryptionPrivateKey: toBytes(parsed.encryptionPrivateKey),
-        encryptionPublicKey: toBytes(parsed.encryptionPublicKey),
+        signingPrivateKey: this.decodeBase64(parsed.signingPrivateKey),
+        signingPublicKey: this.decodeBase64(parsed.signingPublicKey),
+        encryptionPrivateKey: this.decodeBase64(parsed.encryptionPrivateKey),
+        encryptionPublicKey: this.decodeBase64(parsed.encryptionPublicKey),
       };
       userId = identityRecord.userId;
     }

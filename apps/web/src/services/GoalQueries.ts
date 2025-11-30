@@ -32,10 +32,8 @@ export class GoalQueries {
     for (const [aggregateId, aggregateEvents] of grouped.entries()) {
       const kGoal = await this.keyProvider(aggregateId);
       if (!kGoal) {
-        throw new ApplicationError(
-          `Missing encryption key for ${aggregateId}`,
-          'missing_key'
-        );
+        // Skip aggregates we cannot decrypt (stale data without keys)
+        continue;
       }
 
       const domainEvents = await this.toDomain.toDomainBatch(
