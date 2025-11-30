@@ -94,16 +94,16 @@ export class WebCryptoService implements ICryptoService {
       ['encrypt']
     );
 
-    const ciphertext = await subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv,
-        additionalData: aad,
-        tagLength: 128,
-      },
-      cryptoKey,
-      plaintext
-    );
+    const params: AesGcmParams & { additionalData?: BufferSource } = {
+      name: 'AES-GCM',
+      iv,
+      tagLength: 128,
+    };
+    if (aad) {
+      params.additionalData = new Uint8Array(aad);
+    }
+
+    const ciphertext = await subtle.encrypt(params, cryptoKey, plaintext);
 
     const result = new Uint8Array(iv.length + ciphertext.byteLength);
     result.set(iv, 0);
@@ -131,16 +131,16 @@ export class WebCryptoService implements ICryptoService {
       ['decrypt']
     );
 
-    const plaintext = await subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv,
-        additionalData: aad,
-        tagLength: 128,
-      },
-      cryptoKey,
-      payload
-    );
+    const params: AesGcmParams & { additionalData?: BufferSource } = {
+      name: 'AES-GCM',
+      iv,
+      tagLength: 128,
+    };
+    if (aad) {
+      params.additionalData = new Uint8Array(aad);
+    }
+
+    const plaintext = await subtle.decrypt(params, cryptoKey, payload);
 
     return new Uint8Array(plaintext);
   }
