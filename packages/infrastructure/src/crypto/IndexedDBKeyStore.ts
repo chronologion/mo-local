@@ -303,6 +303,24 @@ export class IndexedDBKeyStore implements IKeyStore {
     );
   }
 
+  async clearAll(): Promise<void> {
+    const db = await this.dbPromise;
+    await Promise.all([
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_IDENTITY, 'readwrite');
+        const req = tx.objectStore(STORE_IDENTITY).clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      }),
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_AGGREGATE, 'readwrite');
+        const req = tx.objectStore(STORE_AGGREGATE).clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      }),
+    ]);
+  }
+
   async close(): Promise<void> {
     const db = await this.dbPromise;
     db.close();

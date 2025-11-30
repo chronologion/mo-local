@@ -52,4 +52,9 @@ export class InMemoryKeyStore implements IKeyStore {
       this.aggregateKeys.set(id, key);
     });
   }
+
+  async clearAll(): Promise<void> {
+    this.identityKeys.clear();
+    this.aggregateKeys.clear();
+  }
 }

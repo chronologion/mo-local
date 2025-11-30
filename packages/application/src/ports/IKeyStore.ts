@@ -20,4 +20,5 @@ export interface IKeyStore {
   // Backup/restore
   exportKeys(): Promise<KeyBackup>;
   importKeys(backup: KeyBackup): Promise<void>;
+  clearAll(): Promise<void>;
 }
