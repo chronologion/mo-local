@@ -247,8 +247,8 @@ function Unlock() {
         <CardHeader>
           <CardTitle>Restore from backup</CardTitle>
           <CardDescription>
-            Paste the encrypted backup (.backup) and the passphrase you used
-            when exporting.
+            Choose your encrypted backup (.backup) or paste the blob, then enter
+            the passphrase you used when exporting.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -264,8 +264,9 @@ function Unlock() {
                     if (!file) return;
                     setSelectedFileName(file.name);
                     try {
-                      const text = await file.text();
-                      setBackupInput(text);
+                      const buf = await file.arrayBuffer();
+                      const b64 = toBase64(new Uint8Array(buf));
+                      setBackupInput(b64);
                       setRestoreError(null);
                     } catch (err) {
                       const message =
@@ -284,7 +285,7 @@ function Unlock() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Backup blob</Label>
+              <Label>Backup blob (paste if needed)</Label>
               <textarea
                 className="w-full rounded-md border border-white/10 bg-white/5 p-3 text-sm text-slate-100"
                 rows={6}

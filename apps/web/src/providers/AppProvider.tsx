@@ -274,16 +274,29 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     backup: string;
   }) => {
     if (!services) throw new Error('Services not initialized');
-    const parsed = JSON.parse(backup) as { cipher: string; salt?: string };
-    if (!parsed.cipher || !parsed.salt) {
-      throw new Error('Backup missing cipher or salt');
+    let cipherB64: string | null = null;
+    let saltB64: string | null = null;
+    try {
+      const parsed = JSON.parse(backup) as { cipher?: string; salt?: string };
+      cipherB64 = parsed.cipher ?? null;
+      saltB64 = parsed.salt ?? null;
+    } catch {
+      cipherB64 = backup.trim();
     }
-    const salt = Uint8Array.from(atob(parsed.salt), (c) => c.charCodeAt(0));
+    if (!cipherB64) {
+      throw new Error('Backup missing cipher');
+    }
+    if (!saltB64) {
+      const meta = loadMeta();
+      if (!meta) {
+        throw new Error('Backup missing salt; please export a new backup');
+      }
+      saltB64 = meta.pwdSalt;
+    }
+    const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
-    const encrypted = Uint8Array.from(atob(parsed.cipher), (c) =>
-      c.charCodeAt(0)
-    );
+    const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, kek);
     const payload = JSON.parse(new TextDecoder().decode(decrypted)) as {
       userId: string;
@@ -327,7 +340,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     saveMeta({
       userId: payload.userId,
-      pwdSalt: parsed.salt,
+      pwdSalt: saltB64,
     });
     setMasterKey(kek);
     setSession({ status: 'ready', userId: payload.userId });
