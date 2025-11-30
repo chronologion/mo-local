@@ -77,6 +77,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     note?: string;
     eventCount?: number;
     aggregateCount?: number;
+    tables?: string[];
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -112,6 +113,68 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
         );
 
+        const updateDebug = () => {
+          const tables = (() => {
+            try {
+              const res = store.query<{ name: string }[]>({
+                query: "SELECT name FROM sqlite_master WHERE type = 'table'",
+                bindValues: [],
+              });
+              return res.map((row) => row.name);
+            } catch {
+              return [];
+            }
+          })();
+          const eventCount = (() => {
+            try {
+              const res = store.query<{ count: number }[]>({
+                query: 'SELECT COUNT(*) as count FROM goal_events',
+                bindValues: [],
+              });
+              return Number(res?.[0]?.count ?? 0);
+            } catch {
+              return 0;
+            }
+          })();
+          const aggregateCount = (() => {
+            try {
+              const res = store.query<{ count: number }[]>({
+                query:
+                  'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
+                bindValues: [],
+              });
+              return Number(res?.[0]?.count ?? 0);
+            } catch {
+              return 0;
+            }
+          })();
+
+          setDebugInfo({
+            storeId: store.storeId,
+            opfsAvailable:
+              typeof navigator !== 'undefined' &&
+              !!navigator.storage &&
+              typeof navigator.storage.getDirectory === 'function',
+            storage: 'opfs',
+            note: 'LiveStore adapter (opfs)',
+            eventCount,
+            aggregateCount,
+            tables,
+          });
+        };
+
+        // Subscribe to LiveStore commits to refresh debug stats
+        const unsubscribe = store.subscribe(
+          {
+            query: 'SELECT COUNT(*) FROM goal_events',
+            bindValues: [],
+          } as never,
+          () => updateDebug()
+        );
+
+        // Prime initial state
+        updateDebug();
+
         if (!cancelled) {
           setServices({
             crypto,
@@ -122,39 +185,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             goalService,
             goalQueries,
           });
-          setDebugInfo({
-            storeId: store.storeId,
-            opfsAvailable:
-              typeof navigator !== 'undefined' &&
-              !!navigator.storage &&
-              typeof navigator.storage.getDirectory === 'function',
-            storage: 'opfs',
-            note: 'LiveStore adapter (opfs)',
-            eventCount: (() => {
-              try {
-                const res = store.query<{ count: number }[]>({
-                  query: 'SELECT COUNT(*) as count FROM goal_events',
-                  bindValues: [],
-                });
-                return Number(res?.[0]?.count ?? 0);
-              } catch {
-                return 0;
-              }
-            })(),
-            aggregateCount: (() => {
-              try {
-                const res = store.query<{ count: number }[]>({
-                  query:
-                    'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
-                  bindValues: [],
-                });
-                return Number(res?.[0]?.count ?? 0);
-              } catch {
-                return 0;
-              }
-            })(),
-          });
         }
+
+        return () => {
+          unsubscribe?.();
+        };
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to initialize app';
@@ -241,8 +276,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                   FileSystemSyncAccessHandle?: unknown;
                 }
               ).FileSystemSyncAccessHandle !== 'undefined',
-            tables: [],
+            tables: debugInfo.tables ?? [],
             note: debugInfo.note,
+            storeId: debugInfo.storeId,
+            storage: debugInfo.storage,
+            eventCount: debugInfo.eventCount,
+            aggregateCount: debugInfo.aggregateCount,
           }}
         />
       ) : null}
