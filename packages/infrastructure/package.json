@@ -6,7 +6,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./browser": "./src/browser.ts"
+    "./browser": "./src/browser.ts",
+    "./browser/schema": "./src/browser/schema.ts",
+    "./browser/worker": "./src/browser/worker.ts"
   },
   "scripts": {
     "test": "vitest --no-watch",
