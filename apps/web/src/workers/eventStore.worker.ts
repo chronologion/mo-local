@@ -4,11 +4,11 @@ import { WaSqliteEventStore } from '@mo/infrastructure/browser';
 import type { EncryptedEvent, EventFilter } from '@mo/application';
 import waSqliteWasmUrl from '@livestore/wa-sqlite/dist/wa-sqlite.wasm?url';
 
-type NavigatorLike = {
-  storage?: {
-    getDirectory?: () => Promise<unknown>;
-  };
-};
+// type NavigatorLike = {
+//   storage?: {
+//     getDirectory?: () => Promise<unknown>;
+//   };
+// };
 
 type InitRequest = { _tag: 'init' };
 type AppendRequest = {

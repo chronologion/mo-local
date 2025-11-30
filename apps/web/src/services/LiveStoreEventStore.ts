@@ -9,7 +9,10 @@ import { events } from '../livestore/schema';
 export class LiveStoreEventStore implements IEventStore {
   constructor(private readonly store: Store) {}
 
-  async append(aggregateId: string, eventsToAppend: EncryptedEvent[]): Promise<void> {
+  async append(
+    aggregateId: string,
+    eventsToAppend: EncryptedEvent[]
+  ): Promise<void> {
     if (eventsToAppend.length === 0) return;
     this.store.commit(
       ...eventsToAppend.map((event) =>
@@ -25,7 +28,10 @@ export class LiveStoreEventStore implements IEventStore {
     );
   }
 
-  async getEvents(aggregateId: string, fromVersion = 1): Promise<EncryptedEvent[]> {
+  async getEvents(
+    aggregateId: string,
+    fromVersion = 1
+  ): Promise<EncryptedEvent[]> {
     const rows = this.store.query<
       {
         id: string;
@@ -64,7 +70,9 @@ export class LiveStoreEventStore implements IEventStore {
       conditions.push('sequence > ?');
       params.push(filter.since);
     }
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
     const limitClause = filter?.limit ? 'LIMIT ?' : '';
     if (filter?.limit) {
       params.push(filter.limit);

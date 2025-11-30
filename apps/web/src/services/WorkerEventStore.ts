@@ -1,8 +1,4 @@
-import type {
-  EncryptedEvent,
-  EventFilter,
-  IEventStore,
-} from '@mo/application';
+import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 
 type WorkerRequestPayload =
   | { _tag: 'init' }
@@ -64,10 +60,7 @@ export class WorkerEventStore implements IEventStore {
     return { store: client, debug };
   }
 
-  async append(
-    aggregateId: string,
-    events: EncryptedEvent[]
-  ): Promise<void> {
+  async append(aggregateId: string, events: EncryptedEvent[]): Promise<void> {
     await this.call({ _tag: 'append', aggregateId, events });
   }
 

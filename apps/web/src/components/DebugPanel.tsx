@@ -1,5 +1,3 @@
-import React from 'react';
-
 type DebugInfo = {
   vfsName: string;
   opfsAvailable: boolean;
@@ -13,7 +11,6 @@ type DebugInfo = {
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
-  const tables = info.tables && info.tables.length > 0 ? info.tables.join(', ') : 'none';
   const tableCount =
     info.tables && info.tables.length > 0 ? info.tables.length : 0;
   return (

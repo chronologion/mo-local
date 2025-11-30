@@ -17,7 +17,7 @@ import { GoalRepository } from '../services/GoalRepository';
 import { DebugPanel } from '../components/DebugPanel';
 import { createStorePromise, type Store } from '@livestore/livestore';
 import { adapter } from './LiveStoreAdapter';
-import { schema } from '../livestore/schema';
+import { schema, tables } from '../livestore/schema';
 import { LiveStoreEventStore } from '../services/LiveStoreEventStore';
 
 const USER_META_KEY = 'mo-local-user';
@@ -164,12 +164,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         };
 
         // Subscribe to LiveStore commits to refresh debug stats
-        const unsubscribe = store.subscribe(
-          {
-            query: 'SELECT COUNT(*) FROM goal_events',
-            bindValues: [],
-          } as never,
-          () => updateDebug()
+        const unsubscribe = store.subscribe(tables.goal_events.count(), () =>
+          updateDebug()
         );
 
         // Prime initial state

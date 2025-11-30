@@ -65,7 +65,10 @@ class SqliteDatabase {
 
   private async iterate(
     sql: string,
-    params: SQLiteCompatibleType[] | Record<string, SQLiteCompatibleType> | null,
+    params:
+      | SQLiteCompatibleType[]
+      | Record<string, SQLiteCompatibleType>
+      | null,
     onRow?: (stmt: number) => void
   ): Promise<void> {
     for await (const stmt of this.sqlite.statements(this.handle, sql, {
@@ -77,7 +80,7 @@ class SqliteDatabase {
       if (params) {
         this.sqlite.bind_collection(stmt, params as never);
       }
-      while (await this.sqlite.step(stmt) === SQLite.SQLITE_ROW) {
+      while ((await this.sqlite.step(stmt)) === SQLite.SQLITE_ROW) {
         onRow?.(stmt);
       }
       await this.sqlite.finalize(stmt);
@@ -160,18 +163,20 @@ const hasSyncAccessHandle = (scope: { FileSystemSyncAccessHandle?: unknown }) =>
 
 const defaultVfsFactory: VfsFactory = async (sqlite, module) => {
   const tryMemoryVfs = () => {
-    const memoryVfs =
-      new (MemoryVFS as unknown as {
-        new (name: string, module: unknown): unknown;
-      })('memory', module);
+    const memoryVfs = new (MemoryVFS as unknown as {
+      new (name: string, module: unknown): unknown;
+    })('memory', module);
     const vfs = memoryVfs as SQLiteVFS;
     sqlite.vfs_register(vfs, true);
     return {
       name: vfs.name,
       close:
-        typeof (vfs as { close?: () => Promise<void> | void }).close === 'function'
+        typeof (vfs as { close?: () => Promise<void> | void }).close ===
+        'function'
           ? () =>
-              Promise.resolve((vfs as { close?: () => Promise<void> | void }).close!())
+              Promise.resolve(
+                (vfs as { close?: () => Promise<void> | void }).close!()
+              )
           : undefined,
     };
   };
@@ -195,7 +200,6 @@ const defaultVfsFactory: VfsFactory = async (sqlite, module) => {
     const accessHandle = await tryAccessHandleVfs();
     if (accessHandle) return accessHandle;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn('AccessHandlePoolVFS failed, falling back to memory', error);
   }
 
