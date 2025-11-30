@@ -30,6 +30,7 @@ type UserMeta = {
 type SessionState =
   | { status: 'loading' }
   | { status: 'needs-onboarding' }
+  | { status: 'locked'; userId: string }
   | {
       status: 'ready';
       userId: string;
@@ -50,6 +51,8 @@ type AppContextValue = {
   services: Services;
   session: SessionState;
   completeOnboarding: (params: { password: string }) => Promise<void>;
+  unlock: (params: { password: string }) => Promise<void>;
+  masterKey: Uint8Array | null;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -71,6 +74,7 @@ const saveMeta = (meta: UserMeta): void => {
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [services, setServices] = useState<Services | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
+  const [masterKey, setMasterKey] = useState<Uint8Array | null>(null);
   const [debugInfo, setDebugInfo] = useState<{
     storeId: string;
     opfsAvailable: boolean;
@@ -210,14 +214,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (!cancelled) setSession({ status: 'needs-onboarding' });
         return;
       }
-      const keys = await services.keyStore.getIdentityKeys(meta.userId);
-      if (!keys) {
-        if (!cancelled) setSession({ status: 'needs-onboarding' });
-        return;
-      }
-      if (!cancelled) {
-        setSession({ status: 'ready', userId: meta.userId });
-      }
+      if (!cancelled) setSession({ status: 'locked', userId: meta.userId });
     })();
     return () => {
       cancelled = true;
@@ -233,8 +230,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       globalThis.crypto?.getRandomValues(new Uint8Array(16)) ||
       new Uint8Array(16).map(() => Math.floor(Math.random() * 256));
 
-    // Derive K_pwd (not yet used in UI flows, but computed for parity with PRD)
-    await services.crypto.deriveKeyFromPassword(password, salt);
+    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
+    services.keyStore.setMasterKey(kek);
+    setMasterKey(kek);
 
     const signing = await services.crypto.generateSigningKeyPair();
     const encryption = await services.crypto.generateEncryptionKeyPair();
@@ -249,6 +247,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     saveMeta({ userId, pwdSalt: btoa(String.fromCharCode(...salt)) });
     setSession({ status: 'ready', userId });
   };
+  const unlock = async ({ password }: { password: string }) => {
+    if (!services) throw new Error('Services not initialized');
+    const meta = loadMeta();
+    if (!meta) throw new Error('No user metadata found');
+    const salt = Uint8Array.from(atob(meta.pwdSalt), (c) => c.charCodeAt(0));
+    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
+    services.keyStore.setMasterKey(kek);
+    const keys = await services.keyStore.getIdentityKeys(meta.userId);
+    if (!keys) {
+      throw new Error('No keys found, please re-onboard');
+    }
+    setMasterKey(kek);
+    setSession({ status: 'ready', userId: meta.userId });
+  };
 
   if (initError) {
     return <div>Failed to initialize LiveStore: {initError}</div>;
@@ -260,7 +272,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <>
-      <AppContext.Provider value={{ services, session, completeOnboarding }}>
+      <AppContext.Provider
+        value={{ services, session, completeOnboarding, unlock, masterKey }}
+      >
         {children}
       </AppContext.Provider>
       {debugInfo ? (

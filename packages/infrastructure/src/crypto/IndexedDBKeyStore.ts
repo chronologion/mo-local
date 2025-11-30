@@ -1,4 +1,5 @@
 import { IKeyStore, IdentityKeys, KeyBackup } from '@mo/application';
+import { WebCryptoService } from './WebCryptoService';
 
 type IDBTransactionMode = 'readonly' | 'readwrite';
 
@@ -84,9 +85,15 @@ const openDb = (): Promise<IDBDatabaseLike> =>
 
 export class IndexedDBKeyStore implements IKeyStore {
   private readonly dbPromise: Promise<IDBDatabaseLike>;
+  private readonly crypto = new WebCryptoService();
+  private masterKey: Uint8Array | null = null;
 
   constructor() {
     this.dbPromise = openDb();
+  }
+
+  setMasterKey(key: Uint8Array): void {
+    this.masterKey = new Uint8Array(key);
   }
 
   private async withStore<T>(
@@ -111,30 +118,43 @@ export class IndexedDBKeyStore implements IKeyStore {
   }
 
   async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {
+    if (!this.masterKey) {
+      throw new Error('Master key not set');
+    }
+    const payload = {
+      signingPrivateKey: keys.signingPrivateKey,
+      signingPublicKey: keys.signingPublicKey,
+      encryptionPrivateKey: keys.encryptionPrivateKey,
+      encryptionPublicKey: keys.encryptionPublicKey,
+    };
+    const encoded = new TextEncoder().encode(JSON.stringify(payload));
+    const encrypted = await this.crypto.encrypt(encoded, this.masterKey);
     await this.withStore<void>(STORE_IDENTITY, 'readwrite', (store) =>
-      store.put({ userId, ...keys })
+      store.put({ userId, blob: encrypted })
     );
   }
 
   async getIdentityKeys(userId: string): Promise<IdentityKeys | null> {
-    const record = await this.withStore<IdentityKeys | null>(
+    if (!this.masterKey) {
+      throw new Error('Master key not set');
+    }
+    const record = await this.withStore<
+      { userId: string; blob: Uint8Array } | null
+    >(
       STORE_IDENTITY,
       'readonly',
       (store) => store.get(userId)
     );
     if (!record) return null;
-    const {
-      signingPrivateKey,
-      signingPublicKey,
-      encryptionPrivateKey,
-      encryptionPublicKey,
-    } = record;
+    const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
+    const json = new TextDecoder().decode(decrypted);
+    const parsed = JSON.parse(json) as IdentityKeys;
     return {
-      signingPrivateKey: toBytes(signingPrivateKey),
-      signingPublicKey: toBytes(signingPublicKey),
-      encryptionPrivateKey: toBytes(encryptionPrivateKey),
-      encryptionPublicKey: toBytes(encryptionPublicKey),
-    };
+      signingPrivateKey: toBytes(parsed.signingPrivateKey),
+      signingPublicKey: toBytes(parsed.signingPublicKey),
+      encryptionPrivateKey: toBytes(parsed.encryptionPrivateKey),
+      encryptionPublicKey: toBytes(parsed.encryptionPublicKey),
+    } satisfies IdentityKeys;
   }
 
   async saveAggregateKey(
@@ -167,26 +187,34 @@ export class IndexedDBKeyStore implements IKeyStore {
       aggregateKeys[aggregateId] = toBytes(wrappedKey);
     });
 
-    const identities = (await this.withStore<IdentityKeys[]>(
-      STORE_IDENTITY,
-      'readonly',
-      (store) => store.getAll()
-    )) as IdentityKeys[];
+    const records = (await this.withStore<
+      { userId: string; blob: Uint8Array }[]
+    >(STORE_IDENTITY, 'readonly', (store) => store.getAll())) as {
+      userId: string;
+      blob: Uint8Array;
+    }[];
 
-    const identityKeys =
-      identities.length > 0
-        ? {
-            signingPrivateKey: toBytes(identities[0].signingPrivateKey),
-            signingPublicKey: toBytes(identities[0].signingPublicKey),
-            encryptionPrivateKey: toBytes(identities[0].encryptionPrivateKey),
-            encryptionPublicKey: toBytes(identities[0].encryptionPublicKey),
-          }
-        : null;
-
-    const userId =
-      identities.length > 0
-        ? (identities[0] as { userId?: string }).userId
-        : undefined;
+    const identityRecord = records[0];
+    let identityKeys: IdentityKeys | null = null;
+    let userId: string | undefined = undefined;
+    if (identityRecord) {
+      if (!this.masterKey) {
+        throw new Error('Master key not set');
+      }
+      const decrypted = await this.crypto.decrypt(
+        identityRecord.blob,
+        this.masterKey
+      );
+      const json = new TextDecoder().decode(decrypted);
+      const parsed = JSON.parse(json) as IdentityKeys;
+      identityKeys = {
+        signingPrivateKey: toBytes(parsed.signingPrivateKey),
+        signingPublicKey: toBytes(parsed.signingPublicKey),
+        encryptionPrivateKey: toBytes(parsed.encryptionPrivateKey),
+        encryptionPublicKey: toBytes(parsed.encryptionPublicKey),
+      };
+      userId = identityRecord.userId;
+    }
 
     return { identityKeys, aggregateKeys, userId };
   }

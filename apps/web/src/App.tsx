@@ -271,6 +271,65 @@ function Onboarding() {
   );
 }
 
+function Unlock() {
+  const { unlock, session } = useApp();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await unlock({ password });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to unlock';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <Card>
+        <CardHeader>
+          <CardTitle>Unlock your vault</CardTitle>
+          <CardDescription>
+            Keys are stored encrypted. Enter your passphrase to decrypt them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label>Passphrase</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Unlocking…' : 'Unlock'}
+                <Lock className="ml-2 h-4 w-4" />
+              </Button>
+              {session.status === 'locked' ? (
+                <span className="text-sm text-slate-400">
+                  User: {session.userId}
+                </span>
+              ) : null}
+              {error && <span className="text-sm text-red-400">{error}</span>}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 type GoalFormValues = {
   summary: string;
   slice: SliceValue;
@@ -376,7 +435,7 @@ function GoalForm({
 }
 
 function GoalDashboard() {
-  const { session, services } = useApp();
+  const { session, services, masterKey } = useApp();
   const { goals, loading, error, refresh } = useGoals();
   const {
     createGoal,
@@ -394,7 +453,7 @@ function GoalDashboard() {
     targetMonth: getDefaultTargetMonth(),
   });
   const [backupOpen, setBackupOpen] = useState(false);
-  const [backupJson, setBackupJson] = useState<string | null>(null);
+  const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
 
@@ -432,42 +491,46 @@ function GoalDashboard() {
     if (!backupOpen || session.status !== 'ready') return;
     setBackupLoading(true);
     setBackupError(null);
-    services.keyStore
-      .getIdentityKeys(session.userId)
-      .then((keys) => {
-        if (!keys) {
-          setBackupError('No keys found in keystore');
-          setBackupJson(null);
+    const run = async () => {
+      try {
+        if (!masterKey) {
+          setBackupError('Unlock with your passphrase to back up keys.');
+          setBackupCipher(null);
           return;
         }
-        const encode = (data: Uint8Array) =>
-          btoa(String.fromCharCode(...Array.from(data)));
-        const payload = {
-          userId: session.userId,
-          exportedAt: new Date().toISOString(),
-          signing: {
-            publicKey: encode(keys.signingPublicKey),
-            privateKey: encode(keys.signingPrivateKey),
-          },
-          encryption: {
-            publicKey: encode(keys.encryptionPublicKey),
-            privateKey: encode(keys.encryptionPrivateKey),
-          },
-        };
-        setBackupJson(JSON.stringify(payload, null, 2));
-      })
-      .catch((err) => {
+        const backup = await services.keyStore.exportKeys();
+        if (!backup.identityKeys) {
+          setBackupError('No keys found in keystore');
+          setBackupCipher(null);
+          return;
+        }
+        const plaintext = new TextEncoder().encode(
+          JSON.stringify({
+            userId: backup.userId ?? session.userId,
+            identityKeys: backup.identityKeys,
+            aggregateKeys: backup.aggregateKeys,
+            exportedAt: new Date().toISOString(),
+          })
+        );
+        const encrypted = await services.crypto.encrypt(plaintext, masterKey);
+        const b64 = btoa(String.fromCharCode(...Array.from(encrypted)));
+        setBackupCipher(b64);
+      } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to load keys';
         setBackupError(message);
-        setBackupJson(null);
-      })
-      .finally(() => setBackupLoading(false));
-  }, [backupOpen, services.keyStore, session]);
+        setBackupCipher(null);
+      } finally {
+        setBackupLoading(false);
+      }
+    };
+    void run();
+  }, [backupOpen, masterKey, services, session]);
 
   const downloadBackup = () => {
-    if (!backupJson) return;
-    const blob = new Blob([backupJson], { type: 'application/json' });
+    if (!backupCipher) return;
+    const bytes = Uint8Array.from(atob(backupCipher), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -731,26 +794,26 @@ function GoalDashboard() {
                 </div>
               ) : backupError ? (
                 <p className="text-sm text-red-400">{backupError}</p>
-              ) : backupJson ? (
-                <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-black/60 p-3 text-xs text-slate-200">
-                  {backupJson}
+              ) : backupCipher ? (
+                <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-black/60 p-3 text-xs text-slate-200 break-all">
+                  {backupCipher}
                 </pre>
               ) : null}
               <div className="flex items-center gap-2">
                 <Button
                   onClick={downloadBackup}
-                  disabled={!backupJson || backupLoading}
+                  disabled={!backupCipher || backupLoading}
                   variant="secondary"
                 >
                   Download .json
                 </Button>
                 <Button
                   onClick={() => {
-                    if (backupJson) {
-                      void navigator.clipboard.writeText(backupJson);
+                    if (backupCipher) {
+                      void navigator.clipboard.writeText(backupCipher);
                     }
                   }}
-                  disabled={!backupJson || backupLoading}
+                  disabled={!backupCipher || backupLoading}
                   variant="ghost"
                 >
                   Copy
@@ -804,6 +867,7 @@ export default function App() {
         </div>
       )}
       {session.status === 'needs-onboarding' && <Onboarding />}
+      {session.status === 'locked' && <Unlock />}
       {session.status === 'ready' && <GoalDashboard />}
     </div>
   );
