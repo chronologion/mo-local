@@ -4,18 +4,25 @@
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts",
+    "./browser/schema": "./src/browser/schema.ts",
+    "./browser/worker": "./src/browser/worker.ts"
+  },
   "scripts": {
     "test": "vitest --no-watch",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mo/domain": "1.0.0",
-    "@mo/application": "1.0.0"
+    "@livestore/wa-sqlite": "1.0.5",
+    "@mo/application": "1.0.0",
+    "@mo/domain": "1.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.6",
+    "@types/node": "^24.10.1",
     "fake-indexeddb": "^6.0.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.1.0"
+    "vitest": "^4.0.14"
   }
 }

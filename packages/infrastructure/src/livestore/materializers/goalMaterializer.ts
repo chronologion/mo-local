@@ -8,6 +8,7 @@ import {
   GoalSummaryChanged,
   GoalTargetChanged,
 } from '@mo/domain';
+import { eventTypes } from '@mo/domain';
 import { MaterializedState } from './types';
 
 type SupportedEvent =
@@ -28,7 +29,7 @@ export const applyGoalEvent = (
   event: SupportedEvent
 ): void => {
   switch (event.eventType) {
-    case 'GoalCreated':
+    case eventTypes.goalCreated:
       state.goals.set(event.aggregateId, {
         id: event.aggregateId,
         slice: event.payload.slice,
@@ -41,7 +42,7 @@ export const applyGoalEvent = (
         version: 1,
       });
       break;
-    case 'GoalSummaryChanged': {
+    case eventTypes.goalSummaryChanged: {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
       state.goals.set(event.aggregateId, {
@@ -51,7 +52,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalSliceChanged': {
+    case eventTypes.goalSliceChanged: {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
       state.goals.set(event.aggregateId, {
@@ -61,7 +62,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalTargetChanged': {
+    case eventTypes.goalTargetChanged: {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
       state.goals.set(event.aggregateId, {
@@ -71,7 +72,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalPriorityChanged': {
+    case eventTypes.goalPriorityChanged: {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
       state.goals.set(event.aggregateId, {
@@ -81,7 +82,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalDeleted': {
+    case eventTypes.goalDeleted: {
       const row = state.goals.get(event.aggregateId);
       if (!row) break;
       state.goals.set(event.aggregateId, {
@@ -91,7 +92,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalAccessGranted': {
+    case eventTypes.goalAccessGranted: {
       const id = `${event.aggregateId}:${event.payload.grantedTo}`;
       state.goalAccess.set(id, {
         id,
@@ -103,7 +104,7 @@ export const applyGoalEvent = (
       });
       break;
     }
-    case 'GoalAccessRevoked': {
+    case eventTypes.goalAccessRevoked: {
       const id = `${event.aggregateId}:${event.payload.revokedFrom}`;
       const row = state.goalAccess.get(id);
       if (!row) break;

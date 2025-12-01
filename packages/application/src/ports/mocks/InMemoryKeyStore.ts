@@ -4,6 +4,9 @@ import { IdentityKeys, KeyBackup } from '../types';
 export class InMemoryKeyStore implements IKeyStore {
   private identityKeys = new Map<string, IdentityKeys>();
   private aggregateKeys = new Map<string, Uint8Array>();
+  setMasterKey(): void {
+    // no-op for in-memory store
+  }
 
   async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {
     this.identityKeys.set(userId, keys);
@@ -48,5 +51,10 @@ export class InMemoryKeyStore implements IKeyStore {
     Object.entries(backup.aggregateKeys).forEach(([id, key]) => {
       this.aggregateKeys.set(id, key);
     });
+  }
+
+  async clearAll(): Promise<void> {
+    this.identityKeys.clear();
+    this.aggregateKeys.clear();
   }
 }

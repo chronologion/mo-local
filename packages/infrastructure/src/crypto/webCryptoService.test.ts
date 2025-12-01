@@ -54,7 +54,9 @@ describe('WebCryptoService', () => {
 
     const tampered = wrapped.slice();
     tampered[tampered.length - 1] ^= 0xff;
-    await expect(svc.unwrapKey(tampered, recipient.privateKey)).rejects.toThrow();
+    await expect(
+      svc.unwrapKey(tampered, recipient.privateKey)
+    ).rejects.toThrow();
   });
 
   it('signs and verifies data', async () => {

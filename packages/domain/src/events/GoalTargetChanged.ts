@@ -1,10 +1,11 @@
 import { DomainEvent } from '../shared/DomainEvent';
+import { eventTypes } from './eventTypes';
 
 /**
  * Event emitted when a Goal's target month is changed.
  */
 export class GoalTargetChanged implements DomainEvent {
-  readonly eventType = 'GoalTargetChanged';
+  readonly eventType = eventTypes.goalTargetChanged;
   readonly occurredAt: Date;
   readonly aggregateId: string;
 

@@ -92,7 +92,9 @@ describe('NodeCryptoService', () => {
 
     const tampered = wrapped.slice();
     tampered[tampered.length - 1] ^= 0xff;
-    await expect(crypto.unwrapKey(tampered, recipient.privateKey)).rejects.toThrow();
+    await expect(
+      crypto.unwrapKey(tampered, recipient.privateKey)
+    ).rejects.toThrow();
   });
 
   it('signs and verifies', async () => {

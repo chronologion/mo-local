@@ -12,32 +12,34 @@ import {
   Permission,
   SliceValue,
   DomainEvent,
+  eventTypes,
+  GoalEventType,
 } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
 import { z } from 'zod';
 
 type GoalPayloadMap = {
-  GoalCreated: GoalCreatedPayload;
-  GoalSummaryChanged: GoalSummaryChangedPayload;
-  GoalSliceChanged: GoalSliceChangedPayload;
-  GoalTargetChanged: GoalTargetChangedPayload;
-  GoalPriorityChanged: GoalPriorityChangedPayload;
-  GoalDeleted: GoalDeletedPayload;
-  GoalAccessGranted: GoalAccessGrantedPayload;
-  GoalAccessRevoked: GoalAccessRevokedPayload;
+  [eventTypes.goalCreated]: GoalCreatedPayload;
+  [eventTypes.goalSummaryChanged]: GoalSummaryChangedPayload;
+  [eventTypes.goalSliceChanged]: GoalSliceChangedPayload;
+  [eventTypes.goalTargetChanged]: GoalTargetChangedPayload;
+  [eventTypes.goalPriorityChanged]: GoalPriorityChangedPayload;
+  [eventTypes.goalDeleted]: GoalDeletedPayload;
+  [eventTypes.goalAccessGranted]: GoalAccessGrantedPayload;
+  [eventTypes.goalAccessRevoked]: GoalAccessRevokedPayload;
 };
 
-type EventType = keyof GoalPayloadMap;
+type EventType = GoalEventType;
 
 const supportedEvents: readonly EventType[] = [
-  'GoalCreated',
-  'GoalSummaryChanged',
-  'GoalSliceChanged',
-  'GoalTargetChanged',
-  'GoalPriorityChanged',
-  'GoalDeleted',
-  'GoalAccessGranted',
-  'GoalAccessRevoked',
+  eventTypes.goalCreated,
+  eventTypes.goalSummaryChanged,
+  eventTypes.goalSliceChanged,
+  eventTypes.goalTargetChanged,
+  eventTypes.goalPriorityChanged,
+  eventTypes.goalDeleted,
+  eventTypes.goalAccessGranted,
+  eventTypes.goalAccessRevoked,
 ];
 
 const isEventType = (value: string): value is EventType =>
@@ -58,7 +60,7 @@ const timestampSchema = z
   });
 
 const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
-  GoalCreated: z
+  [eventTypes.goalCreated]: z
     .object({
       goalId: z.string(),
       slice: z.enum(ALL_SLICES as [SliceValue, ...SliceValue[]]),
@@ -69,41 +71,41 @@ const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
       createdAt: timestampSchema,
     })
     .strict(),
-  GoalSummaryChanged: z
+  [eventTypes.goalSummaryChanged]: z
     .object({
       goalId: z.string(),
       summary: z.string(),
       changedAt: timestampSchema,
     })
     .strict(),
-  GoalSliceChanged: z
+  [eventTypes.goalSliceChanged]: z
     .object({
       goalId: z.string(),
       slice: z.enum(ALL_SLICES as [SliceValue, ...SliceValue[]]),
       changedAt: timestampSchema,
     })
     .strict(),
-  GoalTargetChanged: z
+  [eventTypes.goalTargetChanged]: z
     .object({
       goalId: z.string(),
       targetMonth: z.string(),
       changedAt: timestampSchema,
     })
     .strict(),
-  GoalPriorityChanged: z
+  [eventTypes.goalPriorityChanged]: z
     .object({
       goalId: z.string(),
       priority: z.enum(['must', 'should', 'maybe'] as const),
       changedAt: timestampSchema,
     })
     .strict(),
-  GoalDeleted: z
+  [eventTypes.goalDeleted]: z
     .object({
       goalId: z.string(),
       deletedAt: timestampSchema,
     })
     .strict(),
-  GoalAccessGranted: z
+  [eventTypes.goalAccessGranted]: z
     .object({
       goalId: z.string(),
       grantedTo: z.string(),
@@ -111,7 +113,7 @@ const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
       grantedAt: timestampSchema,
     })
     .strict(),
-  GoalAccessRevoked: z
+  [eventTypes.goalAccessRevoked]: z
     .object({
       goalId: z.string(),
       revokedFrom: z.string(),
@@ -171,36 +173,36 @@ export class LiveStoreToDomainAdapter {
     payload: unknown
   ): DomainEvent {
     switch (eventType) {
-      case 'GoalCreated': {
-        const p = this.validatePayload('GoalCreated', payload);
+      case eventTypes.goalCreated: {
+        const p = this.validatePayload(eventTypes.goalCreated, payload);
         return new GoalCreated(p);
       }
-      case 'GoalSummaryChanged': {
-        const p = this.validatePayload('GoalSummaryChanged', payload);
+      case eventTypes.goalSummaryChanged: {
+        const p = this.validatePayload(eventTypes.goalSummaryChanged, payload);
         return new GoalSummaryChanged(p);
       }
-      case 'GoalSliceChanged': {
-        const p = this.validatePayload('GoalSliceChanged', payload);
+      case eventTypes.goalSliceChanged: {
+        const p = this.validatePayload(eventTypes.goalSliceChanged, payload);
         return new GoalSliceChanged(p);
       }
-      case 'GoalTargetChanged': {
-        const p = this.validatePayload('GoalTargetChanged', payload);
+      case eventTypes.goalTargetChanged: {
+        const p = this.validatePayload(eventTypes.goalTargetChanged, payload);
         return new GoalTargetChanged(p);
       }
-      case 'GoalPriorityChanged': {
-        const p = this.validatePayload('GoalPriorityChanged', payload);
+      case eventTypes.goalPriorityChanged: {
+        const p = this.validatePayload(eventTypes.goalPriorityChanged, payload);
         return new GoalPriorityChanged(p);
       }
-      case 'GoalDeleted': {
-        const p = this.validatePayload('GoalDeleted', payload);
+      case eventTypes.goalDeleted: {
+        const p = this.validatePayload(eventTypes.goalDeleted, payload);
         return new GoalDeleted(p);
       }
-      case 'GoalAccessGranted': {
-        const p = this.validatePayload('GoalAccessGranted', payload);
+      case eventTypes.goalAccessGranted: {
+        const p = this.validatePayload(eventTypes.goalAccessGranted, payload);
         return new GoalAccessGranted(p);
       }
-      case 'GoalAccessRevoked': {
-        const p = this.validatePayload('GoalAccessRevoked', payload);
+      case eventTypes.goalAccessRevoked: {
+        const p = this.validatePayload(eventTypes.goalAccessRevoked, payload);
         return new GoalAccessRevoked(p);
       }
       default:

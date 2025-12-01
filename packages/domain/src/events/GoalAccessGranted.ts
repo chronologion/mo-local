@@ -1,4 +1,5 @@
 import { DomainEvent } from '../shared/DomainEvent';
+import { eventTypes } from './eventTypes';
 
 export type Permission = 'owner' | 'edit' | 'view';
 
@@ -6,7 +7,7 @@ export type Permission = 'owner' | 'edit' | 'view';
  * Event emitted when access to a Goal is granted to a user.
  */
 export class GoalAccessGranted implements DomainEvent {
-  readonly eventType = 'GoalAccessGranted';
+  readonly eventType = eventTypes.goalAccessGranted;
   readonly occurredAt: Date;
   readonly aggregateId: string;
 
