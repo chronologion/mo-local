@@ -1,6 +1,5 @@
 import { Goal, GoalId } from '@mo/domain';
 import {
-  ApplicationError,
   ConcurrencyError,
   IEventStore,
   IGoalRepository,
@@ -8,6 +7,7 @@ import {
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
+import { MissingKeyError, PersistenceError } from '../errors';
 
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
@@ -33,10 +33,7 @@ export class GoalRepository implements IGoalRepository {
 
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
-      throw new ApplicationError(
-        `Missing encryption key for ${id.value}`,
-        'missing_key'
-      );
+      throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
 
     const domainEvents = await Promise.all(
@@ -69,9 +66,8 @@ export class GoalRepository implements IGoalRepository {
       if (error instanceof ConcurrencyError) throw error;
       const message =
         error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new ApplicationError(
-        `Failed to save goal ${goal.id.value}: ${message}`,
-        'event_store_save_failed'
+      throw new PersistenceError(
+        `Failed to save goal ${goal.id.value}: ${message}`
       );
     }
   }
@@ -82,10 +78,7 @@ export class GoalRepository implements IGoalRepository {
     goal.delete();
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
-      throw new ApplicationError(
-        `Missing encryption key for ${id.value}`,
-        'missing_key'
-      );
+      throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
     await this.save(goal, kGoal);
   }

@@ -226,7 +226,10 @@ export class Goal extends AggregateRoot<GoalId> {
    * @throws {Error} if goal is already deleted
    */
   delete(): void {
-    this.assertNotDeleted();
+    if (this.isDeleted) {
+      return;
+    }
+    this.assertNotDeleted(); // TODO: ???
 
     this.apply(
       new GoalDeleted({
