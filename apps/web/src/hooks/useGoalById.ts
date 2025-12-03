@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../providers/AppProvider';
+import { tables } from '@mo/infrastructure/browser';
 import type { GoalListItem } from '@mo/infrastructure/browser';
 
 export const useGoalById = (goalId: string | null) => {
@@ -11,24 +12,30 @@ export const useGoalById = (goalId: string | null) => {
   useEffect(() => {
     if (!goalId) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    services.goalQueries
-      .getGoalById(goalId)
-      .then((result: GoalListItem | null) => {
+    const refresh = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await services.goalQueries.getGoalById(goalId);
         if (!cancelled) setGoal(result);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         if (!cancelled) setError(message);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+    setLoading(true);
+    setError(null);
+    void refresh();
+    const sub = services.store.subscribe(tables.goal_events.count(), () => {
+      void refresh();
+    });
     return () => {
       cancelled = true;
+      sub?.();
     };
-  }, [goalId, services.goalQueries]);
+  }, [goalId, services.goalQueries, services.store]);
 
   return { goal, loading, error };
 };

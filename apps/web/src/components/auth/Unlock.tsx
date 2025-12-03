@@ -14,7 +14,7 @@ import { Input } from '../ui/input';
 import { useApp } from '../../providers/AppProvider';
 
 export function Unlock() {
-  const { session, unlock } = useApp();
+  const { session, unlock, resetLocalState } = useApp();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,21 +65,46 @@ export function Unlock() {
                 <Lock className="ml-2 h-4 w-4" />
               </Button>
               {session.status === 'locked' ? (
-                <span className="text-sm text-slate-400">
+                <span className="text-sm text-muted-foreground">
                   User: {session.userId}
                 </span>
               ) : null}
-              {error && <span className="text-sm text-red-400">{error}</span>}
+              {error && (
+                <span className="text-sm text-destructive">{error}</span>
+              )}
             </div>
           </form>
+          <div className="mt-6 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Trouble unlocking? Reset local state and re-onboard.
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    'This will clear local data for this app on this device. You will need to onboard again.'
+                  );
+                  if (!confirmed) return;
+                  await resetLocalState();
+                  setPassword('');
+                  setError(null);
+                }}
+              >
+                Reset local data
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
       {session.status === 'loading' && (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary" className="uppercase tracking-widest">
             session
           </Badge>
-          <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
+          <RefreshCw className="h-4 w-4 animate-spin text-primary" />
           Loading identity…
         </div>
       )}

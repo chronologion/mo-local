@@ -6,4 +6,8 @@ export const adapter = makePersistedAdapter({
   storage: { type: 'opfs' },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
+  experimental: {
+    disableFastPath: true,
+    awaitSharedWorkerTermination: true,
+  },
 });

@@ -46,6 +46,7 @@ export const useGoalCommands = () => {
             .join(', ')
         );
       }
+      await services.goalProjection.flush();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
@@ -61,7 +62,12 @@ export const useGoalCommands = () => {
     try {
       const userId = ensureUser();
       const timestamp = Date.now();
-      if (params.summary !== undefined) {
+      const current = await services.goalQueries.getGoalById(params.goalId);
+      if (!current) {
+        throw new Error('Goal not found');
+      }
+      let changed = false;
+      if (params.summary !== undefined && params.summary !== current.summary) {
         const cmd = {
           type: 'ChangeGoalSummary' as const,
           goalId: params.goalId,
@@ -77,8 +83,9 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.slice !== undefined) {
+      if (params.slice !== undefined && params.slice !== current.slice) {
         const cmd = {
           type: 'ChangeGoalSlice' as const,
           goalId: params.goalId,
@@ -94,8 +101,12 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.priority !== undefined) {
+      if (
+        params.priority !== undefined &&
+        params.priority !== current.priority
+      ) {
         const cmd = {
           type: 'ChangeGoalPriority' as const,
           goalId: params.goalId,
@@ -111,8 +122,12 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.targetMonth !== undefined) {
+      if (
+        params.targetMonth !== undefined &&
+        params.targetMonth !== current.targetMonth
+      ) {
         const cmd = {
           type: 'ChangeGoalTargetMonth' as const,
           goalId: params.goalId,
@@ -128,6 +143,10 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
+      }
+      if (changed) {
+        await services.goalProjection.flush();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -157,6 +176,7 @@ export const useGoalCommands = () => {
             .join(', ')
         );
       }
+      await services.goalProjection.flush();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);

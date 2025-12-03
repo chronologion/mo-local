@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GoalListItem, tables } from '@mo/infrastructure/browser';
+import { tables } from '@mo/infrastructure/browser';
+import type { GoalListItem } from '@mo/infrastructure/browser';
 import { useApp } from '../providers/AppProvider';
 
 export const useGoals = () => {
