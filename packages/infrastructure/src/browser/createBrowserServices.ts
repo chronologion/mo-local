@@ -1,4 +1,8 @@
-import { createStorePromise, type Store } from '@livestore/livestore';
+import {
+  createStorePromise,
+  type Store,
+  type Adapter,
+} from '@livestore/livestore';
 import {
   GoalApplicationService,
   GoalCommandHandler,
@@ -12,6 +16,8 @@ import { GoalRepository } from './GoalRepository';
 import { GoalQueries } from './GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { schema as defaultSchema, events as goalEvents } from './schema';
+import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import { eventTypes } from '@mo/domain';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -22,10 +28,11 @@ export type BrowserServices = {
   goalRepo: GoalRepository;
   goalService: GoalApplicationService;
   goalQueries: GoalQueries;
+  goalProjection: GoalProjectionProcessor;
 };
 
 export type BrowserServicesOptions = {
-  adapter: unknown;
+  adapter: Adapter;
   storeId?: string;
 };
 
@@ -35,7 +42,7 @@ export type BrowserServicesOptions = {
  */
 export const createBrowserServices = async ({
   adapter,
-  storeId = 'mo-local',
+  storeId = 'mo-local-v2',
 }: BrowserServicesOptions): Promise<BrowserServices> => {
   const effectiveSchema = defaultSchema;
   const crypto = new WebCryptoService();
@@ -69,10 +76,44 @@ export const createBrowserServices = async ({
     eventBus
   );
   const goalService = new GoalApplicationService(goalHandler);
+  const toDomain = new LiveStoreToDomainAdapter(crypto);
+  const goalProjection = new GoalProjectionProcessor(
+    store,
+    eventStore,
+    crypto,
+    keyStore,
+    toDomain
+  );
+  const triggerProjection = async () => {
+    try {
+      await goalProjection.flush();
+    } catch (error) {
+      console.error('[GoalProjectionProcessor] flush failed', error);
+    }
+  };
+
+  // Ensure projections run as soon as new events are published, without waiting
+  // for LiveStore subscription delays.
+  [
+    eventTypes.goalCreated,
+    eventTypes.goalSummaryChanged,
+    eventTypes.goalSliceChanged,
+    eventTypes.goalTargetChanged,
+    eventTypes.goalPriorityChanged,
+    eventTypes.goalDeleted,
+    eventTypes.goalAccessGranted,
+    eventTypes.goalAccessRevoked,
+  ].forEach((eventType) => eventBus.subscribe(eventType, triggerProjection));
+
   const goalQueries = new GoalQueries(
     eventStore,
-    new LiveStoreToDomainAdapter(crypto),
-    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+    toDomain,
+    keyStore,
+    crypto,
+    <T>(params: {
+      query: string;
+      bindValues: Array<string | number | Uint8Array>;
+    }) => store.query<T>(params as never)
   );
 
   return {
@@ -84,5 +125,6 @@ export const createBrowserServices = async ({
     goalRepo,
     goalService,
     goalQueries,
+    goalProjection,
   };
 };

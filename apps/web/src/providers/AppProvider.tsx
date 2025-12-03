@@ -8,6 +8,17 @@ import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 
 const USER_META_KEY = 'mo-local-user';
+const RESET_FLAG_KEY = 'mo-local-reset-persistence';
+const STORE_ID_KEY = 'mo-local-store-id';
+const DEFAULT_STORE_ID = 'mo-local-v2';
+
+const loadStoreId = (): string => {
+  if (typeof localStorage === 'undefined') return DEFAULT_STORE_ID;
+  const existing = localStorage.getItem(STORE_ID_KEY);
+  if (existing) return existing;
+  localStorage.setItem(STORE_ID_KEY, DEFAULT_STORE_ID);
+  return DEFAULT_STORE_ID;
+};
 
 type UserMeta = {
   userId: string;
@@ -30,6 +41,7 @@ type AppContextValue = {
   session: SessionState;
   completeOnboarding: (params: { password: string }) => Promise<void>;
   unlock: (params: { password: string }) => Promise<void>;
+  resetLocalState: () => Promise<void>;
   masterKey: Uint8Array | null;
   restoreBackup: (params: {
     password: string;
@@ -75,7 +87,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
-        const svc = await createBrowserServices({ adapter });
+        const currentStoreId = loadStoreId();
+        const svc = await createBrowserServices({
+          adapter,
+          storeId: currentStoreId,
+        });
         const updateDebug = () => {
           const tablesList = (() => {
             try {
@@ -188,6 +204,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
+    // Start projection only after keys are persisted.
+    await services.goalProjection.start();
     saveMeta({ userId });
     setSession({ status: 'ready', userId });
   };
@@ -205,7 +223,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error('No keys found, please re-onboard');
     }
     setMasterKey(kek);
+    await services.goalProjection.start();
     setSession({ status: 'ready', userId: meta.userId });
+  };
+
+  const resetLocalState = async (): Promise<void> => {
+    if (!services) throw new Error('Services not initialized');
+    try {
+      services.goalProjection.stop();
+      await (
+        services.store as unknown as { shutdownPromise?: () => Promise<void> }
+      ).shutdownPromise?.();
+    } catch (error) {
+      console.warn('LiveStore shutdown failed', error);
+    }
+    indexedDB.deleteDatabase('mo-local-keys');
+    localStorage.removeItem(USER_META_KEY);
+    const nextStoreId = `${DEFAULT_STORE_ID}-${uuidv7()}`;
+    localStorage.setItem(STORE_ID_KEY, nextStoreId);
+    localStorage.removeItem(RESET_FLAG_KEY);
+    window.location.reload();
   };
 
   const restoreBackup = async ({
@@ -289,6 +326,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       );
     }
 
+    await services.goalProjection.start();
     saveMeta({
       userId: payload.userId,
     });
@@ -312,6 +350,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           session,
           completeOnboarding,
           unlock,
+          resetLocalState,
           masterKey,
           restoreBackup,
         }}
