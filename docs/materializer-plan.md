@@ -133,6 +133,10 @@ Metadata (`aggregate_id`, `version`, `sequence`, `created_at`) supports:
 
 All domain fields remain inside encrypted blobs and in memory only.
 
+### 3.4 Search index persistence
+
+FTS is implemented with an in‑memory MiniSearch index over goal summaries. The index is serialized to JSON, encrypted with a dedicated per‑BC key, and stored in a small `goal_search_index` table alongside its `last_sequence`. On bootstrap we try to load the encrypted index; if missing or stale, we rebuild from snapshots + tail events and persist again. This avoids re‑indexing 100k+ documents on every cold start.
+
 ## 4. Projection & Indexing Runtime
 
 ### 4.1 Responsibilities (per BC)
@@ -339,7 +343,7 @@ Mitigations to track (some outside this POC’s immediate scope):
 2. **Projection footprint & pagination**
    - For the POC, keep the full projection in memory. Future options (pagination/LRU, lazy fields, etc.) are noted but not planned now.
 3. **FTS implementation & persistence**
-   - POC: add simple in‑memory FTS for summaries (MiniSearch or similar) and persist it like snapshots (serialize + encrypt a blob alongside snapshot data). Facet indexes follow the same pattern.
+   - Implemented: in‑memory MiniSearch over summaries, encrypted persistence in `goal_search_index` with `last_sequence` metadata; rebuild from snapshots + tail events if missing. Facet filters (slice/month/priority) are applied over the in‑memory projection for now.
 4. **Worker multiplexing**
    - Start with one worker per BC vs a single “infra worker” handling projections for all BCs behind a simple RPC multiplexer.
 5. **LiveStore integration details (revised)**

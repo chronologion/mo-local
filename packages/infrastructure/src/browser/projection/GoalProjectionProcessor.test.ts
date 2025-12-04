@@ -36,6 +36,8 @@ type AnalyticsRow = {
 class StoreStub {
   snapshots = new Map<string, SnapshotRow>();
   analytics: AnalyticsRow | null = null;
+  searchIndex: { payload_encrypted: Uint8Array; last_sequence: number } | null =
+    null;
   meta = new Map<string, string>();
   eventLog: EncryptedEvent[] = [];
 
@@ -88,6 +90,10 @@ class StoreStub {
       this.meta.clear();
       return [] as unknown as TResult;
     }
+    if (query === 'DELETE FROM goal_search_index') {
+      this.searchIndex = null;
+      return [] as unknown as TResult;
+    }
     if (query.includes('FROM goal_snapshots') && !query.includes('WHERE')) {
       return [...this.snapshots.entries()].map(([aggregateId, row]) => ({
         aggregate_id: aggregateId,
@@ -113,6 +119,22 @@ class StoreStub {
         payload_encrypted: cipher,
         last_sequence: lastSequence,
         updated_at: updatedAt,
+      };
+      return [] as unknown as TResult;
+    }
+    if (query.includes('FROM goal_search_index WHERE key')) {
+      return this.searchIndex ? [this.searchIndex] : ([] as unknown as TResult);
+    }
+    if (query.includes('INSERT INTO goal_search_index')) {
+      const [, cipher, lastSequence] = bindValues as [
+        string,
+        Uint8Array,
+        number,
+        number,
+      ];
+      this.searchIndex = {
+        payload_encrypted: cipher,
+        last_sequence: lastSequence,
       };
       return [] as unknown as TResult;
     }

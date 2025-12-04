@@ -48,11 +48,22 @@ const goalAnalyticsTable = State.SQLite.table({
   },
 });
 
+const goalSearchIndexTable = State.SQLite.table({
+  name: 'goal_search_index',
+  columns: {
+    key: State.SQLite.text({ nullable: false, primaryKey: true }),
+    payload_encrypted: State.SQLite.blob({ nullable: false }),
+    last_sequence: State.SQLite.integer({ nullable: false }),
+    updated_at: State.SQLite.integer({ nullable: false }),
+  },
+});
+
 export const tables = {
   goal_events: goalEventsTable,
   goal_snapshots: goalSnapshotsTable,
   goal_projection_meta: goalProjectionMetaTable,
   goal_analytics: goalAnalyticsTable,
+  goal_search_index: goalSearchIndexTable,
 };
 
 type GoalEventPayload = {

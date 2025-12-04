@@ -5,6 +5,7 @@ import { WebCryptoService } from '../../crypto/WebCryptoService';
 import { MissingKeyError } from '../../errors';
 import { tables } from '../schema';
 import { LiveStoreToDomainAdapter } from '../../livestore/adapters/LiveStoreToDomainAdapter';
+import MiniSearch, { type SearchResult } from 'minisearch';
 import {
   AnalyticsDelta,
   GoalSnapshotState,
@@ -22,6 +23,7 @@ import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
 
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
+const SEARCH_INDEX_KEY = 'goal_search_index';
 
 type SnapshotRow = {
   aggregate_id: string;
@@ -32,6 +34,11 @@ type SnapshotRow = {
 };
 
 type AnalyticsRow = {
+  payload_encrypted: Uint8Array;
+  last_sequence: number;
+};
+
+type SearchIndexRow = {
   payload_encrypted: Uint8Array;
   last_sequence: number;
 };
@@ -48,9 +55,27 @@ export class GoalProjectionProcessor {
   private analyticsCache: AnalyticsPayload | null = null;
   private readonly snapshots = new Map<string, GoalSnapshotState>();
   private readonly projections = new Map<string, GoalListItem>();
+  private searchIndex: MiniSearch<GoalListItem>;
   private readonly listeners = new Set<() => void>();
   private readonly readyPromise: Promise<void>;
   private resolveReady: (() => void) | null = null;
+  private readonly searchConfig = {
+    idField: 'id',
+    fields: ['summary'] as const,
+    storeFields: [
+      'id',
+      'summary',
+      'slice',
+      'priority',
+      'targetMonth',
+      'createdAt',
+      'deletedAt',
+    ] as const,
+    searchOptions: {
+      prefix: true,
+      fuzzy: 0.2,
+    },
+  };
 
   constructor(
     private readonly store: Store,
@@ -59,8 +84,18 @@ export class GoalProjectionProcessor {
     private readonly keyStore: IndexedDBKeyStore,
     private readonly toDomain: LiveStoreToDomainAdapter
   ) {
+    this.searchIndex = this.createSearchIndex();
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;
+    });
+  }
+
+  private createSearchIndex(): MiniSearch<GoalListItem> {
+    return new MiniSearch<GoalListItem>({
+      idField: this.searchConfig.idField,
+      fields: [...this.searchConfig.fields],
+      storeFields: [...this.searchConfig.storeFields],
+      searchOptions: this.searchConfig.searchOptions,
     });
   }
 
@@ -110,6 +145,25 @@ export class GoalProjectionProcessor {
     await this.readyPromise;
   }
 
+  searchGoals(
+    term: string,
+    filter?: { slice?: string; month?: string; priority?: string }
+  ): GoalListItem[] {
+    const hits = term.trim()
+      ? this.searchIndex.search(term)
+      : ([...this.projections.values()].map((item) => ({
+          id: item.id,
+          score: 1,
+        })) as Array<Pick<SearchResult, 'id' | 'score'>>);
+
+    const filtered = hits
+      .map((hit) => this.projections.get(String(hit.id)))
+      .filter((item): item is GoalListItem => Boolean(item))
+      .filter((item) => this.matchesFilter(item, filter));
+
+    return filtered.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
   /**
    * Rebuilds projections from scratch: clears snapshots/analytics/meta,
    * resets in-memory caches, and replays all events.
@@ -120,6 +174,7 @@ export class GoalProjectionProcessor {
     this.lastSequence = 0;
     this.snapshots.clear();
     this.projections.clear();
+    this.searchIndex = this.createSearchIndex();
     this.analyticsCache = null;
     this.store.query({
       query: 'DELETE FROM goal_snapshots',
@@ -131,6 +186,10 @@ export class GoalProjectionProcessor {
     });
     this.store.query({
       query: 'DELETE FROM goal_projection_meta',
+      bindValues: [],
+    });
+    this.store.query({
+      query: 'DELETE FROM goal_search_index',
       bindValues: [],
     });
     await this.saveLastSequence(0);
@@ -193,6 +252,8 @@ export class GoalProjectionProcessor {
     if (processedMax > this.lastSequence) {
       this.lastSequence = processedMax;
       await this.saveLastSequence(processedMax);
+      const searchKey = await this.ensureSearchKey();
+      await this.saveSearchIndex(searchKey, processedMax, Date.now());
       this.pruneProcessedEvents(processedMax);
     }
     if (projectionChanged) {
@@ -242,6 +303,7 @@ export class GoalProjectionProcessor {
   }
 
   private async bootstrapFromSnapshots(): Promise<void> {
+    const searchKey = await this.ensureSearchKey();
     const rows = this.store.query<SnapshotRow[]>({
       query:
         'SELECT aggregate_id, payload_encrypted, version, last_sequence, updated_at FROM goal_snapshots',
@@ -259,6 +321,11 @@ export class GoalProjectionProcessor {
       if (!snapshot || snapshot.deletedAt !== null) continue;
       this.snapshots.set(row.aggregate_id, snapshot);
       this.projections.set(row.aggregate_id, snapshotToListItem(snapshot));
+    }
+    const restored = await this.loadSearchIndex(searchKey);
+    if (!restored) {
+      this.rebuildSearchIndexFromProjections();
+      await this.saveSearchIndex(searchKey, this.lastSequence, Date.now());
     }
   }
 
@@ -404,6 +471,72 @@ export class GoalProjectionProcessor {
     });
   }
 
+  private async ensureSearchKey(): Promise<Uint8Array> {
+    const existing = await this.keyStore.getAggregateKey(SEARCH_INDEX_KEY);
+    if (existing) return existing;
+    const generated = await this.crypto.generateKey();
+    await this.keyStore.saveAggregateKey(SEARCH_INDEX_KEY, generated);
+    return generated;
+  }
+
+  private async loadSearchIndex(key: Uint8Array): Promise<boolean> {
+    const rows = this.store.query<SearchIndexRow[]>({
+      query:
+        'SELECT payload_encrypted, last_sequence FROM goal_search_index WHERE key = ?',
+      bindValues: [SEARCH_INDEX_KEY],
+    });
+    if (!rows.length) return false;
+    const row = rows[0];
+    const aad = new TextEncoder().encode(
+      `${SEARCH_INDEX_KEY}:fts:${row.last_sequence}`
+    );
+    const plaintext = await this.crypto.decrypt(
+      row.payload_encrypted,
+      key,
+      aad
+    );
+    const json = new TextDecoder().decode(plaintext);
+    this.searchIndex = MiniSearch.loadJSON<GoalListItem>(JSON.parse(json), {
+      idField: this.searchConfig.idField,
+      fields: [...this.searchConfig.fields],
+      storeFields: [...this.searchConfig.storeFields],
+      searchOptions: this.searchConfig.searchOptions,
+    });
+    return true;
+  }
+
+  private async saveSearchIndex(
+    key: Uint8Array,
+    lastSequence: number,
+    updatedAtMs: number
+  ): Promise<void> {
+    const serialized = JSON.stringify(this.searchIndex.toJSON());
+    const aad = new TextEncoder().encode(
+      `${SEARCH_INDEX_KEY}:fts:${lastSequence}`
+    );
+    const cipher = await this.crypto.encrypt(
+      new TextEncoder().encode(serialized),
+      key,
+      aad
+    );
+    this.store.query({
+      query: `
+        INSERT INTO goal_search_index (key, payload_encrypted, last_sequence, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          payload_encrypted = excluded.payload_encrypted,
+          last_sequence = excluded.last_sequence,
+          updated_at = excluded.updated_at
+      `,
+      bindValues: [
+        SEARCH_INDEX_KEY,
+        cipher as Uint8Array<ArrayBuffer>,
+        lastSequence,
+        updatedAtMs,
+      ],
+    });
+  }
+
   private async loadLastSequence(): Promise<number> {
     const rows = this.store.query<{ value: string }[]>({
       query: 'SELECT value FROM goal_projection_meta WHERE key = ? LIMIT 1',
@@ -430,12 +563,27 @@ export class GoalProjectionProcessor {
     snapshot: GoalSnapshotState | null
   ): void {
     if (!snapshot || snapshot.deletedAt !== null) {
+      const existing = this.projections.get(aggregateId);
       this.snapshots.delete(aggregateId);
       this.projections.delete(aggregateId);
+      if (existing) {
+        try {
+          this.searchIndex.remove(existing);
+        } catch {
+          // Index may not contain the document yet; ignore.
+        }
+      }
       return;
     }
     this.snapshots.set(aggregateId, snapshot);
-    this.projections.set(aggregateId, snapshotToListItem(snapshot));
+    const listItem = snapshotToListItem(snapshot);
+    this.projections.set(aggregateId, listItem);
+    try {
+      this.searchIndex.remove(listItem);
+    } catch {
+      // Replace semantics; absence is fine.
+    }
+    this.searchIndex.add(listItem);
   }
 
   private emitProjectionChanged(): void {
@@ -454,6 +602,27 @@ export class GoalProjectionProcessor {
       query: 'DELETE FROM goal_events WHERE sequence <= ?',
       bindValues: [processedUpTo],
     });
+  }
+
+  private matchesFilter(
+    item: GoalListItem,
+    filter?: { slice?: string; month?: string; priority?: string }
+  ): boolean {
+    if (!filter) return true;
+    if (filter.slice && item.slice !== filter.slice) return false;
+    if (filter.priority && item.priority !== filter.priority) return false;
+    if (filter.month && item.targetMonth !== filter.month) return false;
+    return true;
+  }
+
+  private rebuildSearchIndexFromProjections(): void {
+    this.searchIndex = this.createSearchIndex();
+    const docs = [...this.projections.values()].filter(
+      (item) => item.deletedAt === null
+    );
+    if (docs.length > 0) {
+      this.searchIndex.addAll(docs);
+    }
   }
 }
 
