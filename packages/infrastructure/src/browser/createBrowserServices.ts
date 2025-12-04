@@ -105,16 +105,7 @@ export const createBrowserServices = async ({
     eventTypes.goalAccessRevoked,
   ].forEach((eventType) => eventBus.subscribe(eventType, triggerProjection));
 
-  const goalQueries = new GoalQueries(
-    eventStore,
-    toDomain,
-    keyStore,
-    crypto,
-    <T>(params: {
-      query: string;
-      bindValues: Array<string | number | Uint8Array>;
-    }) => store.query<T>(params as never)
-  );
+  const goalQueries = new GoalQueries(goalProjection);
 
   return {
     crypto,

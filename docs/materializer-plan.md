@@ -335,20 +335,11 @@ Mitigations to track (some outside this POC’s immediate scope):
 ## 8. Open Questions / Next Steps
 
 1. **Snapshot frequency & strategy**
-   - How often should we snapshot per aggregate (e.g. every N events, time‑based, or app‑driven)?
-   - Do we support snapshot compaction or deletion in the POC?
+   - POC decision: snapshot on every event; upsert per aggregate; delete snapshot on goal delete. No compaction planned for POC.
 2. **Projection footprint & pagination**
-   - At 10k–100k aggregates, holding *all* `GoalListItem`s in memory (even in a worker) may be too heavy, especially on mobile.
-   - We should consider:
-     - Projection‑level pagination / windowing (e.g. only keep fully hydrated items for the current slice/month/page).
-     - LRU caching for `goalDetails` and other heavy per‑aggregate state.
-     - Keeping only metadata + IDs for “cold” aggregates, and rehydrating on demand from snapshots + events.
+   - For the POC, keep the full projection in memory. Future options (pagination/LRU, lazy fields, etc.) are noted but not planned now.
 3. **FTS implementation & persistence**
-   - Start with a simple in‑memory index per BC (e.g. a small FTS lib) for the POC.
-   - Evaluate persisting a serialized, encrypted form of the FTS index (per BC) to speed up bootstrap:
-     - Store an encrypted blob of the index keyed by a per‑device or per‑user cache key.
-     - On startup, decrypt + restore the index, then apply only incremental updates since the last index version.
-   - Decide how much slowdown we accept on cold start vs the complexity of persisted FTS.
+   - POC: add simple in‑memory FTS for summaries (MiniSearch or similar) and persist it like snapshots (serialize + encrypt a blob alongside snapshot data). Facet indexes follow the same pattern.
 4. **Worker multiplexing**
    - Start with one worker per BC vs a single “infra worker” handling projections for all BCs behind a simple RPC multiplexer.
 5. **LiveStore integration details**
@@ -363,10 +354,10 @@ Mitigations to track (some outside this POC’s immediate scope):
      - Encrypted events and snapshots are in place (`goal_events`, `goal_snapshots`, `goal_projection_meta`, `goal_analytics`).
      - `GoalProjectionProcessor` maintains snapshots/analytics and supports catch‑up via `lastSequence`.
      - `GoalQueries` decrypts snapshots on demand for reads.
-   - Next steps (within this repo, without LiveStore changes):
-     - Introduce a small in‑memory projection map in `GoalProjectionProcessor` and expose a “projection changed” signal.
-     - Refactor `GoalQueries` to read from that in‑memory projection instead of re‑decrypting each query.
-     - Keep the existing snapshot/analytics tables as durable backing for restart and future worker offloading.
+   - No additional migration logic planned for the POC. Next steps are iterative refactors:
+     - Add an in‑memory projection map + “projection changed” signal.
+     - Refactor `GoalQueries` to read from that map instead of re‑decrypting per query.
+     - Keep existing snapshot/analytics tables as durable backing for restart and optional future worker offloading.
 
 This mini‑PRD is the reference for shaping ALC‑255 and related infra tasks (projection runtime, worker wiring, and DAL APIs) for the Goals BC. Future BCs (Projects, Tasks, etc.) should reuse the same pattern with their own `*_events`/`*_snapshots` tables and projection runtimes.
 

@@ -3,7 +3,7 @@ import { GoalProjectionProcessor } from './GoalProjectionProcessor';
 import { LiveStoreToDomainAdapter } from '../../livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../crypto/WebCryptoService';
-import { GoalCreated, GoalTargetChanged } from '@mo/domain';
+import { GoalCreated, GoalDeleted, GoalTargetChanged } from '@mo/domain';
 import { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 
@@ -52,11 +52,6 @@ class StoreStub {
     if (query.includes('COUNT(*) as count FROM goal_snapshots')) {
       return [{ count: this.snapshots.size }] as unknown as TResult;
     }
-    if (query.includes('FROM goal_snapshots WHERE aggregate_id')) {
-      const id = bindValues[0] as string;
-      const row = this.snapshots.get(id);
-      return (row ? [row] : []) as TResult;
-    }
     if (query.includes('INSERT INTO goal_snapshots')) {
       const [aggregateId, cipher, version, lastSequence, updatedAt] =
         bindValues as [string, Uint8Array, number, number, number];
@@ -67,6 +62,22 @@ class StoreStub {
         updated_at: updatedAt,
       });
       return [] as unknown as TResult;
+    }
+    if (query.includes('DELETE FROM goal_snapshots WHERE aggregate_id')) {
+      const aggregateId = bindValues[0] as string;
+      this.snapshots.delete(aggregateId);
+      return [] as unknown as TResult;
+    }
+    if (query.includes('FROM goal_snapshots') && !query.includes('WHERE')) {
+      return [...this.snapshots.entries()].map(([aggregateId, row]) => ({
+        aggregate_id: aggregateId,
+        ...row,
+      })) as unknown as TResult;
+    }
+    if (query.includes('FROM goal_snapshots WHERE aggregate_id')) {
+      const id = bindValues[0] as string;
+      const row = this.snapshots.get(id);
+      return (row ? [row] : []) as TResult;
     }
     if (query.includes('FROM goal_analytics WHERE aggregate_id')) {
       return (this.analytics ? [this.analytics] : []) as TResult;
@@ -106,12 +117,23 @@ class EventStoreStub implements IEventStore {
     throw new Error('append not implemented for test stub');
   }
 
-  async getEvents(): Promise<EncryptedEvent[]> {
-    return this.events;
+  async getEvents(
+    aggregateId: string,
+    fromVersion?: number
+  ): Promise<EncryptedEvent[]> {
+    return this.events.filter((event) => {
+      const matchesAggregate = event.aggregateId === aggregateId;
+      const matchesVersion =
+        fromVersion === undefined ? true : event.version > fromVersion;
+      return matchesAggregate && matchesVersion;
+    });
   }
 
-  async getAllEvents(): Promise<EncryptedEvent[]> {
-    return this.events;
+  async getAllEvents(filter?: { since?: number }): Promise<EncryptedEvent[]> {
+    if (!filter?.since) return this.events;
+    return this.events.filter(
+      (event) => (event.sequence ?? 0) > (filter.since ?? 0)
+    );
   }
 }
 
@@ -222,5 +244,50 @@ describe('GoalProjectionProcessor', () => {
     );
     expect(analytics.monthlyTotals['2026-01'].Health).toBe(1);
     expect(analytics.monthlyTotals['2025-12']).toBeUndefined();
+  });
+
+  it('removes snapshots and projection entries when a goal is deleted', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId,
+        slice: 'Health',
+        summary: 'Run',
+        targetMonth: '2025-12',
+        priority: 'must',
+        createdBy: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      }),
+      1,
+      kGoal
+    );
+    const deleted = await toEncrypted.toEncrypted(
+      new GoalDeleted({
+        goalId,
+        deletedAt: new Date('2025-03-01T00:00:00Z'),
+      }),
+      2,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [
+      { ...created, sequence: 1 },
+      { ...deleted, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    expect(store.snapshots.size).toBe(0);
+    expect(processor.listGoals()).toHaveLength(0);
+    expect(processor.getGoalById(goalId)).toBeNull();
   });
 });

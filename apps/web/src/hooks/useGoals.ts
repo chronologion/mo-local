@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { tables } from '@mo/infrastructure/browser';
 import type { GoalListItem } from '@mo/infrastructure/browser';
 import { useApp } from '../providers/AppProvider';
 
@@ -25,13 +24,21 @@ export const useGoals = () => {
 
   useEffect(() => {
     refresh();
-    const sub = services.store.subscribe(tables.goal_events.count(), () => {
-      void refresh();
-    });
-    return () => {
-      sub?.();
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    const wireSubscription = async () => {
+      await services.goalProjection.whenReady();
+      if (cancelled) return;
+      unsubscribe = services.goalProjection.subscribe(() => {
+        void refresh();
+      });
     };
-  }, [refresh, services.store]);
+    void wireSubscription();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [refresh, services.goalProjection]);
 
   return { goals, loading, error, refresh };
 };

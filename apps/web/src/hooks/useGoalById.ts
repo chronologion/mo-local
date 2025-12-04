@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../providers/AppProvider';
-import { tables } from '@mo/infrastructure/browser';
 import type { GoalListItem } from '@mo/infrastructure/browser';
 
 export const useGoalById = (goalId: string | null) => {
@@ -25,17 +24,23 @@ export const useGoalById = (goalId: string | null) => {
         if (!cancelled) setLoading(false);
       }
     };
+    let unsubscribe: (() => void) | undefined;
+    const wireSubscription = async () => {
+      await services.goalProjection.whenReady();
+      if (cancelled) return;
+      unsubscribe = services.goalProjection.subscribe(() => {
+        void refresh();
+      });
+    };
     setLoading(true);
     setError(null);
     void refresh();
-    const sub = services.store.subscribe(tables.goal_events.count(), () => {
-      void refresh();
-    });
+    void wireSubscription();
     return () => {
       cancelled = true;
-      sub?.();
+      unsubscribe?.();
     };
-  }, [goalId, services.goalQueries, services.store]);
+  }, [goalId, services.goalProjection, services.goalQueries]);
 
   return { goal, loading, error };
 };

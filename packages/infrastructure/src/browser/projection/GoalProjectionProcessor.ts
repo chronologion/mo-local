@@ -18,14 +18,17 @@ import {
   applyMonthlyDelta,
   createEmptyAnalytics,
 } from './GoalAnalyticsState';
+import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
 
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
 
 type SnapshotRow = {
+  aggregate_id: string;
   payload_encrypted: Uint8Array;
   version: number;
   last_sequence: number;
+  updated_at: number;
 };
 
 type AnalyticsRow = {
@@ -43,6 +46,11 @@ export class GoalProjectionProcessor {
   private lastSequence = 0;
   private unsubscribe: (() => void) | null = null;
   private analyticsCache: AnalyticsPayload | null = null;
+  private readonly snapshots = new Map<string, GoalSnapshotState>();
+  private readonly projections = new Map<string, GoalListItem>();
+  private readonly listeners = new Set<() => void>();
+  private readonly readyPromise: Promise<void>;
+  private resolveReady: (() => void) | null = null;
 
   constructor(
     private readonly store: Store,
@@ -50,7 +58,11 @@ export class GoalProjectionProcessor {
     private readonly crypto: WebCryptoService,
     private readonly keyStore: IndexedDBKeyStore,
     private readonly toDomain: LiveStoreToDomainAdapter
-  ) {}
+  ) {
+    this.readyPromise = new Promise((resolve) => {
+      this.resolveReady = resolve;
+    });
+  }
 
   async start(): Promise<void> {
     if (this.started) return;
@@ -65,10 +77,12 @@ export class GoalProjectionProcessor {
     } else {
       this.lastSequence = await this.loadLastSequence();
     }
+    await this.bootstrapFromSnapshots();
     await this.processNewEvents();
     this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
       void this.processNewEvents();
     });
+    this.resolveReady?.();
   }
 
   /**
@@ -83,6 +97,27 @@ export class GoalProjectionProcessor {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.started = false;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  async whenReady(): Promise<void> {
+    await this.readyPromise;
+  }
+
+  listGoals(): GoalListItem[] {
+    return [...this.projections.values()].sort(
+      (a, b) => b.createdAt - a.createdAt
+    );
+  }
+
+  getGoalById(goalId: string): GoalListItem | null {
+    return this.projections.get(goalId) ?? null;
   }
 
   private async processNewEvents(): Promise<void> {
@@ -104,9 +139,11 @@ export class GoalProjectionProcessor {
     });
     if (events.length === 0) return;
     let processedMax = this.lastSequence;
+    let projectionChanged = false;
     for (const event of events) {
       try {
-        await this.projectEvent(event);
+        const changed = await this.projectEvent(event);
+        projectionChanged = projectionChanged || changed;
         if (event.sequence && event.sequence > processedMax) {
           processedMax = event.sequence;
         }
@@ -125,9 +162,12 @@ export class GoalProjectionProcessor {
       this.lastSequence = processedMax;
       await this.saveLastSequence(processedMax);
     }
+    if (projectionChanged) {
+      this.emitProjectionChanged();
+    }
   }
 
-  private async projectEvent(event: EncryptedEvent): Promise<void> {
+  private async projectEvent(event: EncryptedEvent): Promise<boolean> {
     if (!event.sequence) {
       throw new Error(`Event ${event.id} missing sequence`);
     }
@@ -143,7 +183,9 @@ export class GoalProjectionProcessor {
       event,
       kGoal
     )) as SupportedGoalEvent;
-    const previousSnapshot = await this.loadSnapshot(event.aggregateId, kGoal);
+    const previousSnapshot =
+      this.snapshots.get(event.aggregateId) ??
+      (await this.loadSnapshot(event.aggregateId, kGoal));
     const nextSnapshot = applyEventToSnapshot(
       previousSnapshot,
       domainEvent,
@@ -151,10 +193,10 @@ export class GoalProjectionProcessor {
     );
     if (!nextSnapshot) {
       // No snapshot to write (e.g., create missing); skip.
-      return;
+      return false;
     }
 
-    await this.saveSnapshot(event.aggregateId, nextSnapshot, kGoal, event);
+    await this.persistSnapshot(event.aggregateId, nextSnapshot, kGoal, event);
     await this.updateAnalytics(
       domainEvent,
       previousSnapshot,
@@ -162,6 +204,29 @@ export class GoalProjectionProcessor {
       event.sequence,
       event.occurredAt
     );
+    this.updateProjectionCache(event.aggregateId, nextSnapshot);
+    return true;
+  }
+
+  private async bootstrapFromSnapshots(): Promise<void> {
+    const rows = this.store.query<SnapshotRow[]>({
+      query:
+        'SELECT aggregate_id, payload_encrypted, version, last_sequence, updated_at FROM goal_snapshots',
+      bindValues: [],
+    });
+    for (const row of rows) {
+      const kGoal = await this.keyStore.getAggregateKey(row.aggregate_id);
+      if (!kGoal) continue;
+      const snapshot = await this.decryptSnapshot(
+        row.aggregate_id,
+        row.payload_encrypted,
+        row.version,
+        kGoal
+      );
+      if (!snapshot || snapshot.deletedAt !== null) continue;
+      this.snapshots.set(row.aggregate_id, snapshot);
+      this.projections.set(row.aggregate_id, snapshotToListItem(snapshot));
+    }
   }
 
   private async loadSnapshot(
@@ -175,26 +240,39 @@ export class GoalProjectionProcessor {
     });
     if (!rows.length) return null;
     const row = rows[0];
-    const aad = new TextEncoder().encode(
-      `${aggregateId}:snapshot:${row.version}`
-    );
-    const plaintext = await this.crypto.decrypt(
+    return this.decryptSnapshot(
+      aggregateId,
       row.payload_encrypted,
-      kGoal,
-      aad
+      row.version,
+      kGoal
     );
-    const parsed = JSON.parse(
-      new TextDecoder().decode(plaintext)
-    ) as GoalSnapshotState;
-    return parsed;
   }
 
-  private async saveSnapshot(
+  private async decryptSnapshot(
+    aggregateId: string,
+    cipher: Uint8Array,
+    version: number,
+    kGoal: Uint8Array
+  ): Promise<GoalSnapshotState | null> {
+    const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+    const plaintext = await this.crypto.decrypt(cipher, kGoal, aad);
+    return JSON.parse(new TextDecoder().decode(plaintext)) as GoalSnapshotState;
+  }
+
+  private async persistSnapshot(
     aggregateId: string,
     snapshot: GoalSnapshotState,
     kGoal: Uint8Array,
     event: EncryptedEvent
   ): Promise<void> {
+    if (snapshot.deletedAt !== null) {
+      this.store.query({
+        query: 'DELETE FROM goal_snapshots WHERE aggregate_id = ?',
+        bindValues: [aggregateId],
+      });
+      return;
+    }
+
     const aad = new TextEncoder().encode(
       `${aggregateId}:snapshot:${snapshot.version}`
     );
@@ -319,6 +397,29 @@ export class GoalProjectionProcessor {
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `,
       bindValues: [META_LAST_SEQUENCE_KEY, String(sequence)],
+    });
+  }
+
+  private updateProjectionCache(
+    aggregateId: string,
+    snapshot: GoalSnapshotState | null
+  ): void {
+    if (!snapshot || snapshot.deletedAt !== null) {
+      this.snapshots.delete(aggregateId);
+      this.projections.delete(aggregateId);
+      return;
+    }
+    this.snapshots.set(aggregateId, snapshot);
+    this.projections.set(aggregateId, snapshotToListItem(snapshot));
+  }
+
+  private emitProjectionChanged(): void {
+    this.listeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('[GoalProjectionProcessor] listener threw', error);
+      }
     });
   }
 }
