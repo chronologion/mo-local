@@ -110,6 +110,38 @@ export class GoalProjectionProcessor {
     await this.readyPromise;
   }
 
+  /**
+   * Rebuilds projections from scratch: clears snapshots/analytics/meta,
+   * resets in-memory caches, and replays all events.
+   */
+  async resetAndRebuild(): Promise<void> {
+    this.stop();
+    this.processingPromise = null;
+    this.lastSequence = 0;
+    this.snapshots.clear();
+    this.projections.clear();
+    this.analyticsCache = null;
+    this.store.query({
+      query: 'DELETE FROM goal_snapshots',
+      bindValues: [],
+    });
+    this.store.query({
+      query: 'DELETE FROM goal_analytics',
+      bindValues: [],
+    });
+    this.store.query({
+      query: 'DELETE FROM goal_projection_meta',
+      bindValues: [],
+    });
+    await this.saveLastSequence(0);
+    await this.bootstrapFromSnapshots();
+    await this.processNewEvents();
+    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
+      void this.processNewEvents();
+    });
+    this.emitProjectionChanged();
+  }
+
   listGoals(): GoalListItem[] {
     return [...this.projections.values()].sort(
       (a, b) => b.createdAt - a.createdAt

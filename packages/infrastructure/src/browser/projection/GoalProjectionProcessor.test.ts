@@ -69,6 +69,18 @@ class StoreStub {
       this.snapshots.delete(aggregateId);
       return [] as unknown as TResult;
     }
+    if (query === 'DELETE FROM goal_snapshots') {
+      this.snapshots.clear();
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_analytics') {
+      this.analytics = null;
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_projection_meta') {
+      this.meta.clear();
+      return [] as unknown as TResult;
+    }
     if (query.includes('FROM goal_snapshots') && !query.includes('WHERE')) {
       return [...this.snapshots.entries()].map(([aggregateId, row]) => ({
         aggregate_id: aggregateId,
@@ -316,5 +328,40 @@ describe('GoalProjectionProcessor', () => {
     expect(store.snapshots.size).toBe(0);
     expect(processor.listGoals()).toHaveLength(0);
     expect(processor.getGoalById(goalId)).toBeNull();
+  });
+
+  it('rebuilds projections from scratch on reset', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId,
+        slice: 'Health',
+        summary: 'Run',
+        targetMonth: '2025-12',
+        priority: 'must',
+        createdBy: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      }),
+      1,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [{ ...created, sequence: 1 }];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+    expect(processor.listGoals()).toHaveLength(1);
+    await processor.resetAndRebuild();
+    expect(processor.listGoals()).toHaveLength(1);
+    expect(store.snapshots.size).toBe(1);
   });
 });
