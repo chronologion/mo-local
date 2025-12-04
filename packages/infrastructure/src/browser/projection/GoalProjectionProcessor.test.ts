@@ -107,9 +107,6 @@ class StoreStub {
       this.meta.set(key, value);
       return [] as unknown as TResult;
     }
-    if (query.includes('DELETE FROM goal_events')) {
-      return [] as unknown as TResult;
-    }
     throw new Error(`Unhandled query: ${query}`);
   }
 

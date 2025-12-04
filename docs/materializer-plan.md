@@ -359,46 +359,47 @@ Mitigations to track (some outside this POC’s immediate scope):
 ## 9. Target Runtime Architecture (Goals)
 
 ```mermaid
-flowchart LR
-  subgraph UI["UI / Hooks"]
-    cmds["useGoalCommands"]
-    qList["useGoals"]
-    qId["useGoalById / search"]
-  end
+  flowchart LR
+    subgraph UI["UI / Hooks"]
+      cmds["useGoalCommands"]
+      qList["useGoals"]
+      qId["useGoalById / search"]
+    end
 
-  subgraph App["Application Layer"]
-    cmdBus["CommandBus"]
-    qryBus["QueryBus"]
-    cmdHandler["GoalCommandHandler"]
-    qryHandler["GoalQueryHandler"]
-  end
+    subgraph App["Application Layer"]
+      cmdBus["CommandBus"]
+      qryBus["QueryBus"]
+      cmdHandler["GoalCommandHandler"]
+      qryHandler["GoalQueryHandler"]
+    end
 
-  subgraph Infra["Infra"]
-    repo["GoalRepository<br>(encrypt + append)"]
-    changeset[("session_changeset<br>(LiveStore event log)")]
-    boot["Bootstrapper<br>snapshots + tail events"]
-    ws["GoalEventConsumer<br>handleEvent() per event"]
-    snaps[("goal_snapshots<br>aggregate_id PK<br>payload_encrypted BLOB<br>version INT<br>last_sequence INT<br>updated_at INT")]
-    meta[("goal_projection_meta<br>key PK<br>value TEXT<br>(last_sequence)")]
-    analytics[("goal_analytics<br>aggregate_id PK<br>payload_encrypted BLOB<br>last_sequence INT<br>updated_at INT")]
-    cache["Read cache<br>(in-memory map + FTS, ready flag)"]
-  end
+    subgraph Infra["Infra"]
+      repo["GoalRepository<br>(encrypt + append)"]
+      outbox[("goal_events<br>(bounded outbox; pruned ≤ lastSequence)")]
+      changeset[("session_changeset<br>(LiveStore internal log)")]
+      boot["Bootstrapper<br>snapshots + tail events"]
+      ws["GoalEventConsumer<br>handleEvent() per event"]
+      snaps[("goal_snapshots<br>aggregate_id PK<br>payload_encrypted BLOB<br>version INT<br>last_sequence INT<br>updated_at INT")]
+      meta[("goal_projection_meta<br>key PK<br>value TEXT<br>(last_sequence)")]
+      analytics[("goal_analytics<br>aggregate_id PK<br>payload_encrypted BLOB<br>last_sequence INT<br>updated_at INT")]
+      cache["Read cache<br>(in-memory map + FTS, ready flag)"]
+    end
 
-  cmds --> cmdBus --> cmdHandler --> repo --> changeset
+    cmds --> cmdBus --> cmdHandler --> repo --> outbox
+    outbox -->|"tail since lastSequence"| ws
 
-  boot -->|"preload snapshots"| cache
-  boot -->|"tail events since lastSequence"| ws
+    boot -->|"preload snapshots"| cache
+    boot -->|"tail events since lastSequence"| ws
 
-  changeset -->|"event stream"| ws
+    ws -->|"persist snapshot"| snaps
+    ws -->|"persist analytics"| analytics
+    ws -->|"update lastSequence"| meta
+    ws -->|"prune goal_events ≤ lastSequence"| outbox
+    ws -->|"update cache"| cache
 
-  ws -->|"persist snapshot"| snaps
-  ws -->|"persist analytics"| analytics
-  ws -->|"update lastSequence"| meta
-  ws -->|"update cache"| cache
-
-  qList --> qryBus --> qryHandler -->|"whenReady"| cache
-  qId --> qryBus --> qryHandler -->|"whenReady"| cache
-  cache -->|"ready/signal"| qryBus
+    qList --> qryBus --> qryHandler -->|"whenReady"| cache
+    qId --> qryBus --> qryHandler -->|"whenReady"| cache
+    cache -->|"ready/signal"| qryBus
 ```
 
 Notes:
@@ -409,10 +410,10 @@ Notes:
 ## 10. Server Sync & Event Log Strategy (Heads-up)
 
 - **Current constraint**: The installed LiveStore version does **not** expose `store.events()/eventsStream()` yet (implementation pending). We still materialize `goal_events` as a local outbox/tail buffer to drive projections and catch-up.
-- **Interim approach**: Treat `goal_events` as a bounded outbox:
+- **Interim approach**: Keep `goal_events` as a local outbox/tail buffer:
   - Append encrypted events via materializer.
   - Projector replays tail (since `lastSequence`) and persists snapshots/analytics/meta.
-  - After a successful batch, prune `goal_events` up to `lastSequence` to cap growth (keeps restart/catch-up viable without unbounded table growth).
+  - Do not prune yet, because the command side still rehydrates aggregates from `goal_events`. When `store.events()` is available, move to stream-based consumption and drop/prune the table safely.
 - **Server sync (upcoming)**:
   - LiveStore handles push/pull of the canonical encrypted event log (`session_changeset`). When `store.events()` becomes available, switch projector to the stream and drop `goal_events` entirely.
   - Sync error handling: once server rejects/conflicts arrive, the projection runtime must handle rebasing/replay from the stream; optimistic fast triggers remain off until then.
