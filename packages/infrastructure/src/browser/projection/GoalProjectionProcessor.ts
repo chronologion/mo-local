@@ -161,6 +161,7 @@ export class GoalProjectionProcessor {
     if (processedMax > this.lastSequence) {
       this.lastSequence = processedMax;
       await this.saveLastSequence(processedMax);
+      await this.pruneProcessedEvents(processedMax);
     }
     if (projectionChanged) {
       this.emitProjectionChanged();
@@ -397,6 +398,14 @@ export class GoalProjectionProcessor {
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `,
       bindValues: [META_LAST_SEQUENCE_KEY, String(sequence)],
+    });
+  }
+
+  private async pruneProcessedEvents(sequence: number): Promise<void> {
+    // Treat goal_events as a bounded outbox; remove rows already projected.
+    this.store.query({
+      query: 'DELETE FROM goal_events WHERE sequence <= ?',
+      bindValues: [sequence],
     });
   }
 

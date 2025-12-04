@@ -406,6 +406,23 @@ Notes:
 - Bootstrapper loads snapshots and tail events once, then feeds events through the same per-event consumer used for live updates.
 - Consumer decrypts/applies each event, persists snapshots/analytics/lastSequence, and updates the in-memory read cache; queries wait on the cache’s ready signal.
 
+## 10. Server Sync & Event Log Strategy (Heads-up)
+
+- **Current constraint**: The installed LiveStore version does **not** expose `store.events()/eventsStream()` yet (implementation pending). We still materialize `goal_events` as a local outbox/tail buffer to drive projections and catch-up.
+- **Interim approach**: Treat `goal_events` as a bounded outbox:
+  - Append encrypted events via materializer.
+  - Projector replays tail (since `lastSequence`) and persists snapshots/analytics/meta.
+  - After a successful batch, prune `goal_events` up to `lastSequence` to cap growth (keeps restart/catch-up viable without unbounded table growth).
+- **Server sync (upcoming)**:
+  - LiveStore handles push/pull of the canonical encrypted event log (`session_changeset`). When `store.events()` becomes available, switch projector to the stream and drop `goal_events` entirely.
+  - Sync error handling: once server rejects/conflicts arrive, the projection runtime must handle rebasing/replay from the stream; optimistic fast triggers remain off until then.
+  - Event naming: adopt versioned event names (e.g., `v1.goal.event`) before enabling cross-version sync to ease migrations.
+
+Action items when LiveStore `events` API lands:
+1. Remove `goal_events` materializer/table and switch projector to `store.events()` with `EventSequenceNumber` cursors.
+2. Keep snapshots/analytics as local-only encrypted state; cache remains in-memory.
+3. Revisit pruning logic (can delete the outbox entirely when the stream is authoritative).
+
 This mini‑PRD is the reference for shaping ALC‑255 and related infra tasks (projection runtime, worker wiring, and DAL APIs) for the Goals BC. Future BCs (Projects, Tasks, etc.) should reuse the same pattern with their own `*_events`/`*_snapshots` tables and projection runtimes.
 
 ## 9. Analytical Materializers (per BC)
