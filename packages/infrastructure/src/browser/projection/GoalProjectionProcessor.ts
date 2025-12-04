@@ -193,6 +193,7 @@ export class GoalProjectionProcessor {
     if (processedMax > this.lastSequence) {
       this.lastSequence = processedMax;
       await this.saveLastSequence(processedMax);
+      this.pruneProcessedEvents(processedMax);
     }
     if (projectionChanged) {
       this.emitProjectionChanged();
@@ -297,14 +298,6 @@ export class GoalProjectionProcessor {
     kGoal: Uint8Array,
     event: EncryptedEvent
   ): Promise<void> {
-    if (snapshot.deletedAt !== null) {
-      this.store.query({
-        query: 'DELETE FROM goal_snapshots WHERE aggregate_id = ?',
-        bindValues: [aggregateId],
-      });
-      return;
-    }
-
     const aad = new TextEncoder().encode(
       `${aggregateId}:snapshot:${snapshot.version}`
     );
@@ -452,6 +445,14 @@ export class GoalProjectionProcessor {
       } catch (error) {
         console.error('[GoalProjectionProcessor] listener threw', error);
       }
+    });
+  }
+
+  private pruneProcessedEvents(processedUpTo: number): void {
+    if (!Number.isFinite(processedUpTo) || processedUpTo <= 0) return;
+    this.store.query({
+      query: 'DELETE FROM goal_events WHERE sequence <= ?',
+      bindValues: [processedUpTo],
     });
   }
 }

@@ -77,6 +77,7 @@ export const createBrowserServices = async ({
   const eventBus = new InMemoryEventBus();
   const goalRepo = new GoalRepository(
     eventStore,
+    store,
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );

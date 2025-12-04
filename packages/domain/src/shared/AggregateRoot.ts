@@ -76,6 +76,13 @@ export abstract class AggregateRoot<TId> extends Entity<TId> {
     });
   }
 
+  /**
+   * Restore the aggregate version from a persisted snapshot.
+   */
+  protected restoreVersion(version: number): void {
+    this._version = version;
+  }
+
   get version(): number {
     return this._version;
   }

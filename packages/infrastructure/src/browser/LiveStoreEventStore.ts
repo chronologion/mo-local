@@ -34,12 +34,7 @@ export class BrowserLiveStoreEventStore implements IEventStore {
   ): Promise<void> {
     if (eventsToAppend.length === 0) return;
 
-    const existing = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
-      bindValues: [aggregateId],
-    });
-    const expectedStartVersion = Number(existing[0]?.version ?? 0) + 1;
+    const expectedStartVersion = this.getCurrentVersion(aggregateId) + 1;
     const sorted = [...eventsToAppend].sort((a, b) => a.version - b.version);
     if (sorted[0]?.version !== expectedStartVersion) {
       throw new Error(
@@ -152,6 +147,22 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     });
 
     return rows.map(this.toEncryptedEvent);
+  }
+
+  private getCurrentVersion(aggregateId: string): number {
+    const eventVersion = this.store.query<{ version: number | null }[]>({
+      query:
+        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
+      bindValues: [aggregateId],
+    });
+    const snapshotVersion = this.store.query<{ version: number | null }[]>({
+      query:
+        'SELECT version FROM goal_snapshots WHERE aggregate_id = ? LIMIT 1',
+      bindValues: [aggregateId],
+    });
+    const maxEventVersion = Number(eventVersion[0]?.version ?? 0);
+    const maxSnapshotVersion = Number(snapshotVersion[0]?.version ?? 0);
+    return Math.max(maxEventVersion, maxSnapshotVersion);
   }
 
   private toEncryptedEvent(row: {

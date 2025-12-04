@@ -45,6 +45,7 @@ In other words:
 
 - LiveStore’s synced event stream is the canonical encrypted event log; **current implementation still materializes `goal_events`** because `store.events()` is not yet available in our LiveStore version. The table remains the query surface for now.
 - `goal_snapshots`, `goal_projection_meta`, and `goal_analytics` are already populated by `GoalProjectionProcessor`.
+- Command rehydration now uses `goal_snapshots` + tail events (per aggregate) instead of replaying the full log; the outbox table can be pruned safely.
 - The web app already reads goals from snapshots via `GoalQueries`.
 
 What is **not** done yet (and this document is guiding) is:
@@ -409,8 +410,9 @@ Notes:
 
 ### 10. Current Implementation Gap
 
-- The target architecture above prunes `goal_events` after projection, but **command handling still rehydrates aggregates from `goal_events`** via `GoalRepository.getEvents(...)`. Pruning would break command-side rehydration until the repository shifts to snapshots for reconstitution or the LiveStore event stream is available.
-- LiveStore `store.events()`/`eventsStream()` are not implemented in the installed version, so `goal_events` remains the outbox + replay source. Pruning is disabled in code to avoid breaking commands; once the stream API ships and the repository can rehydrate from snapshots, pruning can be re-enabled.
+- Command handling now rehydrates aggregates from `goal_snapshots` + tail events, so the projector can prune `goal_events` up to the last projected sequence without breaking the write path.
+- LiveStore `store.events()`/`eventsStream()` are still not implemented in the installed version, so `goal_events` remains a local outbox/tail buffer. When stream APIs land, we can drop the table entirely.
+- Snapshot + tail rationale: avoids replaying full histories on every command or startup; snapshot version anchors optimistic concurrency and keeps pruning safe because both projector and repository share the same lastSequence boundary.
 
 ## 10. Server Sync & Event Log Strategy (Heads-up)
 
@@ -418,7 +420,7 @@ Notes:
 - **Interim approach**: Keep `goal_events` as a local outbox/tail buffer:
   - Append encrypted events via materializer.
   - Projector replays tail (since `lastSequence`) and persists snapshots/analytics/meta.
-  - Do not prune yet, because the command side still rehydrates aggregates from `goal_events`. When `store.events()` is available, move to stream-based consumption and drop/prune the table safely.
+  - Projection now prunes `goal_events` up to the last projected sequence because command-side rehydration is snapshot + tail aware. When `store.events()` is available, move to stream-based consumption and drop the table entirely.
 - **Server sync (upcoming)**:
   - LiveStore handles push/pull of the canonical encrypted event log (`session_changeset`). When `store.events()` becomes available, switch projector to the stream and drop `goal_events` entirely.
   - Sync error handling: once server rejects/conflicts arrive, the projection runtime must handle rebasing/replay from the stream; optimistic fast triggers remain off until then.

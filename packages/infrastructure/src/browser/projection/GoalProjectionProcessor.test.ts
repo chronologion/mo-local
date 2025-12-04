@@ -69,6 +69,13 @@ class StoreStub {
       this.snapshots.delete(aggregateId);
       return [] as unknown as TResult;
     }
+    if (query.startsWith('DELETE FROM goal_events WHERE sequence <= ')) {
+      const threshold = bindValues[0] as number;
+      this.eventLog = this.eventLog.filter(
+        (event) => (event.sequence ?? 0) > threshold
+      );
+      return [] as unknown as TResult;
+    }
     if (query === 'DELETE FROM goal_snapshots') {
       this.snapshots.clear();
       return [] as unknown as TResult;
@@ -325,7 +332,7 @@ describe('GoalProjectionProcessor', () => {
 
     await processor.start();
 
-    expect(store.snapshots.size).toBe(0);
+    expect(store.snapshots.size).toBe(1);
     expect(processor.listGoals()).toHaveLength(0);
     expect(processor.getGoalById(goalId)).toBeNull();
   });

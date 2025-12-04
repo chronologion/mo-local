@@ -18,6 +18,18 @@ import { GoalAccessGranted, Permission } from '../events/GoalAccessGranted';
 import { GoalAccessRevoked } from '../events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
 
+export type GoalSnapshot = {
+  id: GoalId;
+  summary: Summary;
+  slice: Slice;
+  priority: Priority;
+  targetMonth: Month;
+  createdBy: UserId;
+  createdAt: Timestamp;
+  deletedAt: Timestamp | null;
+  version: number;
+};
+
 /**
  * Goal aggregate root.
  *
@@ -64,6 +76,21 @@ export class Goal extends AggregateRoot<GoalId> {
   static reconstitute(id: GoalId, events: readonly DomainEvent[]): Goal {
     const goal = new Goal(id);
     goal.loadFromHistory(events as DomainEvent[]);
+    goal.markEventsAsCommitted();
+    return goal;
+  }
+
+  /**
+   * Reconstitute a Goal from a persisted snapshot plus tail events.
+   * Snapshot version is treated as authoritative; tail events advance it.
+   */
+  static reconstituteFromSnapshot(
+    snapshot: GoalSnapshot,
+    tailEvents: readonly DomainEvent[]
+  ): Goal {
+    const goal = new Goal(snapshot.id);
+    goal.hydrateFromSnapshot(snapshot);
+    goal.loadFromHistory(tailEvents as DomainEvent[]);
     goal.markEventsAsCommitted();
     return goal;
   }
@@ -285,6 +312,18 @@ export class Goal extends AggregateRoot<GoalId> {
         revokedAt: Timestamp.now().value,
       })
     );
+  }
+
+  private hydrateFromSnapshot(snapshot: GoalSnapshot): void {
+    this._slice = snapshot.slice;
+    this._summary = snapshot.summary;
+    this._targetMonth = snapshot.targetMonth;
+    this._priority = snapshot.priority;
+    this._createdBy = snapshot.createdBy;
+    this._createdAt = snapshot.createdAt;
+    this._deletedAt = snapshot.deletedAt;
+    this._accessList = [];
+    this.restoreVersion(snapshot.version);
   }
 
   // === Event Handlers ===
