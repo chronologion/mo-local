@@ -342,22 +342,20 @@ Mitigations to track (some outside this POC’s immediate scope):
    - POC: add simple in‑memory FTS for summaries (MiniSearch or similar) and persist it like snapshots (serialize + encrypt a blob alongside snapshot data). Facet indexes follow the same pattern.
 4. **Worker multiplexing**
    - Start with one worker per BC vs a single “infra worker” handling projections for all BCs behind a simple RPC multiplexer.
-5. **LiveStore integration details**
-  - Events table:
-     - We rely on LiveStore’s `State.SQLite.materializers` + `store.commit` to populate `goal_events` from LiveStore events (already implemented).
-     - We use LiveStore’s subscription API (`store.subscribe`) on `goal_events` for reactivity in the projector (already implemented).
+5. **LiveStore integration details (revised)**
+  - Events:
+     - LiveStore already persists the synced event stream internally; we should consume that directly instead of duplicating into a `goal_events` table.
+     - Projectors subscribe to the LiveStore event stream for reactivity; no in‑process “fast trigger” bus needed.
   - Snapshots and metadata:
-     - We manage `goal_snapshots`, `goal_projection_meta`, `goal_analytics`, and any future projection metadata tables via explicit SQL (`store.query`/`store.commit`) from the projector; they are local‑only and not part of the LiveStore schema exposed to sync (already implemented for snapshots/meta/analytics).
-   - No parallel notification system is needed for events; LiveStore remains the single source of change notifications.
+     - We manage `goal_snapshots`, `goal_projection_meta`, `goal_analytics`, and any future projection metadata tables via explicit SQL (`store.query`/`store.commit`) from the projector; they are local‑only and not part of the LiveStore schema exposed to sync.
 6. **Migration from current implementation**
    - Current state (ALC‑255):
-     - Encrypted events and snapshots are in place (`goal_events`, `goal_snapshots`, `goal_projection_meta`, `goal_analytics`).
-     - `GoalProjectionProcessor` maintains snapshots/analytics and supports catch‑up via `lastSequence`.
-     - `GoalQueries` decrypts snapshots on demand for reads.
-   - No additional migration logic planned for the POC. Next steps are iterative refactors:
-     - Add an in‑memory projection map + “projection changed” signal.
-     - Refactor `GoalQueries` to read from that map instead of re‑decrypting per query.
-     - Keep existing snapshot/analytics tables as durable backing for restart and optional future worker offloading.
+     - Encrypted events and snapshots are in place (`goal_snapshots`, `goal_projection_meta`, `goal_analytics`); an intermediate `goal_events` table exists but is redundant.
+     - `GoalProjectionProcessor` maintains snapshots/analytics and supports catch‑up via `lastSequence`, now with an in‑memory projection map and “projection changed” signal.
+   - Next steps:
+     - Drop the `goal_events` table/materializer; consume LiveStore’s event stream directly.
+     - Remove the in‑process “fast trigger” bus; rely on LiveStore event notifications.
+     - Keep snapshot/analytics tables as durable backing for restart and optional future worker offloading.
 
 This mini‑PRD is the reference for shaping ALC‑255 and related infra tasks (projection runtime, worker wiring, and DAL APIs) for the Goals BC. Future BCs (Projects, Tasks, etc.) should reuse the same pattern with their own `*_events`/`*_snapshots` tables and projection runtimes.
 
