@@ -81,7 +81,7 @@ Domain (Goal aggregate, VOs, events)
 Infrastructure (LiveStore, crypto, key store implementations)
 ```
 
-- **Domain** has zero external dependencies. All invariants rely on the internal `Assert` DSL.
+- **Domain** has zero external dependencies. All invariants rely on the internal `Assert` DSL. We have a "no primitive types" obsession!
 - **Application** depends on Domain only and defines the ports (`IGoalRepository`, `ICryptoService`, `IKeyStore`, `IEventStore`, etc.).
 - **Infrastructure** implements those ports, translates domain events to encrypted LiveStore payloads, and exposes browser-friendly wiring (`createBrowserServices`).
 - **Interface** (apps/web) consumes the services through React context and hooks.
