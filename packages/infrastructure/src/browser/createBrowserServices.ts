@@ -3,7 +3,15 @@ import {
   type Store,
   type Adapter,
 } from '@livestore/livestore';
-import { GoalApplicationService, GoalCommandHandler, IEventBus } from '@mo/application';
+import {
+  CommandBus,
+  GoalApplicationService,
+  GoalCommandHandler,
+  IEventBus,
+  QueryBus,
+  registerGoalCommandHandlers,
+  registerGoalQueryHandlers,
+} from '@mo/application';
 import { InMemoryEventBus } from '@mo/application';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
@@ -13,6 +21,7 @@ import { GoalQueries } from './GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { schema as defaultSchema, events as goalEvents } from './schema';
 import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import type { GoalListItem } from './GoalProjectionState';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -22,6 +31,8 @@ export type BrowserServices = {
   eventBus: IEventBus;
   goalRepo: GoalRepository;
   goalService: GoalApplicationService;
+  goalCommandBus: CommandBus<Awaited<ReturnType<GoalApplicationService['handle']>>>;
+  goalQueryBus: QueryBus<GoalListItem[] | GoalListItem | null>;
   goalQueries: GoalQueries;
   goalProjection: GoalProjectionProcessor;
 };
@@ -71,6 +82,10 @@ export const createBrowserServices = async ({
     eventBus
   );
   const goalService = new GoalApplicationService(goalHandler);
+  const goalCommandBus = new CommandBus<
+    Awaited<ReturnType<GoalApplicationService['handle']>>
+  >();
+  registerGoalCommandHandlers(goalCommandBus, goalHandler);
   const toDomain = new LiveStoreToDomainAdapter(crypto);
   const goalProjection = new GoalProjectionProcessor(
     store,
@@ -80,6 +95,8 @@ export const createBrowserServices = async ({
     toDomain
   );
   const goalQueries = new GoalQueries(goalProjection);
+  const goalQueryBus = new QueryBus<GoalListItem[] | GoalListItem | null>();
+  registerGoalQueryHandlers(goalQueryBus, goalQueries);
 
   return {
     crypto,
@@ -89,6 +106,8 @@ export const createBrowserServices = async ({
     eventBus,
     goalRepo,
     goalService,
+    goalCommandBus,
+    goalQueryBus,
     goalQueries,
     goalProjection,
   };

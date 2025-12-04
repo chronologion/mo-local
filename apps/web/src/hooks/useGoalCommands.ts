@@ -38,7 +38,7 @@ export const useGoalCommands = () => {
         userId,
         timestamp: Date.now(),
       };
-      const result = await services.goalService.handle(cmd);
+      const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
           result.errors
@@ -75,7 +75,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -93,7 +93,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -114,7 +114,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -135,7 +135,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -168,7 +168,7 @@ export const useGoalCommands = () => {
         timestamp: Date.now(),
         userId,
       };
-      const result = await services.goalService.handle(cmd);
+      const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
           result.errors
