@@ -43,7 +43,7 @@ For the Goals BC, the current branch already has the following pieces wired end�
 
 In other words:
 
-- LiveStore’s synced event stream is already the canonical encrypted event log (no duplicate `goal_events` table).
+- LiveStore’s synced event stream is the canonical encrypted event log; **current implementation still materializes `goal_events`** because `store.events()` is not yet available in our LiveStore version. The table remains the query surface for now.
 - `goal_snapshots`, `goal_projection_meta`, and `goal_analytics` are already populated by `GoalProjectionProcessor`.
 - The web app already reads goals from snapshots via `GoalQueries`.
 
