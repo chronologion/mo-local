@@ -11,4 +11,3 @@ export * from './handlers/UserCommandHandler';
 export * from './services/GoalApplicationService';
 export * from './services/CommandBus';
 export * from './services/QueryBus';
-export * from './services/GoalQueryBus';

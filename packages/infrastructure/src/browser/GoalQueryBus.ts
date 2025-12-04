@@ -1,5 +1,6 @@
-import type { GoalQueries, GoalListItem } from '@mo/infrastructure/browser';
-import { QueryBus } from './QueryBus';
+import type { GoalQueries } from './GoalQueries';
+import type { GoalListItem } from './GoalProjectionState';
+import { QueryBus } from '@mo/application';
 
 type ListGoalsQuery = { type: 'ListGoals' };
 type GetGoalByIdQuery = { type: 'GetGoalById'; goalId: string };
