@@ -42,6 +42,7 @@ type AppContextValue = {
   completeOnboarding: (params: { password: string }) => Promise<void>;
   unlock: (params: { password: string }) => Promise<void>;
   resetLocalState: () => Promise<void>;
+  rebuildProjections: () => Promise<void>;
   masterKey: Uint8Array | null;
   restoreBackup: (params: {
     password: string;
@@ -77,6 +78,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     eventCount?: number;
     aggregateCount?: number;
     tables?: string[];
+    onRebuild?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -139,6 +141,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount,
             aggregateCount,
             tables: tablesList,
+            onRebuild: rebuildProjections,
           });
         };
 
@@ -243,6 +246,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
     localStorage.removeItem(RESET_FLAG_KEY);
     window.location.reload();
+  };
+
+  const rebuildProjections = async (): Promise<void> => {
+    if (!services) throw new Error('Services not initialized');
+    await services.goalProjection.resetAndRebuild();
   };
 
   const restoreBackup = async ({
@@ -351,6 +359,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           completeOnboarding,
           unlock,
           resetLocalState,
+          rebuildProjections,
           masterKey,
           restoreBackup,
         }}
