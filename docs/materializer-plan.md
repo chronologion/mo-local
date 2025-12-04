@@ -357,6 +357,56 @@ Mitigations to track (some outside this POC’s immediate scope):
      - Remove the in‑process “fast trigger” bus; rely on LiveStore event notifications.
      - Keep snapshot/analytics tables as durable backing for restart and optional future worker offloading.
 
+## 9. Target Runtime Architecture (Goals)
+
+```mermaid
+flowchart LR
+  subgraph UI["UI / Hooks"]
+    cmds["useGoalCommands"]
+    qList["useGoals"]
+    qId["useGoalById / search"]
+  end
+
+  subgraph App["Application Layer"]
+    cmdBus["CommandBus"]
+    qryBus["QueryBus"]
+    cmdHandler["GoalCommandHandler"]
+    qryHandler["GoalQueryHandler"]
+  end
+
+  subgraph Infra["Infra"]
+    repo["GoalRepository<br>(encrypt + append)"]
+    changeset[("session_changeset<br>(LiveStore event log)")]
+    boot["Bootstrapper<br>snapshots + tail events"]
+    ws["GoalEventConsumer<br>handleEvent() per event"]
+    snaps[("goal_snapshots<br>aggregate_id PK<br>payload_encrypted BLOB<br>version INT<br>last_sequence INT<br>updated_at INT")]
+    meta[("goal_projection_meta<br>key PK<br>value TEXT<br>(last_sequence)")]
+    analytics[("goal_analytics<br>aggregate_id PK<br>payload_encrypted BLOB<br>last_sequence INT<br>updated_at INT")]
+    cache["Read cache<br>(in-memory map + FTS, ready flag)"]
+  end
+
+  cmds --> cmdBus --> cmdHandler --> repo --> changeset
+
+  boot -->|"preload snapshots"| cache
+  boot -->|"tail events since lastSequence"| ws
+
+  changeset -->|"event stream"| ws
+
+  ws -->|"persist snapshot"| snaps
+  ws -->|"persist analytics"| analytics
+  ws -->|"update lastSequence"| meta
+  ws -->|"update cache"| cache
+
+  qList --> qryBus --> qryHandler -->|"whenReady"| cache
+  qId --> qryBus --> qryHandler -->|"whenReady"| cache
+  cache -->|"ready/signal"| qryBus
+```
+
+Notes:
+- LiveStore’s `session_changeset` is the canonical event log; no duplicate `goal_events` table.
+- Bootstrapper loads snapshots and tail events once, then feeds events through the same per-event consumer used for live updates.
+- Consumer decrypts/applies each event, persists snapshots/analytics/lastSequence, and updates the in-memory read cache; queries wait on the cache’s ready signal.
+
 This mini‑PRD is the reference for shaping ALC‑255 and related infra tasks (projection runtime, worker wiring, and DAL APIs) for the Goals BC. Future BCs (Projects, Tasks, etc.) should reuse the same pattern with their own `*_events`/`*_snapshots` tables and projection runtimes.
 
 ## 9. Analytical Materializers (per BC)
