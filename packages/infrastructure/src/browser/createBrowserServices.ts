@@ -3,11 +3,7 @@ import {
   type Store,
   type Adapter,
 } from '@livestore/livestore';
-import {
-  GoalApplicationService,
-  GoalCommandHandler,
-  IEventBus,
-} from '@mo/application';
+import { GoalApplicationService, GoalCommandHandler, IEventBus } from '@mo/application';
 import { InMemoryEventBus } from '@mo/application';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
@@ -17,7 +13,6 @@ import { GoalQueries } from './GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { schema as defaultSchema, events as goalEvents } from './schema';
 import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
-import { eventTypes } from '@mo/domain';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -84,27 +79,6 @@ export const createBrowserServices = async ({
     keyStore,
     toDomain
   );
-  const triggerProjection = async () => {
-    try {
-      await goalProjection.flush();
-    } catch (error) {
-      console.error('[GoalProjectionProcessor] flush failed', error);
-    }
-  };
-
-  // Ensure projections run as soon as new events are published, without waiting
-  // for LiveStore subscription delays.
-  [
-    eventTypes.goalCreated,
-    eventTypes.goalSummaryChanged,
-    eventTypes.goalSliceChanged,
-    eventTypes.goalTargetChanged,
-    eventTypes.goalPriorityChanged,
-    eventTypes.goalDeleted,
-    eventTypes.goalAccessGranted,
-    eventTypes.goalAccessRevoked,
-  ].forEach((eventType) => eventBus.subscribe(eventType, triggerProjection));
-
   const goalQueries = new GoalQueries(goalProjection);
 
   return {

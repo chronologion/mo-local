@@ -3,7 +3,6 @@ import type { Store } from '@livestore/livestore';
 import { IndexedDBKeyStore } from '../../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../../crypto/WebCryptoService';
 import { MissingKeyError } from '../../errors';
-import { tables } from '../schema';
 import { LiveStoreToDomainAdapter } from '../../livestore/adapters/LiveStoreToDomainAdapter';
 import {
   AnalyticsDelta,
@@ -19,6 +18,7 @@ import {
   createEmptyAnalytics,
 } from './GoalAnalyticsState';
 import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
+import { EventSequenceNumber } from '@livestore/common/schema';
 
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
@@ -44,7 +44,8 @@ export class GoalProjectionProcessor {
   private processingPromise: Promise<void> | null = null;
   private started = false;
   private lastSequence = 0;
-  private unsubscribe: (() => void) | null = null;
+  private stopRequested = false;
+  private liveTask: Promise<void> | null = null;
   private analyticsCache: AnalyticsPayload | null = null;
   private readonly snapshots = new Map<string, GoalSnapshotState>();
   private readonly projections = new Map<string, GoalListItem>();
@@ -67,6 +68,7 @@ export class GoalProjectionProcessor {
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    this.stopRequested = false;
     const snapshotCount = this.store.query<{ count: number }[]>({
       query: 'SELECT COUNT(*) as count FROM goal_snapshots',
       bindValues: [],
@@ -79,9 +81,7 @@ export class GoalProjectionProcessor {
     }
     await this.bootstrapFromSnapshots();
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
-      void this.processNewEvents();
-    });
+    this.liveTask = this.consumeLiveEvents();
     this.resolveReady?.();
   }
 
@@ -94,8 +94,7 @@ export class GoalProjectionProcessor {
   }
 
   stop(): void {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
+    this.stopRequested = true;
     this.started = false;
   }
 
@@ -164,6 +163,39 @@ export class GoalProjectionProcessor {
     }
     if (projectionChanged) {
       this.emitProjectionChanged();
+    }
+  }
+
+  private async consumeLiveEvents(): Promise<void> {
+    const cursor = this.lastSequence > 0 ? this.lastSequence : undefined;
+    for await (const event of this.store.events({
+      cursor: cursor
+        ? {
+            global: EventSequenceNumber.Global.make(cursor + 1),
+            client: EventSequenceNumber.Client.DEFAULT,
+            rebaseGeneration: EventSequenceNumber.Client.REBASE_GENERATION_DEFAULT,
+          }
+        : undefined,
+      filter: ['goal.event'],
+    })) {
+      if (this.stopRequested) break;
+      const encrypted = {
+        id: (event.args as any).id as string,
+        aggregateId: (event.args as any).aggregateId as string,
+        eventType: (event.args as any).eventType as string,
+        payload: (event.args as any).payload as Uint8Array,
+        version: Number((event.args as any).version),
+        occurredAt: Number((event.args as any).occurredAt),
+        sequence: Number(event.seqNum.global ?? 0),
+      } satisfies EncryptedEvent;
+      const changed = await this.projectEvent(encrypted);
+      if (encrypted.sequence && encrypted.sequence > this.lastSequence) {
+        this.lastSequence = encrypted.sequence;
+        await this.saveLastSequence(encrypted.sequence);
+      }
+      if (changed) {
+        this.emitProjectionChanged();
+      }
     }
   }
 

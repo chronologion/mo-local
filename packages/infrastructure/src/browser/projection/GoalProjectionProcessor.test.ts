@@ -37,10 +37,7 @@ class StoreStub {
   snapshots = new Map<string, SnapshotRow>();
   analytics: AnalyticsRow | null = null;
   meta = new Map<string, string>();
-
-  subscribe(): () => void {
-    return () => {};
-  }
+  eventLog: EncryptedEvent[] = [];
 
   query<TResult>({
     query,
@@ -107,6 +104,30 @@ class StoreStub {
       return [] as unknown as TResult;
     }
     throw new Error(`Unhandled query: ${query}`);
+  }
+
+  async *events(_options?: {
+    cursor?: unknown;
+    filter?: string[];
+  }): AsyncIterable<{
+    name: string;
+    args: unknown;
+    seqNum: { global: number };
+  }> {
+    for (const event of this.eventLog) {
+      yield {
+        name: 'goal.event',
+        args: {
+          id: event.id,
+          aggregateId: event.aggregateId,
+          eventType: event.eventType,
+          payload: event.payload,
+          version: event.version,
+          occurredAt: event.occurredAt,
+        },
+        seqNum: { global: event.sequence ?? 0 },
+      };
+    }
   }
 }
 
@@ -211,6 +232,7 @@ describe('GoalProjectionProcessor', () => {
       { ...targetChanged, sequence: 2 },
     ];
     const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
     const processor = new GoalProjectionProcessor(
       store as unknown as Store,
       eventStore,
@@ -276,6 +298,7 @@ describe('GoalProjectionProcessor', () => {
       { ...deleted, sequence: 2 },
     ];
     const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
     const processor = new GoalProjectionProcessor(
       store as unknown as Store,
       eventStore,

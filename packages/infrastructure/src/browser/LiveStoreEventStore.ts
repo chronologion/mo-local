@@ -1,5 +1,6 @@
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
+import { EventSequenceNumber } from '@livestore/common/schema';
 import { sleep } from './sleep';
 
 type GoalEventFactory = (payload: {
@@ -34,12 +35,8 @@ export class BrowserLiveStoreEventStore implements IEventStore {
   ): Promise<void> {
     if (eventsToAppend.length === 0) return;
 
-    const existing = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
-      bindValues: [aggregateId],
-    });
-    const expectedStartVersion = Number(existing[0]?.version ?? 0) + 1;
+    const existing = await this.getEvents(aggregateId);
+    const expectedStartVersion = existing.length + 1;
     const sorted = [...eventsToAppend].sort((a, b) => a.version - b.version);
     if (sorted[0]?.version !== expectedStartVersion) {
       throw new Error(
@@ -84,93 +81,77 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     aggregateId: string,
     fromVersion = 1
   ): Promise<EncryptedEvent[]> {
-    const rows = this.store.query<
-      {
-        id: string;
-        aggregate_id: string;
-        event_type: string;
-        payload_encrypted: Uint8Array;
-        version: number;
-        occurred_at: number;
-        sequence: number;
-      }[]
-    >({
-      query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
-        FROM goal_events
-        WHERE aggregate_id = ? AND version >= ?
-        ORDER BY version ASC
-      `,
-      bindValues: [aggregateId, fromVersion],
-    });
-
-    return rows.map(this.toEncryptedEvent);
+    const results: EncryptedEvent[] = [];
+    for await (const event of this.iterateEvents({
+      aggregateId,
+      minVersion: fromVersion,
+    })) {
+      results.push(event);
+    }
+    return results;
   }
 
   async getAllEvents(filter?: EventFilter): Promise<EncryptedEvent[]> {
-    const conditions: string[] = [];
-    const params: Array<string | number> = [];
-    if (filter?.aggregateId) {
-      conditions.push('aggregate_id = ?');
-      params.push(filter.aggregateId);
+    const results: EncryptedEvent[] = [];
+    let count = 0;
+    for await (const event of this.iterateEvents({
+      aggregateId: filter?.aggregateId,
+      eventType: filter?.eventType,
+      minSequence: filter?.since,
+    })) {
+      results.push(event);
+      count += 1;
+      if (filter?.limit && count >= filter.limit) {
+        break;
+      }
     }
-    if (filter?.eventType) {
-      conditions.push('event_type = ?');
-      params.push(filter.eventType);
-    }
-    if (filter?.since) {
-      conditions.push('sequence > ?');
-      params.push(filter.since);
-    }
-    const whereClause = conditions.length
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
-    const limitClause = filter?.limit ? 'LIMIT ?' : '';
-    if (filter?.limit) {
-      params.push(filter.limit);
-    }
-
-    const rows = this.store.query<
-      {
-        id: string;
-        aggregate_id: string;
-        event_type: string;
-        payload_encrypted: Uint8Array;
-        version: number;
-        occurred_at: number;
-        sequence: number;
-      }[]
-    >({
-      query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
-        FROM goal_events
-        ${whereClause}
-        ORDER BY sequence ASC
-        ${limitClause}
-      `,
-      bindValues: params,
-    });
-
-    return rows.map(this.toEncryptedEvent);
+    return results;
   }
 
-  private toEncryptedEvent(row: {
-    id: string;
-    aggregate_id: string;
-    event_type: string;
-    payload_encrypted: Uint8Array;
-    version: number;
-    occurred_at: number;
-    sequence: number;
-  }): EncryptedEvent {
+  private cursorFrom(sequence?: number) {
+    if (sequence === undefined) return undefined;
     return {
-      id: row.id,
-      aggregateId: row.aggregate_id,
-      eventType: row.event_type,
-      payload: row.payload_encrypted,
-      version: Number(row.version),
-      occurredAt: Number(row.occurred_at),
-      sequence: Number(row.sequence),
+      global: EventSequenceNumber.Global.make(sequence),
+      client: EventSequenceNumber.Client.DEFAULT,
+      rebaseGeneration: EventSequenceNumber.Client.REBASE_GENERATION_DEFAULT,
     };
+  }
+
+  private async *iterateEvents(params: {
+    aggregateId?: string;
+    eventType?: string;
+    minSequence?: number;
+    minVersion?: number;
+  }): AsyncIterable<EncryptedEvent> {
+    const cursor = this.cursorFrom(
+      params.minSequence !== undefined ? params.minSequence + 1 : undefined
+    );
+    const iterable = this.store.events({
+      cursor,
+      filter: ['goal.event'],
+    });
+    for await (const event of iterable) {
+      const { name, args, seqNum } = event;
+      if (name !== 'goal.event') continue;
+      const encrypted = {
+        id: (args as any).id as string,
+        aggregateId: (args as any).aggregateId as string,
+        eventType: (args as any).eventType as string,
+        payload: (args as any).payload as Uint8Array,
+        version: Number((args as any).version),
+        occurredAt: Number((args as any).occurredAt),
+        sequence: Number(seqNum.global ?? 0),
+      } satisfies EncryptedEvent;
+      if (params.aggregateId && encrypted.aggregateId !== params.aggregateId) {
+        continue;
+      }
+      if (params.eventType && encrypted.eventType !== params.eventType) {
+        continue;
+      }
+      if (params.minVersion && encrypted.version < params.minVersion) {
+        continue;
+      }
+      yield encrypted;
+    }
   }
 }

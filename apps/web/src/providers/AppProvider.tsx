@@ -3,7 +3,6 @@ import { uuidv7 } from '@mo/domain';
 import { createBrowserServices } from '@mo/infrastructure/browser';
 import { DebugPanel } from '../components/DebugPanel';
 import { adapter } from './LiveStoreAdapter';
-import { tables } from '@mo/infrastructure/browser';
 import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 
@@ -84,7 +83,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
-    let unsubscribe: (() => void) | undefined;
     (async () => {
       try {
         const currentStoreId = loadStoreId();
@@ -92,60 +90,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           adapter,
           storeId: currentStoreId,
         });
-        const updateDebug = () => {
-          const tablesList = (() => {
-            try {
-              const res = svc.store.query<{ name: string }[]>({
-                query: "SELECT name FROM sqlite_master WHERE type = 'table'",
-                bindValues: [],
-              });
-              return res.map((row) => row.name);
-            } catch {
-              return [];
-            }
-          })();
-          const eventCount = (() => {
-            try {
-              const res = svc.store.query<{ count: number }[]>({
-                query: 'SELECT COUNT(*) as count FROM goal_events',
-                bindValues: [],
-              });
-              return Number(res?.[0]?.count ?? 0);
-            } catch {
-              return 0;
-            }
-          })();
-          const aggregateCount = (() => {
-            try {
-              const res = svc.store.query<{ count: number }[]>({
-                query:
-                  'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
-                bindValues: [],
-              });
-              return Number(res?.[0]?.count ?? 0);
-            } catch {
-              return 0;
-            }
-          })();
-
-          setDebugInfo({
-            storeId: svc.store.storeId,
-            opfsAvailable:
-              typeof navigator !== 'undefined' &&
-              !!navigator.storage &&
-              typeof navigator.storage.getDirectory === 'function',
-            storage: 'opfs',
-            note: 'LiveStore adapter (opfs)',
-            eventCount,
-            aggregateCount,
-            tables: tablesList,
-          });
-        };
-
-        unsubscribe = svc.store.subscribe(tables.goal_events.count(), () =>
-          updateDebug()
-        );
-        updateDebug();
+        setDebugInfo({
+          storeId: svc.store.storeId,
+          opfsAvailable:
+            typeof navigator !== 'undefined' &&
+            !!navigator.storage &&
+            typeof navigator.storage.getDirectory === 'function',
+          storage: 'opfs',
+          note: 'LiveStore adapter (opfs)',
+        });
 
         if (!signal.aborted) {
           setServices(svc);
@@ -160,7 +113,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     })();
     return () => {
       controller.abort();
-      unsubscribe?.();
     };
   }, []);
 

@@ -29,8 +29,7 @@ For the Goals BC, the current branch already has the following pieces wired end�
     - Writes encrypted snapshot JSON into `goal_snapshots` and analytics into `goal_analytics`.
     - Persists the new `lastSequence` in `goal_projection_meta`.
   - During runtime:
-    - Subscribes to `tables.goal_events.count()` to react to new events.
-    - Also listens to the in‑process event bus (`InMemoryEventBus` wiring in `createBrowserServices`) and calls `flush()` after goal commands.
+    - Subscribes to the LiveStore event stream to react to new events (no duplicate `goal_events` table, no in‑process fast trigger).
 
 - **Read path (snapshot‑backed)**
   - `GoalQueries` (`packages/infrastructure/src/browser/GoalQueries.ts`) is the query façade.
@@ -44,7 +43,7 @@ For the Goals BC, the current branch already has the following pieces wired end�
 
 In other words:
 
-- `goal_events` is already the canonical encrypted event log.
+- LiveStore’s synced event stream is already the canonical encrypted event log (no duplicate `goal_events` table).
 - `goal_snapshots`, `goal_projection_meta`, and `goal_analytics` are already populated by `GoalProjectionProcessor`.
 - The web app already reads goals from snapshots via `GoalQueries`.
 
@@ -58,7 +57,7 @@ What is **not** done yet (and this document is guiding) is:
 
 The target design for Goals (and future BCs) is:
 
-- Keep LiveStore’s encrypted event store (`goal_events`) as the **single source of truth**.
+- Keep LiveStore’s encrypted event stream as the **single source of truth**.
 - Treat `GoalProjectionProcessor` as the **materializer/reducer**:
   - Event‑driven during normal runtime (subscribed to the in‑process bus and LiveStore tables).
   - Catch‑up on unlock (replay from `goal_events` starting at `lastSequence`).
