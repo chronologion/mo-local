@@ -29,7 +29,7 @@ For the Goals BC, the current branch already has the following pieces wired end�
     - Writes encrypted snapshot JSON into `goal_snapshots` and analytics into `goal_analytics`.
     - Persists the new `lastSequence` in `goal_projection_meta`.
   - During runtime:
-    - Subscribes to the LiveStore event stream to react to new events (no duplicate `goal_events` table, no in‑process fast trigger).
+    - Subscribes to the local `goal_events` outbox table for reactivity (LiveStore stream API not yet available); no in‑process fast trigger.
 
 - **Read path (snapshot‑backed)**
   - `GoalQueries` (`packages/infrastructure/src/browser/GoalQueries.ts`) is the query façade.
@@ -197,7 +197,7 @@ There are two execution options; the current branch uses the first.
     - The LiveStore `Store` instance via `createBrowserServices`.
     - `BrowserLiveStoreEventStore` for `getAllEvents`.
     - `IndexedDBKeyStore` + `WebCryptoService` for decrypting events and snapshots.
-  - React hooks (`useGoals`, `useGoalById`) rely on LiveStore subscriptions (`tables.goal_events.count()`) and explicit `goalProjection.flush()` calls after commands to stay in sync.
+  - React hooks (`useGoals`, `useGoalById`) rely on projection signals and the `goal_events` table subscription (until the LiveStore stream API is available) and can call `goalProjection.flush()` after commands to stay in sync.
 
 - **P1 / future – dedicated projection worker (optional)**
   - Move `GoalProjectionProcessor` into a dedicated web worker per BC (or a multiplexed infra worker).
@@ -403,9 +403,14 @@ Mitigations to track (some outside this POC’s immediate scope):
 ```
 
 Notes:
-- LiveStore’s `session_changeset` is the canonical event log; no duplicate `goal_events` table.
+- LiveStore’s `session_changeset` is the canonical event log, but the current implementation still materializes `goal_events` (bounded outbox) because `store.events()` is not yet available.
 - Bootstrapper loads snapshots and tail events once, then feeds events through the same per-event consumer used for live updates.
 - Consumer decrypts/applies each event, persists snapshots/analytics/lastSequence, and updates the in-memory read cache; queries wait on the cache’s ready signal.
+
+### 10. Current Implementation Gap
+
+- The target architecture above prunes `goal_events` after projection, but **command handling still rehydrates aggregates from `goal_events`** via `GoalRepository.getEvents(...)`. Pruning would break command-side rehydration until the repository shifts to snapshots for reconstitution or the LiveStore event stream is available.
+- LiveStore `store.events()`/`eventsStream()` are not implemented in the installed version, so `goal_events` remains the outbox + replay source. Pruning is disabled in code to avoid breaking commands; once the stream API ships and the repository can rehydrate from snapshots, pruning can be re-enabled.
 
 ## 10. Server Sync & Event Log Strategy (Heads-up)
 
