@@ -39,6 +39,10 @@ class StoreStub {
   meta = new Map<string, string>();
   eventLog: EncryptedEvent[] = [];
 
+  subscribe(): () => void {
+    return () => {};
+  }
+
   query<TResult>({
     query,
     bindValues,
