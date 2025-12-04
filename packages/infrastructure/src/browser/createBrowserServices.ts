@@ -4,11 +4,10 @@ import {
   type Adapter,
 } from '@livestore/livestore';
 import {
-  CommandBus,
   GoalApplicationService,
   GoalCommandHandler,
   IEventBus,
-  QueryBus,
+  SimpleBus,
   registerGoalCommandHandlers,
 } from '@mo/application';
 import { InMemoryEventBus } from '@mo/application';
@@ -31,10 +30,14 @@ export type BrowserServices = {
   eventBus: IEventBus;
   goalRepo: GoalRepository;
   goalService: GoalApplicationService;
-  goalCommandBus: CommandBus<
+  goalCommandBus: SimpleBus<
+    { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
   >;
-  goalQueryBus: QueryBus<GoalListItem[] | GoalListItem | null>;
+  goalQueryBus: SimpleBus<
+    { type: string; goalId?: string },
+    GoalListItem[] | GoalListItem | null
+  >;
   goalQueries: GoalQueries;
   goalProjection: GoalProjectionProcessor;
 };
@@ -84,7 +87,8 @@ export const createBrowserServices = async ({
     eventBus
   );
   const goalService = new GoalApplicationService(goalHandler);
-  const goalCommandBus = new CommandBus<
+  const goalCommandBus = new SimpleBus<
+    { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
   >();
   registerGoalCommandHandlers(goalCommandBus, goalHandler);
@@ -97,7 +101,10 @@ export const createBrowserServices = async ({
     toDomain
   );
   const goalQueries = new GoalQueries(goalProjection);
-  const goalQueryBus = new QueryBus<GoalListItem[] | GoalListItem | null>();
+  const goalQueryBus = new SimpleBus<
+    { type: string; goalId?: string },
+    GoalListItem[] | GoalListItem | null
+  >();
   registerGoalQueryHandlers(goalQueryBus, goalQueries);
 
   return {

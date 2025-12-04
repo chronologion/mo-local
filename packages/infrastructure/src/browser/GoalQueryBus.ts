@@ -1,6 +1,6 @@
 import type { GoalQueries } from './GoalQueries';
 import type { GoalListItem } from './GoalProjectionState';
-import { QueryBus } from '@mo/application';
+import { SimpleBus } from '@mo/application';
 
 type ListGoalsQuery = { type: 'ListGoals' };
 type GetGoalByIdQuery = { type: 'GetGoalById'; goalId: string };
@@ -8,7 +8,7 @@ type GetGoalByIdQuery = { type: 'GetGoalById'; goalId: string };
 export type GoalQueryResult = GoalListItem[] | GoalListItem | null;
 
 export const registerGoalQueryHandlers = (
-  bus: QueryBus<GoalQueryResult>,
+  bus: SimpleBus<{ type: string; goalId?: string }, GoalQueryResult>,
   goalQueries: GoalQueries
 ): void => {
   bus.register('ListGoals', async (_query: ListGoalsQuery) => {

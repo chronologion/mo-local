@@ -22,7 +22,7 @@ import {
   GoalCommandResult,
 } from '../handlers/GoalCommandHandler';
 import { ValidationException } from '../errors/ValidationError';
-import { CommandBus } from './CommandBus';
+import { SimpleBus } from './SimpleBus';
 
 type GoalCommand =
   | CreateGoalCommand
@@ -127,7 +127,7 @@ export class GoalApplicationService {
  * Registers goal command handlers on a CommandBus.
  */
 export const registerGoalCommandHandlers = (
-  bus: CommandBus<CommandResult<GoalCommandResult>>,
+  bus: SimpleBus<{ type: string }, CommandResult<GoalCommandResult>>,
   handler: GoalCommandHandler
 ): void => {
   bus.register('CreateGoal', async (command: CreateGoalCommand) => {
