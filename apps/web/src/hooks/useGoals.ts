@@ -12,15 +12,20 @@ export const useGoals = () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await services.goalQueries.listGoals();
-      setGoals(list);
+      const list = await services.goalQueryBus.dispatch({
+        type: 'ListGoals',
+      });
+      if (!Array.isArray(list)) {
+        throw new Error('Invalid query result');
+      }
+      setGoals(list as GoalListItem[]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [services.goalQueries]);
+  }, [services.goalQueryBus]);
 
   useEffect(() => {
     refresh();

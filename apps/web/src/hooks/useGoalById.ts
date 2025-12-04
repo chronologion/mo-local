@@ -15,8 +15,16 @@ export const useGoalById = (goalId: string | null) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await services.goalQueries.getGoalById(goalId);
-        if (!cancelled) setGoal(result);
+        const result = await services.goalQueryBus.dispatch({
+          type: 'GetGoalById',
+          goalId,
+        });
+        if (!cancelled) {
+          if (Array.isArray(result)) {
+            throw new Error('Invalid query result');
+          }
+          setGoal(result);
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         if (!cancelled) setError(message);
@@ -40,7 +48,7 @@ export const useGoalById = (goalId: string | null) => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [goalId, services.goalProjection, services.goalQueries]);
+  }, [goalId, services.goalProjection, services.goalQueryBus]);
 
   return { goal, loading, error };
 };

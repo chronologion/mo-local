@@ -62,7 +62,10 @@ export const useGoalCommands = () => {
     try {
       const userId = ensureUser();
       const timestamp = Date.now();
-      const current = await services.goalQueries.getGoalById(params.goalId);
+      const current = await services.goalQueryBus.dispatch({
+        type: 'GetGoalById',
+        goalId: params.goalId,
+      });
       if (!current) {
         throw new Error('Goal not found');
       }
