@@ -66,7 +66,7 @@ type GoalEventPayload = {
 
 export const events = {
   goalEvent: Events.synced({
-    name: 'goal.event',
+    name: 'goal.event.v1',
     schema: S.Struct({
       id: S.String,
       aggregateId: S.String,
@@ -108,7 +108,7 @@ const asUint8Array = (payload: unknown): Uint8Array => {
 };
 
 const materializers = State.SQLite.materializers(events, {
-  'goal.event': ({
+  'goal.event.v1': ({
     id,
     aggregateId,
     eventType,
