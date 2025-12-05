@@ -1,0 +1,14 @@
+diff --git a/node_modules/@effect/platform-browser/src/internal/workerRunner.ts b/node_modules/@effect/platform-browser/src/internal/workerRunner.ts
+index d160393..63af645 100644
+--- a/node_modules/@effect/platform-browser/src/internal/workerRunner.ts
++++ b/node_modules/@effect/platform-browser/src/internal/workerRunner.ts
+@@ -56,6 +56,9 @@ export const make = (self: MessagePort | Window) =>
+         function onMessage(portId: number) {
+           return function(event: MessageEvent) {
+             const message = event.data as Runner.BackingRunner.Message<I>
++            if (!Array.isArray(message)) {
++              return
++            }
+             if (message[0] === 0) {
+               const result = handler(portId, message[1])
+               if (Effect.isEffect(result)) {
