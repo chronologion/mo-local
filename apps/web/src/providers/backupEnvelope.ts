@@ -4,7 +4,18 @@ type JsonObject = Record<string, unknown>;
 
 const envelopeSchema = z.object({
   cipher: z.string().min(1),
-  salt: z.string().optional(),
+  salt: z
+    .string()
+    .optional()
+    .refine((value) => {
+      if (!value) return true;
+      try {
+        const length = atob(value).length;
+        return length >= 16 && length <= 64;
+      } catch {
+        return false;
+      }
+    }, 'Backup salt must decode to between 16 and 64 bytes'),
 });
 
 const POLLUTION_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -38,10 +49,14 @@ export type BackupEnvelope = z.infer<typeof envelopeSchema>;
 // Parses user-supplied backups while stripping prototype-pollution vectors
 // before schema validation runs.
 export const parseBackupEnvelope = (backup: string): BackupEnvelope => {
+  const trimmed = backup.trim();
   try {
-    const sanitized = parseAndSanitizeJson(backup);
+    const sanitized = parseAndSanitizeJson(trimmed);
     return envelopeSchema.parse(sanitized);
-  } catch {
-    return envelopeSchema.parse({ cipher: backup.trim() });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return envelopeSchema.parse({ cipher: trimmed });
+    }
+    throw error;
   }
 };

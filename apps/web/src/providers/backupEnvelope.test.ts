@@ -24,4 +24,15 @@ describe('parseBackupEnvelope', () => {
 
     expect(envelope).toEqual({ cipher: 'dGVzdA==', salt: undefined });
   });
+
+  it('rejects backups whose salt decodes to fewer than 16 bytes', () => {
+    const maliciousBackup = JSON.stringify({
+      cipher: 'dGVzdA==',
+      salt: 'AA==',
+    });
+
+    expect(() => parseBackupEnvelope(maliciousBackup)).toThrow(
+      /Backup salt must decode to between 16 and 64 bytes/
+    );
+  });
 });
