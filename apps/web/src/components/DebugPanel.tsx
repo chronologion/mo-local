@@ -8,7 +8,6 @@ type DebugInfo = {
   storage?: string;
   eventCount?: number;
   aggregateCount?: number;
-  outboxCount?: number;
   onRebuild?: () => void;
 };
 
@@ -43,9 +42,6 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
       ) : null}
       {typeof info.aggregateCount === 'number' ? (
         <div>Aggregates: {info.aggregateCount}</div>
-      ) : null}
-      {typeof info.outboxCount === 'number' ? (
-        <div>goal_events: {info.outboxCount}</div>
       ) : null}
       <div>Tables: {tableCount}</div>
       {info.note ? <div>Note: {info.note}</div> : null}

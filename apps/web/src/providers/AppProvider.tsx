@@ -84,7 +84,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     note?: string;
     eventCount?: number;
     aggregateCount?: number;
-    outboxCount?: number;
     tables?: string[];
     onRebuild?: () => void;
   } | null>(null);
@@ -140,19 +139,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               return 0;
             }
           })();
-          const outboxCount = (() => {
-            try {
-              const res = svc.store.query<{ count: number }[]>({
-                // Bounded local outbox for projections (goal_events).
-                query:
-                  'SELECT COUNT(*) as count FROM goal_events WHERE (? IS NULL OR 1 = 1)',
-                bindValues: [Date.now()],
-              });
-              return Number(res?.[0]?.count ?? 0);
-            } catch {
-              return 0;
-            }
-          })();
 
           setDebugInfo({
             storeId: svc.store.storeId,
@@ -164,7 +150,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             note: 'LiveStore adapter (opfs)',
             eventCount,
             aggregateCount,
-            outboxCount,
             tables: tablesList,
             onRebuild: rebuildProjections,
           });
@@ -472,7 +457,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             storage: debugInfo.storage,
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
-            outboxCount: debugInfo.outboxCount,
           }}
         />
       ) : null}
