@@ -20,7 +20,10 @@ import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomai
 import { schema as defaultSchema, events as goalEvents } from './schema';
 import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
 import type { GoalListItem } from './GoalProjectionState';
-import { registerGoalQueryHandlers } from './GoalQueryBus';
+import {
+  type GoalQuery,
+  registerGoalQueryHandlers,
+} from './GoalQueryBus';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -34,10 +37,7 @@ export type BrowserServices = {
     { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
   >;
-  goalQueryBus: SimpleBus<
-    { type: string; goalId?: string },
-    GoalListItem[] | GoalListItem | null
-  >;
+  goalQueryBus: SimpleBus<GoalQuery, GoalListItem[] | GoalListItem | null>;
   goalQueries: GoalQueries;
   goalProjection: GoalProjectionProcessor;
 };
@@ -103,7 +103,7 @@ export const createBrowserServices = async ({
   );
   const goalQueries = new GoalQueries(goalProjection);
   const goalQueryBus = new SimpleBus<
-    { type: string; goalId?: string },
+    import('./GoalQueryBus').GoalQuery,
     GoalListItem[] | GoalListItem | null
   >();
   registerGoalQueryHandlers(goalQueryBus, goalQueries);

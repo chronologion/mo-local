@@ -393,4 +393,37 @@ describe('GoalProjectionProcessor', () => {
     expect(processor.listGoals()).toHaveLength(1);
     expect(store.snapshots.size).toBe(1);
   });
+
+  it('supports infix search via FTS index', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId,
+        slice: 'Work',
+        summary: 'Build a todo app',
+        targetMonth: '2025-10',
+        priority: 'must',
+        createdBy: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      }),
+      1,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [{ ...created, sequence: 1 }];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+    const results = processor.searchGoals('odo');
+    expect(results.map((r) => r.id)).toContain(goalId);
+  });
 });

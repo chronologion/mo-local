@@ -95,7 +95,18 @@ export class GoalProjectionProcessor {
       idField: this.searchConfig.idField,
       fields: [...this.searchConfig.fields],
       storeFields: [...this.searchConfig.storeFields],
-      searchOptions: this.searchConfig.searchOptions,
+      searchOptions: {
+        ...this.searchConfig.searchOptions,
+        prefix: true,
+        combineWith: 'OR',
+        fuzzy: 0.3,
+        tokenize: (text: string) =>
+          text
+            .split(/\s+/)
+            .flatMap((word) =>
+              word.length >= 3 ? word.match(/.{1,3}/g) ?? [word] : [word]
+            ),
+      },
     });
   }
 
@@ -254,7 +265,6 @@ export class GoalProjectionProcessor {
       await this.saveLastSequence(processedMax);
       const searchKey = await this.ensureSearchKey();
       await this.saveSearchIndex(searchKey, processedMax, Date.now());
-      this.pruneProcessedEvents(processedMax);
     }
     if (projectionChanged) {
       this.emitProjectionChanged();
@@ -562,15 +572,15 @@ export class GoalProjectionProcessor {
     aggregateId: string,
     snapshot: GoalSnapshotState | null
   ): void {
+    const existing = this.projections.get(aggregateId) ?? null;
     if (!snapshot || snapshot.deletedAt !== null) {
-      const existing = this.projections.get(aggregateId);
       this.snapshots.delete(aggregateId);
       this.projections.delete(aggregateId);
       if (existing) {
         try {
           this.searchIndex.remove(existing);
         } catch {
-          // Index may not contain the document yet; ignore.
+          // Missing is fine.
         }
       }
       return;
@@ -578,10 +588,11 @@ export class GoalProjectionProcessor {
     this.snapshots.set(aggregateId, snapshot);
     const listItem = snapshotToListItem(snapshot);
     this.projections.set(aggregateId, listItem);
+    const toRemove = existing ?? listItem;
     try {
-      this.searchIndex.remove(listItem);
+      this.searchIndex.remove(toRemove);
     } catch {
-      // Replace semantics; absence is fine.
+      // Not present yet; ignore.
     }
     this.searchIndex.add(listItem);
   }
