@@ -4,8 +4,9 @@ Read @goals-poc-prd-v2.md for the full PRD of what we're working on here.
 
 Key rules:
 
-- Follow the progress of each task by regularly committing and submitting comments what was achieved so far and what were the challenges.
-- Make a branch per subissue and use short conventional commit messages.
+- Use Linear MCP tools to read and edit issues.
+- Follow the progress of each task by regularly committing and submitting comments to the Linear issue you're working on on what was achieved so far and what were the challenges.
+- Make a branch per Linear subissue and use short conventional commit messages.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
 - Don't "hand-code" dependency versions in package.json! Just install latest, unless there's a reason not to.
@@ -13,4 +14,5 @@ Key rules:
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.
 - Use the docker compose stack to run and debug the app, and run e2e tests.
 - Lint, typecheck, prettify before you declare something is ready.
-- For each completed task, make a PR with a proper markdown summary. Wait for review and fix any reported issues.
+- For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
+- Use the Context7 MCP tools or web search in case you need to RTFM!
