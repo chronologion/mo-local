@@ -41,7 +41,7 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 - **Onboarding**: When `localStorage['mo-local-user']` is absent we generate a new userId (UUIDv7), derive a KEK from the chosen passphrase, create signing/encryption keypairs, and encrypt them into IndexedDB.
 - **Unlocking**: Derive the same KEK from the stored metadata, decrypt the identity keys, and unlock the dashboard.
 - **Goal CRUD**: Hooks in `apps/web/src/hooks` call `goalService.handle({...})`, which appends encrypted events to LiveStore. `useGoals` reconstructs projections by decrypting per-aggregate event streams.
-- **Backups**: `BackupModal` exports identity + aggregate keys, encrypts the JSON envelope with the current KEK, and presents a `.backup` blob that can be downloaded or copied. Restoring happens inside the onboarding screen via file upload + passphrase.
+- **Backups (keys only)**: `BackupModal` exports identity + per-goal keys, encrypts the JSON envelope with the current KEK, and presents a `.backup` blob that can be downloaded or copied. It does **not** include goal data or events; until sync or log export exists, goals stay on the original device. Restoring happens inside the onboarding screen via file upload + passphrase.
 
 ### Resetting the environment
 If you need to wipe local credentials:

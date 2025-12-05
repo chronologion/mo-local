@@ -145,7 +145,8 @@ export function Onboarding() {
           <CardTitle>Import keys from encrypted backup</CardTitle>
           <CardDescription>
             Select your .backup file and enter the passphrase you used when
-            exporting.
+            exporting. Backups contain keys only; goal data and event history
+            remain on the original device until sync/log export exists.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -172,8 +172,8 @@ At runtime, the stack integrates LiveStore as follows:
 3. **Goal CRUD**
    - UI dispatches commands → `GoalApplicationService` validates → `GoalCommandHandler` mutates aggregate → encrypted events appended to LiveStore → the DAL updates projections (currently via event replay; later via worker‑based projection runtime).
 4. **Backup / Restore**
-   - Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy.
-   - Restore: upload blob, derive KEK using provided salt, decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata.
+   - Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy. This is a **key backup only**; event logs and goal data stay on the device until sync/log export exists.
+   - Restore: upload blob, derive KEK using provided salt, decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. Without the original event log, restored keys alone will not bring goals onto a new device.
 
 ## 8. Developer Workflow
 
@@ -216,3 +216,59 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 - Extend backups to include encrypted event snapshots or ship sync before advertising multi-device support.
 - Introduce random per-user salts (store them in metadata and backups) to harden passphrase derivation.
 - Implement the worker‑based projection runtime + encrypted snapshots per BC (as in `docs/materializer-plan.md`) to avoid replaying the entire log on every `useGoals` refresh and to support FTS + facet search efficiently.
+
+## 11. Goals Projection Runtime (diagram + key facts)
+
+The Goals BC uses an event-sourced pipeline with encrypted storage and in-memory reads. This mirrors the plan in `docs/materializer-plan.md` and is the reference for future BCs.
+
+```mermaid
+  flowchart LR
+    subgraph UI["UI / Hooks"]
+      cmds["useGoalCommands"]
+      qList["useGoals"]
+      qId["useGoalById / search"]
+    end
+
+    subgraph App["Application Layer"]
+      cmdBus["CommandBus"]
+      qryBus["QueryBus"]
+      cmdHandler["GoalCommandHandler"]
+      qryHandler["GoalQueryHandler"]
+    end
+
+    subgraph Infra["Infra"]
+      repo["GoalRepository<br>(encrypt + append)"]
+      outbox[("goal_events<br>(bounded outbox; pruned ≤ lastSequence)")]
+      changeset[("session_changeset<br>(LiveStore internal log)")]
+      boot["Bootstrapper<br>snapshots + tail events"]
+      ws["GoalEventConsumer<br>handleEvent() per event"]
+      snaps[("goal_snapshots<br>aggregate_id PK<br>payload_encrypted BLOB<br>version INT<br>last_sequence INT<br>updated_at INT")]
+      meta[("goal_projection_meta<br>key PK<br>value TEXT<br>(last_sequence)")]
+      analytics[("goal_analytics<br>aggregate_id PK<br>payload_encrypted BLOB<br>last_sequence INT<br>updated_at INT")]
+      cache["Read cache<br>(in-memory map + FTS, ready signal)"]
+    end
+
+    cmds --> cmdBus --> cmdHandler --> repo --> outbox
+    outbox -->|"tail since lastSequence"| ws
+
+    boot -->|"preload snapshots"| cache
+    boot -->|"tail events since lastSequence"| ws
+
+    ws -->|"persist snapshot"| snaps
+    ws -->|"persist analytics"| analytics
+    ws -->|"update lastSequence"| meta
+    ws -->|"prune goal_events ≤ lastSequence"| outbox
+    ws -->|"update cache"| cache
+
+    qList --> qryBus --> qryHandler -->|"whenReady"| cache
+    qId --> qryBus --> qryHandler -->|"whenReady"| cache
+    cache -->|"ready/signal"| qryBus
+```
+
+Key facts:
+
+- LiveStore’s canonical log is `session_changeset`; `goal_events` remains a local bounded outbox until the `events()` API ships, after which it can be dropped.
+- Snapshots (`goal_snapshots`) and analytics (`goal_analytics`) are encrypted and local-only; they keep catch-up fast and let the outbox be pruned to `lastSequence`.
+- The read path is in-memory (projection + FTS) seeded from snapshots + tail events, with a “ready” signal gating queries.
+- Bootstrap and live updates share the same consumer (`GoalEventConsumer`) so behavior is identical for catch-up and steady state.
+- Sync will append encrypted events to the canonical log; projections react via LiveStore notifications rather than bespoke in-process buses.

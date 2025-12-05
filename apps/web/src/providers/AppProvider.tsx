@@ -77,6 +77,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     note?: string;
     eventCount?: number;
     aggregateCount?: number;
+    outboxCount?: number;
     tables?: string[];
     onRebuild?: () => void;
   } | null>(null);
@@ -156,6 +157,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             note: 'LiveStore adapter (opfs)',
             eventCount,
             aggregateCount,
+            outboxCount,
             tables: tablesList,
             onRebuild: rebuildProjections,
           });
@@ -407,6 +409,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             storage: debugInfo.storage,
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
+            outboxCount: debugInfo.outboxCount,
           }}
         />
       ) : null}
