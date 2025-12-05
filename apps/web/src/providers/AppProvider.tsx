@@ -4,7 +4,12 @@ import { createBrowserServices } from '@mo/infrastructure/browser';
 import { DebugPanel } from '../components/DebugPanel';
 import { adapter } from './LiveStoreAdapter';
 import { tables } from '@mo/infrastructure/browser';
-import { deriveSaltForUser } from '../lib/deriveSalt';
+import {
+  decodeSalt,
+  deriveLegacySaltForUser,
+  encodeSalt,
+  generateRandomSalt,
+} from '../lib/deriveSalt';
 import { z } from 'zod';
 
 const USER_META_KEY = 'mo-local-user';
@@ -38,6 +43,7 @@ type Services = Awaited<ReturnType<typeof createBrowserServices>>;
 
 type AppContextValue = {
   services: Services;
+  userMeta: UserMeta | null;
   session: SessionState;
   completeOnboarding: (params: { password: string }) => Promise<void>;
   unlock: (params: { password: string }) => Promise<void>;
@@ -70,6 +76,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [services, setServices] = useState<Services | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [masterKey, setMasterKey] = useState<Uint8Array | null>(null);
+  const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
   const [debugInfo, setDebugInfo] = useState<{
     storeId: string;
     opfsAvailable: boolean;
@@ -200,10 +207,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (async () => {
       const meta = loadMeta();
       if (!meta) {
-        if (!signal.aborted) setSession({ status: 'needs-onboarding' });
+        if (!signal.aborted) {
+          setUserMeta(null);
+          setSession({ status: 'needs-onboarding' });
+        }
         return;
       }
       if (!signal.aborted) {
+        setUserMeta(meta);
         setSession({ status: 'locked', userId: meta.userId });
       }
     })();
@@ -217,7 +228,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error('Services not initialized');
     }
     const userId = uuidv7();
-    const salt = await deriveSaltForUser(userId);
+    const salt = generateRandomSalt();
+    const saltB64 = encodeSalt(salt);
 
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
@@ -235,23 +247,55 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Start projection only after keys are persisted.
     await services.goalProjection.start();
-    saveMeta({ userId });
+    const meta = { userId, pwdSalt: saltB64 };
+    saveMeta(meta);
+    setUserMeta(meta);
     setSession({ status: 'ready', userId });
   };
   const unlock = async ({ password }: { password: string }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const salt = meta.pwdSalt
-      ? Uint8Array.from(atob(meta.pwdSalt), (c) => c.charCodeAt(0))
-      : await deriveSaltForUser(meta.userId);
-    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
+    const storedSalt = meta.pwdSalt ? decodeSalt(meta.pwdSalt) : null;
+    const legacySalt = storedSalt
+      ? null
+      : await deriveLegacySaltForUser(meta.userId);
+    const saltForUnlock = storedSalt ?? legacySalt;
+    if (!saltForUnlock) {
+      throw new Error('Unable to determine password salt for unlock');
+    }
+    const kek = await services.crypto.deriveKeyFromPassword(
+      password,
+      saltForUnlock
+    );
     services.keyStore.setMasterKey(kek);
     const keys = await services.keyStore.getIdentityKeys(meta.userId);
     if (!keys) {
       throw new Error('No keys found, please re-onboard');
     }
-    setMasterKey(kek);
+
+    let nextMasterKey = kek;
+    let nextSaltB64 = meta.pwdSalt ?? encodeSalt(saltForUnlock);
+
+    if (!meta.pwdSalt) {
+      // Migrate deterministic salt users to a random per-user salt.
+      const backup = await services.keyStore.exportKeys();
+      const freshSalt = generateRandomSalt();
+      nextSaltB64 = encodeSalt(freshSalt);
+      nextMasterKey = await services.crypto.deriveKeyFromPassword(
+        password,
+        freshSalt
+      );
+      services.keyStore.setMasterKey(nextMasterKey);
+      await services.keyStore.importKeys({
+        ...backup,
+        userId: backup.userId ?? meta.userId,
+      });
+    }
+
+    saveMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
+    setUserMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
+    setMasterKey(nextMasterKey);
     await services.goalProjection.start();
     setSession({ status: 'ready', userId: meta.userId });
   };
@@ -300,19 +344,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     })();
     const cipherB64 = parsedEnvelope.cipher;
     const meta = loadMeta();
-    let saltB64 = parsedEnvelope.salt ?? meta?.pwdSalt ?? null;
-    if (!saltB64 && meta?.userId) {
-      const derivedSalt = await deriveSaltForUser(meta.userId);
-      saltB64 = btoa(String.fromCharCode(...derivedSalt));
+    const decryptSalt =
+      (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ??
+      (meta?.pwdSalt ? decodeSalt(meta.pwdSalt) : null) ??
+      (meta?.userId ? await deriveLegacySaltForUser(meta.userId) : null);
+    if (!decryptSalt) {
+      throw new Error(
+        'Backup missing salt and no local metadata available to derive one'
+      );
     }
-    if (!saltB64) {
-      throw new Error('Backup missing salt and no local metadata available');
-    }
-    const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
-    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
-    services.keyStore.setMasterKey(kek);
+
+    const decryptKek = await services.crypto.deriveKeyFromPassword(
+      password,
+      decryptSalt
+    );
+    services.keyStore.setMasterKey(decryptKek);
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
-    const decrypted = await services.crypto.decrypt(encrypted, kek);
+    const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
     const payloadSchema = z.object({
       userId: z.string().min(1),
       identityKeys: z
@@ -328,6 +376,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const payload = payloadSchema.parse(
       JSON.parse(new TextDecoder().decode(decrypted))
     );
+
+    const aggregateEntries: Array<[string, string]> = Object.entries(
+      payload.aggregateKeys
+    );
+    const persistSalt =
+      parsedEnvelope.salt !== undefined
+        ? decodeSalt(parsedEnvelope.salt)
+        : generateRandomSalt();
+    const persistSaltB64 = encodeSalt(persistSalt);
+    const persistKek = await services.crypto.deriveKeyFromPassword(
+      password,
+      persistSalt
+    );
+    services.keyStore.setMasterKey(persistKek);
 
     await services.keyStore.clearAll();
     if (payload.identityKeys) {
@@ -350,9 +412,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         ),
       });
     }
-    const aggregateEntries: Array<[string, string]> = Object.entries(
-      payload.aggregateKeys
-    );
     for (const [aggregateId, keyB64] of aggregateEntries) {
       await services.keyStore.saveAggregateKey(
         aggregateId,
@@ -361,10 +420,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     await services.goalProjection.start();
-    saveMeta({
+    const nextMeta = {
       userId: payload.userId,
-    });
-    setMasterKey(kek);
+      pwdSalt: persistSaltB64,
+    };
+    saveMeta(nextMeta);
+    setUserMeta(nextMeta);
+    setMasterKey(persistKek);
     setSession({ status: 'ready', userId: payload.userId });
   };
 
@@ -381,6 +443,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       <AppContext.Provider
         value={{
           services,
+          userMeta,
           session,
           completeOnboarding,
           unlock,

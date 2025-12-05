@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
 import { Button } from '../ui/button';
-import { deriveSaltForUser } from '../../lib/deriveSalt';
+import { deriveLegacySaltForUser, encodeSalt } from '../../lib/deriveSalt';
 
 const toBase64 = (data: Uint8Array): string =>
   btoa(String.fromCharCode(...Array.from(data)));
@@ -13,7 +13,7 @@ type BackupModalProps = {
 };
 
 export function BackupModal({ open, onClose }: BackupModalProps) {
-  const { session, services, masterKey } = useApp();
+  const { session, services, masterKey, userMeta } = useApp();
   const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
@@ -74,8 +74,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         const plaintext = new TextEncoder().encode(JSON.stringify(payload));
         const encrypted = await services.crypto.encrypt(plaintext, masterKey);
         const b64 = toBase64(encrypted);
-        const salt = await deriveSaltForUser(payload.userId);
-        const saltB64 = toBase64(salt);
+        const saltB64 =
+          userMeta?.pwdSalt ??
+          encodeSalt(await deriveLegacySaltForUser(payload.userId));
         setBackupCipher(
           JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2)
         );
@@ -89,7 +90,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
       }
     };
     void run();
-  }, [open, masterKey, services, session, userId]);
+  }, [open, masterKey, services, session, userId, userMeta]);
 
   if (!open) return null;
 
