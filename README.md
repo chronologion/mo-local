@@ -38,10 +38,10 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 - **React wiring**: `AppProvider` bootstraps services, drives onboarding/unlock state, exposes `goalService` + `goalQueries`, and renders `GoalDashboard` + `BackupModal`.
 
 ## Working With Data
-- **Onboarding**: When `localStorage['mo-local-user']` is absent we generate a new userId (UUIDv7), derive a KEK from the chosen passphrase, create signing/encryption keypairs, and encrypt them into IndexedDB.
+- **Onboarding**: When `localStorage['mo-local-user']` is absent we generate a new userId (UUIDv7), derive a KEK from the chosen passphrase using a random per-user salt (stored in metadata/backups), create signing/encryption keypairs, and encrypt them into IndexedDB.
 - **Unlocking**: Derive the same KEK from the stored metadata, decrypt the identity keys, and unlock the dashboard.
 - **Goal CRUD**: Hooks in `apps/web/src/hooks` call `goalService.handle({...})`, which appends encrypted events to LiveStore. `useGoals` reconstructs projections by decrypting per-aggregate event streams.
-- **Backups (keys only)**: `BackupModal` exports identity + per-goal keys, encrypts the JSON envelope with the current KEK, and presents a `.backup` blob that can be downloaded or copied. It does **not** include goal data or events; until sync or log export exists, goals stay on the original device. Restoring happens inside the onboarding screen via file upload + passphrase.
+- **Backups (keys only)**: `BackupModal` exports identity + per-goal keys, encrypts the JSON envelope with the current KEK (salt included), and presents a `.backup` blob for download/copy. It does **not** include goal data or events; until sync or log export exists, goals stay on the original device. Legacy backups without salt need existing metadata and are rewrapped to a random salt during unlock/restore.
 
 ### Resetting the environment
 If you need to wipe local credentials:
@@ -65,4 +65,4 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 
 ## Documentation
 - `goals-poc-prd-v2.md` – up-to-date PRD with architecture, flows, and open risks.
-- `docs/materializer-plan.md` – plan for adding LiveStore materialized tables once we leave event-log replay behind.
+- Projection/runtime notes live in `goals-poc-prd-v2.md` (worker-based projections, snapshots, analytics).

@@ -118,7 +118,7 @@ Infrastructure (LiveStore, crypto, key store implementations)
 
 ## 6. Infrastructure Layer
 
-- **LiveStore schema**: `packages/infrastructure/src/browser/schema.ts` defines the `goal_events` table and `goal.event` stream. Each row stores encrypted event payloads plus versions and timestamps. For the next phase we will add a per‑BC `*_snapshots` table holding encrypted aggregate snapshots (see `docs/materializer-plan.md`).
+- **LiveStore schema**: `packages/infrastructure/src/browser/schema.ts` defines the `goal_events` table and `goal.event` stream. Each row stores encrypted event payloads plus versions and timestamps. Per‑BC `*_snapshots` tables hold encrypted aggregate snapshots to avoid full replays (see projection section below).
 - **Adapters**:
   - `DomainToLiveStoreAdapter` encrypts serialized domain event payloads using AES-GCM with additional authenticated data `aggregateId:eventType:version`.
   - `LiveStoreToDomainAdapter` decrypts rows, validates payloads with Zod, and instantiates domain event classes.
@@ -132,12 +132,12 @@ Infrastructure (LiveStore, crypto, key store implementations)
 - **Key storage**: `IndexedDBKeyStore` stores identity + aggregate keys encrypted with the passphrase-derived KEK. Export/import helpers enable backups.
 - **Browser wiring**: `createBrowserServices` hands back `{ crypto, keyStore, store, eventStore, eventBus, goalRepo, goalService, goalQueries }` used by `AppProvider`.
 - **Projection runtime (planned)**:
-  - Each BC (starting with Goals) gets a worker-based projection runtime that:
+  - Each BC (starting with Goals) gets a projection runtime (main-thread now; worker-capable later) that:
     - Bootstraps from encrypted events + snapshots stored in LiveStore.
-    - Maintains clear‑text projections and indices in worker memory (including FTS and facet indices).
-    - Maintains BC-specific **analytical rollups** (e.g. `goals_monthly_totals`, `goals_category_rollups`) so queries like “goals per slice per year” do not require scanning the entire event log.
+    - Maintains clear‑text projections and indices in memory (including FTS and facet indices).
+  - Maintains BC-specific **analytical rollups** (e.g. `goals_monthly_totals`, `goals_category_rollups`) so queries like “goals per slice per year” do not require scanning the entire event log.
   - Exposes a typed DAL (`GoalQueries`/`TaskQueries`/…) to the main thread for list/filter/search operations.
-  - The current POC still uses a simpler log‑replay `GoalQueries` implementation; the worker‑backed runtime is specified in `docs/materializer-plan.md` and will replace it as we scale.
+  - The current POC still uses a simpler log‑replay `GoalQueries` implementation; the worker‑backed runtime described here will replace it as we scale.
 
 ### 6.1 LiveStore integration (browser)
 
@@ -165,15 +165,15 @@ At runtime, the stack integrates LiveStore as follows:
 ### 7.3 User flows
 1. **Onboard**
    - Generate UUIDv7 `userId`.
-   - Derive KEK via PBKDF2 using `deriveSaltForUser(userId)` (currently SHA-256(userId); see limitations).
-   - Generate signing + encryption keypairs, store encrypted in IndexedDB, persist metadata in `localStorage`.
+   - Generate a random per-user salt (stored in metadata/backups) and derive KEK via PBKDF2.
+   - Generate signing + encryption keypairs, store encrypted in IndexedDB, persist metadata (includes salt) in `localStorage`.
 2. **Unlock**
    - Load metadata, derive KEK, decrypt identity keys, load goal projections.
 3. **Goal CRUD**
    - UI dispatches commands → `GoalApplicationService` validates → `GoalCommandHandler` mutates aggregate → encrypted events appended to LiveStore → the DAL updates projections (currently via event replay; later via worker‑based projection runtime).
 4. **Backup / Restore**
-   - Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy. This is a **key backup only**; event logs and goal data stay on the device until sync/log export exists.
-   - Restore: upload blob, derive KEK using provided salt, decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. Without the original event log, restored keys alone will not bring goals onto a new device.
+   - Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy (salt is persisted for unlock on fresh devices).
+   - Restore: upload blob, derive KEK using provided salt (or migrate legacy backups to a fresh random salt), decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. This is a **key backup only**; event logs and goal data stay on the device until sync/log export exists.
 
 ## 8. Developer Workflow
 
@@ -205,21 +205,20 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 1. **Event bus never receives goal events**: `GoalCommandHandler` publishes *after* `GoalRepository.save` marks events as committed. Subscribers (e.g., background sync) therefore see an empty array. Fix by capturing pending events before persistence or having the repository return the appended events.
 2. **Goal creation can orphan data**: We append encrypted events to LiveStore *before* persisting `K_goal` in the key store. If `IndexedDBKeyStore.saveAggregateKey` fails, the events are stored forever with no key to decrypt them.
 3. **Backups do not include event logs**: Export/restore flows only move identity + aggregate keys (`apps/web/src/components/goals/BackupModal.tsx`). Without separate OPFS export or sync server, "multi-device support" is limited to reusing the same identity on the same browser profile.
-4. **Deterministic password salt**: `deriveSaltForUser` hashes `userId`, and metadata never stores a random salt (`apps/web/src/providers/AppProvider.tsx`). This makes KEKs predictable per user and prevents us from rotating salts later.
+4. **Legacy backups without salt**: Old `.backup` files lacking a `salt` still need existing metadata to derive the legacy deterministic salt; first unlock/restore now rewraps keys with a random per-user salt and saves it to metadata/backups.
 5. **Backend + sync + sharing**: No HTTP APIs, invites, or wrapped key distribution exist yet. `AggregateKeyManager`, `SharingCrypto`, and ISyncProvider ports are unused.
-6. **LiveStore projections**: Queries currently replay every event for every aggregate on each refresh. `docs/materializer-plan.md` now specifies a worker‑based projection runtime per BC with encrypted events + snapshots and in‑memory projections/indices; that design is not yet implemented.
+6. **LiveStore projections**: Queries currently replay every event for every aggregate on each refresh. A worker‑capable projection runtime per BC with encrypted events + snapshots and in‑memory projections/indices is outlined below but not yet implemented.
 7. **Docker documentation is aspirational**: Section 11.2 from the previous PRD described a Docker Compose stack that does not exist. Keep this noted as future infrastructure work.
 
 ## 10. Next Steps
 - Wire the backend (NestJS + Postgres) and implement the sync provider described in earlier revisions.
 - Fix the event bus + key persistence ordering bugs so downstream services can react to events safely.
 - Extend backups to include encrypted event snapshots or ship sync before advertising multi-device support.
-- Introduce random per-user salts (store them in metadata and backups) to harden passphrase derivation.
-- Implement the worker‑based projection runtime + encrypted snapshots per BC (as in `docs/materializer-plan.md`) to avoid replaying the entire log on every `useGoals` refresh and to support FTS + facet search efficiently.
+- Implement the worker‑based projection runtime + encrypted snapshots per BC to avoid replaying the entire log on every `useGoals` refresh and to support FTS + facet search efficiently.
 
 ## 11. Goals Projection Runtime (diagram + key facts)
 
-The Goals BC uses an event-sourced pipeline with encrypted storage and in-memory reads. This mirrors the plan in `docs/materializer-plan.md` and is the reference for future BCs.
+The Goals BC uses an event-sourced pipeline with encrypted storage and in-memory reads. This is the reference for future BCs.
 
 ```mermaid
   flowchart LR
