@@ -1,8 +1,14 @@
-import { createStorePromise, type Store } from '@livestore/livestore';
+import {
+  createStorePromise,
+  type Store,
+  type Adapter,
+} from '@livestore/livestore';
 import {
   GoalApplicationService,
   GoalCommandHandler,
   IEventBus,
+  SimpleBus,
+  registerGoalCommandHandlers,
 } from '@mo/application';
 import { InMemoryEventBus } from '@mo/application';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
@@ -12,6 +18,12 @@ import { GoalRepository } from './GoalRepository';
 import { GoalQueries } from './GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { schema as defaultSchema, events as goalEvents } from './schema';
+import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import type { GoalListItem } from './GoalProjectionState';
+import {
+  type GoalQuery,
+  registerGoalQueryHandlers,
+} from './GoalQueryBus';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -20,12 +32,17 @@ export type BrowserServices = {
   eventStore: BrowserLiveStoreEventStore;
   eventBus: IEventBus;
   goalRepo: GoalRepository;
-  goalService: GoalApplicationService;
+  goalCommandBus: SimpleBus<
+    { type: string },
+    Awaited<ReturnType<GoalApplicationService['handle']>>
+  >;
+  goalQueryBus: SimpleBus<GoalQuery, GoalListItem[] | GoalListItem | null>;
   goalQueries: GoalQueries;
+  goalProjection: GoalProjectionProcessor;
 };
 
 export type BrowserServicesOptions = {
-  adapter: unknown;
+  adapter: Adapter;
   storeId?: string;
 };
 
@@ -35,7 +52,7 @@ export type BrowserServicesOptions = {
  */
 export const createBrowserServices = async ({
   adapter,
-  storeId = 'mo-local',
+  storeId = 'mo-local-v2',
 }: BrowserServicesOptions): Promise<BrowserServices> => {
   const effectiveSchema = defaultSchema;
   const crypto = new WebCryptoService();
@@ -59,6 +76,7 @@ export const createBrowserServices = async ({
   const eventBus = new InMemoryEventBus();
   const goalRepo = new GoalRepository(
     eventStore,
+    store,
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
@@ -69,11 +87,25 @@ export const createBrowserServices = async ({
     eventBus
   );
   const goalService = new GoalApplicationService(goalHandler);
-  const goalQueries = new GoalQueries(
+  const goalCommandBus = new SimpleBus<
+    { type: string },
+    Awaited<ReturnType<GoalApplicationService['handle']>>
+  >();
+  registerGoalCommandHandlers(goalCommandBus, goalHandler);
+  const toDomain = new LiveStoreToDomainAdapter(crypto);
+  const goalProjection = new GoalProjectionProcessor(
+    store,
     eventStore,
-    new LiveStoreToDomainAdapter(crypto),
-    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+    crypto,
+    keyStore,
+    toDomain
   );
+  const goalQueries = new GoalQueries(goalProjection);
+  const goalQueryBus = new SimpleBus<
+    import('./GoalQueryBus').GoalQuery,
+    GoalListItem[] | GoalListItem | null
+  >();
+  registerGoalQueryHandlers(goalQueryBus, goalQueries);
 
   return {
     crypto,
@@ -82,7 +114,9 @@ export const createBrowserServices = async ({
     eventStore,
     eventBus,
     goalRepo,
-    goalService,
+    goalCommandBus,
+    goalQueryBus,
     goalQueries,
+    goalProjection,
   };
 };

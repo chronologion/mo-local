@@ -45,9 +45,11 @@ export class GoalCommandHandler {
       createdBy: command.userId,
     });
 
-    await this.goalRepo.save(goal, kGoal);
+    const pendingEvents = goal.getUncommittedEvents();
     await this.keyStore.saveAggregateKey(goal.id.value, kGoal);
-    await this.eventBus.publish(goal.getUncommittedEvents());
+    await this.goalRepo.save(goal, kGoal);
+    await this.eventBus.publish(pendingEvents);
+    goal.markEventsAsCommitted();
 
     return { goalId: goal.id.value, encryptionKey: kGoal };
   }
@@ -117,13 +119,15 @@ export class GoalCommandHandler {
   }
 
   private async persist(goal: Goal): Promise<GoalCommandResult> {
+    const pendingEvents = goal.getUncommittedEvents();
     const kGoal = await this.keyStore.getAggregateKey(goal.id.value);
     if (!kGoal) {
       throw new NotFoundError(`Aggregate key for ${goal.id.value} not found`);
     }
 
     await this.goalRepo.save(goal, kGoal);
-    await this.eventBus.publish(goal.getUncommittedEvents());
+    await this.eventBus.publish(pendingEvents);
+    goal.markEventsAsCommitted();
     return { goalId: goal.id.value };
   }
 }

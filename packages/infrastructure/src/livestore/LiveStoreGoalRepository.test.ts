@@ -14,7 +14,7 @@ import {
   UserId,
   DomainEvent,
 } from '@mo/domain';
-import { ApplicationError } from '@mo/application';
+import { PersistenceError } from '../errors';
 
 const adapter: EventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
@@ -87,6 +87,6 @@ describe('LiveStoreGoalRepository', () => {
 
     await expect(
       failingRepo.save(goal, new Uint8Array([9]))
-    ).rejects.toBeInstanceOf(ApplicationError);
+    ).rejects.toBeInstanceOf(PersistenceError);
   });
 });

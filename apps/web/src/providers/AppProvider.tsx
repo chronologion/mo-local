@@ -8,6 +8,17 @@ import { deriveSaltForUser } from '../lib/deriveSalt';
 import { z } from 'zod';
 
 const USER_META_KEY = 'mo-local-user';
+const RESET_FLAG_KEY = 'mo-local-reset-persistence';
+const STORE_ID_KEY = 'mo-local-store-id';
+const DEFAULT_STORE_ID = 'mo-local-v2';
+
+const loadStoreId = (): string => {
+  if (typeof localStorage === 'undefined') return DEFAULT_STORE_ID;
+  const existing = localStorage.getItem(STORE_ID_KEY);
+  if (existing) return existing;
+  localStorage.setItem(STORE_ID_KEY, DEFAULT_STORE_ID);
+  return DEFAULT_STORE_ID;
+};
 
 type UserMeta = {
   userId: string;
@@ -30,6 +41,8 @@ type AppContextValue = {
   session: SessionState;
   completeOnboarding: (params: { password: string }) => Promise<void>;
   unlock: (params: { password: string }) => Promise<void>;
+  resetLocalState: () => Promise<void>;
+  rebuildProjections: () => Promise<void>;
   masterKey: Uint8Array | null;
   restoreBackup: (params: {
     password: string;
@@ -65,6 +78,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     eventCount?: number;
     aggregateCount?: number;
     tables?: string[];
+    onRebuild?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -73,9 +87,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const controller = new AbortController();
     const { signal } = controller;
     let unsubscribe: (() => void) | undefined;
+    let intervalId: number | undefined;
     (async () => {
       try {
-        const svc = await createBrowserServices({ adapter });
+        const currentStoreId = loadStoreId();
+        const svc = await createBrowserServices({
+          adapter,
+          storeId: currentStoreId,
+        });
         const updateDebug = () => {
           const tablesList = (() => {
             try {
@@ -91,8 +110,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const eventCount = (() => {
             try {
               const res = svc.store.query<{ count: number }[]>({
-                query: 'SELECT COUNT(*) as count FROM goal_events',
-                bindValues: [],
+                // Total events in the canonical LiveStore log.
+                query:
+                  'SELECT COUNT(*) as count FROM __livestore_session_changeset WHERE (? IS NULL OR 1 = 1)',
+                bindValues: [Date.now()],
               });
               return Number(res?.[0]?.count ?? 0);
             } catch {
@@ -111,6 +132,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               return 0;
             }
           })();
+          const outboxCount = (() => {
+            try {
+              const res = svc.store.query<{ count: number }[]>({
+                // Bounded local outbox for projections (goal_events).
+                query:
+                  'SELECT COUNT(*) as count FROM goal_events WHERE (? IS NULL OR 1 = 1)',
+                bindValues: [Date.now()],
+              });
+              return Number(res?.[0]?.count ?? 0);
+            } catch {
+              return 0;
+            }
+          })();
 
           setDebugInfo({
             storeId: svc.store.storeId,
@@ -123,6 +157,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount,
             aggregateCount,
             tables: tablesList,
+            onRebuild: rebuildProjections,
           });
         };
 
@@ -130,6 +165,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           updateDebug()
         );
         updateDebug();
+        if (import.meta.env.DEV) {
+          intervalId = window.setInterval(() => {
+            updateDebug();
+          }, 1000);
+        }
 
         if (!signal.aborted) {
           setServices(svc);
@@ -145,6 +185,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       controller.abort();
       unsubscribe?.();
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
     };
   }, []);
 
@@ -188,6 +231,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
+    // Start projection only after keys are persisted.
+    await services.goalProjection.start();
     saveMeta({ userId });
     setSession({ status: 'ready', userId });
   };
@@ -205,7 +250,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error('No keys found, please re-onboard');
     }
     setMasterKey(kek);
+    await services.goalProjection.start();
     setSession({ status: 'ready', userId: meta.userId });
+  };
+
+  const resetLocalState = async (): Promise<void> => {
+    if (!services) throw new Error('Services not initialized');
+    try {
+      services.goalProjection.stop();
+      await (
+        services.store as unknown as { shutdownPromise?: () => Promise<void> }
+      ).shutdownPromise?.();
+    } catch (error) {
+      console.warn('LiveStore shutdown failed', error);
+    }
+    indexedDB.deleteDatabase('mo-local-keys');
+    localStorage.removeItem(USER_META_KEY);
+    const nextStoreId = `${DEFAULT_STORE_ID}-${uuidv7()}`;
+    localStorage.setItem(STORE_ID_KEY, nextStoreId);
+    localStorage.removeItem(RESET_FLAG_KEY);
+    window.location.reload();
+  };
+
+  const rebuildProjections = async (): Promise<void> => {
+    if (!services) throw new Error('Services not initialized');
+    await services.goalProjection.resetAndRebuild();
   };
 
   const restoreBackup = async ({
@@ -289,6 +358,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       );
     }
 
+    await services.goalProjection.start();
     saveMeta({
       userId: payload.userId,
     });
@@ -312,6 +382,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           session,
           completeOnboarding,
           unlock,
+          resetLocalState,
+          rebuildProjections,
           masterKey,
           restoreBackup,
         }}

@@ -38,7 +38,7 @@ export const useGoalCommands = () => {
         userId,
         timestamp: Date.now(),
       };
-      const result = await services.goalService.handle(cmd);
+      const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
           result.errors
@@ -46,6 +46,7 @@ export const useGoalCommands = () => {
             .join(', ')
         );
       }
+      await services.goalProjection.flush();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
@@ -61,7 +62,19 @@ export const useGoalCommands = () => {
     try {
       const userId = ensureUser();
       const timestamp = Date.now();
-      if (params.summary !== undefined) {
+      const result = await services.goalQueryBus.dispatch({
+        type: 'GetGoalById',
+        goalId: params.goalId,
+      });
+      if (Array.isArray(result)) {
+        throw new Error('Invalid query result');
+      }
+      const current = result;
+      if (!current) {
+        throw new Error('Goal not found');
+      }
+      let changed = false;
+      if (params.summary !== undefined && params.summary !== current.summary) {
         const cmd = {
           type: 'ChangeGoalSummary' as const,
           goalId: params.goalId,
@@ -69,7 +82,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -77,8 +90,9 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.slice !== undefined) {
+      if (params.slice !== undefined && params.slice !== current.slice) {
         const cmd = {
           type: 'ChangeGoalSlice' as const,
           goalId: params.goalId,
@@ -86,7 +100,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -94,8 +108,12 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.priority !== undefined) {
+      if (
+        params.priority !== undefined &&
+        params.priority !== current.priority
+      ) {
         const cmd = {
           type: 'ChangeGoalPriority' as const,
           goalId: params.goalId,
@@ -103,7 +121,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -111,8 +129,12 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
       }
-      if (params.targetMonth !== undefined) {
+      if (
+        params.targetMonth !== undefined &&
+        params.targetMonth !== current.targetMonth
+      ) {
         const cmd = {
           type: 'ChangeGoalTargetMonth' as const,
           goalId: params.goalId,
@@ -120,7 +142,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
         };
-        const result = await services.goalService.handle(cmd);
+        const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
             result.errors
@@ -128,6 +150,10 @@ export const useGoalCommands = () => {
               .join(', ')
           );
         }
+        changed = true;
+      }
+      if (changed) {
+        await services.goalProjection.flush();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -149,7 +175,7 @@ export const useGoalCommands = () => {
         timestamp: Date.now(),
         userId,
       };
-      const result = await services.goalService.handle(cmd);
+      const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
           result.errors
@@ -157,6 +183,7 @@ export const useGoalCommands = () => {
             .join(', ')
         );
       }
+      await services.goalProjection.flush();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);

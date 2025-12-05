@@ -9,3 +9,4 @@ export * from './errors/NotFoundError';
 export * from './handlers/GoalCommandHandler';
 export * from './handlers/UserCommandHandler';
 export * from './services/GoalApplicationService';
+export * from './services/SimpleBus';

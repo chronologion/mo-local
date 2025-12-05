@@ -62,19 +62,19 @@ export function GoalCard({
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner text-slate-900">
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{goal.slice}</Badge>
           <Badge>{goal.priority}</Badge>
         </div>
-        <span className="text-xs text-slate-500">{goal.targetMonth}</span>
+        <span className="text-xs text-muted-foreground">
+          {goal.targetMonth}
+        </span>
       </div>
       <div className="space-y-1">
-        <div className="font-semibold text-slate-900 dark:text-white">
-          {goal.summary}
-        </div>
-        <div className="text-[11px] text-slate-500">{goal.id}</div>
+        <div className="font-semibold text-card-foreground">{goal.summary}</div>
+        <div className="text-[11px] text-muted-foreground">{goal.id}</div>
       </div>
       <div className="flex items-center gap-2">
         <Button

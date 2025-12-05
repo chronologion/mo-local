@@ -77,8 +77,8 @@ export function Onboarding() {
         <Badge variant="secondary" className="uppercase tracking-widest">
           Offline-first
         </Badge>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Lock className="h-4 w-4 text-accent2" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Lock className="h-4 w-4 text-primary" />
           Keys stay local — data stays local (no sync)
         </div>
       </div>
@@ -86,7 +86,7 @@ export function Onboarding() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2 text-accent">
             <Wand2 className="h-5 w-5" />
-            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
+            <span className="text-sm font-semibold uppercase tracking-wide text-primary">
               Set passphrase
             </span>
           </div>
@@ -127,7 +127,9 @@ export function Onboarding() {
                 {loading ? 'Creating keys…' : 'Finish onboarding'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              {error && <span className="text-sm text-red-400">{error}</span>}
+              {error && (
+                <span className="text-sm text-destructive">{error}</span>
+              )}
             </div>
           </form>
         </CardContent>
@@ -136,7 +138,7 @@ export function Onboarding() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2 text-accent">
             <Wand2 className="h-5 w-5" />
-            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
+            <span className="text-sm font-semibold uppercase tracking-wide text-primary">
               Restore from backup
             </span>
           </div>
@@ -165,10 +167,10 @@ export function Onboarding() {
                     const text = await file.text();
                     setRestoreInput(text);
                   }}
-                  className="text-xs text-slate-300 file:mr-3 file:rounded-md file:border file:border-white/20 file:bg-white/5 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white"
+                  className="text-xs text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-semibold file:text-foreground"
                 />
                 {selectedRestoreFile && (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     Selected: {selectedRestoreFile}
                   </span>
                 )}
@@ -189,7 +191,7 @@ export function Onboarding() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               {restoreError && (
-                <span className="text-sm text-red-400">{restoreError}</span>
+                <span className="text-sm text-destructive">{restoreError}</span>
               )}
             </div>
           </form>

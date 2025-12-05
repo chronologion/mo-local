@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GoalListItem, tables } from '@mo/infrastructure/browser';
+import type { GoalListItem } from '@mo/infrastructure/browser';
 import { useApp } from '../providers/AppProvider';
 
 export const useGoals = () => {
@@ -12,25 +12,38 @@ export const useGoals = () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await services.goalQueries.listGoals();
-      setGoals(list);
+      const list = await services.goalQueryBus.dispatch({
+        type: 'ListGoals',
+      });
+      if (!Array.isArray(list)) {
+        throw new Error('Invalid query result');
+      }
+      setGoals(list as GoalListItem[]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [services.goalQueries]);
+  }, [services.goalQueryBus]);
 
   useEffect(() => {
     refresh();
-    const sub = services.store.subscribe(tables.goal_events.count(), () => {
-      void refresh();
-    });
-    return () => {
-      sub?.();
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    const wireSubscription = async () => {
+      await services.goalProjection.whenReady();
+      if (cancelled) return;
+      unsubscribe = services.goalProjection.subscribe(() => {
+        void refresh();
+      });
     };
-  }, [refresh, services.store]);
+    void wireSubscription();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [refresh, services.goalProjection]);
 
   return { goals, loading, error, refresh };
 };

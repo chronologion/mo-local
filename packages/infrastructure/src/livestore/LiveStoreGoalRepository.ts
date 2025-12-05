@@ -1,11 +1,11 @@
 import { Goal, GoalId, DomainEvent } from '@mo/domain';
 import {
-  ApplicationError,
   ConcurrencyError,
   EncryptedEvent,
   IEventStore,
   NotFoundError,
 } from '@mo/application';
+import { PersistenceError } from '../errors';
 
 export interface EventAdapter {
   toEncrypted(
@@ -65,9 +65,8 @@ export class LiveStoreGoalRepository {
       }
       const message =
         error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new ApplicationError(
-        `Failed to save goal ${goal.id.value}: ${message}`,
-        'event_store_save_failed'
+      throw new PersistenceError(
+        `Failed to save goal ${goal.id.value}: ${message}`
       );
     }
   }

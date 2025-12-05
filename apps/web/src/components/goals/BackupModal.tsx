@@ -105,14 +105,14 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-panel/90 p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-white">
               Backup identity keys
             </h3>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm">
               Save this file securely. It contains your signing/encryption
               keypairs.
             </p>
@@ -123,14 +123,14 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         </div>
         <div className="mt-4 space-y-3">
           {backupLoading ? (
-            <div className="flex items-center gap-2 text-slate-300">
+            <div className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
               Loading keys…
             </div>
           ) : backupError ? (
             <p className="text-sm text-red-400">{backupError}</p>
           ) : backupCipher ? (
-            <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 bg-black/60 p-3 text-xs text-slate-200 break-all">
+            <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 p-3 text-xs break-all">
               {backupCipher}
             </pre>
           ) : null}
@@ -154,7 +154,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               Copy
             </Button>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs">
             Keep backups offline. Anyone with this file can impersonate you.
           </p>
         </div>

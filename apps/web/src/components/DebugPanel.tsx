@@ -8,6 +8,7 @@ type DebugInfo = {
   storage?: string;
   eventCount?: number;
   aggregateCount?: number;
+  onRebuild?: () => void;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -44,6 +45,22 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
       ) : null}
       <div>Tables: {tableCount}</div>
       {info.note ? <div>Note: {info.note}</div> : null}
+      {info.onRebuild ? (
+        <button
+          style={{
+            marginTop: 8,
+            padding: '4px 8px',
+            borderRadius: 4,
+            border: '1px solid #6b7280',
+            background: '#111827',
+            color: '#e5e7eb',
+            cursor: 'pointer',
+          }}
+          onClick={info.onRebuild}
+        >
+          Rebuild Projections
+        </button>
+      ) : null}
     </div>
   );
 };
