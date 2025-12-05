@@ -132,12 +132,12 @@ Infrastructure (LiveStore, crypto, key store implementations)
 - **Key storage**: `IndexedDBKeyStore` stores identity + aggregate keys encrypted with the passphrase-derived KEK. Export/import helpers enable backups.
 - **Browser wiring**: `createBrowserServices` hands back `{ crypto, keyStore, store, eventStore, eventBus, goalRepo, goalService, goalQueries }` used by `AppProvider`.
 - **Projection runtime (planned)**:
-  - Each BC (starting with Goals) gets a worker-based projection runtime that:
+  - Each BC (starting with Goals) gets a projection runtime (main-thread now; worker-capable later) that:
     - Bootstraps from encrypted events + snapshots stored in LiveStore.
-    - Maintains clear‑text projections and indices in worker memory (including FTS and facet indices).
-    - Maintains BC-specific **analytical rollups** (e.g. `goals_monthly_totals`, `goals_category_rollups`) so queries like “goals per slice per year” do not require scanning the entire event log.
+    - Maintains clear‑text projections and indices in memory (including FTS and facet indices).
+  - Maintains BC-specific **analytical rollups** (e.g. `goals_monthly_totals`, `goals_category_rollups`) so queries like “goals per slice per year” do not require scanning the entire event log.
   - Exposes a typed DAL (`GoalQueries`/`TaskQueries`/…) to the main thread for list/filter/search operations.
-  - The current POC still uses a simpler log‑replay `GoalQueries` implementation; the worker‑backed runtime described below will replace it as we scale.
+  - The current POC still uses a simpler log‑replay `GoalQueries` implementation; the worker‑backed runtime described here will replace it as we scale.
 
 ### 6.1 LiveStore integration (browser)
 

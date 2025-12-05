@@ -65,4 +65,4 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 
 ## Documentation
 - `goals-poc-prd-v2.md` – up-to-date PRD with architecture, flows, and open risks.
-- `docs/materializer-plan.md` – plan for adding LiveStore materialized tables once we leave event-log replay behind.
+- Projection/runtime notes live in `goals-poc-prd-v2.md` (worker-based projections, snapshots, analytics).
