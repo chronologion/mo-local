@@ -7,10 +7,10 @@ import {
   GoalApplicationService,
   GoalCommandHandler,
   IEventBus,
+  InMemoryEventBus,
   SimpleBus,
   registerGoalCommandHandlers,
 } from '@mo/application';
-import { InMemoryEventBus } from '@mo/application';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { BrowserLiveStoreEventStore } from './LiveStoreEventStore';
@@ -20,10 +20,7 @@ import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomai
 import { schema as defaultSchema, events as goalEvents } from './schema';
 import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
 import type { GoalListItem } from './GoalProjectionState';
-import {
-  type GoalQuery,
-  registerGoalQueryHandlers,
-} from './GoalQueryBus';
+import { type GoalQuery, registerGoalQueryHandlers } from './GoalQueryBus';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -86,7 +83,6 @@ export const createBrowserServices = async ({
     crypto,
     eventBus
   );
-  const goalService = new GoalApplicationService(goalHandler);
   const goalCommandBus = new SimpleBus<
     { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>

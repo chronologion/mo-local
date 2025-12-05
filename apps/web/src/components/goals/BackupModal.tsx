@@ -110,11 +110,13 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-white">
-              Backup identity keys
+              Backup identity keys (not goal data)
             </h3>
             <p className="text-sm">
-              Save this file securely. It contains your signing/encryption
-              keypairs.
+              Save this file securely. It only contains your signing and
+              per-goal keys so you can decrypt data; it does not include your
+              goals or event history. Until sync or log export exists, your
+              goals stay on this device.
             </p>
           </div>
           <Button variant="ghost" onClick={onClose}>
@@ -155,7 +157,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             </Button>
           </div>
           <p className="text-xs">
-            Keep backups offline. Anyone with this file can impersonate you.
+            Keep backups offline. Anyone with this file can impersonate you. To
+            see your goals on another device you will also need their event data
+            (future sync/export), not just this key backup.
           </p>
         </div>
       </div>
