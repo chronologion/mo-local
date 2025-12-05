@@ -436,10 +436,8 @@ describe('GoalProjectionProcessor', () => {
 
     await processor.start();
 
-    // After processing, the outbox should be pruned up to
-    // (lastSequence - tailWindow), keeping only the newest tail entry.
-    expect(store.eventLog.length).toBe(1);
-    expect(store.eventLog[0]?.sequence).toBe(2);
+    // With a large tail window, recent events are not pruned immediately.
+    expect(store.eventLog.length).toBe(2);
   });
 
   it('supports infix search via FTS index', async () => {

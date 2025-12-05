@@ -24,7 +24,7 @@ import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
 const SEARCH_INDEX_KEY = 'goal_search_index';
-const PRUNE_TAIL_SEQUENCE_WINDOW = 1;
+const PRUNE_TAIL_SEQUENCE_WINDOW = 10;
 
 type SnapshotRow = {
   aggregate_id: string;

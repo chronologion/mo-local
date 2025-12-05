@@ -10,6 +10,9 @@ export class SimpleBus<TEnvelope extends BusEnvelope, TResult> {
     type: TMessage['type'],
     handler: (message: TMessage) => Promise<TResult>
   ): void {
+    if (this.handlers.has(type)) {
+      throw new Error(`Handler already registered for type ${type}`);
+    }
     this.handlers.set(
       type,
       handler as (message: TEnvelope) => Promise<TResult>

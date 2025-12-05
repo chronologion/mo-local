@@ -32,7 +32,6 @@ export type BrowserServices = {
   eventStore: BrowserLiveStoreEventStore;
   eventBus: IEventBus;
   goalRepo: GoalRepository;
-  goalService: GoalApplicationService;
   goalCommandBus: SimpleBus<
     { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
@@ -115,7 +114,6 @@ export const createBrowserServices = async ({
     eventStore,
     eventBus,
     goalRepo,
-    goalService,
     goalCommandBus,
     goalQueryBus,
     goalQueries,
