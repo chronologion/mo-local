@@ -87,6 +87,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const controller = new AbortController();
     const { signal } = controller;
     let unsubscribe: (() => void) | undefined;
+    let intervalId: number | undefined;
     (async () => {
       try {
         const currentStoreId = loadStoreId();
@@ -109,8 +110,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const eventCount = (() => {
             try {
               const res = svc.store.query<{ count: number }[]>({
-                query: 'SELECT COUNT(*) as count FROM goal_events',
-                bindValues: [],
+                // Total events in the canonical LiveStore log.
+                query:
+                  'SELECT COUNT(*) as count FROM __livestore_session_changeset WHERE (? IS NULL OR 1 = 1)',
+                bindValues: [Date.now()],
               });
               return Number(res?.[0]?.count ?? 0);
             } catch {
@@ -123,6 +126,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 query:
                   'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
                 bindValues: [],
+              });
+              return Number(res?.[0]?.count ?? 0);
+            } catch {
+              return 0;
+            }
+          })();
+          const outboxCount = (() => {
+            try {
+              const res = svc.store.query<{ count: number }[]>({
+                // Bounded local outbox for projections (goal_events).
+                query:
+                  'SELECT COUNT(*) as count FROM goal_events WHERE (? IS NULL OR 1 = 1)',
+                bindValues: [Date.now()],
               });
               return Number(res?.[0]?.count ?? 0);
             } catch {
@@ -149,6 +165,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           updateDebug()
         );
         updateDebug();
+        if (import.meta.env.DEV) {
+          intervalId = window.setInterval(() => {
+            updateDebug();
+          }, 1000);
+        }
 
         if (!signal.aborted) {
           setServices(svc);
@@ -164,6 +185,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       controller.abort();
       unsubscribe?.();
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
     };
   }, []);
 

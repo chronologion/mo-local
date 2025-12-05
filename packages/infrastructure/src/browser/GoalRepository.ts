@@ -64,11 +64,14 @@ export class GoalRepository implements IGoalRepository {
     if (pending.length === 0) return;
 
     const snapshot = await this.loadSnapshot(goal.id.value, encryptionKey);
-    const existingTail = await this.eventStore.getEvents(
-      goal.id.value,
-      snapshot ? snapshot.version + 1 : 1
-    );
-    const startVersion = (snapshot?.version ?? 0) + existingTail.length + 1;
+    const eventVersionRows = this.store.query<{ version: number | null }[]>({
+      query:
+        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
+      bindValues: [goal.id.value],
+    });
+    const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
+    const baseVersion = Math.max(maxEventVersion, snapshot?.version ?? 0);
+    const startVersion = baseVersion + 1;
 
     try {
       const encrypted = await Promise.all(

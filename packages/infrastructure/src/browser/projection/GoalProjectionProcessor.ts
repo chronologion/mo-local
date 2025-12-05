@@ -24,6 +24,7 @@ import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
 const SEARCH_INDEX_KEY = 'goal_search_index';
+const PRUNE_TAIL_SEQUENCE_WINDOW = 1;
 
 type SnapshotRow = {
   aggregate_id: string;
@@ -104,7 +105,7 @@ export class GoalProjectionProcessor {
           text
             .split(/\s+/)
             .flatMap((word) =>
-              word.length >= 3 ? word.match(/.{1,3}/g) ?? [word] : [word]
+              word.length >= 3 ? (word.match(/.{1,3}/g) ?? [word]) : [word]
             ),
       },
     });
@@ -265,6 +266,10 @@ export class GoalProjectionProcessor {
       await this.saveLastSequence(processedMax);
       const searchKey = await this.ensureSearchKey();
       await this.saveSearchIndex(searchKey, processedMax, Date.now());
+      const pruneThreshold = processedMax - PRUNE_TAIL_SEQUENCE_WINDOW;
+      if (pruneThreshold > 0) {
+        this.pruneProcessedEvents(pruneThreshold);
+      }
     }
     if (projectionChanged) {
       this.emitProjectionChanged();

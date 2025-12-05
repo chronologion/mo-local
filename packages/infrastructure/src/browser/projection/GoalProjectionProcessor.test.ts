@@ -394,6 +394,54 @@ describe('GoalProjectionProcessor', () => {
     expect(store.snapshots.size).toBe(1);
   });
 
+  it('prunes processed events from the outbox once snapshots are up to date', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId,
+        slice: 'Health',
+        summary: 'Run',
+        targetMonth: '2025-12',
+        priority: 'must',
+        createdBy: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      }),
+      1,
+      kGoal
+    );
+    const targetChanged = await toEncrypted.toEncrypted(
+      new GoalTargetChanged({
+        goalId,
+        targetMonth: '2026-01',
+        changedAt: new Date('2025-02-01T00:00:00Z'),
+      }),
+      2,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [
+      { ...created, sequence: 1 },
+      { ...targetChanged, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    // After processing, the outbox should be pruned up to
+    // (lastSequence - tailWindow), keeping only the newest tail entry.
+    expect(store.eventLog.length).toBe(1);
+    expect(store.eventLog[0]?.sequence).toBe(2);
+  });
+
   it('supports infix search via FTS index', async () => {
     const kGoal = await crypto.generateKey();
     await keyStore.saveAggregateKey(goalId, kGoal);
