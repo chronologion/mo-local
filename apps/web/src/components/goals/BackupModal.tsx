@@ -133,9 +133,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           ) : backupError ? (
             <p className="text-sm text-red-400">{backupError}</p>
           ) : backupCipher ? (
-            <pre className="max-h-72 overflow-auto rounded-lg border border-white/10 p-3 text-xs break-all">
-              {backupCipher}
-            </pre>
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs">
+              Encrypted backup ready. Use Download or Copy to save it securely.
+            </div>
           ) : null}
           <div className="flex items-center gap-2">
             <Button
