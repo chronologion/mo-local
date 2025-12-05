@@ -10,6 +10,7 @@ import {
   encodeSalt,
   generateRandomSalt,
 } from '../lib/deriveSalt';
+import { parseBackupEnvelope } from './backupEnvelope';
 import { z } from 'zod';
 
 const USER_META_KEY = 'mo-local-user';
@@ -316,17 +317,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     backup: string;
   }) => {
     if (!services) throw new Error('Services not initialized');
-    const envelopeSchema = z.object({
-      cipher: z.string().min(1),
-      salt: z.string().optional(),
-    });
-    const parsedEnvelope = (() => {
-      try {
-        return envelopeSchema.parse(JSON.parse(backup));
-      } catch {
-        return envelopeSchema.parse({ cipher: backup.trim() });
-      }
-    })();
+    const parsedEnvelope = parseBackupEnvelope(backup);
     const cipherB64 = parsedEnvelope.cipher;
     const meta = loadMeta();
     const decryptSalt =
