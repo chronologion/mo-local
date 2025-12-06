@@ -2,12 +2,7 @@
 export * from './crypto/IndexedDBKeyStore';
 export * from './crypto/WebCryptoService';
 export * from './browser/LiveStoreEventStore';
-export * from './browser/GoalRepository';
-export * from './browser/GoalQueries';
-export type { GoalListItem } from './browser/GoalProjectionState';
 export * from './browser/createBrowserServices';
 export * from './browser/sleep';
-export * from './browser/schema';
 export * from './browser/worker';
-export * from './browser/projection/GoalProjectionProcessor';
-export * from './browser/GoalProjectionState';
+export * from './goals';

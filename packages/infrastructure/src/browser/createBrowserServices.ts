@@ -14,13 +14,13 @@ import {
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { BrowserLiveStoreEventStore } from './LiveStoreEventStore';
-import { GoalRepository } from './GoalRepository';
-import { GoalQueries } from './GoalQueries';
+import { GoalRepository } from '../goals/GoalRepository';
+import { GoalQueries } from '../goals/GoalQueries';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
-import { schema as defaultSchema, events as goalEvents } from './schema';
-import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
-import type { GoalListItem } from './GoalProjectionState';
-import { type GoalQuery, registerGoalQueryHandlers } from './GoalQueryBus';
+import { schema as defaultSchema, events as goalEvents } from '../goals/schema';
+import { GoalProjectionProcessor } from '../goals/projection/GoalProjectionProcessor';
+import type { GoalListItem } from '../goals/GoalProjectionState';
+import { type GoalQuery, registerGoalQueryHandlers } from '../goals/GoalQueryBus';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
@@ -98,7 +98,7 @@ export const createBrowserServices = async ({
   );
   const goalQueries = new GoalQueries(goalProjection);
   const goalQueryBus = new SimpleBus<
-    import('./GoalQueryBus').GoalQuery,
+    import('../goals/GoalQueryBus').GoalQuery,
     GoalListItem[] | GoalListItem | null
   >();
   registerGoalQueryHandlers(goalQueryBus, goalQueries);

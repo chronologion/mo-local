@@ -8,15 +8,16 @@ import { Month } from './Month';
 import { Summary } from './Summary';
 import { AccessEntry } from './AccessEntry';
 import { UserId } from '../identity/UserId';
-import { GoalCreated } from '../events/GoalCreated';
-import { GoalSummaryChanged } from '../events/GoalSummaryChanged';
-import { GoalSliceChanged } from '../events/GoalSliceChanged';
-import { GoalTargetChanged } from '../events/GoalTargetChanged';
-import { GoalPriorityChanged } from '../events/GoalPriorityChanged';
-import { GoalDeleted } from '../events/GoalDeleted';
-import { GoalAccessGranted, Permission } from '../events/GoalAccessGranted';
-import { GoalAccessRevoked } from '../events/GoalAccessRevoked';
+import { GoalCreated } from './events/GoalCreated';
+import { GoalSummaryChanged } from './events/GoalSummaryChanged';
+import { GoalSliceChanged } from './events/GoalSliceChanged';
+import { GoalTargetChanged } from './events/GoalTargetChanged';
+import { GoalPriorityChanged } from './events/GoalPriorityChanged';
+import { GoalArchived } from './events/GoalArchived';
+import { GoalAccessGranted } from './events/GoalAccessGranted';
+import { GoalAccessRevoked } from './events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
+import { Permission } from './AccessEntry';
 
 export type GoalSnapshot = {
   id: GoalId;
@@ -259,7 +260,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this.assertNotDeleted(); // TODO: ???
 
     this.apply(
-      new GoalDeleted({
+      new GoalArchived({
         goalId: this.id.value,
         deletedAt: Timestamp.now().value,
       })
@@ -353,7 +354,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this._priority = Priority.of(event.payload.priority);
   }
 
-  protected onGoalDeleted(event: GoalDeleted): void {
+  protected onGoalArchived(event: GoalArchived): void {
     this._deletedAt = Timestamp.of(event.payload.deletedAt);
   }
 

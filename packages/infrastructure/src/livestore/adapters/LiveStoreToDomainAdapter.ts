@@ -3,7 +3,7 @@ import {
   GoalAccessGranted,
   GoalAccessRevoked,
   GoalCreated,
-  GoalDeleted,
+  GoalArchived,
   GoalPriorityChanged,
   GoalSliceChanged,
   GoalSummaryChanged,
@@ -24,7 +24,7 @@ type GoalPayloadMap = {
   [eventTypes.goalSliceChanged]: GoalSliceChangedPayload;
   [eventTypes.goalTargetChanged]: GoalTargetChangedPayload;
   [eventTypes.goalPriorityChanged]: GoalPriorityChangedPayload;
-  [eventTypes.goalDeleted]: GoalDeletedPayload;
+  [eventTypes.goalArchived]: GoalArchivedPayload;
   [eventTypes.goalAccessGranted]: GoalAccessGrantedPayload;
   [eventTypes.goalAccessRevoked]: GoalAccessRevokedPayload;
 };
@@ -37,7 +37,7 @@ const supportedEvents: readonly EventType[] = [
   eventTypes.goalSliceChanged,
   eventTypes.goalTargetChanged,
   eventTypes.goalPriorityChanged,
-  eventTypes.goalDeleted,
+  eventTypes.goalArchived,
   eventTypes.goalAccessGranted,
   eventTypes.goalAccessRevoked,
 ];
@@ -99,7 +99,7 @@ const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
       changedAt: timestampSchema,
     })
     .strict(),
-  [eventTypes.goalDeleted]: z
+  [eventTypes.goalArchived]: z
     .object({
       goalId: z.string(),
       deletedAt: timestampSchema,
@@ -109,7 +109,7 @@ const schemas: { [K in EventType]: z.ZodType<GoalPayloadMap[K]> } = {
     .object({
       goalId: z.string(),
       grantedTo: z.string(),
-      permission: z.enum(['owner', 'edit', 'view'] as const),
+      permission: z.enum(['view', 'edit'] as const),
       grantedAt: timestampSchema,
     })
     .strict(),
@@ -193,9 +193,9 @@ export class LiveStoreToDomainAdapter {
         const p = this.validatePayload(eventTypes.goalPriorityChanged, payload);
         return new GoalPriorityChanged(p);
       }
-      case eventTypes.goalDeleted: {
-        const p = this.validatePayload(eventTypes.goalDeleted, payload);
-        return new GoalDeleted(p);
+      case eventTypes.goalArchived: {
+        const p = this.validatePayload(eventTypes.goalArchived, payload);
+        return new GoalArchived(p);
       }
       case eventTypes.goalAccessGranted: {
         const p = this.validatePayload(eventTypes.goalAccessGranted, payload);
@@ -258,7 +258,7 @@ type GoalPriorityChangedPayload = {
   changedAt: Date;
 };
 
-type GoalDeletedPayload = {
+type GoalArchivedPayload = {
   goalId: string;
   deletedAt: Date;
 };

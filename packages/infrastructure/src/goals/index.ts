@@ -1,6 +1,7 @@
 export * from '../livestore/LiveStoreGoalRepository';
-export * from '../browser/GoalRepository';
-export * from '../browser/GoalQueries';
-export * from '../browser/GoalProjectionState';
-export * from '../browser/projection/GoalProjectionProcessor';
-
+export * from './GoalRepository';
+export * from './GoalQueries';
+export * from './GoalProjectionState';
+export * from './projection/GoalProjectionProcessor';
+export * from './GoalQueryBus';
+export * from './schema';

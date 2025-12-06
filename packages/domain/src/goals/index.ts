@@ -5,4 +5,12 @@ export * from './Month';
 export * from './Summary';
 export * from './AccessEntry';
 export * from './Goal';
-
+export * from './events/eventTypes';
+export * from './events/GoalCreated';
+export * from './events/GoalSummaryChanged';
+export * from './events/GoalSliceChanged';
+export * from './events/GoalTargetChanged';
+export * from './events/GoalPriorityChanged';
+export * from './events/GoalArchived';
+export * from './events/GoalAccessGranted';
+export * from './events/GoalAccessRevoked';

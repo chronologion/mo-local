@@ -1,7 +1,7 @@
 import { Entity } from '../shared/Entity';
 import { Timestamp } from '../shared/Timestamp';
 import { UserId } from '../identity/UserId';
-import { Permission } from '../events/GoalAccessGranted';
+export type Permission = 'view' | 'edit';
 
 /**
  * Entity representing an access control entry for a Goal.

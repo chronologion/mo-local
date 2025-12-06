@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./goals": "./src/goals/index.ts"
+    "./goals": "./src/goals/index.ts",
+    "./projects": "./src/projects/index.ts"
   },
   "scripts": {
     "test": "vitest --no-watch",

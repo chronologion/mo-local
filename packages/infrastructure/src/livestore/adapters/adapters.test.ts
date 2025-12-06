@@ -8,7 +8,7 @@ import {
   GoalSliceChanged,
   GoalTargetChanged,
   GoalPriorityChanged,
-  GoalDeleted,
+  GoalArchived,
   GoalAccessGranted,
   GoalAccessRevoked,
 } from '@mo/domain';
@@ -51,7 +51,7 @@ describe('Domain/LiveStore adapters', () => {
         priority: 'should',
         changedAt: new Date('2025-02-04T00:00:00Z'),
       }),
-      new GoalDeleted({
+      new GoalArchived({
         goalId: 'g-1',
         deletedAt: new Date('2025-03-01T00:00:00Z'),
       }),
@@ -77,7 +77,7 @@ describe('Domain/LiveStore adapters', () => {
       'GoalSliceChanged',
       'GoalTargetChanged',
       'GoalPriorityChanged',
-      'GoalDeleted',
+      'GoalArchived',
       'GoalAccessGranted',
       'GoalAccessRevoked',
     ]);

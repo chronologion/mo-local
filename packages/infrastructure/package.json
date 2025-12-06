@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./goals": "./src/goals/index.ts",
     "./browser": "./src/browser.ts",
-    "./browser/schema": "./src/browser/schema.ts",
+    "./browser/schema": "./src/goals/schema.ts",
+    "./goals/schema": "./src/goals/schema.ts",
     "./browser/worker": "./src/browser/worker.ts"
   },
   "scripts": {

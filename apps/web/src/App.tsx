@@ -5,8 +5,8 @@ import { Card, CardContent } from './components/ui/card';
 import { Onboarding } from './components/auth/Onboarding';
 import { Unlock } from './components/auth/Unlock';
 
-const GoalsPage = lazy(
-  () => import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
+const GoalsPage = lazy(() =>
+  import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
 );
 
 export default function App() {
