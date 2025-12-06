@@ -11,7 +11,7 @@ import { MissingKeyError, PersistenceError } from '../errors';
 
 /**
  * Browser-friendly project repository that uses LiveStore tables with encryption.
- * Snapshots are not yet persisted; reconstruction uses the full event stream.
+ * Browser-friendly project repository that uses LiveStore tables with encryption.
  */
 export class ProjectRepository implements IProjectRepository {
   private readonly toEncrypted: DomainToLiveStoreAdapter;
@@ -29,13 +29,13 @@ export class ProjectRepository implements IProjectRepository {
   }
 
   async findById(id: ProjectId): Promise<Project | null> {
-    const encryptedEvents = await this.eventStore.getEvents(id.value);
-    if (encryptedEvents.length === 0) return null;
-
     const kProject = await this.keyProvider(id.value);
     if (!kProject) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
+
+    const encryptedEvents = await this.eventStore.getEvents(id.value);
+    if (encryptedEvents.length === 0) return null;
 
     const domainEvents = await this.toDomain.toDomainBatch(
       encryptedEvents,

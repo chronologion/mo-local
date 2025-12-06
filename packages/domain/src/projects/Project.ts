@@ -24,6 +24,22 @@ import { ProjectMilestoneDeleted } from './events/ProjectMilestoneDeleted';
 import { ProjectArchived } from './events/ProjectArchived';
 import { DomainEvent } from '../shared/DomainEvent';
 
+export type ProjectSnapshot = {
+  id: ProjectId;
+  name: ProjectName;
+  status: ProjectStatus;
+  startDate: LocalDate;
+  targetDate: LocalDate;
+  description: ProjectDescription;
+  goalId: GoalId | null;
+  milestones: Milestone[];
+  createdBy: UserId;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
+  version: number;
+};
+
 export class Project extends AggregateRoot<ProjectId> {
   private _name: ProjectName | undefined;
   private _status: ProjectStatus | undefined;
@@ -75,6 +91,17 @@ export class Project extends AggregateRoot<ProjectId> {
   static reconstitute(id: ProjectId, events: readonly DomainEvent[]): Project {
     const project = new Project(id);
     project.loadFromHistory(events as DomainEvent[]);
+    project.markEventsAsCommitted();
+    return project;
+  }
+
+  static reconstituteFromSnapshot(
+    snapshot: ProjectSnapshot,
+    tailEvents: readonly DomainEvent[]
+  ): Project {
+    const project = new Project(snapshot.id);
+    project.hydrateFromSnapshot(snapshot);
+    project.loadFromHistory(tailEvents as DomainEvent[]);
     project.markEventsAsCommitted();
     return project;
   }
@@ -401,6 +428,21 @@ export class Project extends AggregateRoot<ProjectId> {
   }
 
   // === Helpers ===
+
+  private hydrateFromSnapshot(snapshot: ProjectSnapshot): void {
+    this._name = snapshot.name;
+    this._status = snapshot.status;
+    this._startDate = snapshot.startDate;
+    this._targetDate = snapshot.targetDate;
+    this._description = snapshot.description;
+    this._goalId = snapshot.goalId;
+    this._milestones = snapshot.milestones;
+    this._createdBy = snapshot.createdBy;
+    this._createdAt = snapshot.createdAt;
+    this._updatedAt = snapshot.updatedAt;
+    this._deletedAt = snapshot.deletedAt;
+    this.restoreVersion(snapshot.version);
+  }
 
   private assertNotDeleted(): void {
     Assert.that(this.isDeleted, 'Project is deleted').isFalse();

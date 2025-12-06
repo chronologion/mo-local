@@ -266,16 +266,16 @@ export class ProjectProjectionProcessor {
     snapshot: ProjectSnapshotState
   ): void {
     this.snapshots.set(aggregateId, snapshot);
+    const doc = projectSnapshotToListItem(snapshot);
+    const existing = this.projections.get(aggregateId);
+    if (existing) {
+      this.searchIndex.remove(existing);
+    }
     if (snapshot.deletedAt === null) {
-      const doc = projectSnapshotToListItem(snapshot);
       this.projections.set(aggregateId, doc);
       this.searchIndex.add(doc);
     } else {
-      const existing = this.projections.get(aggregateId);
       this.projections.delete(aggregateId);
-      if (existing) {
-        this.searchIndex.remove(existing);
-      }
     }
   }
 
