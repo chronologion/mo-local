@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./goals": "./src/goals/index.ts",
+    "./projects": "./src/projects/index.ts",
     "./browser": "./src/browser.ts",
     "./browser/schema": "./src/goals/schema.ts",
     "./goals/schema": "./src/goals/schema.ts",

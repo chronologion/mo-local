@@ -6,3 +6,4 @@ export * from './browser/createBrowserServices';
 export * from './browser/sleep';
 export * from './browser/worker';
 export * from './goals';
+export * from './projects';

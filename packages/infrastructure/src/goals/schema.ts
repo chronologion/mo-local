@@ -58,12 +58,62 @@ const goalSearchIndexTable = State.SQLite.table({
   },
 });
 
+const projectEventsTable = State.SQLite.table({
+  name: 'project_events',
+  columns: {
+    sequence: State.SQLite.integer({
+      primaryKey: true,
+      autoIncrement: true,
+      nullable: true,
+    }),
+    id: State.SQLite.text({ nullable: false }),
+    aggregate_id: State.SQLite.text({ nullable: false }),
+    event_type: State.SQLite.text({ nullable: false }),
+    payload_encrypted: State.SQLite.blob({ nullable: false }),
+    version: State.SQLite.integer({ nullable: false }),
+    occurred_at: State.SQLite.integer({ nullable: false }),
+  },
+});
+
+const projectSnapshotsTable = State.SQLite.table({
+  name: 'project_snapshots',
+  columns: {
+    aggregate_id: State.SQLite.text({ nullable: false, primaryKey: true }),
+    payload_encrypted: State.SQLite.blob({ nullable: false }),
+    version: State.SQLite.integer({ nullable: false }),
+    last_sequence: State.SQLite.integer({ nullable: false }),
+    updated_at: State.SQLite.integer({ nullable: false }),
+  },
+});
+
+const projectProjectionMetaTable = State.SQLite.table({
+  name: 'project_projection_meta',
+  columns: {
+    key: State.SQLite.text({ nullable: false, primaryKey: true }),
+    value: State.SQLite.text({ nullable: false }),
+  },
+});
+
+const projectSearchIndexTable = State.SQLite.table({
+  name: 'project_search_index',
+  columns: {
+    key: State.SQLite.text({ nullable: false, primaryKey: true }),
+    payload_encrypted: State.SQLite.blob({ nullable: false }),
+    last_sequence: State.SQLite.integer({ nullable: false }),
+    updated_at: State.SQLite.integer({ nullable: false }),
+  },
+});
+
 export const tables = {
   goal_events: goalEventsTable,
   goal_snapshots: goalSnapshotsTable,
   goal_projection_meta: goalProjectionMetaTable,
   goal_analytics: goalAnalyticsTable,
   goal_search_index: goalSearchIndexTable,
+  project_events: projectEventsTable,
+  project_snapshots: projectSnapshotsTable,
+  project_projection_meta: projectProjectionMetaTable,
+  project_search_index: projectSearchIndexTable,
 };
 
 type GoalEventPayload = {
@@ -78,6 +128,17 @@ type GoalEventPayload = {
 export const events = {
   goalEvent: Events.synced({
     name: 'goal.event.v1',
+    schema: S.Struct({
+      id: S.String,
+      aggregateId: S.String,
+      eventType: S.String,
+      payload: S.Unknown,
+      version: S.Number,
+      occurredAt: S.Number,
+    }),
+  }),
+  projectEvent: Events.synced({
+    name: 'project.event.v1',
     schema: S.Struct({
       id: S.String,
       aggregateId: S.String,
@@ -153,6 +214,39 @@ const materializers = State.SQLite.materializers(events, {
         version,
         occurredAt,
       });
+      return [];
+    }
+  },
+  'project.event.v1': ({
+    id,
+    aggregateId,
+    eventType,
+    payload,
+    version,
+    occurredAt,
+  }: GoalEventPayload) => {
+    try {
+      return [
+        tables.project_events.insert({
+          id,
+          aggregate_id: aggregateId,
+          event_type: eventType,
+          payload_encrypted: asUint8Array(payload) as Uint8Array<ArrayBuffer>,
+          version,
+          occurred_at: occurredAt,
+        }),
+      ];
+    } catch (error) {
+      console.error(
+        '[project.event materializer] failed to normalize payload',
+        {
+          error,
+          aggregateId,
+          eventType,
+          version,
+          occurredAt,
+        }
+      );
       return [];
     }
   },

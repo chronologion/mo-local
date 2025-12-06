@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LiveStoreGoalRepository,
-  EventAdapter,
+  GoalEventAdapter,
 } from './LiveStoreGoalRepository';
 import { LiveStoreEventStore } from './LiveStoreEventStore';
 import {
@@ -16,7 +16,7 @@ import {
 } from '@mo/domain';
 import { PersistenceError } from '../errors';
 
-const adapter: EventAdapter = {
+const adapter: GoalEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
     return {
       id: `${event.eventType}-${version}`,
@@ -73,7 +73,7 @@ describe('LiveStoreGoalRepository', () => {
       createdBy: UserId.of('user-1'),
     });
 
-    const adapterThrowing: EventAdapter = {
+    const adapterThrowing: GoalEventAdapter = {
       ...adapter,
       toEncrypted() {
         throw new Error('boom');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GoalListItem } from '@mo/infrastructure/browser';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -13,6 +13,7 @@ import {
 } from '../ui/select';
 import { Check, RefreshCw, Trash2 } from 'lucide-react';
 import { GoalFormValues, priorityOptions, sliceOptions } from './goalFormTypes';
+import { useProjects } from '../../hooks/useProjects';
 
 type GoalCardProps = {
   goal: GoalListItem;
@@ -38,6 +39,11 @@ export function GoalCard({
 }: GoalCardProps) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<GoalFormValues>(toFormValues(goal));
+  const projectFilter = useMemo(
+    () => ({ goalId: goal.id as string | null }),
+    [goal.id]
+  );
+  const { projects, loading: loadingProjects } = useProjects(projectFilter);
 
   useEffect(() => {
     setValues(toFormValues(goal));
@@ -75,6 +81,22 @@ export function GoalCard({
       <div className="space-y-1">
         <div className="font-semibold text-card-foreground">{goal.summary}</div>
         <div className="text-[11px] text-muted-foreground">{goal.id}</div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Badge variant="outline">Projects</Badge>
+        {loadingProjects ? (
+          <span className="text-muted-foreground">Loading…</span>
+        ) : projects.length ? (
+          projects.map((project) => (
+            <Badge key={project.id} variant="secondary">
+              {project.name}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-muted-foreground">
+            Not linked to any project
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <Button

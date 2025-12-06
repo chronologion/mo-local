@@ -231,8 +231,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
-    // Start projection only after keys are persisted.
+    // Start projections only after keys are persisted.
     await services.goalProjection.start();
+    await services.projectProjection.start();
     const meta = { userId, pwdSalt: saltB64 };
     saveMeta(meta);
     setUserMeta(meta);
@@ -283,6 +284,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setUserMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
     setMasterKey(nextMasterKey);
     await services.goalProjection.start();
+    await services.projectProjection.start();
     setSession({ status: 'ready', userId: meta.userId });
   };
 
@@ -290,6 +292,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!services) throw new Error('Services not initialized');
     try {
       services.goalProjection.stop();
+      services.projectProjection.stop();
       await (
         services.store as unknown as { shutdownPromise?: () => Promise<void> }
       ).shutdownPromise?.();
@@ -307,6 +310,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const rebuildProjections = async (): Promise<void> => {
     if (!services) throw new Error('Services not initialized');
     await services.goalProjection.resetAndRebuild();
+    await services.projectProjection.resetAndRebuild();
   };
 
   const restoreBackup = async ({

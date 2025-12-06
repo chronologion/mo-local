@@ -6,10 +6,13 @@ import {
 import {
   GoalApplicationService,
   GoalCommandHandler,
+  ProjectApplicationService,
+  ProjectCommandHandler,
   IEventBus,
   InMemoryEventBus,
   SimpleBus,
   registerGoalCommandHandlers,
+  registerProjectCommandHandlers,
 } from '@mo/application';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
@@ -21,21 +24,41 @@ import { schema as defaultSchema, events as goalEvents } from '../goals/schema';
 import { GoalProjectionProcessor } from '../goals/projection/GoalProjectionProcessor';
 import type { GoalListItem } from '../goals/GoalProjectionState';
 import { type GoalQuery, registerGoalQueryHandlers } from '../goals/GoalQueryBus';
+import { ProjectRepository } from '../projects/ProjectRepository';
+import { ProjectQueries } from '../projects/ProjectQueries';
+import { ProjectProjectionProcessor } from '../projects/projection/ProjectProjectionProcessor';
+import type { ProjectListItem } from '../projects/ProjectProjectionState';
+import {
+  type ProjectQuery,
+  registerProjectQueryHandlers,
+} from '../projects/ProjectQueryBus';
 
 export type BrowserServices = {
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
   store: Store;
-  eventStore: BrowserLiveStoreEventStore;
+  goalEventStore: BrowserLiveStoreEventStore;
+  projectEventStore: BrowserLiveStoreEventStore;
   eventBus: IEventBus;
   goalRepo: GoalRepository;
+  projectRepo: ProjectRepository;
   goalCommandBus: SimpleBus<
     { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
   >;
+  projectCommandBus: SimpleBus<
+    { type: string },
+    Awaited<ReturnType<ProjectApplicationService['handle']>>
+  >;
   goalQueryBus: SimpleBus<GoalQuery, GoalListItem[] | GoalListItem | null>;
+  projectQueryBus: SimpleBus<
+    ProjectQuery,
+    ProjectListItem[] | ProjectListItem | null
+  >;
   goalQueries: GoalQueries;
+  projectQueries: ProjectQueries;
   goalProjection: GoalProjectionProcessor;
+  projectProjection: ProjectProjectionProcessor;
 };
 
 export type BrowserServicesOptions = {
@@ -59,7 +82,7 @@ export const createBrowserServices = async ({
     adapter,
     storeId,
   })) as unknown as Store;
-  const eventStore = new BrowserLiveStoreEventStore(
+  const goalEventStore = new BrowserLiveStoreEventStore(
     store,
     goalEvents.goalEvent as (payload: {
       id: string;
@@ -70,10 +93,27 @@ export const createBrowserServices = async ({
       occurredAt: number;
     }) => unknown
   );
+  const projectEventStore = new BrowserLiveStoreEventStore(
+    store,
+    goalEvents.projectEvent as (payload: {
+      id: string;
+      aggregateId: string;
+      eventType: string;
+      payload: Uint8Array;
+      version: number;
+      occurredAt: number;
+    }) => unknown,
+    { events: 'project_events', snapshots: 'project_snapshots' }
+  );
   const eventBus = new InMemoryEventBus();
   const goalRepo = new GoalRepository(
-    eventStore,
+    goalEventStore,
     store,
+    crypto,
+    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+  );
+  const projectRepo = new ProjectRepository(
+    projectEventStore,
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
@@ -83,36 +123,68 @@ export const createBrowserServices = async ({
     crypto,
     eventBus
   );
+  const projectHandler = new ProjectCommandHandler(
+    projectRepo,
+    keyStore,
+    crypto,
+    eventBus
+  );
   const goalCommandBus = new SimpleBus<
     { type: string },
     Awaited<ReturnType<GoalApplicationService['handle']>>
   >();
   registerGoalCommandHandlers(goalCommandBus, goalHandler);
+  const projectCommandBus = new SimpleBus<
+    { type: string },
+    Awaited<ReturnType<ProjectApplicationService['handle']>>
+  >();
+  registerProjectCommandHandlers(projectCommandBus, projectHandler);
   const toDomain = new LiveStoreToDomainAdapter(crypto);
   const goalProjection = new GoalProjectionProcessor(
     store,
-    eventStore,
+    goalEventStore,
     crypto,
     keyStore,
     toDomain
   );
+  await goalProjection.start();
   const goalQueries = new GoalQueries(goalProjection);
   const goalQueryBus = new SimpleBus<
     import('../goals/GoalQueryBus').GoalQuery,
     GoalListItem[] | GoalListItem | null
   >();
   registerGoalQueryHandlers(goalQueryBus, goalQueries);
+  const projectProjection = new ProjectProjectionProcessor(
+    store,
+    projectEventStore,
+    crypto,
+    keyStore,
+    toDomain
+  );
+  await projectProjection.start();
+  const projectQueries = new ProjectQueries(projectProjection);
+  const projectQueryBus = new SimpleBus<
+    import('../projects/ProjectQueryBus').ProjectQuery,
+    ProjectListItem[] | ProjectListItem | null
+  >();
+  registerProjectQueryHandlers(projectQueryBus, projectQueries);
 
   return {
     crypto,
     keyStore,
     store,
-    eventStore,
+    goalEventStore,
+    projectEventStore,
     eventBus,
     goalRepo,
+    projectRepo,
     goalCommandBus,
+    projectCommandBus,
     goalQueryBus,
+    projectQueryBus,
     goalQueries,
+    projectQueries,
     goalProjection,
+    projectProjection,
   };
 };
