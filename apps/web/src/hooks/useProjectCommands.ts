@@ -147,6 +147,61 @@ export const useProjectCommands = () => {
     createProject,
     updateProject,
     archiveProject,
+    addMilestone: async (
+      projectId: string,
+      milestone: { name: string; targetDate: string }
+    ) => {
+      return dispatch({
+        type: 'AddProjectMilestone',
+        projectId,
+        milestoneId: crypto.randomUUID(),
+        name: milestone.name,
+        targetDate: milestone.targetDate,
+        userId: userMeta?.userId ?? 'unknown',
+        timestamp: Date.now(),
+      });
+    },
+    updateMilestone: async (
+      projectId: string,
+      milestoneId: string,
+      changes: { name?: string; targetDate?: string }
+    ) => {
+      const tasks: Array<Promise<unknown>> = [];
+      if (changes.name) {
+        tasks.push(
+          dispatch({
+            type: 'ChangeProjectMilestoneName',
+            projectId,
+            milestoneId,
+            name: changes.name,
+            userId: userMeta?.userId ?? 'unknown',
+            timestamp: Date.now(),
+          })
+        );
+      }
+      if (changes.targetDate) {
+        tasks.push(
+          dispatch({
+            type: 'ChangeProjectMilestoneTargetDate',
+            projectId,
+            milestoneId,
+            targetDate: changes.targetDate,
+            userId: userMeta?.userId ?? 'unknown',
+            timestamp: Date.now(),
+          })
+        );
+      }
+      await Promise.all(tasks);
+    },
+    deleteMilestone: async (projectId: string, milestoneId: string) => {
+      return dispatch({
+        type: 'DeleteProjectMilestone',
+        projectId,
+        milestoneId,
+        userId: userMeta?.userId ?? 'unknown',
+        timestamp: Date.now(),
+      });
+    },
     loading,
     error,
   };

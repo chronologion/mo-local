@@ -8,6 +8,8 @@ import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { RefreshCw, Archive } from 'lucide-react';
 import { GoalListItem } from '@mo/infrastructure/browser';
+import { MilestonesList } from './ProjectMilestones';
+import { ProjectMilestoneInput } from './ProjectMilestoneInput';
 
 type ProjectCardProps = {
   project: ProjectListItem;
@@ -26,6 +28,16 @@ type ProjectCardProps = {
   onArchive: (projectId: string) => Promise<void>;
   isUpdating: boolean;
   isArchiving: boolean;
+  onAddMilestone: (
+    projectId: string,
+    milestone: { name: string; targetDate: string }
+  ) => Promise<void>;
+  onUpdateMilestone: (
+    projectId: string,
+    milestoneId: string,
+    changes: { name?: string; targetDate?: string }
+  ) => Promise<void>;
+  onDeleteMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 };
 
 const allowedTransitions: Record<ProjectListItem['status'], ProjectListItem['status'][]> =
@@ -41,6 +53,9 @@ export function ProjectCard({
   goals,
   onUpdate,
   onArchive,
+  onAddMilestone,
+  onUpdateMilestone,
+  onDeleteMilestone,
   isUpdating,
   isArchiving,
 }: ProjectCardProps) {
@@ -134,6 +149,26 @@ export function ProjectCard({
         >
           {editing ? 'Cancel' : 'Edit'}
         </Button>
+      </div>
+      <div className="space-y-2">
+        <div className="text-sm font-medium">Milestones</div>
+        <MilestonesList
+          milestones={project.milestones ?? []}
+          onUpdate={async (milestoneId, changes) => {
+            await onUpdateMilestone(project.id, milestoneId, changes);
+          }}
+          onDelete={async (milestoneId) => {
+            await onDeleteMilestone(project.id, milestoneId);
+          }}
+          disabled={isUpdating}
+        />
+        <ProjectMilestoneInput
+          onAdd={async (milestone) => {
+            await onAddMilestone(project.id, milestone);
+          }}
+          startDate={project.startDate}
+          targetDate={project.targetDate}
+        />
       </div>
       {editing && (
         <div className="grid gap-3">

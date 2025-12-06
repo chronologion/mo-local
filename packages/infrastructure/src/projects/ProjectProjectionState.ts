@@ -57,7 +57,7 @@ export type ProjectListItem = {
   targetDate: string;
   description: string;
   goalId: string | null;
-  milestoneCount: number;
+  milestones: ProjectMilestoneState[];
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -218,7 +218,7 @@ export const projectSnapshotToListItem = (
   targetDate: snapshot.targetDate,
   description: snapshot.description,
   goalId: snapshot.goalId,
-  milestoneCount: snapshot.milestones.length,
+  milestones: snapshot.milestones,
   createdAt: snapshot.createdAt,
   updatedAt: snapshot.updatedAt,
   deletedAt: snapshot.deletedAt,

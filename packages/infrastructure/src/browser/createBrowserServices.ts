@@ -147,7 +147,6 @@ export const createBrowserServices = async ({
     keyStore,
     toDomain
   );
-  await goalProjection.start();
   const goalQueries = new GoalQueries(goalProjection);
   const goalQueryBus = new SimpleBus<
     import('../goals/GoalQueryBus').GoalQuery,
@@ -161,7 +160,6 @@ export const createBrowserServices = async ({
     keyStore,
     toDomain
   );
-  await projectProjection.start();
   const projectQueries = new ProjectQueries(projectProjection);
   const projectQueryBus = new SimpleBus<
     import('../projects/ProjectQueryBus').ProjectQuery,
