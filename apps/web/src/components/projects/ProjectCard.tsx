@@ -78,8 +78,14 @@ export function ProjectCard({
     if (draft.name !== project.name) changes.name = draft.name;
     if (draft.description !== project.description)
       changes.description = draft.description;
-    if (draft.startDate !== project.startDate) changes.startDate = draft.startDate;
-    if (draft.targetDate !== project.targetDate) changes.targetDate = draft.targetDate;
+    if (
+      draft.startDate !== project.startDate ||
+      draft.targetDate !== project.targetDate
+    ) {
+      // ChangeProjectDates expects both dates together.
+      changes.startDate = draft.startDate;
+      changes.targetDate = draft.targetDate;
+    }
     const draftGoalId = draft.goalId === 'none' ? null : draft.goalId;
     if (draftGoalId !== project.goalId) changes.goalId = draftGoalId;
     if (Object.keys(changes).length === 0) {
