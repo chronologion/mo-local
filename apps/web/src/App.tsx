@@ -1,9 +1,13 @@
+import { lazy, Suspense } from 'react';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { useApp } from './providers/AppProvider';
 import { Card, CardContent } from './components/ui/card';
 import { Onboarding } from './components/auth/Onboarding';
 import { Unlock } from './components/auth/Unlock';
-import { GoalDashboard } from './components/goals/GoalDashboard';
+
+const GoalsPage = lazy(
+  () => import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
+);
 
 export default function App() {
   const { session } = useApp();
@@ -39,7 +43,22 @@ export default function App() {
       )}
       {session.status === 'needs-onboarding' && <Onboarding />}
       {session.status === 'locked' && <Unlock />}
-      {session.status === 'ready' && <GoalDashboard />}
+      {session.status === 'ready' && (
+        <Suspense
+          fallback={
+            <div className="mx-auto max-w-5xl px-4 py-10">
+              <Card>
+                <CardContent className="flex items-center gap-3">
+                  <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
+                  Loading goals…
+                </CardContent>
+              </Card>
+            </div>
+          }
+        >
+          <GoalsPage />
+        </Suspense>
+      )}
     </div>
   );
 }

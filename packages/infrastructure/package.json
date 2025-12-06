@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./goals": "./src/goals/index.ts",
     "./browser": "./src/browser.ts",
     "./browser/schema": "./src/browser/schema.ts",
     "./browser/worker": "./src/browser/worker.ts"
