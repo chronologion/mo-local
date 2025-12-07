@@ -17,7 +17,10 @@ export function MilestonesList({
   disabled,
 }: {
   milestones: Milestone[];
-  onUpdate: (milestoneId: string, changes: { name?: string; targetDate?: string }) => Promise<void>;
+  onUpdate: (
+    milestoneId: string,
+    changes: { name?: string; targetDate?: string }
+  ) => Promise<void>;
   onDelete: (milestoneId: string) => Promise<void>;
   disabled?: boolean;
 }) {

@@ -149,19 +149,16 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       `,
       bindValues: params,
     });
-
     return rows.map(this.toEncryptedEvent);
   }
 
   private getCurrentVersion(aggregateId: string): number {
     const eventVersion = this.store.query<{ version: number | null }[]>({
-      query:
-        `SELECT MAX(version) as version FROM ${this.tables.events} WHERE aggregate_id = ?`,
+      query: `SELECT MAX(version) as version FROM ${this.tables.events} WHERE aggregate_id = ?`,
       bindValues: [aggregateId],
     });
     const snapshotVersion = this.store.query<{ version: number | null }[]>({
-      query:
-        `SELECT version FROM ${this.tables.snapshots} WHERE aggregate_id = ? LIMIT 1`,
+      query: `SELECT version FROM ${this.tables.snapshots} WHERE aggregate_id = ? LIMIT 1`,
       bindValues: [aggregateId],
     });
     const maxEventVersion = Number(eventVersion[0]?.version ?? 0);

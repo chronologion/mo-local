@@ -5,7 +5,13 @@ import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { RefreshCw, Archive } from 'lucide-react';
 import { GoalListItem } from '@mo/infrastructure/browser';
 import { MilestonesList } from './ProjectMilestones';
@@ -40,13 +46,15 @@ type ProjectCardProps = {
   onDeleteMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 };
 
-const allowedTransitions: Record<ProjectListItem['status'], ProjectListItem['status'][]> =
-  {
-    planned: ['in_progress', 'canceled'],
-    in_progress: ['completed', 'canceled'],
-    completed: [],
-    canceled: [],
-  };
+const allowedTransitions: Record<
+  ProjectListItem['status'],
+  ProjectListItem['status'][]
+> = {
+  planned: ['in_progress', 'canceled'],
+  in_progress: ['completed', 'canceled'],
+  completed: [],
+  canceled: [],
+};
 
 export function ProjectCard({
   project,
@@ -97,7 +105,7 @@ export function ProjectCard({
   };
 
   const linkLabel = project.goalId
-    ? goals.find((g) => g.id === project.goalId)?.summary ?? project.goalId
+    ? (goals.find((g) => g.id === project.goalId)?.summary ?? project.goalId)
     : 'Unlinked';
 
   return (
@@ -116,7 +124,9 @@ export function ProjectCard({
       </div>
       <div className="space-y-1">
         <div className="text-lg font-semibold">{project.name}</div>
-        <div className="text-sm text-muted-foreground">{project.description}</div>
+        <div className="text-sm text-muted-foreground">
+          {project.description}
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         {nextStatuses.map((status) => (
@@ -245,7 +255,11 @@ export function ProjectCard({
             }}
             disabled={isUpdating}
           >
-            {isUpdating ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Save'}
+            {isUpdating ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              'Save'
+            )}
           </Button>
         </div>
       )}

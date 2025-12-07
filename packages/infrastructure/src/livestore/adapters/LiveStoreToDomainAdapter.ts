@@ -343,7 +343,10 @@ export class LiveStoreToDomainAdapter {
         return new GoalAccessRevoked(p);
       }
       case projectEventTypes.projectCreated: {
-        const p = this.validatePayload(projectEventTypes.projectCreated, payload);
+        const p = this.validatePayload(
+          projectEventTypes.projectCreated,
+          payload
+        );
         return new ProjectCreated(p);
       }
       case projectEventTypes.projectStatusChanged: {
@@ -361,7 +364,10 @@ export class LiveStoreToDomainAdapter {
         return new ProjectDateChanged(p);
       }
       case projectEventTypes.projectNameChanged: {
-        const p = this.validatePayload(projectEventTypes.projectNameChanged, payload);
+        const p = this.validatePayload(
+          projectEventTypes.projectNameChanged,
+          payload
+        );
         return new ProjectNameChanged(p);
       }
       case projectEventTypes.projectDescriptionChanged: {
@@ -372,7 +378,10 @@ export class LiveStoreToDomainAdapter {
         return new ProjectDescriptionChanged(p);
       }
       case projectEventTypes.projectGoalAdded: {
-        const p = this.validatePayload(projectEventTypes.projectGoalAdded, payload);
+        const p = this.validatePayload(
+          projectEventTypes.projectGoalAdded,
+          payload
+        );
         return new ProjectGoalAdded(p);
       }
       case projectEventTypes.projectGoalRemoved: {
@@ -411,7 +420,10 @@ export class LiveStoreToDomainAdapter {
         return new ProjectMilestoneDeleted(p);
       }
       case projectEventTypes.projectArchived: {
-        const p = this.validatePayload(projectEventTypes.projectArchived, payload);
+        const p = this.validatePayload(
+          projectEventTypes.projectArchived,
+          payload
+        );
         return new ProjectArchived(p);
       }
       default:

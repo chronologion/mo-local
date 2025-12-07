@@ -23,7 +23,10 @@ import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomai
 import { schema as defaultSchema, events as goalEvents } from '../goals/schema';
 import { GoalProjectionProcessor } from '../goals/projection/GoalProjectionProcessor';
 import type { GoalListItem } from '../goals/GoalProjectionState';
-import { type GoalQuery, registerGoalQueryHandlers } from '../goals/GoalQueryBus';
+import {
+  type GoalQuery,
+  registerGoalQueryHandlers,
+} from '../goals/GoalQueryBus';
 import { ProjectRepository } from '../projects/ProjectRepository';
 import { ProjectQueries } from '../projects/ProjectQueries';
 import { ProjectProjectionProcessor } from '../projects/projection/ProjectProjectionProcessor';
@@ -114,6 +117,7 @@ export const createBrowserServices = async ({
   );
   const projectRepo = new ProjectRepository(
     projectEventStore,
+    store,
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );

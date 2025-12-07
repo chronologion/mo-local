@@ -11,7 +11,6 @@ import {
   ProjectStatus,
   LocalDate,
   ProjectDescription,
-  GoalId,
   DomainEvent,
   UserId,
 } from '@mo/domain';
@@ -77,7 +76,11 @@ describe('LiveStoreProjectRepository', () => {
       getEvents: eventStore.getEvents.bind(eventStore),
       getAllEvents: eventStore.getAllEvents.bind(eventStore),
     } as unknown as LiveStoreEventStore;
-    const failingRepo = new LiveStoreProjectRepository(failingStore, adapter, async () => kProject);
+    const failingRepo = new LiveStoreProjectRepository(
+      failingStore,
+      adapter,
+      async () => kProject
+    );
 
     const project = Project.create({
       id: ProjectId.create(),

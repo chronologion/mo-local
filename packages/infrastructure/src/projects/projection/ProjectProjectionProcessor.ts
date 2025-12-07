@@ -92,8 +92,9 @@ export class ProjectProjectionProcessor {
     this.lastSequence = await this.loadLastSequence();
     await this.bootstrapFromSnapshots();
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.project_events.count(), () =>
-      void this.processNewEvents()
+    this.unsubscribe = this.store.subscribe(
+      tables.project_events.count(),
+      () => void this.processNewEvents()
     );
     this.resolveReady?.();
   }
@@ -256,7 +257,12 @@ export class ProjectProjectionProcessor {
     if (!nextSnapshot) {
       return false;
     }
-    await this.persistSnapshot(event.aggregateId, nextSnapshot, kProject, event);
+    await this.persistSnapshot(
+      event.aggregateId,
+      nextSnapshot,
+      kProject,
+      event
+    );
     this.updateProjectionCache(event.aggregateId, nextSnapshot);
     return true;
   }
@@ -398,15 +404,13 @@ export class ProjectProjectionProcessor {
       aad
     );
     const json = new TextDecoder().decode(plaintext);
-    this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(
-      JSON.parse(json),
-      {
-        idField: this.searchConfig.idField,
-        fields: [...this.searchConfig.fields],
-        storeFields: [...this.searchConfig.storeFields],
-        searchOptions: this.searchConfig.searchOptions,
-      }
-    );
+    const parsed = JSON.parse(json);
+    this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(parsed, {
+      idField: this.searchConfig.idField,
+      fields: [...this.searchConfig.fields],
+      storeFields: [...this.searchConfig.storeFields],
+      searchOptions: this.searchConfig.searchOptions,
+    });
     return true;
   }
 
@@ -444,8 +448,7 @@ export class ProjectProjectionProcessor {
 
   private async loadLastSequence(): Promise<number> {
     const rows = this.store.query<{ value: string }[]>({
-      query:
-        'SELECT value FROM project_projection_meta WHERE key = ? LIMIT 1',
+      query: 'SELECT value FROM project_projection_meta WHERE key = ? LIMIT 1',
       bindValues: [META_LAST_SEQUENCE_KEY],
     });
     if (!rows.length) return 0;

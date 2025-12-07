@@ -3,15 +3,13 @@ import { ProjectProjectionProcessor } from './ProjectProjectionProcessor';
 import { LiveStoreToDomainAdapter } from '../../livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../crypto/WebCryptoService';
+import type { IndexedDBKeyStore } from '../../crypto/IndexedDBKeyStore';
 import {
   ProjectCreated,
   ProjectStatusChanged,
   ProjectArchived,
   ProjectStatus,
-  LocalDate,
-  ProjectName,
-  ProjectDescription,
-  ProjectId,
+  DomainEvent,
 } from '@mo/domain';
 import type { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
@@ -64,7 +62,9 @@ class StoreStub {
       });
       return [] as unknown as TResult;
     }
-    if (query.includes('SELECT payload_encrypted, version FROM project_snapshots')) {
+    if (
+      query.includes('SELECT payload_encrypted, version FROM project_snapshots')
+    ) {
       const aggregateId = bindValues[0] as string;
       const row = this.snapshots.get(aggregateId);
       return (row ? [row] : []) as unknown as TResult;
@@ -82,7 +82,7 @@ class StoreStub {
       const [, payload, lastSequence] = bindValues as [
         string,
         Uint8Array,
-        number
+        number,
       ];
       this.searchIndex = {
         payload_encrypted: payload,
@@ -90,7 +90,11 @@ class StoreStub {
       };
       return [] as unknown as TResult;
     }
-    if (query.includes('SELECT payload_encrypted, last_sequence FROM project_search_index')) {
+    if (
+      query.includes(
+        'SELECT payload_encrypted, last_sequence FROM project_search_index'
+      )
+    ) {
       return this.searchIndex ? [this.searchIndex] : ([] as unknown as TResult);
     }
     if (query.startsWith('DELETE FROM project_events WHERE')) {
@@ -118,9 +122,7 @@ class EventStoreStub implements IEventStore {
     fromVersion = 1
   ): Promise<EncryptedEvent[]> {
     return this.events
-      .filter(
-        (e) => e.aggregateId === aggregateId && e.version >= fromVersion
-      )
+      .filter((e) => e.aggregateId === aggregateId && e.version >= fromVersion)
       .sort((a, b) => a.version - b.version);
   }
 
@@ -181,9 +183,10 @@ describe('ProjectProjectionProcessor', () => {
       projectId,
       deletedAt: new Date(),
     });
+    const events: DomainEvent[] = [created, status, archived];
     const encryptedBatch = await Promise.all(
-      [created, status, archived].map((event, idx) =>
-        toEncrypted.toEncrypted(event as any, idx + 1, kProject)
+      events.map((event, idx) =>
+        toEncrypted.toEncrypted(event, idx + 1, kProject)
       )
     );
     await eventStore.append(projectId, encryptedBatch);
@@ -192,7 +195,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as any,
+      keyStore as unknown as IndexedDBKeyStore,
       toDomain
     );
     await processor.start();
@@ -214,14 +217,14 @@ describe('ProjectProjectionProcessor', () => {
       createdBy: 'user-1',
       createdAt: new Date(),
     });
-    const encrypted = await toEncrypted.toEncrypted(created as any, 1, kProject);
+    const encrypted = await toEncrypted.toEncrypted(created, 1, kProject);
     await eventStore.append(projectId, [encrypted]);
 
     const processor = new ProjectProjectionProcessor(
       store,
       eventStore,
       crypto,
-      keyStore as any,
+      keyStore as unknown as IndexedDBKeyStore,
       toDomain
     );
     await processor.start();

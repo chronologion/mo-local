@@ -3,7 +3,12 @@ import { RefreshCw, PlusCircle } from 'lucide-react';
 import { useProjects } from '../../hooks/useProjects';
 import { useProjectCommands } from '../../hooks/useProjectCommands';
 import { useGoals } from '../../hooks/useGoals';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { ProjectForm } from '../../components/projects/ProjectForm';
 import { ProjectCard } from '../../components/projects/ProjectCard';
@@ -35,7 +40,8 @@ export function ProjectsPage() {
         <div>
           <h2 className="text-lg font-semibold">Projects</h2>
           <p className="text-sm text-muted-foreground">
-            Day-precision timelines, optional goal linkage, milestones coming next.
+            Day-precision timelines, optional goal linkage, milestones coming
+            next.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -55,25 +61,27 @@ export function ProjectsPage() {
       </div>
 
       {showForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create project</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProjectForm
+        <Card>
+          <CardHeader>
+            <CardTitle>Create project</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProjectForm
               goals={goals}
               onSubmit={async (values) => {
                 await createProject(values);
                 await refresh();
                 setShowForm(false);
               }}
-              />
-            </CardContent>
-          </Card>
-        )}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
-        <div className="text-sm text-destructive">Failed to load projects: {error}</div>
+        <div className="text-sm text-destructive">
+          Failed to load projects: {error}
+        </div>
       )}
       {(mutationError || uiError) && (
         <div className="text-sm text-destructive">
@@ -98,7 +106,9 @@ export function ProjectsPage() {
                   await refresh();
                 } catch (err) {
                   const message =
-                    err instanceof Error ? err.message : 'Failed to add milestone';
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to add milestone';
                   setUiError(message);
                 }
               }}
@@ -109,7 +119,9 @@ export function ProjectsPage() {
                   await refresh();
                 } catch (err) {
                   const message =
-                    err instanceof Error ? err.message : 'Failed to update milestone';
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to update milestone';
                   setUiError(message);
                 }
               }}
@@ -120,7 +132,9 @@ export function ProjectsPage() {
                   await refresh();
                 } catch (err) {
                   const message =
-                    err instanceof Error ? err.message : 'Failed to delete milestone';
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to delete milestone';
                   setUiError(message);
                 }
               }}
@@ -131,7 +145,9 @@ export function ProjectsPage() {
                   await refresh();
                 } catch (err) {
                   const message =
-                    err instanceof Error ? err.message : 'Failed to update project';
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to update project';
                   setUiError(message);
                 }
               }}
@@ -142,7 +158,9 @@ export function ProjectsPage() {
                   await refresh();
                 } catch (err) {
                   const message =
-                    err instanceof Error ? err.message : 'Failed to archive project';
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to archive project';
                   setUiError(message);
                 }
               }}
