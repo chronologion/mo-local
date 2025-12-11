@@ -20,18 +20,6 @@ import {
   ProjectQueryResult,
   SearchProjectsQuery,
   RemoveProjectGoal,
-  validateArchiveProjectCommand,
-  validateArchiveProjectMilestoneCommand,
-  validateAddProjectGoalCommand,
-  validateAddProjectMilestoneCommand,
-  validateChangeProjectDatesCommand,
-  validateChangeProjectDescriptionCommand,
-  validateChangeProjectMilestoneNameCommand,
-  validateChangeProjectMilestoneTargetDateCommand,
-  validateChangeProjectNameCommand,
-  validateChangeProjectStatusCommand,
-  validateCreateProjectCommand,
-  validateRemoveProjectGoalCommand,
   CommandResult,
   ValidationException,
   failure,
@@ -124,9 +112,9 @@ const buildProjectCommandBus = (
     ProjectCommand,
     CommandResult<ProjectCommandResult>
   >();
-  const wrapProject = async <TValidated>(
-    fn: (command: TValidated) => Promise<ProjectCommandResult>,
-    command: TValidated
+  const wrapProject = async <TCommand extends ProjectCommand>(
+    fn: (command: TCommand) => Promise<ProjectCommandResult>,
+    command: TCommand
   ): Promise<CommandResult<ProjectCommandResult>> => {
     try {
       const value = await fn(command);
@@ -136,140 +124,65 @@ const buildProjectCommandBus = (
     }
   };
 
-  projectCommandBus.register(
-    'CreateProject',
-    async (command: CreateProject) => {
-      const validated = validateCreateProjectCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(handler.handleCreate.bind(handler), validated.value);
-    }
+  projectCommandBus.register('CreateProject', (command: CreateProject) =>
+    wrapProject(handler.handleCreate.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectStatus',
-    async (command: ChangeProjectStatus) => {
-      const validated = validateChangeProjectStatusCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleChangeStatus.bind(handler),
-        validated.value
-      );
-    }
+  projectCommandBus.register('ChangeProjectStatus', (command: ChangeProjectStatus) =>
+    wrapProject(handler.handleChangeStatus.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectDates',
-    async (command: ChangeProjectDates) => {
-      const validated = validateChangeProjectDatesCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleChangeDates.bind(handler),
-        validated.value
-      );
-    }
+  projectCommandBus.register('ChangeProjectDates', (command: ChangeProjectDates) =>
+    wrapProject(handler.handleChangeDates.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectName',
-    async (command: ChangeProjectName) => {
-      const validated = validateChangeProjectNameCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleChangeName.bind(handler),
-        validated.value
-      );
-    }
+  projectCommandBus.register('ChangeProjectName', (command: ChangeProjectName) =>
+    wrapProject(handler.handleChangeName.bind(handler), command)
   );
 
   projectCommandBus.register(
     'ChangeProjectDescription',
-    async (command: ChangeProjectDescription) => {
-      const validated = validateChangeProjectDescriptionCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleChangeDescription.bind(handler),
-        validated.value
-      );
-    }
+    (command: ChangeProjectDescription) =>
+      wrapProject(handler.handleChangeDescription.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'AddProjectGoal',
-    async (command: AddProjectGoal) => {
-      const validated = validateAddProjectGoalCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(handler.handleAddGoal.bind(handler), validated.value);
-    }
+  projectCommandBus.register('AddProjectGoal', (command: AddProjectGoal) =>
+    wrapProject(handler.handleAddGoal.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'RemoveProjectGoal',
-    async (command: RemoveProjectGoal) => {
-      const validated = validateRemoveProjectGoalCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleRemoveGoal.bind(handler),
-        validated.value
-      );
-    }
+  projectCommandBus.register('RemoveProjectGoal', (command: RemoveProjectGoal) =>
+    wrapProject(handler.handleRemoveGoal.bind(handler), command)
   );
 
   projectCommandBus.register(
     'AddProjectMilestone',
-    async (command: AddProjectMilestone) => {
-      const validated = validateAddProjectMilestoneCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleAddMilestone.bind(handler),
-        validated.value
-      );
-    }
+    (command: AddProjectMilestone) =>
+      wrapProject(handler.handleAddMilestone.bind(handler), command)
   );
 
   projectCommandBus.register(
     'ChangeProjectMilestoneTargetDate',
-    async (command: ChangeProjectMilestoneTargetDate) => {
-      const validated =
-        validateChangeProjectMilestoneTargetDateCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
+    (command: ChangeProjectMilestoneTargetDate) =>
+      wrapProject(
         handler.handleChangeMilestoneTargetDate.bind(handler),
-        validated.value
-      );
-    }
+        command
+      )
   );
 
   projectCommandBus.register(
     'ChangeProjectMilestoneName',
-    async (command: ChangeProjectMilestoneName) => {
-      const validated = validateChangeProjectMilestoneNameCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleChangeMilestoneName.bind(handler),
-        validated.value
-      );
-    }
+    (command: ChangeProjectMilestoneName) =>
+      wrapProject(handler.handleChangeMilestoneName.bind(handler), command)
   );
 
   projectCommandBus.register(
     'ArchiveProjectMilestone',
-    async (command: ArchiveProjectMilestone) => {
-      const validated = validateArchiveProjectMilestoneCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(
-        handler.handleArchiveMilestone.bind(handler),
-        validated.value
-      );
-    }
+    (command: ArchiveProjectMilestone) =>
+      wrapProject(handler.handleArchiveMilestone.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ArchiveProject',
-    async (command: ArchiveProject) => {
-      const validated = validateArchiveProjectCommand(command);
-      if (!validated.ok) return failure(validated.errors);
-      return wrapProject(handler.handleArchive.bind(handler), validated.value);
-    }
+  projectCommandBus.register('ArchiveProject', (command: ArchiveProject) =>
+    wrapProject(handler.handleArchive.bind(handler), command)
   );
 
   return projectCommandBus;

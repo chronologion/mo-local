@@ -9,27 +9,29 @@ import { ProjectCommandHandler } from '../../../src/projects/ProjectCommandHandl
 import { ConcurrencyError } from '../../../src/errors/ConcurrencyError';
 import { ProjectId } from '@mo/domain';
 import {
-  validateChangeProjectDatesCommand,
-  validateChangeProjectDescriptionCommand,
-  validateChangeProjectNameCommand,
-  validateChangeProjectStatusCommand,
-  validateCreateProjectCommand,
+  CreateProject,
+  ChangeProjectStatus,
+  ChangeProjectName,
+  ChangeProjectDescription,
+  ChangeProjectDates,
 } from '../../../src/projects/commands';
+import { ValidationException } from '../../../src/errors/ValidationError';
 
 const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
 const userId = 'user-1';
-const baseCreate = {
-  type: 'CreateProject' as const,
-  projectId,
-  name: 'Project Alpha',
-  status: 'planned' as const,
-  startDate: '2025-01-01',
-  targetDate: '2025-02-01',
-  description: 'desc',
-  goalId: null,
-  userId,
-  timestamp: Date.now(),
-};
+const baseCreate = () =>
+  new CreateProject({
+    type: 'CreateProject',
+    projectId,
+    name: 'Project Alpha',
+    status: 'planned',
+    startDate: '2025-01-01',
+    targetDate: '2025-02-01',
+    description: 'desc',
+    goalId: null,
+    userId,
+    timestamp: Date.now(),
+  });
 
 const setup = () => {
   const repo = new InMemoryProjectRepository();
@@ -43,11 +45,7 @@ const setup = () => {
 describe('ProjectCommandHandler', () => {
   it('creates a project and stores aggregate key', async () => {
     const { handler, keyStore, eventBus, repo } = setup();
-
-    const validated = validateCreateProjectCommand(baseCreate);
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
-    const result = await handler.handleCreate(validated.value);
+    const result = await handler.handleCreate(baseCreate());
 
     expect(result.projectId).toBe(projectId);
     const storedKey = await keyStore.getAggregateKey(projectId);
@@ -58,114 +56,91 @@ describe('ProjectCommandHandler', () => {
 
   it('updates status and publishes event', async () => {
     const { handler, eventBus } = setup();
-    const created = validateCreateProjectCommand(baseCreate);
-    if (!created.ok) throw new Error('invalid create');
-    await handler.handleCreate(created.value);
+    await handler.handleCreate(baseCreate());
     const before = eventBus.getPublished().length;
 
-    const result = validateChangeProjectStatusCommand({
-      type: 'ChangeProjectStatus' as const,
-      projectId,
-      status: 'in_progress',
-      userId,
-      timestamp: Date.now(),
-    });
-
-    if (!result.ok) throw new Error('invalid status change');
-    await handler.handleChangeStatus(result.value);
+    await handler.handleChangeStatus(
+      new ChangeProjectStatus({
+        type: 'ChangeProjectStatus',
+        projectId,
+        status: 'in_progress',
+        userId,
+        timestamp: Date.now(),
+      })
+    );
     expect(eventBus.getPublished().length).toBeGreaterThan(before);
   });
 
   it('fails when aggregate key missing', async () => {
     const { handler, keyStore } = setup();
-    const created = validateCreateProjectCommand(baseCreate);
-    if (!created.ok) throw new Error('invalid create');
-    await handler.handleCreate(created.value);
+    await handler.handleCreate(baseCreate());
     keyStore.removeAggregateKey(projectId);
 
-    const validated = validateChangeProjectNameCommand({
-      type: 'ChangeProjectName' as const,
-      projectId,
-      name: 'New name',
-      userId,
-      timestamp: Date.now(),
-    });
-
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
     await expect(
-      handler.handleChangeName(validated.value)
+      handler.handleChangeName(
+        new ChangeProjectName({
+          type: 'ChangeProjectName',
+          projectId,
+          name: 'New name',
+          userId,
+          timestamp: Date.now(),
+        })
+      )
     ).rejects.toBeInstanceOf(Error);
   });
 
   it('does not publish when repository save fails', async () => {
     const { handler, repo, eventBus } = setup();
-    const created = validateCreateProjectCommand(baseCreate);
-    if (!created.ok) throw new Error('invalid create');
-    await handler.handleCreate(created.value);
+    await handler.handleCreate(baseCreate());
     const before = eventBus.getPublished().length;
     repo.failNextSave();
 
-    const validated = validateChangeProjectDescriptionCommand({
-      type: 'ChangeProjectDescription' as const,
-      projectId,
-      description: 'New desc',
-      userId,
-      timestamp: Date.now(),
-    });
-
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
     await expect(
-      handler.handleChangeDescription(validated.value)
+      handler.handleChangeDescription(
+        new ChangeProjectDescription({
+          type: 'ChangeProjectDescription',
+          projectId,
+          description: 'New desc',
+          userId,
+          timestamp: Date.now(),
+        })
+      )
     ).rejects.toBeInstanceOf(Error);
     expect(eventBus.getPublished().length).toBe(before);
   });
 
   it('surfaces concurrency errors from repository', async () => {
     const { handler, repo } = setup();
-    const created = validateCreateProjectCommand(baseCreate);
-    if (!created.ok) throw new Error('invalid create');
-    await handler.handleCreate(created.value);
+    await handler.handleCreate(baseCreate());
     repo.failWith(new ConcurrencyError());
 
-    const validated = validateChangeProjectDatesCommand({
-      type: 'ChangeProjectDates' as const,
-      projectId,
-      startDate: '2025-01-02',
-      targetDate: '2025-03-01',
-      userId,
-      timestamp: Date.now(),
-    });
-
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
     await expect(
-      handler.handleChangeDates(validated.value)
+      handler.handleChangeDates(
+        new ChangeProjectDates({
+          type: 'ChangeProjectDates',
+          projectId,
+          startDate: '2025-01-02',
+          targetDate: '2025-03-01',
+          userId,
+          timestamp: Date.now(),
+        })
+      )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 
-  it('fails when event bus publish fails', async () => {
-    const { handler, eventBus } = setup();
-    const created = validateCreateProjectCommand(baseCreate);
-    if (!created.ok) throw new Error('invalid create');
-    await handler.handleCreate(created.value);
-    const before = eventBus.getPublished().length;
-    eventBus.failNext(new Error('publish failed'));
-
-    const validated = validateChangeProjectStatusCommand({
-      type: 'ChangeProjectStatus' as const,
-      projectId,
-      status: 'in_progress',
-      userId,
-      timestamp: Date.now(),
-    });
-
-    expect(validated.ok).toBe(true);
-    if (!validated.ok) return;
+  it('rejects invalid payloads via ValidationException', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate());
     await expect(
-      handler.handleChangeStatus(validated.value)
-    ).rejects.toBeInstanceOf(Error);
-    expect(eventBus.getPublished().length).toBe(before);
+      handler.handleChangeStatus(
+        new ChangeProjectStatus({
+          type: 'ChangeProjectStatus',
+          projectId,
+          status: 'not-a-status' as never,
+          userId,
+          timestamp: Date.now(),
+        })
+      )
+    ).rejects.toBeInstanceOf(ValidationException);
   });
 });

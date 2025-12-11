@@ -1,58 +1,27 @@
-import { ProjectDescription, ProjectId, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../shared/ports/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { BaseCommand } from '../../shared/ports/BaseCommand';
 
-export interface ChangeProjectDescription {
-  readonly type: 'ChangeProjectDescription';
+export type ChangeProjectDescriptionPayload = {
+  projectId: string;
+  description: string;
+  userId: string;
+  timestamp: number;
+};
+
+export class ChangeProjectDescription
+  extends BaseCommand<ChangeProjectDescriptionPayload>
+  implements Readonly<ChangeProjectDescriptionPayload>
+{
+  readonly type = 'ChangeProjectDescription';
   readonly projectId: string;
   readonly description: string;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedChangeProjectDescriptionCommand {
-  readonly projectId: ProjectId;
-  readonly description: ProjectDescription;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateChangeProjectDescriptionCommand(
-  command: ChangeProjectDescription
-): CommandResult<ValidatedChangeProjectDescriptionCommand> {
-  const errors: ValidationError[] = [];
-
-  const projectId = safeConvert(
-    () => ProjectId.from(command.projectId),
-    'projectId',
-    errors
-  );
-  const description = safeConvert(
-    () => ProjectDescription.from(command.description),
-    'description',
-    errors
-  );
-  const userId = safeConvert(
-    () => UserId.from(command.userId),
-    'userId',
-    errors
-  );
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (
-    !projectId ||
-    !description ||
-    !userId ||
-    !timestamp ||
-    errors.length > 0
-  ) {
-    return failure(errors);
+  constructor(payload: ChangeProjectDescriptionPayload) {
+    super(payload);
+    this.projectId = payload.projectId;
+    this.description = payload.description;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ projectId, description, userId, timestamp });
 }

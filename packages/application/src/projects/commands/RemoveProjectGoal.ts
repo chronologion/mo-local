@@ -1,45 +1,24 @@
-import { ProjectId, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../shared/ports/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { BaseCommand } from '../../shared/ports/BaseCommand';
 
-export interface RemoveProjectGoal {
-  readonly type: 'RemoveProjectGoal';
+export type RemoveProjectGoalPayload = {
+  projectId: string;
+  userId: string;
+  timestamp: number;
+};
+
+export class RemoveProjectGoal
+  extends BaseCommand<RemoveProjectGoalPayload>
+  implements Readonly<RemoveProjectGoalPayload>
+{
+  readonly type = 'RemoveProjectGoal';
   readonly projectId: string;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedRemoveProjectGoalCommand {
-  readonly projectId: ProjectId;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateRemoveProjectGoalCommand(
-  command: RemoveProjectGoal
-): CommandResult<ValidatedRemoveProjectGoalCommand> {
-  const errors: ValidationError[] = [];
-
-  const projectId = safeConvert(
-    () => ProjectId.from(command.projectId),
-    'projectId',
-    errors
-  );
-  const userId = safeConvert(
-    () => UserId.from(command.userId),
-    'userId',
-    errors
-  );
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (!projectId || !userId || !timestamp || errors.length > 0) {
-    return failure(errors);
+  constructor(payload: RemoveProjectGoalPayload) {
+    super(payload);
+    this.projectId = payload.projectId;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ projectId, userId, timestamp });
 }

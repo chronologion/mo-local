@@ -1,102 +1,96 @@
 import { describe, expect, it } from 'vitest';
-import { validateCreateProjectCommand } from '../../../src/projects/commands/CreateProject';
-import { validateChangeProjectStatusCommand } from '../../../src/projects/commands/ChangeProjectStatus';
-import { validateAddProjectMilestoneCommand } from '../../../src/projects/commands/AddProjectMilestone';
-import { validateArchiveProjectCommand } from '../../../src/projects/commands/ArchiveProject';
+import {
+  CreateProject,
+  ChangeProjectStatus,
+  AddProjectMilestone,
+  ArchiveProject,
+} from '../../../src/projects/commands';
+import { ProjectCommandHandler } from '../../../src/projects/ProjectCommandHandler';
+import {
+  InMemoryEventBus,
+  InMemoryKeyStore,
+  InMemoryProjectRepository,
+  MockCryptoService,
+} from '../../fixtures/ports';
+import { ValidationException } from '../../../src/errors/ValidationError';
 
 const now = Date.now();
+const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
+const userId = 'user-1';
 
-describe('Projects command validation', () => {
-  it('validates create project command', () => {
-    const result = validateCreateProjectCommand({
-      type: 'CreateProject',
-      projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101',
-      name: 'Project Alpha',
-      status: 'planned',
-      startDate: '2025-01-01',
-      targetDate: '2025-02-01',
-      description: 'Description',
-      goalId: null,
-      userId: 'user-1',
-      timestamp: now,
-    });
+const makeHandler = () =>
+  new ProjectCommandHandler(
+    new InMemoryProjectRepository(),
+    new InMemoryKeyStore(),
+    new MockCryptoService(),
+    new InMemoryEventBus()
+  );
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.projectId.value).toBe(
-        '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101'
-      );
-      expect(result.value.name.value).toBe('Project Alpha');
-      expect(result.value.status.value).toBe('planned');
-      expect(result.value.goalId).toBeNull();
-    }
+const createProject = () =>
+  new CreateProject({
+    projectId,
+    name: 'Project Alpha',
+    status: 'planned',
+    startDate: '2025-01-01',
+    targetDate: '2025-02-01',
+    description: 'desc',
+    goalId: null,
+    userId,
+    timestamp: now,
   });
 
-  it('accumulates validation errors on create project', () => {
-    const result = validateCreateProjectCommand({
-      type: 'CreateProject',
-      projectId: 'bad-id',
-      name: '',
-      status: 'invalid' as never,
-      startDate: 'bad',
-      targetDate: 'bad',
-      description: 'ok',
-      goalId: 'also-bad',
-      userId: '',
-      timestamp: Number.NaN,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const fields = result.errors.map((e) => e.field);
-      expect(fields).toContain('projectId');
-      expect(fields).toContain('name');
-      expect(fields).toContain('status');
-      expect(fields).toContain('startDate');
-      expect(fields).toContain('targetDate');
-      expect(fields).toContain('goalId');
-      expect(fields).toContain('userId');
-      expect(fields).toContain('timestamp');
-    }
+describe('Project commands', () => {
+  it('are lean DTOs with payload assigned', () => {
+    const cmd = createProject();
+    expect(cmd.type).toBe('CreateProject');
+    expect(cmd.projectId).toBe(projectId);
+    expect(cmd.status).toBe('planned');
   });
 
-  it('validates status change', () => {
-    const result = validateChangeProjectStatusCommand({
-      type: 'ChangeProjectStatus',
-      projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f102',
-      status: 'in_progress',
-      userId: 'user-1',
-      timestamp: now,
-    });
-
-    expect(result.ok).toBe(true);
+  it('validates inside handler (status)', async () => {
+    const handler = makeHandler();
+    await handler.handleCreate(createProject());
+    await expect(
+      handler.handleChangeStatus(
+        new ChangeProjectStatus({
+          projectId,
+          status: 'invalid' as never,
+          userId,
+          timestamp: now,
+        })
+      )
+    ).rejects.toBeInstanceOf(Error);
   });
 
-  it('rejects missing milestone name', () => {
-    const result = validateAddProjectMilestoneCommand({
-      type: 'AddProjectMilestone',
-      projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f103',
-      milestoneId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f104',
-      name: '',
-      targetDate: '2025-01-02',
-      userId: 'user-1',
-      timestamp: now,
-    });
+  it('validates inside handler (milestone name)', async () => {
+    const handler = makeHandler();
+    await handler.handleCreate(createProject());
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.field === 'name')).toBe(true);
-    }
+    await expect(
+      handler.handleAddMilestone(
+        new AddProjectMilestone({
+          projectId,
+          milestoneId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f202',
+          name: '',
+          targetDate: '2025-01-02',
+          userId,
+          timestamp: now,
+        })
+      )
+    ).rejects.toBeInstanceOf(Error);
   });
 
-  it('validates archive project', () => {
-    const result = validateArchiveProjectCommand({
-      type: 'ArchiveProject',
-      projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f105',
-      userId: 'user-1',
-      timestamp: now,
-    });
-
-    expect(result.ok).toBe(true);
+  it('validates inside handler (archive bad id)', async () => {
+    const handler = makeHandler();
+    await handler.handleCreate(createProject());
+    await expect(
+      handler.handleArchive(
+        new ArchiveProject({
+          projectId: 'not-a-uuid',
+          userId,
+          timestamp: now,
+        })
+      )
+    ).rejects.toBeInstanceOf(ValidationException);
   });
 });

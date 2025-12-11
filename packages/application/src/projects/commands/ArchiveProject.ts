@@ -1,45 +1,24 @@
-import { ProjectId, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../shared/ports/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { BaseCommand } from '../../shared/ports/BaseCommand';
 
-export interface ArchiveProject {
-  readonly type: 'ArchiveProject';
+export type ArchiveProjectPayload = {
+  projectId: string;
+  userId: string;
+  timestamp: number;
+};
+
+export class ArchiveProject
+  extends BaseCommand<ArchiveProjectPayload>
+  implements Readonly<ArchiveProjectPayload>
+{
+  readonly type = 'ArchiveProject';
   readonly projectId: string;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedArchiveProjectCommand {
-  readonly projectId: ProjectId;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateArchiveProjectCommand(
-  command: ArchiveProject
-): CommandResult<ValidatedArchiveProjectCommand> {
-  const errors: ValidationError[] = [];
-
-  const projectId = safeConvert(
-    () => ProjectId.from(command.projectId),
-    'projectId',
-    errors
-  );
-  const userId = safeConvert(
-    () => UserId.from(command.userId),
-    'userId',
-    errors
-  );
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (!projectId || !userId || !timestamp || errors.length > 0) {
-    return failure(errors);
+  constructor(payload: ArchiveProjectPayload) {
+    super(payload);
+    this.projectId = payload.projectId;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ projectId, userId, timestamp });
 }
