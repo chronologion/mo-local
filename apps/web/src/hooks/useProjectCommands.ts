@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { ProjectCommand } from '@mo/application';
 import { useApp } from '../providers/AppProvider';
 
 export type CreateProjectParams = {
@@ -25,7 +26,7 @@ export const useProjectCommands = () => {
   const [error, setError] = useState<string | null>(null);
 
   const dispatch = useCallback(
-    async (command: { type: string; [key: string]: unknown }) => {
+    async (command: ProjectCommand) => {
       setLoading(true);
       setError(null);
       const result = await services.projectCommandBus.dispatch(command);
@@ -96,7 +97,12 @@ export const useProjectCommands = () => {
           })
         );
       }
-      if (params.startDate || params.targetDate) {
+      if (params.startDate !== undefined || params.targetDate !== undefined) {
+        if (!params.startDate || !params.targetDate) {
+          throw new Error(
+            'Both start and target dates are required to change project dates'
+          );
+        }
         tasks.push(
           dispatch({
             type: 'ChangeProjectDates',

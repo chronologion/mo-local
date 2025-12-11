@@ -8,9 +8,9 @@ import {
   Summary,
   UserId,
 } from '@mo/domain';
-import { InMemoryGoalRepository } from '../../../src/ports/mocks/InMemoryGoalRepository';
-import { InMemoryEventBus } from '../../../src/ports/mocks/InMemoryEventBus';
-import { MockCryptoService } from '../../../src/ports/mocks/MockCryptoService';
+import { InMemoryGoalRepository } from '../../fixtures/ports/InMemoryGoalRepository';
+import { InMemoryEventBus } from '../../fixtures/ports/InMemoryEventBus';
+import { MockCryptoService } from '../../fixtures/ports/MockCryptoService';
 
 describe('InMemoryGoalRepository', () => {
   it('saves, loads, and deletes goals', async () => {

@@ -1,44 +1,28 @@
-import { GoalId, Priority, PriorityLevel, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../results/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { PriorityLevel } from '@mo/domain';
+import { BaseCommand } from '../../cqrs/BaseCommand';
 
-export interface ChangeGoalPriorityCommand {
-  readonly type: 'ChangeGoalPriority';
+export type ChangeGoalPriorityCommandPayload = {
+  goalId: string;
+  priority: PriorityLevel;
+  userId: string;
+  timestamp: number;
+};
+
+export class ChangeGoalPriorityCommand
+  extends BaseCommand<ChangeGoalPriorityCommandPayload>
+  implements Readonly<ChangeGoalPriorityCommandPayload>
+{
+  readonly type = 'ChangeGoalPriority';
   readonly goalId: string;
   readonly priority: PriorityLevel;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedChangeGoalPriorityCommand {
-  readonly goalId: GoalId;
-  readonly priority: Priority;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateChangeGoalPriorityCommand(
-  command: ChangeGoalPriorityCommand
-): CommandResult<ValidatedChangeGoalPriorityCommand> {
-  const errors: ValidationError[] = [];
-
-  const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const priority = safeConvert(
-    () => Priority.of(command.priority),
-    'priority',
-    errors
-  );
-  const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (errors.length > 0 || !goalId || !priority || !userId || !timestamp) {
-    return failure(errors);
+  constructor(payload: ChangeGoalPriorityCommandPayload) {
+    super(payload);
+    this.goalId = payload.goalId;
+    this.priority = payload.priority;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ goalId, priority, userId, timestamp });
 }

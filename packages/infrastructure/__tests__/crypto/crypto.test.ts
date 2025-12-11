@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryKeyStore } from '@mo/application';
+import { IKeyStore } from '@mo/application';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
 import { SharingCrypto } from '../../src/crypto/SharingCrypto';
 import { AggregateKeyManager } from '../../src/crypto/AggregateKeyManager';
@@ -165,8 +165,18 @@ describe('AggregateKeyManager', () => {
     const crypto = new NodeCryptoService();
     const sharing = new SharingCrypto(crypto);
 
-    const ownerStore = new InMemoryKeyStore();
-    const recipientStore = new InMemoryKeyStore();
+    class InMemoryKeyStoreStub implements IKeyStore {
+      private readonly keys = new Map<string, Uint8Array>();
+      async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
+        this.keys.set(id, key);
+      }
+      async getAggregateKey(id: string): Promise<Uint8Array | null> {
+        return this.keys.get(id) ?? null;
+      }
+    }
+
+    const ownerStore = new InMemoryKeyStoreStub();
+    const recipientStore = new InMemoryKeyStoreStub();
     const ownerManager = new AggregateKeyManager(ownerStore, crypto, sharing);
     const recipientManager = new AggregateKeyManager(
       recipientStore,

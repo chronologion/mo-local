@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UserId } from '@mo/domain';
-import { InMemoryEventBus, InMemoryKeyStore } from '../../../src/ports/mocks';
+import { InMemoryEventBus, InMemoryKeyStore } from '../../fixtures/ports';
 import { UserCommandHandler } from '../../../src/identity/handlers/UserCommandHandler';
 
 describe('UserCommandHandler', () => {

@@ -1,44 +1,27 @@
-import { GoalId, Month, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../results/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { BaseCommand } from '../../cqrs/BaseCommand';
 
-export interface ChangeGoalTargetMonthCommand {
-  readonly type: 'ChangeGoalTargetMonth';
+export type ChangeGoalTargetMonthCommandPayload = {
+  goalId: string;
+  targetMonth: string;
+  userId: string;
+  timestamp: number;
+};
+
+export class ChangeGoalTargetMonthCommand
+  extends BaseCommand<ChangeGoalTargetMonthCommandPayload>
+  implements Readonly<ChangeGoalTargetMonthCommandPayload>
+{
+  readonly type = 'ChangeGoalTargetMonth';
   readonly goalId: string;
   readonly targetMonth: string;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedChangeGoalTargetMonthCommand {
-  readonly goalId: GoalId;
-  readonly targetMonth: Month;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateChangeGoalTargetMonthCommand(
-  command: ChangeGoalTargetMonthCommand
-): CommandResult<ValidatedChangeGoalTargetMonthCommand> {
-  const errors: ValidationError[] = [];
-
-  const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const targetMonth = safeConvert(
-    () => Month.fromString(command.targetMonth),
-    'targetMonth',
-    errors
-  );
-  const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (errors.length > 0 || !goalId || !targetMonth || !userId || !timestamp) {
-    return failure(errors);
+  constructor(payload: ChangeGoalTargetMonthCommandPayload) {
+    super(payload);
+    this.goalId = payload.goalId;
+    this.targetMonth = payload.targetMonth;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ goalId, targetMonth, userId, timestamp });
 }

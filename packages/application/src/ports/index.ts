@@ -6,3 +6,4 @@ export * from './IKeyStore';
 export * from './IEventStore';
 export * from './ISyncProvider';
 export * from './IProjectRepository';
+export * from './queries';

@@ -30,8 +30,9 @@ import {
   ProjectCommandResult,
 } from '../handlers/ProjectCommandHandler';
 import { ValidationException } from '../../errors/ValidationError';
+import { SimpleBus } from '../../services/SimpleBus';
 
-type ProjectCommand =
+export type ProjectCommand =
   | CreateProjectCommand
   | ChangeProjectStatusCommand
   | ChangeProjectDatesCommand
@@ -171,10 +172,7 @@ export class ProjectApplicationService {
  * Registers project command handlers on a SimpleBus.
  */
 export const registerProjectCommandHandlers = (
-  bus: import('../../services/SimpleBus').SimpleBus<
-    { type: string },
-    CommandResult<ProjectCommandResult>
-  >,
+  bus: SimpleBus<ProjectCommand, CommandResult<ProjectCommandResult>>,
   handler: ProjectCommandHandler
 ): void => {
   bus.register('CreateProject', async (command: CreateProjectCommand) => {

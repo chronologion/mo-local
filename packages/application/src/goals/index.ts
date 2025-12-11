@@ -1,6 +1,6 @@
 export * from './commands';
 export * from './handlers';
-export * from './services';
+export * from './GoalCommandBus';
 export * from '../services/SimpleBus';
 export * from '../ports';
 export * from '../results/CommandResult';

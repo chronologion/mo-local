@@ -4,16 +4,19 @@ import {
   type Adapter,
 } from '@livestore/livestore';
 import {
-  GoalApplicationService,
   GoalCommandHandler,
-  ProjectApplicationService,
   ProjectCommandHandler,
   IEventBus,
-  InMemoryEventBus,
   SimpleBus,
   registerGoalCommandHandlers,
   registerProjectCommandHandlers,
+  GoalCommand,
+  GoalCommandResult,
+  ProjectCommand,
+  ProjectCommandResult,
+  CommandResult,
 } from '@mo/application';
+import { InMemoryEventBus } from '../events/InMemoryEventBus';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { BrowserLiveStoreEventStore } from './LiveStoreEventStore';
@@ -45,13 +48,10 @@ export type BrowserServices = {
   eventBus: IEventBus;
   goalRepo: GoalRepository;
   projectRepo: ProjectRepository;
-  goalCommandBus: SimpleBus<
-    { type: string },
-    Awaited<ReturnType<GoalApplicationService['handle']>>
-  >;
+  goalCommandBus: SimpleBus<GoalCommand, CommandResult<GoalCommandResult>>;
   projectCommandBus: SimpleBus<
-    { type: string },
-    Awaited<ReturnType<ProjectApplicationService['handle']>>
+    ProjectCommand,
+    CommandResult<ProjectCommandResult>
   >;
   goalQueryBus: SimpleBus<GoalQuery, GoalListItem[] | GoalListItem | null>;
   projectQueryBus: SimpleBus<
@@ -134,13 +134,13 @@ export const createBrowserServices = async ({
     eventBus
   );
   const goalCommandBus = new SimpleBus<
-    { type: string },
-    Awaited<ReturnType<GoalApplicationService['handle']>>
+    GoalCommand,
+    CommandResult<GoalCommandResult>
   >();
   registerGoalCommandHandlers(goalCommandBus, goalHandler);
   const projectCommandBus = new SimpleBus<
-    { type: string },
-    Awaited<ReturnType<ProjectApplicationService['handle']>>
+    ProjectCommand,
+    CommandResult<ProjectCommandResult>
   >();
   registerProjectCommandHandlers(projectCommandBus, projectHandler);
   const toDomain = new LiveStoreToDomainAdapter(crypto);

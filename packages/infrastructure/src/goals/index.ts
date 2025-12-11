@@ -1,4 +1,3 @@
-export * from '../livestore/LiveStoreGoalRepository';
 export * from './GoalRepository';
 export * from './GoalQueries';
 export * from './GoalProjectionState';

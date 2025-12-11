@@ -1,37 +1,24 @@
-import { GoalId, UserId } from '@mo/domain';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../results/CommandResult';
-import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { BaseCommand } from '../../cqrs/BaseCommand';
 
-export interface DeleteGoalCommand {
-  readonly type: 'DeleteGoal';
+export type DeleteGoalCommandPayload = {
+  goalId: string;
+  userId: string;
+  timestamp: number;
+};
+
+export class DeleteGoalCommand
+  extends BaseCommand<DeleteGoalCommandPayload>
+  implements Readonly<DeleteGoalCommandPayload>
+{
+  readonly type = 'DeleteGoal';
   readonly goalId: string;
   readonly userId: string;
   readonly timestamp: number;
-}
 
-export interface ValidatedDeleteGoalCommand {
-  readonly goalId: GoalId;
-  readonly userId: UserId;
-  readonly timestamp: Date;
-}
-
-export function validateDeleteGoalCommand(
-  command: DeleteGoalCommand
-): CommandResult<ValidatedDeleteGoalCommand> {
-  const errors: ValidationError[] = [];
-
-  const goalId = safeConvert(() => GoalId.of(command.goalId), 'goalId', errors);
-  const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
-  const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
-
-  if (errors.length > 0 || !goalId || !userId || !timestamp) {
-    return failure(errors);
+  constructor(payload: DeleteGoalCommandPayload) {
+    super(payload);
+    this.goalId = payload.goalId;
+    this.userId = payload.userId;
+    this.timestamp = payload.timestamp;
   }
-
-  return success({ goalId, userId, timestamp });
 }

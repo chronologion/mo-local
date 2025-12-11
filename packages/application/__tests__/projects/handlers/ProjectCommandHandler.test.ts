@@ -4,7 +4,7 @@ import {
   InMemoryKeyStore,
   InMemoryProjectRepository,
   MockCryptoService,
-} from '../../../src/ports/mocks';
+} from '../../fixtures/ports';
 import { ProjectCommandHandler } from '../../../src/projects/handlers/ProjectCommandHandler';
 import { ProjectApplicationService } from '../../../src/projects/services/ProjectApplicationService';
 import { ConcurrencyError } from '../../../src/errors/ConcurrencyError';

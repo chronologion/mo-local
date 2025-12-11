@@ -1,17 +1,17 @@
-import type { GoalListItem } from './GoalProjectionState';
 import type { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import type { IGoalQueries, GoalListItemDto } from '@mo/application';
 
 /**
  * Goal queries backed by the in-memory projection maintained by GoalProjectionProcessor.
  */
-export class GoalQueries {
+export class GoalQueries implements IGoalQueries {
   constructor(private readonly projection: GoalProjectionProcessor) {}
 
   async listGoals(filter?: {
     slice?: string;
     month?: string;
     priority?: string;
-  }): Promise<GoalListItem[]> {
+  }): Promise<GoalListItemDto[]> {
     await this.projection.whenReady();
     const all = this.projection.listGoals();
     if (!filter) return all;
@@ -23,7 +23,7 @@ export class GoalQueries {
     });
   }
 
-  async getGoalById(goalId: string): Promise<GoalListItem | null> {
+  async getGoalById(goalId: string): Promise<GoalListItemDto | null> {
     await this.projection.whenReady();
     return this.projection.getGoalById(goalId);
   }
@@ -31,7 +31,7 @@ export class GoalQueries {
   async searchGoals(
     term: string,
     filter?: { slice?: string; month?: string; priority?: string }
-  ): Promise<GoalListItem[]> {
+  ): Promise<GoalListItemDto[]> {
     await this.projection.whenReady();
     return this.projection.searchGoals(term, filter);
   }

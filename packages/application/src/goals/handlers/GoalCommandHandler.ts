@@ -1,13 +1,22 @@
-import { Goal, GoalId } from '@mo/domain';
 import {
-  ValidatedCreateGoalCommand,
-  ValidatedChangeGoalSummaryCommand,
-  ValidatedChangeGoalSliceCommand,
-  ValidatedChangeGoalTargetMonthCommand,
-  ValidatedChangeGoalPriorityCommand,
-  ValidatedDeleteGoalCommand,
-  ValidatedGrantGoalAccessCommand,
-  ValidatedRevokeGoalAccessCommand,
+  Goal,
+  GoalId,
+  Month,
+  Priority,
+  Slice,
+  Summary,
+  UserId,
+} from '@mo/domain';
+import {
+  CreateGoalCommand,
+  ChangeGoalSummaryCommand,
+  ChangeGoalSliceCommand,
+  ChangeGoalTargetMonthCommand,
+  ChangeGoalPriorityCommand,
+  DeleteGoalCommand,
+  GrantGoalAccessCommand,
+  RevokeGoalAccessCommand,
+  AccessPermission,
 } from '../commands';
 import {
   IGoalRepository,
@@ -16,6 +25,8 @@ import {
   IKeyStore,
 } from '../../ports';
 import { NotFoundError } from '../../errors/NotFoundError';
+import { safeConvert, validateTimestamp } from '../../shared/validation';
+import { ValidationException } from '../../errors/ValidationError';
 
 export type GoalCommandResult =
   | { goalId: string; encryptionKey: Uint8Array }
@@ -32,17 +43,16 @@ export class GoalCommandHandler {
     private readonly eventBus: IEventBus
   ) {}
 
-  async handleCreate(
-    command: ValidatedCreateGoalCommand
-  ): Promise<GoalCommandResult> {
+  async handleCreate(command: CreateGoalCommand): Promise<GoalCommandResult> {
+    const parsed = this.parseCreate(command);
     const kGoal = await this.crypto.generateKey();
     const goal = Goal.create({
-      id: command.goalId,
-      slice: command.slice,
-      summary: command.summary,
-      targetMonth: command.targetMonth,
-      priority: command.priority,
-      createdBy: command.userId,
+      id: parsed.goalId,
+      slice: parsed.slice,
+      summary: parsed.summary,
+      targetMonth: parsed.targetMonth,
+      priority: parsed.priority,
+      createdBy: parsed.userId,
     });
 
     const pendingEvents = goal.getUncommittedEvents();
@@ -54,60 +64,253 @@ export class GoalCommandHandler {
     return { goalId: goal.id.value, encryptionKey: kGoal };
   }
 
+  private parseCreate(command: CreateGoalCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const goalId = safeConvert(
+      () => GoalId.of(command.goalId),
+      'goalId',
+      errors
+    );
+    const slice = safeConvert(() => Slice.of(command.slice), 'slice', errors);
+    const summary = safeConvert(
+      () => Summary.of(command.summary),
+      'summary',
+      errors
+    );
+    const targetMonth = safeConvert(
+      () => Month.fromString(command.targetMonth),
+      'targetMonth',
+      errors
+    );
+    const priority = safeConvert(
+      () => Priority.of(command.priority),
+      'priority',
+      errors
+    );
+    const userId = safeConvert(
+      () => UserId.of(command.userId),
+      'userId',
+      errors
+    );
+    const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
+
+    if (
+      !goalId ||
+      !slice ||
+      !summary ||
+      !targetMonth ||
+      !priority ||
+      !userId ||
+      !timestamp
+    ) {
+      throw new ValidationException(errors);
+    }
+
+    return { goalId, slice, summary, targetMonth, priority, userId, timestamp };
+  }
+
   async handleChangeSummary(
-    command: ValidatedChangeGoalSummaryCommand
+    command: ChangeGoalSummaryCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.changeSummary(command.summary);
+    const parsed = this.parseChangeSummary(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.changeSummary(parsed.summary);
     return this.persist(goal);
   }
 
   async handleChangeSlice(
-    command: ValidatedChangeGoalSliceCommand
+    command: ChangeGoalSliceCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.changeSlice(command.slice);
+    const parsed = this.parseChangeSlice(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.changeSlice(parsed.slice);
     return this.persist(goal);
   }
 
   async handleChangeTargetMonth(
-    command: ValidatedChangeGoalTargetMonthCommand
+    command: ChangeGoalTargetMonthCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.changeTargetMonth(command.targetMonth);
+    const parsed = this.parseChangeTargetMonth(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.changeTargetMonth(parsed.targetMonth);
     return this.persist(goal);
   }
 
   async handleChangePriority(
-    command: ValidatedChangeGoalPriorityCommand
+    command: ChangeGoalPriorityCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.changePriority(command.priority);
+    const parsed = this.parseChangePriority(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.changePriority(parsed.priority);
     return this.persist(goal);
   }
 
-  async handleDelete(
-    command: ValidatedDeleteGoalCommand
-  ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
+  async handleDelete(command: DeleteGoalCommand): Promise<GoalCommandResult> {
+    const parsed = this.parseDelete(command);
+    const goal = await this.loadGoal(parsed.goalId);
     goal.delete();
     return this.persist(goal);
   }
 
   async handleGrantAccess(
-    command: ValidatedGrantGoalAccessCommand
+    command: GrantGoalAccessCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.grantAccess(command.grantToUserId, command.permission);
+    const parsed = this.parseGrantAccess(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.grantAccess(parsed.grantToUserId, parsed.permission);
     return this.persist(goal);
   }
 
   async handleRevokeAccess(
-    command: ValidatedRevokeGoalAccessCommand
+    command: RevokeGoalAccessCommand
   ): Promise<GoalCommandResult> {
-    const goal = await this.loadGoal(command.goalId);
-    goal.revokeAccess(command.revokeUserId);
+    const parsed = this.parseRevokeAccess(command);
+    const goal = await this.loadGoal(parsed.goalId);
+    goal.revokeAccess(parsed.revokeUserId);
     return this.persist(goal);
+  }
+
+  private parseChangeSummary(command: ChangeGoalSummaryCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const summary = safeConvert(
+      () => Summary.of(command.summary),
+      'summary',
+      errors
+    );
+    if (!goalId || !userId || !timestamp || !summary) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, summary, userId, timestamp };
+  }
+
+  private parseChangeSlice(command: ChangeGoalSliceCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const slice = safeConvert(() => Slice.of(command.slice), 'slice', errors);
+    if (!goalId || !userId || !timestamp || !slice) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, slice, userId, timestamp };
+  }
+
+  private parseChangeTargetMonth(command: ChangeGoalTargetMonthCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const targetMonth = safeConvert(
+      () => Month.fromString(command.targetMonth),
+      'targetMonth',
+      errors
+    );
+    if (!goalId || !userId || !timestamp || !targetMonth) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, targetMonth, userId, timestamp };
+  }
+
+  private parseChangePriority(command: ChangeGoalPriorityCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const priority = safeConvert(
+      () => Priority.of(command.priority),
+      'priority',
+      errors
+    );
+    if (!goalId || !userId || !timestamp || !priority) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, priority, userId, timestamp };
+  }
+
+  private parseDelete(command: DeleteGoalCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    if (!goalId || !userId || !timestamp) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, userId, timestamp };
+  }
+
+  private parseGrantAccess(command: GrantGoalAccessCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const grantToUserId = safeConvert(
+      () => UserId.of(command.grantToUserId),
+      'grantToUserId',
+      errors
+    );
+    const permission = this.parsePermission(command.permission, errors);
+    if (!goalId || !userId || !timestamp || !grantToUserId || !permission) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, grantToUserId, permission, userId, timestamp };
+  }
+
+  private parseRevokeAccess(command: RevokeGoalAccessCommand) {
+    const errors: { field: string; message: string }[] = [];
+    const { goalId, userId, timestamp } = this.parseCommonFields(
+      command,
+      errors
+    );
+    const revokeUserId = safeConvert(
+      () => UserId.of(command.revokeUserId),
+      'revokeUserId',
+      errors
+    );
+    if (!goalId || !userId || !timestamp || !revokeUserId) {
+      throw new ValidationException(errors);
+    }
+    return { goalId, revokeUserId, userId, timestamp };
+  }
+
+  private parsePermission(
+    permission: AccessPermission,
+    errors: { field: string; message: string }[]
+  ): AccessPermission | null {
+    if (permission === 'edit' || permission === 'view') {
+      return permission;
+    }
+    errors.push({
+      field: 'permission',
+      message: 'Permission must be view or edit',
+    });
+    return null;
+  }
+
+  private parseCommonFields(
+    command: { goalId: string; userId: string; timestamp: number },
+    errors: { field: string; message: string }[]
+  ) {
+    const goalId = safeConvert(
+      () => GoalId.of(command.goalId),
+      'goalId',
+      errors
+    );
+    const userId = safeConvert(
+      () => UserId.of(command.userId),
+      'userId',
+      errors
+    );
+    const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
+    return { goalId, userId, timestamp };
   }
 
   private async loadGoal(goalId: GoalId): Promise<Goal> {

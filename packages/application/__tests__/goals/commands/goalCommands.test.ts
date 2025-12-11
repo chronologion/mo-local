@@ -1,14 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { validateCreateGoalCommand } from '../../../src/goals/commands/CreateGoalCommand';
-import { validateChangeGoalSummaryCommand } from '../../../src/goals/commands/ChangeGoalSummaryCommand';
-import { validateGrantGoalAccessCommand } from '../../../src/goals/commands/GrantGoalAccessCommand';
+import {
+  ChangeGoalSummaryCommand,
+  CreateGoalCommand,
+  GrantGoalAccessCommand,
+} from '../../../src/goals/commands';
+import { GoalCommandHandler } from '../../../src/goals/handlers/GoalCommandHandler';
+import {
+  InMemoryEventBus,
+  InMemoryGoalRepository,
+  InMemoryKeyStore,
+  MockCryptoService,
+} from '../../fixtures/ports';
+import { ValidationException } from '../../../src/errors/ValidationError';
 
 const now = Date.now();
+const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001';
+const userId = 'user-1';
 
-describe('CreateGoalCommand validation', () => {
-  it('validates a correct command', () => {
-    const result = validateCreateGoalCommand({
-      type: 'CreateGoal',
+const makeHandler = () =>
+  new GoalCommandHandler(
+    new InMemoryGoalRepository(),
+    new InMemoryKeyStore(),
+    new MockCryptoService(),
+    new InMemoryEventBus()
+  );
+
+const createGoal = () =>
+  new CreateGoalCommand({
+    goalId,
+    slice: 'Health',
+    summary: 'Run a marathon',
+    targetMonth: '2025-12',
+    priority: 'must',
+    userId,
+    timestamp: now,
+  });
+
+describe('CreateGoalCommand', () => {
+  it('is a lean DTO with assigned payload', () => {
+    const cmd = new CreateGoalCommand({
       goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001',
       slice: 'Health',
       summary: 'Run a marathon',
@@ -18,72 +48,44 @@ describe('CreateGoalCommand validation', () => {
       timestamp: now,
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.goalId.value).toBe(
-        '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001'
-      );
-      expect(result.value.slice.value).toBe('Health');
-      expect(result.value.priority.level).toBe('must');
-    }
-  });
-
-  it('accumulates validation errors', () => {
-    const result = validateCreateGoalCommand({
-      type: 'CreateGoal',
-      goalId: 'not-a-uuid',
-      slice: 'BadSlice' as never,
-      summary: '',
-      targetMonth: 'bad',
-      priority: 'must',
-      userId: '',
-      timestamp: Number.NaN,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      const fields = result.errors.map((e) => e.field);
-      expect(fields).toContain('goalId');
-      expect(fields).toContain('slice');
-      expect(fields).toContain('summary');
-      expect(fields).toContain('targetMonth');
-      expect(fields).toContain('userId');
-      expect(fields).toContain('timestamp');
-    }
+    expect(cmd.type).toBe('CreateGoal');
+    expect(cmd.goalId).toBe('018f7b1a-7c8a-72c4-a0ab-8234c2d6f001');
+    expect(cmd.slice).toBe('Health');
+    expect(cmd.priority).toBe('must');
   });
 });
 
-describe('ChangeGoalSummaryCommand validation', () => {
-  it('requires non-empty summary', () => {
-    const result = validateChangeGoalSummaryCommand({
-      type: 'ChangeGoalSummary',
-      goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f002',
-      summary: '',
-      userId: 'user-1',
-      timestamp: now,
-    });
+describe('Goal command validation inside handler', () => {
+  it('rejects empty summary', async () => {
+    const handler = makeHandler();
+    await handler.handleCreate(createGoal());
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.field === 'summary')).toBe(true);
-    }
+    await expect(
+      handler.handleChangeSummary(
+        new ChangeGoalSummaryCommand({
+          goalId,
+          summary: '',
+          userId,
+          timestamp: now,
+        })
+      )
+    ).rejects.toBeInstanceOf(ValidationException);
   });
-});
 
-describe('GrantGoalAccessCommand validation', () => {
-  it('rejects invalid permission', () => {
-    const result = validateGrantGoalAccessCommand({
-      type: 'GrantGoalAccess',
-      goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f003',
-      grantToUserId: 'user-2',
-      permission: 'owner' as never,
-      userId: 'user-1',
-      timestamp: now,
-    });
+  it('rejects invalid permission', async () => {
+    const handler = makeHandler();
+    await handler.handleCreate(createGoal());
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.field === 'permission')).toBe(true);
-    }
+    await expect(
+      handler.handleGrantAccess(
+        new GrantGoalAccessCommand({
+          goalId,
+          grantToUserId: 'user-2',
+          permission: 'owner' as never,
+          userId,
+          timestamp: now,
+        })
+      )
+    ).rejects.toBeInstanceOf(ValidationException);
   });
 });
