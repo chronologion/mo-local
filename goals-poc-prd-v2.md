@@ -5,6 +5,7 @@
 **Last Updated**: 2025-12-01
 
 ## 1. Objective
+
 Build a local-first proof of concept that demonstrates:
 
 - A clean separation between **Domain**, **Application**, **Infrastructure**, and **Interface** layers.
@@ -15,18 +16,18 @@ Build a local-first proof of concept that demonstrates:
 
 ## 2. Scope and Phases
 
-| Area | Status | Notes |
-| --- | --- | --- |
-| Balanced Wheel Goal domain | ✅ Implemented | Aggregate + value objects enforced via fluent `Assert` DSL. |
-| Goal command handling (create/update/delete) | ✅ Implemented | Validated commands routed through `GoalApplicationService`. |
-| Per-goal encryption & key storage | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK. |
-| LiveStore persistence | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite. |
-| React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine. |
-| Tests (Vitest) | ✅ Implemented | Domain, application, infrastructure, and web suites run via `yarn test`. |
-| Backend APIs (NestJS + Postgres) | 🔜 Planned | `apps/api` is a placeholder; server and sync endpoints are the next phase after the offline POC. |
-| Sync + multi-device replication | 🔜 Planned | No push/pull transport yet. Backups currently move keys only, not event logs. |
-| Sharing / invites / wrapped key distribution | 🔜 Planned | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet. |
-| Docker Compose dev stack | 🔜 Planned | Documented as future work to support full-stack + E2E; not present in repo yet. |
+| Area                                              | Status         | Notes                                                                                            |
+| ------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| Balanced Wheel Goal domain                        | ✅ Implemented | Aggregate + value objects enforced via fluent `Assert` DSL.                                      |
+| Goal command handling (create/update/archive)     | ✅ Implemented | Validated commands routed through `GoalApplicationService`.                                      |
+| Per-goal encryption & key storage                 | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK.                         |
+| LiveStore persistence                             | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite.                                   |
+| React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine.                                                    |
+| Tests (Vitest)                                    | ✅ Implemented | Domain, application, infrastructure, and web suites run via `yarn test`.                         |
+| Backend APIs (NestJS + Postgres)                  | 🔜 Planned     | `apps/api` is a placeholder; server and sync endpoints are the next phase after the offline POC. |
+| Sync + multi-device replication                   | 🔜 Planned     | No push/pull transport yet. Backups currently move keys only, not event logs.                    |
+| Sharing / invites / wrapped key distribution      | 🔜 Planned     | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet.       |
+| Docker Compose dev stack                          | 🔜 Planned     | Documented as future work to support full-stack + E2E; not present in repo yet.                  |
 
 ### 2.1 In-scope (POC)
 
@@ -94,7 +95,7 @@ Infrastructure (LiveStore, crypto, key store implementations)
   - `GoalSliceChanged`
   - `GoalTargetChanged`
   - `GoalPriorityChanged`
-  - `GoalDeleted`
+  - `GoalArchived`
   - `GoalAccessGranted`
   - `GoalAccessRevoked`
 - **Value Objects**:
@@ -108,7 +109,7 @@ Infrastructure (LiveStore, crypto, key store implementations)
 
 ## 5. Application Layer
 
-- **Commands** (`packages/application/src/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `DeleteGoal`, `GrantGoalAccess`, `RevokeGoalAccess`, `RegisterUser`, `ImportUserKeys`.
+- **Commands** (`packages/application/src/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`, `RegisterUser`, `ImportUserKeys`.
 - **Validation**: Each command has a `validate*` function that returns a typed `CommandResult`, ensuring domain objects are constructed before handlers run.
 - **Handlers**:
   - `GoalCommandHandler` orchestrates loading, domain mutations, persistence, key lookups, and event publication.
@@ -152,17 +153,20 @@ At runtime, the stack integrates LiveStore as follows:
 ## 7. Interface Layer (apps/web)
 
 ### 7.1 Providers & hooks
+
 - `AppProvider` bootstraps LiveStore, tracks session state (`needs-onboarding` → `locked` → `ready`), and exposes onboarding/unlock/backup helpers plus the services.
 - `useGoalCommands` maps component actions to application commands and handles optimistic UI states.
 - `useGoals` + `useGoalById` rebuild projections by decrypting events through `GoalQueries` whenever LiveStore notifies `goal_events` changes.
 
 ### 7.2 Components
+
 - **Onboarding** (`components/auth/Onboarding.tsx`): passphrase entry, key generation, backup restore.
 - **Unlock**: prompts for passphrase and unlocks keys.
 - **GoalDashboard**: goal form, cards, backup modal, and LiveStore debug panel (DEV only).
 - **BackupModal**: exports encrypted JSON envelope containing identity + aggregate keys, plus salt metadata.
 
 ### 7.3 User flows
+
 1. **Onboard**
    - Generate UUIDv7 `userId`.
    - Generate a random per-user salt (stored in metadata/backups) and derive KEK via PBKDF2.
@@ -178,32 +182,37 @@ At runtime, the stack integrates LiveStore as follows:
 ## 8. Developer Workflow
 
 ### Installation & dev
+
 1. `yarn install`
 2. `yarn dev`
 3. Visit `http://localhost:5173`
 
 ### Testing & quality
+
 - `yarn test` – runs Vitest suites in `apps/web`, `packages/domain`, `packages/application`, and `packages/infrastructure`.
 - `yarn lint` – ESLint flat config across repo.
 - `yarn typecheck` – `tsc --noEmit` for every workspace.
 - `yarn format` / `yarn format:check` – Prettier for TS/TSX/JSON/MD.
 
 ### Data reset recipe
+
 ```
 indexedDB.deleteDatabase('mo-local-keys');
 localStorage.removeItem('mo-local-user');
 ```
+
 Then reload the app, onboard again, and (optionally) restore a backup. Clearing browser site data resets the LiveStore OPFS database as well.
 
 ### Tooling notes
+
 - Vite dev server with React SWC transforms.
 - LiveStore worker (`packages/infrastructure/src/browser/worker.ts`) is bundled via `?worker` imports.
 - No Docker Compose or backend processes yet; `apps/api` is empty.
 
 ## 9. Current Limitations & Follow-ups
 
-1. **Event bus never receives goal events**: `GoalCommandHandler` publishes *after* `GoalRepository.save` marks events as committed. Subscribers (e.g., background sync) therefore see an empty array. Fix by capturing pending events before persistence or having the repository return the appended events.
-2. **Goal creation can orphan data**: We append encrypted events to LiveStore *before* persisting `K_goal` in the key store. If `IndexedDBKeyStore.saveAggregateKey` fails, the events are stored forever with no key to decrypt them.
+1. **Event bus never receives goal events**: `GoalCommandHandler` publishes _after_ `GoalRepository.save` marks events as committed. Subscribers (e.g., background sync) therefore see an empty array. Fix by capturing pending events before persistence or having the repository return the appended events.
+2. **Goal creation can orphan data**: We append encrypted events to LiveStore _before_ persisting `K_goal` in the key store. If `IndexedDBKeyStore.saveAggregateKey` fails, the events are stored forever with no key to decrypt them.
 3. **Backups do not include event logs**: Export/restore flows only move identity + aggregate keys (`apps/web/src/components/goals/BackupModal.tsx`). Without separate OPFS export or sync server, "multi-device support" is limited to reusing the same identity on the same browser profile.
 4. **Legacy backups without salt**: Old `.backup` files lacking a `salt` still need existing metadata to derive the legacy deterministic salt; first unlock/restore now rewraps keys with a random per-user salt and saves it to metadata/backups.
 5. **Backend + sync + sharing**: No HTTP APIs, invites, or wrapped key distribution exist yet. `AggregateKeyManager`, `SharingCrypto`, and ISyncProvider ports are unused.
@@ -211,6 +220,7 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 7. **Docker documentation is aspirational**: Section 11.2 from the previous PRD described a Docker Compose stack that does not exist. Keep this noted as future infrastructure work.
 
 ## 10. Next Steps
+
 - Wire the backend (NestJS + Postgres) and implement the sync provider described in earlier revisions.
 - Fix the event bus + key persistence ordering bugs so downstream services can react to events safely.
 - Extend backups to include encrypted event snapshots or ship sync before advertising multi-device support.
