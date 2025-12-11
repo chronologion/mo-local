@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
-import { createBrowserServices } from '@mo/infrastructure/browser';
+import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
 import { adapter } from './LiveStoreAdapter';
 import { tables } from '@mo/infrastructure/browser';
@@ -45,7 +45,7 @@ type SessionState =
       userId: string;
     };
 
-type Services = Awaited<ReturnType<typeof createBrowserServices>>;
+type Services = Awaited<ReturnType<typeof createAppServices>>;
 
 type AppContextValue = {
   services: Services;
@@ -104,7 +104,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (async () => {
       try {
         const currentStoreId = loadStoreId();
-        const svc = await createBrowserServices({
+        const svc = await createAppServices({
           adapter,
           storeId: currentStoreId,
           contexts: ['goals', 'projects'],

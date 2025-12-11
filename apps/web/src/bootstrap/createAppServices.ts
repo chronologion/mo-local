@@ -1,58 +1,60 @@
 import { type Adapter } from '@livestore/livestore';
-import { InMemoryEventBus } from '../events/InMemoryEventBus';
-import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
-import { WebCryptoService } from '../crypto/WebCryptoService';
-import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
-import { createStoreAndEventStores } from './wiring/store';
+import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
+import { IndexedDBKeyStore } from '@mo/infrastructure/crypto/IndexedDBKeyStore';
+import { WebCryptoService } from '@mo/infrastructure/crypto/WebCryptoService';
+import { LiveStoreToDomainAdapter } from '@mo/infrastructure/livestore/adapters/LiveStoreToDomainAdapter';
+import { createStoreAndEventStores } from '@mo/infrastructure/browser/wiring/store';
 import {
   bootstrapGoalBoundedContext,
   type GoalBoundedContextServices,
-} from '../goals/wiring';
+} from '@mo/infrastructure/goals/wiring';
 import {
   bootstrapProjectBoundedContext,
   type ProjectBoundedContextServices,
-} from '../projects/wiring';
-import type { BrowserLiveStoreEventStore } from './LiveStoreEventStore';
-import type { Store } from '@livestore/livestore';
+} from '@mo/infrastructure/projects/wiring';
 
-export type BrowserBoundedContext = 'goals' | 'projects';
+export type AppBoundedContext = 'goals' | 'projects';
 
-export type BrowserServices = {
+export type AppServices = {
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
   eventBus: InMemoryEventBus;
-  store: Store;
-  goalEventStore?: BrowserLiveStoreEventStore;
-  projectEventStore?: BrowserLiveStoreEventStore;
+  storeId: string;
+  store: Awaited<ReturnType<typeof createStoreAndEventStores>>['store'];
+  goalEventStore?: Awaited<
+    ReturnType<typeof createStoreAndEventStores>
+  >['goalEventStore'];
+  projectEventStore?: Awaited<
+    ReturnType<typeof createStoreAndEventStores>
+  >['projectEventStore'];
   contexts: {
     goals?: GoalBoundedContextServices;
     projects?: ProjectBoundedContextServices;
   };
-  storeId: string;
 };
 
-export type BrowserServicesOptions = {
+export type CreateAppServicesOptions = {
   adapter: Adapter;
   storeId?: string;
-  contexts?: BrowserBoundedContext[];
+  contexts?: AppBoundedContext[];
 };
 
 /**
- * Bootstrap selected bounded contexts for the browser runtime.
- * The interface layer chooses which BCs to start.
+ * Application-level composition root for the web app. Infra exposes BC bootstraps,
+ * and the app decides which contexts to start.
  */
-export const createBrowserServices = async ({
+export const createAppServices = async ({
   adapter,
   storeId = 'mo-local-v2',
   contexts = ['goals', 'projects'],
-}: BrowserServicesOptions): Promise<BrowserServices> => {
+}: CreateAppServicesOptions): Promise<AppServices> => {
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();
   const eventBus = new InMemoryEventBus();
   const toDomain = new LiveStoreToDomainAdapter(crypto);
   const storeBundle = await createStoreAndEventStores(adapter, storeId);
 
-  const ctx: BrowserServices['contexts'] = {};
+  const ctx: AppServices['contexts'] = {};
   if (contexts.includes('goals')) {
     ctx.goals = bootstrapGoalBoundedContext({
       store: storeBundle.store,
@@ -78,10 +80,10 @@ export const createBrowserServices = async ({
     crypto,
     keyStore,
     eventBus,
-    contexts: ctx,
     storeId,
     store: storeBundle.store,
     goalEventStore: storeBundle.goalEventStore,
     projectEventStore: storeBundle.projectEventStore,
+    contexts: ctx,
   };
 };

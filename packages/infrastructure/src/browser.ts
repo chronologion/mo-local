@@ -2,7 +2,6 @@
 export * from './crypto/IndexedDBKeyStore';
 export * from './crypto/WebCryptoService';
 export * from './browser/LiveStoreEventStore';
-export * from './browser/createBrowserServices';
 export * from './browser/sleep';
 export * from './browser/worker';
 export * from './goals';
