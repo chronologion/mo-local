@@ -19,6 +19,8 @@ import {
   createEmptyAnalytics,
 } from './GoalAnalyticsState';
 import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
+import { ProjectionTaskRunner } from '../../projection/ProjectionTaskRunner';
+import { GOAL_SEARCH_CONFIG } from './GoalSearchConfig';
 
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const ANALYTICS_AGGREGATE_ID = 'goal_analytics';
@@ -48,7 +50,10 @@ type SearchIndexRow = {
  * This runs in the main thread (triggered by LiveStore subscription) and is idempotent across restarts.
  */
 export class GoalProjectionProcessor {
-  private processingPromise: Promise<void> | null = null;
+  private readonly processingRunner = new ProjectionTaskRunner(
+    'GoalProjectionProcessor',
+    100
+  );
   private started = false;
   private lastSequence = 0;
   private unsubscribe: (() => void) | null = null;
@@ -59,23 +64,6 @@ export class GoalProjectionProcessor {
   private readonly listeners = new Set<() => void>();
   private readonly readyPromise: Promise<void>;
   private resolveReady: (() => void) | null = null;
-  private readonly searchConfig = {
-    idField: 'id',
-    fields: ['summary'] as const,
-    storeFields: [
-      'id',
-      'summary',
-      'slice',
-      'priority',
-      'targetMonth',
-      'createdAt',
-      'archivedAt',
-    ] as const,
-    searchOptions: {
-      prefix: true,
-      fuzzy: 0.2,
-    },
-  };
 
   constructor(
     private readonly store: Store,
@@ -92,21 +80,10 @@ export class GoalProjectionProcessor {
 
   private createSearchIndex(): MiniSearch<GoalListItem> {
     return new MiniSearch<GoalListItem>({
-      idField: this.searchConfig.idField,
-      fields: [...this.searchConfig.fields],
-      storeFields: [...this.searchConfig.storeFields],
-      searchOptions: {
-        ...this.searchConfig.searchOptions,
-        prefix: true,
-        combineWith: 'OR',
-        fuzzy: 0.3,
-        tokenize: (text: string) =>
-          text
-            .split(/\s+/)
-            .flatMap((word) =>
-              word.length >= 3 ? (word.match(/.{1,3}/g) ?? [word]) : [word]
-            ),
-      },
+      idField: GOAL_SEARCH_CONFIG.idField,
+      fields: [...GOAL_SEARCH_CONFIG.fields],
+      storeFields: [...GOAL_SEARCH_CONFIG.storeFields],
+      searchOptions: { ...GOAL_SEARCH_CONFIG.searchOptions },
     });
   }
 
@@ -181,7 +158,6 @@ export class GoalProjectionProcessor {
    */
   async resetAndRebuild(): Promise<void> {
     this.stop();
-    this.processingPromise = null;
     this.lastSequence = 0;
     this.snapshots.clear();
     this.projections.clear();
@@ -223,16 +199,7 @@ export class GoalProjectionProcessor {
   }
 
   private async processNewEvents(): Promise<void> {
-    if (this.processingPromise) {
-      await this.processingPromise;
-      return;
-    }
-    this.processingPromise = this.runProcessNewEvents();
-    try {
-      await this.processingPromise;
-    } finally {
-      this.processingPromise = null;
-    }
+    await this.processingRunner.run(() => this.runProcessNewEvents());
   }
 
   private async runProcessNewEvents(): Promise<void> {
@@ -508,10 +475,10 @@ export class GoalProjectionProcessor {
     );
     const json = new TextDecoder().decode(plaintext);
     this.searchIndex = MiniSearch.loadJSON<GoalListItem>(JSON.parse(json), {
-      idField: this.searchConfig.idField,
-      fields: [...this.searchConfig.fields],
-      storeFields: [...this.searchConfig.storeFields],
-      searchOptions: this.searchConfig.searchOptions,
+      idField: GOAL_SEARCH_CONFIG.idField,
+      fields: [...GOAL_SEARCH_CONFIG.fields],
+      storeFields: [...GOAL_SEARCH_CONFIG.storeFields],
+      searchOptions: GOAL_SEARCH_CONFIG.searchOptions,
     });
     return true;
   }

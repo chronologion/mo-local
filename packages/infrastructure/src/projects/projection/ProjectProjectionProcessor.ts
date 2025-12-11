@@ -13,6 +13,8 @@ import {
   ProjectSnapshotState,
   SupportedProjectEvent,
 } from '../ProjectProjectionState';
+import { ProjectionTaskRunner } from '../../projection/ProjectionTaskRunner';
+import { PROJECT_SEARCH_CONFIG } from './ProjectSearchConfig';
 
 const META_LAST_SEQUENCE_KEY = 'project_last_sequence';
 const SEARCH_INDEX_KEY = 'project_search_index';
@@ -32,7 +34,10 @@ type SearchIndexRow = {
 };
 
 export class ProjectProjectionProcessor {
-  private processingPromise: Promise<void> | null = null;
+  private readonly processingRunner = new ProjectionTaskRunner(
+    'ProjectProjectionProcessor',
+    100
+  );
   private started = false;
   private lastSequence = 0;
   private unsubscribe: (() => void) | null = null;
@@ -42,27 +47,6 @@ export class ProjectProjectionProcessor {
   private readonly listeners = new Set<() => void>();
   private readonly readyPromise: Promise<void>;
   private resolveReady: (() => void) | null = null;
-  private readonly searchConfig = {
-    idField: 'id',
-    fields: ['name', 'description'] as string[],
-    storeFields: [
-      'id',
-      'name',
-      'status',
-      'startDate',
-      'targetDate',
-      'description',
-      'goalId',
-      'milestoneCount',
-      'createdAt',
-      'updatedAt',
-      'archivedAt',
-    ] as string[],
-    searchOptions: {
-      prefix: true,
-      fuzzy: 0.2,
-    },
-  };
 
   constructor(
     private readonly store: Store,
@@ -71,7 +55,12 @@ export class ProjectProjectionProcessor {
     private readonly keyStore: IndexedDBKeyStore,
     private readonly toDomain: LiveStoreToDomainAdapter
   ) {
-    this.searchIndex = new MiniSearch<ProjectListItem>(this.searchConfig);
+    this.searchIndex = new MiniSearch<ProjectListItem>({
+      idField: PROJECT_SEARCH_CONFIG.idField,
+      fields: [...PROJECT_SEARCH_CONFIG.fields],
+      storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],
+      searchOptions: { ...PROJECT_SEARCH_CONFIG.searchOptions },
+    });
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;
     });
@@ -143,7 +132,12 @@ export class ProjectProjectionProcessor {
   async rebuild(): Promise<void> {
     this.snapshots.clear();
     this.projections.clear();
-    this.searchIndex = new MiniSearch<ProjectListItem>(this.searchConfig);
+    this.searchIndex = new MiniSearch<ProjectListItem>({
+      idField: PROJECT_SEARCH_CONFIG.idField,
+      fields: [...PROJECT_SEARCH_CONFIG.fields],
+      storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],
+      searchOptions: { ...PROJECT_SEARCH_CONFIG.searchOptions },
+    });
     this.lastSequence = 0;
     this.store.query({
       query: 'DELETE FROM project_snapshots',
@@ -179,16 +173,7 @@ export class ProjectProjectionProcessor {
   }
 
   private async processNewEvents(): Promise<void> {
-    if (this.processingPromise) {
-      await this.processingPromise;
-      return;
-    }
-    this.processingPromise = this.runProcessNewEvents();
-    try {
-      await this.processingPromise;
-    } finally {
-      this.processingPromise = null;
-    }
+    await this.processingRunner.run(() => this.runProcessNewEvents());
   }
 
   private async runProcessNewEvents(): Promise<void> {
@@ -406,10 +391,10 @@ export class ProjectProjectionProcessor {
     const json = new TextDecoder().decode(plaintext);
     const parsed = JSON.parse(json);
     this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(parsed, {
-      idField: this.searchConfig.idField,
-      fields: [...this.searchConfig.fields],
-      storeFields: [...this.searchConfig.storeFields],
-      searchOptions: this.searchConfig.searchOptions,
+      idField: PROJECT_SEARCH_CONFIG.idField,
+      fields: [...PROJECT_SEARCH_CONFIG.fields],
+      storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],
+      searchOptions: PROJECT_SEARCH_CONFIG.searchOptions,
     });
     return true;
   }

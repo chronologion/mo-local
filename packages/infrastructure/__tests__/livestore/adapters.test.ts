@@ -199,4 +199,45 @@ describe('Domain/LiveStore adapters', () => {
       )
     ).rejects.toThrow();
   });
+
+  it('handles legacy payloads without payloadVersion wrapper', async () => {
+    const crypto = new NodeCryptoService();
+    const toDomain = new LiveStoreToDomainAdapter(crypto);
+
+    const event = new GoalCreated({
+      goalId: GoalId.from('00000000-0000-0000-0000-000000000301'),
+      slice: Slice.from('Health'),
+      summary: Summary.from('Legacy payload'),
+      targetMonth: Month.from('2025-12'),
+      priority: Priority.from('must'),
+      createdBy: UserId.from('user-legacy'),
+      createdAt: Timestamp.fromMillis(
+        new Date('2025-01-01T00:00:00Z').getTime()
+      ),
+    });
+
+    const legacyPayload = event.toJSON();
+    const payloadBytes = new TextEncoder().encode(
+      JSON.stringify(legacyPayload)
+    );
+    const aad = new TextEncoder().encode(
+      `${event.aggregateId.value}:${event.eventType}:1`
+    );
+    const encrypted = await crypto.encrypt(payloadBytes, key, aad);
+
+    const decoded = await toDomain.toDomain(
+      {
+        id: 'e-legacy',
+        aggregateId: event.aggregateId.value,
+        eventType: event.eventType,
+        payload: encrypted,
+        version: 1,
+        occurredAt: event.occurredAt.value,
+        sequence: 1,
+      },
+      key
+    );
+
+    expect(decoded.eventType).toBe('GoalCreated');
+  });
 });
