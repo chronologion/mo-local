@@ -8,7 +8,7 @@
  * Assert.that(value).isNonEmpty();
  * Assert.that(month).isBetween(1, 12);
  * Assert.that(slice).isOneOf(['Health', 'Work']);
- * Assert.that(deletedAt).isNull();
+ * Assert.that(archivedAt).isNull();
  * ```
  */
 export class Assert<T> {

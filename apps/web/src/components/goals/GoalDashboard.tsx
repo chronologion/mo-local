@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import { KeyRound, RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
-import { useGoals } from '../../hooks/useGoals';
-import { useGoalCommands } from '../../hooks/useGoalCommands';
-import { useGoalSearch } from '../../hooks/useGoalSearch';
+import { useGoals, useGoalCommands, useGoalSearch } from '@mo/interface/react';
 import { Button } from '../ui/button';
 import {
   Card,
@@ -25,7 +23,7 @@ export function GoalDashboard() {
   const { goals, loading, error, refresh } = useGoals();
   const {
     createGoal,
-    deleteGoal,
+    archiveGoal,
     updateGoal,
     loading: mutating,
     error: mutationError,
@@ -34,7 +32,7 @@ export function GoalDashboard() {
   const [search, setSearch] = useState('');
   const [pending, setPending] = useState<{
     id: string;
-    action: 'delete' | 'update';
+    action: 'archive' | 'update';
   } | null>(null);
   const { results: searchResults, loading: searching } = useGoalSearch(search);
 
@@ -48,10 +46,10 @@ export function GoalDashboard() {
     await refresh();
   };
 
-  const handleDeleteGoal = async (goalId: string) => {
-    setPending({ id: goalId, action: 'delete' });
+  const handleArchiveGoal = async (goalId: string) => {
+    setPending({ id: goalId, action: 'archive' });
     try {
-      await deleteGoal(goalId);
+      await archiveGoal(goalId);
       await refresh();
     } finally {
       setPending(null);
@@ -160,18 +158,18 @@ export function GoalDashboard() {
                 key={goal.id}
                 goal={goal}
                 onSave={(changes) => handleUpdateGoal(goal.id, changes)}
-                onDelete={() => handleDeleteGoal(goal.id)}
+                onArchive={() => handleArchiveGoal(goal.id)}
                 isUpdating={
                   mutating &&
                   !!pending &&
                   pending.id === goal.id &&
                   pending.action === 'update'
                 }
-                isDeleting={
+                isArchiving={
                   mutating &&
                   !!pending &&
                   pending.id === goal.id &&
-                  pending.action === 'delete'
+                  pending.action === 'archive'
                 }
               />
             ))}

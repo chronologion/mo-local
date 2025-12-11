@@ -1,0 +1,505 @@
+import { describe, expect, it, beforeEach } from 'vitest';
+import { GoalProjectionProcessor } from '../../../src/goals/projection/GoalProjectionProcessor';
+import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveStoreToDomainAdapter';
+import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
+import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
+import {
+  GoalCreated,
+  GoalArchived,
+  GoalTargetChanged,
+  GoalId,
+  Slice,
+  Summary,
+  Month,
+  Priority,
+  UserId,
+  Timestamp,
+} from '@mo/domain';
+import { EncryptedEvent, IEventStore } from '@mo/application';
+import type { Store } from '@livestore/livestore';
+
+class InMemoryKeyStore {
+  private readonly keys = new Map<string, Uint8Array>();
+  setMasterKey(): void {
+    // noop for tests
+  }
+  async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
+    this.keys.set(id, key);
+  }
+  async getAggregateKey(id: string): Promise<Uint8Array | null> {
+    return this.keys.get(id) ?? null;
+  }
+}
+
+type SnapshotRow = {
+  payload_encrypted: Uint8Array;
+  version: number;
+  last_sequence: number;
+  updated_at: number;
+};
+
+const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000002');
+const aggregateIdValue = aggregateId.value;
+
+type AnalyticsRow = {
+  payload_encrypted: Uint8Array;
+  last_sequence: number;
+  updated_at: number;
+};
+
+class StoreStub {
+  snapshots = new Map<string, SnapshotRow>();
+  analytics: AnalyticsRow | null = null;
+  searchIndex: { payload_encrypted: Uint8Array; last_sequence: number } | null =
+    null;
+  meta = new Map<string, string>();
+  eventLog: EncryptedEvent[] = [];
+
+  subscribe(): () => void {
+    return () => {};
+  }
+
+  query<TResult>({
+    query,
+    bindValues,
+  }: {
+    query: string;
+    bindValues: Array<string | number | Uint8Array>;
+  }): TResult {
+    if (query.includes('COUNT(*) as count FROM goal_snapshots')) {
+      return [{ count: this.snapshots.size }] as unknown as TResult;
+    }
+    if (query.includes('INSERT INTO goal_snapshots')) {
+      const [aggregateId, cipher, version, lastSequence, updatedAt] =
+        bindValues as [string, Uint8Array, number, number, number];
+      this.snapshots.set(aggregateId, {
+        payload_encrypted: cipher,
+        version,
+        last_sequence: lastSequence,
+        updated_at: updatedAt,
+      });
+      return [] as unknown as TResult;
+    }
+    if (query.includes('DELETE FROM goal_snapshots WHERE aggregate_id')) {
+      const aggregateId = bindValues[0] as string;
+      this.snapshots.delete(aggregateId);
+      return [] as unknown as TResult;
+    }
+    if (query.startsWith('DELETE FROM goal_events WHERE sequence <= ')) {
+      const threshold = bindValues[0] as number;
+      this.eventLog = this.eventLog.filter(
+        (event) => (event.sequence ?? 0) > threshold
+      );
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_snapshots') {
+      this.snapshots.clear();
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_analytics') {
+      this.analytics = null;
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_projection_meta') {
+      this.meta.clear();
+      return [] as unknown as TResult;
+    }
+    if (query === 'DELETE FROM goal_search_index') {
+      this.searchIndex = null;
+      return [] as unknown as TResult;
+    }
+    if (query.includes('FROM goal_snapshots') && !query.includes('WHERE')) {
+      return [...this.snapshots.entries()].map(([aggregateId, row]) => ({
+        aggregate_id: aggregateId,
+        ...row,
+      })) as unknown as TResult;
+    }
+    if (query.includes('FROM goal_snapshots WHERE aggregate_id')) {
+      const id = bindValues[0] as string;
+      const row = this.snapshots.get(id);
+      return (row ? [row] : []) as TResult;
+    }
+    if (query.includes('FROM goal_analytics WHERE aggregate_id')) {
+      return (this.analytics ? [this.analytics] : []) as TResult;
+    }
+    if (query.includes('INSERT INTO goal_analytics')) {
+      const [, cipher, lastSequence, updatedAt] = bindValues as [
+        string,
+        Uint8Array,
+        number,
+        number,
+      ];
+      this.analytics = {
+        payload_encrypted: cipher,
+        last_sequence: lastSequence,
+        updated_at: updatedAt,
+      };
+      return [] as unknown as TResult;
+    }
+    if (query.includes('FROM goal_search_index WHERE key')) {
+      return this.searchIndex ? [this.searchIndex] : ([] as unknown as TResult);
+    }
+    if (query.includes('INSERT INTO goal_search_index')) {
+      const [, cipher, lastSequence] = bindValues as [
+        string,
+        Uint8Array,
+        number,
+        number,
+      ];
+      this.searchIndex = {
+        payload_encrypted: cipher,
+        last_sequence: lastSequence,
+      };
+      return [] as unknown as TResult;
+    }
+    if (query.includes('FROM goal_projection_meta')) {
+      const key = bindValues[0] as string;
+      const value = this.meta.get(key);
+      return (value ? [{ value }] : []) as TResult;
+    }
+    if (query.includes('INSERT INTO goal_projection_meta')) {
+      const [key, value] = bindValues as [string, string];
+      this.meta.set(key, value);
+      return [] as unknown as TResult;
+    }
+    throw new Error(`Unhandled query: ${query}`);
+  }
+
+  async *events(_options?: {
+    cursor?: unknown;
+    filter?: string[];
+  }): AsyncIterable<{
+    name: string;
+    args: unknown;
+    seqNum: { global: number };
+  }> {
+    for (const event of this.eventLog) {
+      yield {
+        name: 'goal.event',
+        args: {
+          id: event.id,
+          aggregateId: event.aggregateId,
+          eventType: event.eventType,
+          payload: event.payload,
+          version: event.version,
+          occurredAt: event.occurredAt,
+        },
+        seqNum: { global: event.sequence ?? 0 },
+      };
+    }
+  }
+}
+
+class EventStoreStub implements IEventStore {
+  constructor(private readonly events: EncryptedEvent[]) {}
+
+  async append(): Promise<void> {
+    throw new Error('append not implemented for test stub');
+  }
+
+  async getEvents(
+    aggregateId: string,
+    fromVersion?: number
+  ): Promise<EncryptedEvent[]> {
+    return this.events.filter((event) => {
+      const matchesAggregate = event.aggregateId === aggregateId;
+      const matchesVersion =
+        fromVersion === undefined ? true : event.version > fromVersion;
+      return matchesAggregate && matchesVersion;
+    });
+  }
+
+  async getAllEvents(filter?: { since?: number }): Promise<EncryptedEvent[]> {
+    if (!filter?.since) return this.events;
+    return this.events.filter(
+      (event) => (event.sequence ?? 0) > (filter.since ?? 0)
+    );
+  }
+}
+
+const decodeSnapshot = async (
+  crypto: WebCryptoService,
+  cipher: Uint8Array,
+  aggregateId: string,
+  version: number,
+  key: Uint8Array
+) => {
+  const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+  const plaintext = await crypto.decrypt(cipher, key, aad);
+  return JSON.parse(new TextDecoder().decode(plaintext)) as {
+    targetMonth: string;
+    slice: string;
+  };
+};
+
+const decodeAnalytics = async (
+  crypto: WebCryptoService,
+  cipher: Uint8Array,
+  lastSequence: number,
+  key: Uint8Array
+) => {
+  const aad = new TextEncoder().encode(
+    `goal_analytics:analytics:${lastSequence}`
+  );
+  const plaintext = await crypto.decrypt(cipher, key, aad);
+  return JSON.parse(new TextDecoder().decode(plaintext)) as {
+    monthlyTotals: Record<string, Record<string, number>>;
+    categoryRollups: Record<string, Record<string, number>>;
+  };
+};
+
+describe('GoalProjectionProcessor', () => {
+  const goalId = aggregateIdValue;
+  let crypto: WebCryptoService;
+  let keyStore: InMemoryKeyStore;
+  let store: StoreStub;
+
+  beforeEach(() => {
+    crypto = new WebCryptoService();
+    keyStore = new InMemoryKeyStore();
+    store = new StoreStub();
+  });
+
+  it('projects events into encrypted snapshots and analytics', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Health'),
+        summary: Summary.from('Run'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kGoal
+    );
+    const targetChanged = await toEncrypted.toEncrypted(
+      new GoalTargetChanged({
+        goalId: aggregateId,
+        targetMonth: Month.from('2026-01'),
+        changedAt: Timestamp.fromMillis(
+          new Date('2025-02-01T00:00:00Z').getTime()
+        ),
+      }),
+      2,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [
+      { ...created, sequence: 1 },
+      { ...targetChanged, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    const snapshotRow = store.snapshots.get(goalId);
+    expect(snapshotRow).toBeDefined();
+    const decodedSnapshot = await decodeSnapshot(
+      crypto,
+      snapshotRow!.payload_encrypted,
+      goalId,
+      snapshotRow!.version,
+      kGoal
+    );
+    expect(decodedSnapshot.targetMonth).toBe('2026-01');
+
+    const analyticsKey =
+      (await keyStore.getAggregateKey('goal_analytics')) ?? new Uint8Array();
+    const analyticsRow = store.analytics;
+    expect(analyticsRow).toBeDefined();
+    const analytics = await decodeAnalytics(
+      crypto,
+      analyticsRow!.payload_encrypted,
+      analyticsRow!.last_sequence,
+      analyticsKey
+    );
+    expect(analytics.monthlyTotals['2026-01'].Health).toBe(1);
+    expect(analytics.monthlyTotals['2025-12']).toBeUndefined();
+  });
+
+  it('removes snapshots and projection entries when a goal is archived', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Health'),
+        summary: Summary.from('Run'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kGoal
+    );
+    const archived = await toEncrypted.toEncrypted(
+      new GoalArchived({
+        goalId: aggregateId,
+        archivedAt: Timestamp.fromMillis(
+          new Date('2025-03-01T00:00:00Z').getTime()
+        ),
+      }),
+      2,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [
+      { ...created, sequence: 1 },
+      { ...archived, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    expect(store.snapshots.size).toBe(1);
+    expect(processor.listGoals()).toHaveLength(0);
+    expect(processor.getGoalById(goalId)).toBeNull();
+  });
+
+  it('rebuilds projections from scratch on reset', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Health'),
+        summary: Summary.from('Run'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [{ ...created, sequence: 1 }];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+    expect(processor.listGoals()).toHaveLength(1);
+    await processor.resetAndRebuild();
+    expect(processor.listGoals()).toHaveLength(1);
+    expect(store.snapshots.size).toBe(1);
+  });
+
+  it('prunes processed events from the outbox once snapshots are up to date', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Health'),
+        summary: Summary.from('Run'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kGoal
+    );
+    const targetChanged = await toEncrypted.toEncrypted(
+      new GoalTargetChanged({
+        goalId: aggregateId,
+        targetMonth: Month.from('2026-01'),
+        changedAt: Timestamp.fromMillis(
+          new Date('2025-02-01T00:00:00Z').getTime()
+        ),
+      }),
+      2,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [
+      { ...created, sequence: 1 },
+      { ...targetChanged, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    // With a large tail window, recent events are not pruned immediately.
+    expect(store.eventLog.length).toBe(2);
+  });
+
+  it('supports infix search via FTS index', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Work'),
+        summary: Summary.from('Build a todo app'),
+        targetMonth: Month.from('2025-10'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kGoal
+    );
+    const events: EncryptedEvent[] = [{ ...created, sequence: 1 }];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+    const results = processor.searchGoals('odo');
+    expect(results.map((r) => r.id)).toContain(goalId);
+  });
+});

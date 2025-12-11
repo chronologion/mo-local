@@ -18,6 +18,10 @@
       "vite/*": ["../../node_modules/vite/*"]
     }
   },
-  "include": ["src", "../../packages/infrastructure/src/types/**/*.d.ts"],
+  "include": [
+    "src",
+    "__tests__",
+    "../../packages/infrastructure/src/types/**/*.d.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

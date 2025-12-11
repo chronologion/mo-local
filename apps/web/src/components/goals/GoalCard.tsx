@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { GoalListItem } from '@mo/infrastructure/browser';
+import { useEffect, useMemo, useState } from 'react';
+import type { GoalListItemDto } from '@mo/interface';
+import { useProjects } from '@mo/interface/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
@@ -15,14 +16,14 @@ import { Check, RefreshCw, Trash2 } from 'lucide-react';
 import { GoalFormValues, priorityOptions, sliceOptions } from './goalFormTypes';
 
 type GoalCardProps = {
-  goal: GoalListItem;
+  goal: GoalListItemDto;
   onSave: (changes: Partial<GoalFormValues>) => Promise<void>;
-  onDelete: () => Promise<void>;
+  onArchive: () => Promise<void>;
   isUpdating: boolean;
-  isDeleting: boolean;
+  isArchiving: boolean;
 };
 
-const toFormValues = (goal: GoalListItem): GoalFormValues => ({
+const toFormValues = (goal: GoalListItemDto): GoalFormValues => ({
   summary: goal.summary,
   slice: goal.slice as GoalFormValues['slice'],
   priority: goal.priority as GoalFormValues['priority'],
@@ -32,12 +33,17 @@ const toFormValues = (goal: GoalListItem): GoalFormValues => ({
 export function GoalCard({
   goal,
   onSave,
-  onDelete,
+  onArchive,
   isUpdating,
-  isDeleting,
+  isArchiving,
 }: GoalCardProps) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<GoalFormValues>(toFormValues(goal));
+  const projectFilter = useMemo(
+    () => ({ goalId: goal.id as string | null }),
+    [goal.id]
+  );
+  const { projects, loading: loadingProjects } = useProjects(projectFilter);
 
   useEffect(() => {
     setValues(toFormValues(goal));
@@ -76,6 +82,22 @@ export function GoalCard({
         <div className="font-semibold text-card-foreground">{goal.summary}</div>
         <div className="text-[11px] text-muted-foreground">{goal.id}</div>
       </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Badge variant="outline">Projects</Badge>
+        {loadingProjects ? (
+          <span className="text-muted-foreground">Loading…</span>
+        ) : projects.length ? (
+          projects.map((project) => (
+            <Badge key={project.id} variant="secondary">
+              {project.name}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-muted-foreground">
+            Not linked to any project
+          </span>
+        )}
+      </div>
       <div className="flex items-center gap-2">
         <Button
           variant="secondary"
@@ -89,11 +111,11 @@ export function GoalCard({
           variant="ghost"
           size="sm"
           onClick={async () => {
-            await onDelete();
+            await onArchive();
           }}
-          disabled={isDeleting}
+          disabled={isArchiving}
         >
-          {isDeleting ? (
+          {isArchiving ? (
             <RefreshCw className="h-4 w-4 animate-spin" />
           ) : (
             <Trash2 className="h-4 w-4" />

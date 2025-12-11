@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
-import { createBrowserServices } from '@mo/infrastructure/browser';
+import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
 import { adapter } from './LiveStoreAdapter';
 import { tables } from '@mo/infrastructure/browser';
@@ -9,9 +9,14 @@ import {
   deriveLegacySaltForUser,
   encodeSalt,
   generateRandomSalt,
-} from '../lib/deriveSalt';
-import { parseBackupEnvelope } from './backupEnvelope';
+} from '@mo/infrastructure/crypto/deriveSalt';
+import { parseBackupEnvelope } from '@mo/interface';
 import { z } from 'zod';
+import {
+  InterfaceProvider,
+  type InterfaceContextValue,
+  type InterfaceServices,
+} from '@mo/interface/react';
 
 const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';
@@ -40,7 +45,7 @@ type SessionState =
       userId: string;
     };
 
-type Services = Awaited<ReturnType<typeof createBrowserServices>>;
+type Services = Awaited<ReturnType<typeof createAppServices>>;
 
 type AppContextValue = {
   services: Services;
@@ -99,9 +104,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (async () => {
       try {
         const currentStoreId = loadStoreId();
-        const svc = await createBrowserServices({
+        const svc = await createAppServices({
           adapter,
           storeId: currentStoreId,
+          contexts: ['goals', 'projects'],
         });
         const updateDebug = () => {
           const tablesList = (() => {
@@ -231,8 +237,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
-    // Start projection only after keys are persisted.
-    await services.goalProjection.start();
+    // Start projections only after keys are persisted.
+    const goalCtx = services.contexts.goals;
+    const projectCtx = services.contexts.projects;
+    if (!goalCtx || !projectCtx) {
+      throw new Error('Bounded contexts not bootstrapped');
+    }
+    await goalCtx.goalProjection.start();
+    await projectCtx.projectProjection.start();
     const meta = { userId, pwdSalt: saltB64 };
     saveMeta(meta);
     setUserMeta(meta);
@@ -282,14 +294,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     saveMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
     setUserMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
     setMasterKey(nextMasterKey);
-    await services.goalProjection.start();
+    const goalCtx = services.contexts.goals;
+    const projectCtx = services.contexts.projects;
+    if (!goalCtx || !projectCtx) {
+      throw new Error('Bounded contexts not bootstrapped');
+    }
+    await goalCtx.goalProjection.start();
+    await projectCtx.projectProjection.start();
     setSession({ status: 'ready', userId: meta.userId });
   };
 
   const resetLocalState = async (): Promise<void> => {
     if (!services) throw new Error('Services not initialized');
     try {
-      services.goalProjection.stop();
+      const goalCtx = services.contexts.goals;
+      const projectCtx = services.contexts.projects;
+      goalCtx?.goalProjection.stop();
+      projectCtx?.projectProjection.stop();
       await (
         services.store as unknown as { shutdownPromise?: () => Promise<void> }
       ).shutdownPromise?.();
@@ -306,7 +327,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const rebuildProjections = async (): Promise<void> => {
     if (!services) throw new Error('Services not initialized');
-    await services.goalProjection.resetAndRebuild();
+    const goalCtx = services.contexts.goals;
+    const projectCtx = services.contexts.projects;
+    if (!goalCtx || !projectCtx) return;
+    await goalCtx.goalProjection.resetAndRebuild();
+    await projectCtx.projectProjection.resetAndRebuild();
   };
 
   const restoreBackup = async ({
@@ -395,7 +420,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       );
     }
 
-    await services.goalProjection.start();
+    const goalCtx = services.contexts.goals;
+    const projectCtx = services.contexts.projects;
+    if (!goalCtx || !projectCtx) {
+      throw new Error('Bounded contexts not bootstrapped');
+    }
+    await goalCtx.goalProjection.start();
     const nextMeta = {
       userId: payload.userId,
       pwdSalt: persistSaltB64,
@@ -414,6 +444,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return <div>Loading app...</div>;
   }
 
+  const goalCtx = services.contexts.goals;
+  const projectCtx = services.contexts.projects;
+  if (!goalCtx || !projectCtx) {
+    throw new Error('Bounded contexts not bootstrapped');
+  }
+
+  const interfaceServices: InterfaceServices = {
+    goalCommandBus: goalCtx.goalCommandBus,
+    goalQueryBus: goalCtx.goalQueryBus,
+    projectCommandBus: projectCtx.projectCommandBus,
+    projectQueryBus: projectCtx.projectQueryBus,
+    goalProjection: goalCtx.goalProjection,
+    projectProjection: projectCtx.projectProjection,
+  };
+
+  const interfaceContextValue: InterfaceContextValue = {
+    services: interfaceServices,
+    session,
+  };
+
   return (
     <>
       <AppContext.Provider
@@ -429,7 +479,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           restoreBackup,
         }}
       >
-        {children}
+        <InterfaceProvider value={interfaceContextValue}>
+          {children}
+        </InterfaceProvider>
       </AppContext.Provider>
       {debugInfo && import.meta.env.DEV ? (
         <DebugPanel

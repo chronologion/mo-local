@@ -1,4 +1,5 @@
 import { Assert } from '../shared/Assert';
+import { ValueObject } from '../shared/vos/ValueObject';
 
 /**
  * The 8 life areas in the Balanced Wheel model.
@@ -32,19 +33,21 @@ export const ALL_SLICES: readonly SliceValue[] = [
  * @example
  * ```typescript
  * const slice = Slice.Health;
- * const other = Slice.of('Work');
+ * const other = Slice.from('Work');
  * if (slice.equals(other)) { ... }
  * ```
  */
-export class Slice {
-  private constructor(private readonly _value: SliceValue) {}
+export class Slice extends ValueObject<SliceValue> {
+  private constructor(private readonly _value: SliceValue) {
+    super();
+  }
 
   /**
    * Create a Slice from a string value.
    *
    * @throws {Error} if value is not a valid slice
    */
-  static of(value: string): Slice {
+  static from(value: string): Slice {
     Assert.that(value, 'Slice').isOneOf(ALL_SLICES);
     return new Slice(value as SliceValue);
   }
@@ -60,14 +63,6 @@ export class Slice {
   static readonly Leisure = new Slice('Leisure');
 
   get value(): SliceValue {
-    return this._value;
-  }
-
-  equals(other: Slice): boolean {
-    return this._value === other._value;
-  }
-
-  toString(): string {
     return this._value;
   }
 }

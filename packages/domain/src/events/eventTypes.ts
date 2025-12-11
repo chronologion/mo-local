@@ -1,12 +1,9 @@
-export const eventTypes = {
-  goalCreated: 'GoalCreated',
-  goalSummaryChanged: 'GoalSummaryChanged',
-  goalSliceChanged: 'GoalSliceChanged',
-  goalTargetChanged: 'GoalTargetChanged',
-  goalPriorityChanged: 'GoalPriorityChanged',
-  goalDeleted: 'GoalDeleted',
-  goalAccessGranted: 'GoalAccessGranted',
-  goalAccessRevoked: 'GoalAccessRevoked',
-} as const;
+import { goalEventTypes } from '../goals/events/eventTypes';
+import { projectEventTypes } from '../projects/events/eventTypes';
 
-export type GoalEventType = (typeof eventTypes)[keyof typeof eventTypes];
+// Legacy alias for goals; keep for compatibility.
+export const eventTypes = goalEventTypes;
+
+export { goalEventTypes, projectEventTypes };
+export type { GoalEventType } from '../goals/events/eventTypes';
+export type { ProjectEventType } from '../projects/events/eventTypes';

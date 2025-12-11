@@ -21,7 +21,11 @@ const RETRY_DELAY_MS = 50;
 export class BrowserLiveStoreEventStore implements IEventStore {
   constructor(
     private readonly store: Store,
-    private readonly goalEvent: GoalEventFactory
+    private readonly goalEvent: GoalEventFactory,
+    private readonly tables: {
+      events: string;
+      snapshots: string;
+    } = { events: 'goal_events', snapshots: 'goal_snapshots' }
   ) {}
 
   getStore(): Store {
@@ -92,7 +96,7 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     >({
       query: `
         SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
-        FROM goal_events
+        FROM ${this.tables.events}
         WHERE aggregate_id = ? AND version >= ?
         ORDER BY version ASC
       `,
@@ -138,26 +142,23 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     >({
       query: `
         SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
-        FROM goal_events
+        FROM ${this.tables.events}
         ${whereClause}
         ORDER BY sequence ASC
         ${limitClause}
       `,
       bindValues: params,
     });
-
     return rows.map(this.toEncryptedEvent);
   }
 
   private getCurrentVersion(aggregateId: string): number {
     const eventVersion = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
+      query: `SELECT MAX(version) as version FROM ${this.tables.events} WHERE aggregate_id = ?`,
       bindValues: [aggregateId],
     });
     const snapshotVersion = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT version FROM goal_snapshots WHERE aggregate_id = ? LIMIT 1',
+      query: `SELECT version FROM ${this.tables.snapshots} WHERE aggregate_id = ? LIMIT 1`,
       bindValues: [aggregateId],
     });
     const maxEventVersion = Number(eventVersion[0]?.version ?? 0);
