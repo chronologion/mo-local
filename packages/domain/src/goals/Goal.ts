@@ -1,12 +1,12 @@
 import { Assert } from '../shared/Assert';
 import { AggregateRoot } from '../shared/AggregateRoot';
-import { Timestamp } from '../shared/Timestamp';
-import { GoalId } from './GoalId';
+import { Timestamp } from '../shared/vos/Timestamp';
+import { GoalId } from './vos/GoalId';
 import { Slice } from './Slice';
-import { Priority } from './Priority';
-import { Month } from './Month';
-import { Summary } from './Summary';
-import { AccessEntry } from './AccessEntry';
+import { Priority } from './vos/Priority';
+import { Month } from './vos/Month';
+import { Summary } from './vos/Summary';
+import { AccessEntry } from './vos/AccessEntry';
 import { UserId } from '../identity/UserId';
 import { GoalCreated } from './events/GoalCreated';
 import { GoalSummaryChanged } from './events/GoalSummaryChanged';
@@ -17,7 +17,7 @@ import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
-import { Permission } from './AccessEntry';
+import { Permission } from './vos/Permission';
 
 export type GoalSnapshot = {
   id: GoalId;
@@ -27,7 +27,7 @@ export type GoalSnapshot = {
   targetMonth: Month;
   createdBy: UserId;
   createdAt: Timestamp;
-  deletedAt: Timestamp | null;
+  archivedAt: Timestamp | null;
   version: number;
 };
 
@@ -39,7 +39,7 @@ export type GoalSnapshot = {
  *
  * Invariants enforced:
  * - Summary must be non-empty
- * - Cannot modify a deleted goal
+ * - Cannot modify an archived goal
  * - Cannot grant duplicate access to the same user
  *
  * @example
@@ -47,14 +47,14 @@ export type GoalSnapshot = {
  * const goal = Goal.create({
  *   id: GoalId.create(),
  *   slice: Slice.Health,
- *   summary: Summary.of('Run a marathon'),
+ *   summary: Summary.from('Run a marathon'),
  *   targetMonth: Month.now().addMonths(6),
  *   priority: Priority.Must,
- *   createdBy: UserId.of('user-123'),
+ *   createdBy: UserId.from('user-123'),
  * });
  *
- * goal.changeSummary(Summary.of('Run a sub-4 hour marathon'));
- * goal.grantAccess(UserId.of('user-456'), 'edit');
+ * goal.changeSummary(Summary.from('Run a sub-4 hour marathon'));
+ * goal.grantAccess(UserId.from('user-456'), Permission.from('edit'));
  * ```
  */
 export class Goal extends AggregateRoot<GoalId> {
@@ -64,7 +64,7 @@ export class Goal extends AggregateRoot<GoalId> {
   private _priority: Priority | undefined;
   private _createdBy: UserId | undefined;
   private _createdAt: Timestamp | undefined;
-  private _deletedAt: Timestamp | null = null;
+  private _archivedAt: Timestamp | null = null;
   private _accessList: AccessEntry[] = [];
 
   private constructor(id: GoalId) {
@@ -112,13 +112,13 @@ export class Goal extends AggregateRoot<GoalId> {
     const goal = new Goal(params.id);
     goal.apply(
       new GoalCreated({
-        goalId: params.id.value,
-        slice: params.slice.value,
-        summary: params.summary.value,
-        targetMonth: params.targetMonth.value,
-        priority: params.priority.level,
-        createdBy: params.createdBy.value,
-        createdAt: Timestamp.now().value,
+        goalId: params.id,
+        slice: params.slice,
+        summary: params.summary,
+        targetMonth: params.targetMonth,
+        priority: params.priority,
+        createdBy: params.createdBy,
+        createdAt: Timestamp.now(),
       })
     );
     return goal;
@@ -156,12 +156,12 @@ export class Goal extends AggregateRoot<GoalId> {
     return this._createdAt!;
   }
 
-  get deletedAt(): Timestamp | null {
-    return this._deletedAt;
+  get archivedAt(): Timestamp | null {
+    return this._archivedAt;
   }
 
-  get isDeleted(): boolean {
-    return this._deletedAt !== null;
+  get isArchived(): boolean {
+    return this._archivedAt !== null;
   }
 
   get accessList(): ReadonlyArray<AccessEntry> {
@@ -173,17 +173,17 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Change the goal's summary.
    *
-   * @throws {Error} if goal is deleted or summary is unchanged
+   * @throws {Error} if goal is archived or summary is unchanged
    */
   changeSummary(newSummary: Summary): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
     Assert.that(newSummary.equals(this.summary), 'Summary unchanged').isFalse();
 
     this.apply(
       new GoalSummaryChanged({
-        goalId: this.id.value,
-        summary: newSummary.value,
-        changedAt: Timestamp.now().value,
+        goalId: this.id,
+        summary: newSummary,
+        changedAt: Timestamp.now(),
       })
     );
   }
@@ -191,17 +191,17 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Change the goal's slice (life area).
    *
-   * @throws {Error} if goal is deleted or slice is unchanged
+   * @throws {Error} if goal is archived or slice is unchanged
    */
   changeSlice(newSlice: Slice): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
     Assert.that(newSlice.equals(this.slice), 'Slice unchanged').isFalse();
 
     this.apply(
       new GoalSliceChanged({
-        goalId: this.id.value,
-        slice: newSlice.value,
-        changedAt: Timestamp.now().value,
+        goalId: this.id,
+        slice: newSlice,
+        changedAt: Timestamp.now(),
       })
     );
   }
@@ -209,10 +209,10 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Change the goal's target month.
    *
-   * @throws {Error} if goal is deleted or month is unchanged
+   * @throws {Error} if goal is archived or month is unchanged
    */
   changeTargetMonth(newMonth: Month): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
     Assert.that(
       newMonth.equals(this.targetMonth),
       'Target month unchanged'
@@ -220,9 +220,9 @@ export class Goal extends AggregateRoot<GoalId> {
 
     this.apply(
       new GoalTargetChanged({
-        goalId: this.id.value,
-        targetMonth: newMonth.value,
-        changedAt: Timestamp.now().value,
+        goalId: this.id,
+        targetMonth: newMonth,
+        changedAt: Timestamp.now(),
       })
     );
   }
@@ -230,10 +230,10 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Change the goal's priority.
    *
-   * @throws {Error} if goal is deleted or priority is unchanged
+   * @throws {Error} if goal is archived or priority is unchanged
    */
   changePriority(newPriority: Priority): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
     Assert.that(
       newPriority.equals(this.priority),
       'Priority unchanged'
@@ -241,28 +241,27 @@ export class Goal extends AggregateRoot<GoalId> {
 
     this.apply(
       new GoalPriorityChanged({
-        goalId: this.id.value,
-        priority: newPriority.level,
-        changedAt: Timestamp.now().value,
+        goalId: this.id,
+        priority: newPriority,
+        changedAt: Timestamp.now(),
       })
     );
   }
 
   /**
-   * Delete the goal (soft delete).
+   * Archive the goal (soft delete).
    *
-   * @throws {Error} if goal is already deleted
+   * @throws {Error} if goal is already archived
    */
-  delete(): void {
-    if (this.isDeleted) {
+  archive(): void {
+    if (this.isArchived) {
       return;
     }
-    this.assertNotDeleted(); // TODO: ???
 
     this.apply(
       new GoalArchived({
-        goalId: this.id.value,
-        deletedAt: Timestamp.now().value,
+        goalId: this.id,
+        archivedAt: Timestamp.now(),
       })
     );
   }
@@ -270,10 +269,10 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Grant access to this goal to another user.
    *
-   * @throws {Error} if goal is deleted or user already has access
+   * @throws {Error} if goal is archived or user already has access
    */
   grantAccess(userId: UserId, permission: Permission): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
 
     const existing = this._accessList.find(
       (entry) => entry.userId.equals(userId) && entry.isActive
@@ -285,10 +284,10 @@ export class Goal extends AggregateRoot<GoalId> {
 
     this.apply(
       new GoalAccessGranted({
-        goalId: this.id.value,
-        grantedTo: userId.value,
+        goalId: this.id,
+        grantedTo: userId,
         permission,
-        grantedAt: Timestamp.now().value,
+        grantedAt: Timestamp.now(),
       })
     );
   }
@@ -296,10 +295,10 @@ export class Goal extends AggregateRoot<GoalId> {
   /**
    * Revoke access from a user.
    *
-   * @throws {Error} if goal is deleted or user doesn't have active access
+   * @throws {Error} if goal is archived or user doesn't have active access
    */
   revokeAccess(userId: UserId): void {
-    this.assertNotDeleted();
+    this.assertNotArchived();
 
     const existing = this._accessList.find(
       (entry) => entry.userId.equals(userId) && entry.isActive
@@ -308,9 +307,9 @@ export class Goal extends AggregateRoot<GoalId> {
 
     this.apply(
       new GoalAccessRevoked({
-        goalId: this.id.value,
-        revokedFrom: userId.value,
-        revokedAt: Timestamp.now().value,
+        goalId: this.id,
+        revokedFrom: userId,
+        revokedAt: Timestamp.now(),
       })
     );
   }
@@ -322,7 +321,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this._priority = snapshot.priority;
     this._createdBy = snapshot.createdBy;
     this._createdAt = snapshot.createdAt;
-    this._deletedAt = snapshot.deletedAt;
+    this._archivedAt = snapshot.archivedAt;
     this._accessList = [];
     this.restoreVersion(snapshot.version);
   }
@@ -330,55 +329,55 @@ export class Goal extends AggregateRoot<GoalId> {
   // === Event Handlers ===
 
   protected onGoalCreated(event: GoalCreated): void {
-    this._slice = Slice.of(event.payload.slice);
-    this._summary = Summary.of(event.payload.summary);
-    this._targetMonth = Month.fromString(event.payload.targetMonth);
-    this._priority = Priority.of(event.payload.priority);
-    this._createdBy = UserId.of(event.payload.createdBy);
-    this._createdAt = Timestamp.of(event.payload.createdAt);
+    this._slice = event.payload.slice;
+    this._summary = event.payload.summary;
+    this._targetMonth = event.payload.targetMonth;
+    this._priority = event.payload.priority;
+    this._createdBy = event.payload.createdBy;
+    this._createdAt = event.payload.createdAt;
   }
 
   protected onGoalSummaryChanged(event: GoalSummaryChanged): void {
-    this._summary = Summary.of(event.payload.summary);
+    this._summary = event.payload.summary;
   }
 
   protected onGoalSliceChanged(event: GoalSliceChanged): void {
-    this._slice = Slice.of(event.payload.slice);
+    this._slice = event.payload.slice;
   }
 
   protected onGoalTargetChanged(event: GoalTargetChanged): void {
-    this._targetMonth = Month.fromString(event.payload.targetMonth);
+    this._targetMonth = event.payload.targetMonth;
   }
 
   protected onGoalPriorityChanged(event: GoalPriorityChanged): void {
-    this._priority = Priority.of(event.payload.priority);
+    this._priority = event.payload.priority;
   }
 
   protected onGoalArchived(event: GoalArchived): void {
-    this._deletedAt = Timestamp.of(event.payload.deletedAt);
+    this._archivedAt = event.payload.archivedAt;
   }
 
   protected onGoalAccessGranted(event: GoalAccessGranted): void {
     const entry = AccessEntry.create({
-      userId: UserId.of(event.payload.grantedTo),
+      userId: event.payload.grantedTo,
       permission: event.payload.permission,
-      grantedAt: Timestamp.of(event.payload.grantedAt),
+      grantedAt: event.payload.grantedAt,
     });
     this._accessList.push(entry);
   }
 
   protected onGoalAccessRevoked(event: GoalAccessRevoked): void {
     const entry = this._accessList.find(
-      (e) => e.userId.equals(UserId.of(event.payload.revokedFrom)) && e.isActive
+      (e) => e.userId.equals(event.payload.revokedFrom) && e.isActive
     );
     if (entry) {
-      entry.revoke(Timestamp.of(event.payload.revokedAt));
+      entry.revoke(event.payload.revokedAt);
     }
   }
 
   // === Private Helpers ===
 
-  private assertNotDeleted(): void {
-    Assert.that(this._deletedAt, 'Goal is deleted').isNull();
+  private assertNotArchived(): void {
+    Assert.that(this._archivedAt, 'Goal is archived').isNull();
   }
 }

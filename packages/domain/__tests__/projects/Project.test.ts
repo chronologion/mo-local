@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { Project } from '../../src/projects/Project';
-import { ProjectId } from '../../src/projects/ProjectId';
-import { ProjectName } from '../../src/projects/ProjectName';
-import { ProjectStatus } from '../../src/projects/ProjectStatus';
-import { ProjectDescription } from '../../src/projects/ProjectDescription';
-import { MilestoneId } from '../../src/projects/MilestoneId';
-import { LocalDate } from '../../src/shared/LocalDate';
-import { GoalId } from '../../src/goals/GoalId';
+import { ProjectId } from '../../src/projects/vos/ProjectId';
+import { ProjectName } from '../../src/projects/vos/ProjectName';
+import { ProjectStatus } from '../../src/projects/vos/ProjectStatus';
+import { ProjectDescription } from '../../src/projects/vos/ProjectDescription';
+import { MilestoneId } from '../../src/projects/vos/MilestoneId';
+import { LocalDate } from '../../src/shared/vos/LocalDate';
+import { GoalId } from '../../src/goals/vos/GoalId';
 import { UserId } from '../../src/identity/UserId';
 
 const today = LocalDate.today();
-const nextMonth = LocalDate.of(
+const nextMonth = LocalDate.from(
   today.year,
   today.month,
   Math.min(today.day + 1, 28)
@@ -20,12 +20,12 @@ describe('Project aggregate', () => {
   it('creates a project with required value objects and emits ProjectCreated', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('New Project'),
+      name: ProjectName.from('New Project'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
-      description: ProjectDescription.of('A sample project'),
-      createdBy: UserId.of('user-1'),
+      description: ProjectDescription.from('A sample project'),
+      createdBy: UserId.from('user-1'),
     });
 
     expect(project.name.value).toBe('New Project');
@@ -46,12 +46,12 @@ describe('Project aggregate', () => {
     expect(() =>
       Project.create({
         id: ProjectId.create(),
-        name: ProjectName.of('Invalid'),
+        name: ProjectName.from('Invalid'),
         status: ProjectStatus.Planned,
         startDate: nextMonth,
         targetDate: today,
         description: ProjectDescription.empty(),
-        createdBy: UserId.of('user-1'),
+        createdBy: UserId.from('user-1'),
       })
     ).toThrow(/Start date must be on or before target date/);
   });
@@ -59,12 +59,12 @@ describe('Project aggregate', () => {
   it('adds milestones within project date range', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Milestone project'),
+      name: ProjectName.from('Milestone project'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-2'),
+      createdBy: UserId.from('user-2'),
     });
 
     const milestoneId = MilestoneId.create();
@@ -81,19 +81,19 @@ describe('Project aggregate', () => {
   it('rejects milestones outside project date range', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Constrained project'),
+      name: ProjectName.from('Constrained project'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: today,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-3'),
+      createdBy: UserId.from('user-3'),
     });
 
     expect(() =>
       project.addMilestone({
         id: MilestoneId.create(),
         name: 'Bad milestone',
-        targetDate: LocalDate.of(today.year + 1, today.month, today.day),
+        targetDate: LocalDate.from(today.year + 1, today.month, today.day),
       })
     ).toThrow(/Milestone target date must be within project dates/);
   });
@@ -101,23 +101,23 @@ describe('Project aggregate', () => {
   it('prevents changing project dates to exclude existing milestones', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Project with milestones'),
+      name: ProjectName.from('Project with milestones'),
       status: ProjectStatus.InProgress,
       startDate: today,
-      targetDate: LocalDate.of(today.year, today.month, today.day + 10),
+      targetDate: LocalDate.from(today.year, today.month, today.day + 10),
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-4'),
+      createdBy: UserId.from('user-4'),
     });
     project.addMilestone({
       id: MilestoneId.create(),
       name: 'Inside range',
-      targetDate: LocalDate.of(today.year, today.month, today.day + 5),
+      targetDate: LocalDate.from(today.year, today.month, today.day + 5),
     });
 
     expect(() =>
       project.changeDates({
         startDate: today,
-        targetDate: LocalDate.of(today.year, today.month, today.day + 2),
+        targetDate: LocalDate.from(today.year, today.month, today.day + 2),
       })
     ).toThrow(/Existing milestones must remain within the new date range/);
   });
@@ -125,12 +125,12 @@ describe('Project aggregate', () => {
   it('links and unlinks a goal (max one goal)', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Linked project'),
+      name: ProjectName.from('Linked project'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-5'),
+      createdBy: UserId.from('user-5'),
     });
 
     const goalId = GoalId.create();
@@ -145,21 +145,21 @@ describe('Project aggregate', () => {
     expect(project.goalId).toBeNull();
   });
 
-  it('prevents mutations after deletion', () => {
+  it('prevents mutations after archival', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('To delete'),
+      name: ProjectName.from('To archive'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-6'),
+      createdBy: UserId.from('user-6'),
     });
-    project.delete();
+    project.archive();
 
-    expect(project.isDeleted).toBe(true);
+    expect(project.isArchived).toBe(true);
     expect(() =>
-      project.changeName(ProjectName.of('New name after delete'))
+      project.changeName(ProjectName.from('New name after archive'))
     ).toThrow();
     expect(() =>
       project.addMilestone({
@@ -173,12 +173,12 @@ describe('Project aggregate', () => {
   it('enforces allowed status transitions and updates updatedAt', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Lifecycle'),
+      name: ProjectName.from('Lifecycle'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-7'),
+      createdBy: UserId.from('user-7'),
     });
     const initialUpdated = project.updatedAt;
 
@@ -200,20 +200,20 @@ describe('Project aggregate', () => {
     expect(project.status.equals(ProjectStatus.Canceled)).toBe(true);
   });
 
-  it('sets deletedAt and updatedAt on delete', () => {
+  it('sets archivedAt and updatedAt on archive', () => {
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Deletable'),
+      name: ProjectName.from('Deletable'),
       status: ProjectStatus.Planned,
       startDate: today,
       targetDate: nextMonth,
       description: ProjectDescription.empty(),
-      createdBy: UserId.of('user-8'),
+      createdBy: UserId.from('user-8'),
     });
-    project.delete();
-    expect(project.deletedAt).not.toBeNull();
+    project.archive();
+    expect(project.archivedAt).not.toBeNull();
     expect(project.updatedAt.toISOString()).toBe(
-      project.deletedAt?.toISOString()
+      project.archivedAt?.toISOString()
     );
   });
 });

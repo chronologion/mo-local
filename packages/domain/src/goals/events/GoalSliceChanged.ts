@@ -1,20 +1,44 @@
 import { DomainEvent } from '../../shared/DomainEvent';
-import { SliceValue } from '../Slice';
+import { Slice } from '../Slice';
+import { GoalId } from '../vos/GoalId';
+import { Timestamp } from '../../shared/vos/Timestamp';
 import { goalEventTypes } from './eventTypes';
+import { ToJSON } from '../../shared/serialization';
 
-export class GoalSliceChanged implements DomainEvent {
+export type GoalSliceChangedJSON = ToJSON<GoalSliceChanged['payload']>;
+
+export class GoalSliceChanged implements DomainEvent<GoalId> {
   readonly eventType = goalEventTypes.goalSliceChanged;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      goalId: string;
-      slice: SliceValue;
-      changedAt: Date;
+      goalId: GoalId;
+      slice: Slice;
+      changedAt: Timestamp;
     }
-  ) {
-    this.aggregateId = payload.goalId;
-    this.occurredAt = payload.changedAt;
+  ) {}
+
+  get aggregateId(): GoalId {
+    return this.payload.goalId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.changedAt;
+  }
+
+  toJSON(): GoalSliceChangedJSON {
+    return {
+      goalId: this.payload.goalId.value,
+      slice: this.payload.slice.value,
+      changedAt: this.payload.changedAt.value,
+    };
+  }
+
+  static fromJSON(json: GoalSliceChangedJSON): GoalSliceChanged {
+    return new GoalSliceChanged({
+      goalId: GoalId.from(json.goalId),
+      slice: Slice.from(json.slice),
+      changedAt: Timestamp.fromMillis(json.changedAt),
+    });
   }
 }

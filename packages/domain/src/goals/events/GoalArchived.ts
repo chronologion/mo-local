@@ -1,18 +1,40 @@
 import { DomainEvent } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
+import { GoalId } from '../vos/GoalId';
+import { Timestamp } from '../../shared/vos/Timestamp';
+import { ToJSON } from '../../shared/serialization';
 
-export class GoalArchived implements DomainEvent {
+export type GoalArchivedJSON = ToJSON<GoalArchived['payload']>;
+
+export class GoalArchived implements DomainEvent<GoalId> {
   readonly eventType = goalEventTypes.goalArchived;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      goalId: string;
-      deletedAt: Date;
+      goalId: GoalId;
+      archivedAt: Timestamp;
     }
-  ) {
-    this.occurredAt = payload.deletedAt;
-    this.aggregateId = payload.goalId;
+  ) {}
+
+  get aggregateId(): GoalId {
+    return this.payload.goalId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.archivedAt;
+  }
+
+  toJSON(): GoalArchivedJSON {
+    return {
+      goalId: this.payload.goalId.value,
+      archivedAt: this.payload.archivedAt.value,
+    };
+  }
+
+  static fromJSON(json: GoalArchivedJSON): GoalArchived {
+    return new GoalArchived({
+      goalId: GoalId.from(json.goalId),
+      archivedAt: Timestamp.fromMillis(json.archivedAt),
+    });
   }
 }

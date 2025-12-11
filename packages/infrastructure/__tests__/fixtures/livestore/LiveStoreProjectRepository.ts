@@ -70,7 +70,7 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     }
   }
 
-  async delete(_id: ProjectId): Promise<void> {
+  async archive(_id: ProjectId): Promise<void> {
     // Soft-delete is modeled as events; no physical deletion.
   }
 }

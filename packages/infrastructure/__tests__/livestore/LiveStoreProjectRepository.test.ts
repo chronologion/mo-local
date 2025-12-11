@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   LiveStoreProjectRepository,
   ProjectEventAdapter,
@@ -16,28 +16,33 @@ import {
 } from '@mo/domain';
 import { PersistenceError } from '../../src/errors';
 
+const cachedEvents = new Map<string, DomainEvent>();
+
 const adapter: ProjectEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
+    const id = `${event.eventType}-${version}`;
+    cachedEvents.set(id, event);
     return {
-      id: `${event.eventType}-${version}`,
-      aggregateId: event.aggregateId,
+      id,
+      aggregateId: event.aggregateId.value,
       eventType: event.eventType,
-      payload: new TextEncoder().encode(
-        JSON.stringify({ ...event, encryptionKey: Array.from(encryptionKey) })
-      ),
+      payload: new Uint8Array(encryptionKey),
       version,
-      occurredAt: Date.now(),
+      occurredAt: event.occurredAt.value,
     };
   },
-  toDomain(event, encryptionKey: Uint8Array) {
-    const json = JSON.parse(new TextDecoder().decode(event.payload));
-    expect(json.encryptionKey).toEqual(Array.from(encryptionKey));
-    return {
-      ...json,
-      occurredAt: new Date(json.occurredAt ?? Date.now()),
-    };
+  toDomain(event) {
+    const cached = cachedEvents.get(event.id);
+    if (!cached) {
+      throw new Error(`Missing cached event for ${event.id}`);
+    }
+    return cached;
   },
 };
+
+beforeEach(() => {
+  cachedEvents.clear();
+});
 
 const kProject = new Uint8Array([1, 2, 3]);
 
@@ -51,13 +56,13 @@ describe('LiveStoreProjectRepository', () => {
     );
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Alpha'),
-      status: ProjectStatus.of('planned'),
+      name: ProjectName.from('Alpha'),
+      status: ProjectStatus.from('planned'),
       startDate: LocalDate.fromString('2025-01-01'),
       targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.of('desc'),
+      description: ProjectDescription.from('desc'),
       goalId: null,
-      createdBy: UserId.of('user-1'),
+      createdBy: UserId.from('user-1'),
     });
 
     await repo.save(project, kProject);
@@ -84,13 +89,13 @@ describe('LiveStoreProjectRepository', () => {
 
     const project = Project.create({
       id: ProjectId.create(),
-      name: ProjectName.of('Beta'),
-      status: ProjectStatus.of('planned'),
+      name: ProjectName.from('Beta'),
+      status: ProjectStatus.from('planned'),
       startDate: LocalDate.fromString('2025-01-01'),
       targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.of('desc'),
+      description: ProjectDescription.from('desc'),
       goalId: null,
-      createdBy: UserId.of('user-1'),
+      createdBy: UserId.from('user-1'),
     });
 
     await expect(failingRepo.save(project, kProject)).rejects.toBeInstanceOf(

@@ -1,4 +1,4 @@
-import { ValidationError as CommandValidationError } from '../results/CommandResult';
+import { ValidationError as CommandValidationError } from '../shared/ports/CommandResult';
 import { ApplicationError } from './ApplicationError';
 
 /**

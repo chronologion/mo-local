@@ -2,21 +2,23 @@
 export * from './shared/DomainEvent';
 export * from './shared/Entity';
 export * from './shared/AggregateRoot';
-export * from './shared/Timestamp';
-export * from './shared/LocalDate';
+export * from './shared/vos/Timestamp';
+export * from './shared/vos/LocalDate';
+export * from './shared/vos/ValueObject';
 
 // Identity Value Objects
 export * from './identity/UserId';
 
 // Goal Value Objects
-export * from './goals/GoalId';
+export * from './goals/vos/GoalId';
 export * from './goals/Slice';
-export * from './goals/Priority';
-export * from './goals/Month';
-export * from './goals/Summary';
+export * from './goals/vos/Priority';
+export * from './goals/vos/Month';
+export * from './goals/vos/Summary';
+export * from './goals/vos/Permission';
 
 // Entities
-export * from './goals/AccessEntry';
+export * from './goals/vos/AccessEntry';
 
 // Aggregates
 export * from './goals/Goal';
@@ -42,12 +44,12 @@ export * from './projects/events/ProjectGoalRemoved';
 export * from './projects/events/ProjectMilestoneAdded';
 export * from './projects/events/ProjectMilestoneTargetDateChanged';
 export * from './projects/events/ProjectMilestoneNameChanged';
-export * from './projects/events/ProjectMilestoneDeleted';
+export * from './projects/events/ProjectMilestoneArchived';
 export * from './projects/events/ProjectArchived';
-export * from './projects/ProjectId';
-export * from './projects/ProjectName';
-export * from './projects/ProjectStatus';
-export * from './projects/ProjectDescription';
-export * from './projects/MilestoneId';
+export * from './projects/vos/ProjectId';
+export * from './projects/vos/ProjectName';
+export * from './projects/vos/ProjectStatus';
+export * from './projects/vos/ProjectDescription';
+export * from './projects/vos/MilestoneId';
 export * from './projects/Milestone';
 export * from './utils/uuid';

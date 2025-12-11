@@ -13,7 +13,7 @@ type Milestone = {
 export function MilestonesList({
   milestones,
   onUpdate,
-  onDelete,
+  onArchive,
   disabled,
 }: {
   milestones: Milestone[];
@@ -21,7 +21,7 @@ export function MilestonesList({
     milestoneId: string,
     changes: { name?: string; targetDate?: string }
   ) => Promise<void>;
-  onDelete: (milestoneId: string) => Promise<void>;
+  onArchive: (milestoneId: string) => Promise<void>;
   disabled?: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,10 +62,10 @@ export function MilestonesList({
                     className="underline text-destructive"
                     disabled={disabled}
                     onClick={async () => {
-                      await onDelete(m.id);
+                      await onArchive(m.id);
                     }}
                   >
-                    Delete
+                    Archive
                   </button>
                 </div>
               </div>

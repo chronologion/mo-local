@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ChangeGoalSummaryCommand,
-  CreateGoalCommand,
-  GrantGoalAccessCommand,
+  ChangeGoalSummary,
+  CreateGoal,
+  GrantGoalAccess,
 } from '../../../src/goals/commands';
-import { GoalCommandHandler } from '../../../src/goals/handlers/GoalCommandHandler';
+import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
   InMemoryEventBus,
   InMemoryGoalRepository,
@@ -26,7 +26,7 @@ const makeHandler = () =>
   );
 
 const createGoal = () =>
-  new CreateGoalCommand({
+  new CreateGoal({
     goalId,
     slice: 'Health',
     summary: 'Run a marathon',
@@ -36,9 +36,9 @@ const createGoal = () =>
     timestamp: now,
   });
 
-describe('CreateGoalCommand', () => {
+describe('CreateGoal', () => {
   it('is a lean DTO with assigned payload', () => {
-    const cmd = new CreateGoalCommand({
+    const cmd = new CreateGoal({
       goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001',
       slice: 'Health',
       summary: 'Run a marathon',
@@ -62,7 +62,7 @@ describe('Goal command validation inside handler', () => {
 
     await expect(
       handler.handleChangeSummary(
-        new ChangeGoalSummaryCommand({
+        new ChangeGoalSummary({
           goalId,
           summary: '',
           userId,
@@ -78,7 +78,7 @@ describe('Goal command validation inside handler', () => {
 
     await expect(
       handler.handleGrantAccess(
-        new GrantGoalAccessCommand({
+        new GrantGoalAccess({
           goalId,
           grantToUserId: 'user-2',
           permission: 'owner' as never,

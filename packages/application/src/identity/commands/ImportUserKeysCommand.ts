@@ -1,11 +1,11 @@
 import { UserId } from '@mo/domain';
-import { KeyBackup } from '../../ports/types';
+import { KeyBackup } from '../../shared/ports/types';
 import {
   CommandResult,
   ValidationError,
   failure,
   success,
-} from '../../results/CommandResult';
+} from '../../shared/ports/CommandResult';
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface ImportUserKeysCommand {
@@ -26,7 +26,11 @@ export function validateImportUserKeysCommand(
 ): CommandResult<ValidatedImportUserKeysCommand> {
   const errors: ValidationError[] = [];
 
-  const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
+  const userId = safeConvert(
+    () => UserId.from(command.userId),
+    'userId',
+    errors
+  );
   const backup = validateBackup(command.backup, 'backup', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 

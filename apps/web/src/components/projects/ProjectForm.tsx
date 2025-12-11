@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { GoalListItem } from '@mo/infrastructure/browser';
+import type { GoalListItemDto } from '@mo/interface';
 
 export type ProjectFormValues = {
   name: string;
@@ -22,7 +22,7 @@ export type ProjectFormValues = {
 
 type ProjectFormProps = {
   onSubmit: (values: ProjectFormValues) => Promise<void>;
-  goals: GoalListItem[];
+  goals: GoalListItemDto[];
 };
 
 const today = () => new Date().toISOString().slice(0, 10);

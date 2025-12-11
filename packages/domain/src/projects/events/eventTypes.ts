@@ -9,7 +9,7 @@ export const projectEventTypes = {
   projectMilestoneAdded: 'ProjectMilestoneAdded',
   projectMilestoneTargetDateChanged: 'ProjectMilestoneTargetDateChanged',
   projectMilestoneNameChanged: 'ProjectMilestoneNameChanged',
-  projectMilestoneDeleted: 'ProjectMilestoneDeleted',
+  projectMilestoneArchived: 'ProjectMilestoneArchived',
   projectArchived: 'ProjectArchived',
 } as const;
 

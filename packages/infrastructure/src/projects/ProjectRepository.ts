@@ -107,7 +107,7 @@ export class ProjectRepository implements IProjectRepository {
     }
   }
 
-  async delete(_id: ProjectId): Promise<void> {
+  async archive(_id: ProjectId): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
   }
 
@@ -132,9 +132,9 @@ export class ProjectRepository implements IProjectRepository {
         targetDate: m.targetDate.value,
       })),
       createdBy: project.createdBy.value,
-      createdAt: project.createdAt.value.getTime(),
-      updatedAt: project.updatedAt.value.getTime(),
-      deletedAt: project.deletedAt ? project.deletedAt.value.getTime() : null,
+      createdAt: project.createdAt.value,
+      updatedAt: project.updatedAt.value,
+      archivedAt: project.archivedAt ? project.archivedAt.value : null,
       version: nextVersion,
     };
     const aad = new TextEncoder().encode(
@@ -163,7 +163,7 @@ export class ProjectRepository implements IProjectRepository {
         storedCipher,
         nextVersion,
         nextVersion,
-        project.updatedAt.value.getTime(),
+        project.updatedAt.value,
       ],
     });
   }
@@ -183,7 +183,7 @@ export class ProjectRepository implements IProjectRepository {
     createdBy: UserId;
     createdAt: Timestamp;
     updatedAt: Timestamp;
-    deletedAt: Timestamp | null;
+    archivedAt: Timestamp | null;
     version: number;
   } | null> {
     const rows = this.store.query<SnapshotRow[]>({
@@ -203,9 +203,9 @@ export class ProjectRepository implements IProjectRepository {
       goalId: string | null;
       milestones?: { id: string; name: string; targetDate: string }[];
       createdBy: string;
-      createdAt: string;
-      updatedAt: string;
-      deletedAt: string | null;
+      createdAt: number;
+      updatedAt: number;
+      archivedAt: number | null;
     };
     const aad = new TextEncoder().encode(
       `${aggregateId}:snapshot:${row.version}`
@@ -219,27 +219,27 @@ export class ProjectRepository implements IProjectRepository {
       new TextDecoder().decode(plaintext)
     );
     return {
-      id: ProjectId.of(parsed.id),
-      name: ProjectName.of(parsed.name),
-      status: ProjectStatus.of(parsed.status),
+      id: ProjectId.from(parsed.id),
+      name: ProjectName.from(parsed.name),
+      status: ProjectStatus.from(parsed.status),
       startDate: LocalDate.fromString(parsed.startDate),
       targetDate: LocalDate.fromString(parsed.targetDate),
-      description: ProjectDescription.of(parsed.description),
-      goalId: parsed.goalId ? GoalId.of(parsed.goalId) : null,
+      description: ProjectDescription.from(parsed.description),
+      goalId: parsed.goalId ? GoalId.from(parsed.goalId) : null,
       milestones: (parsed.milestones ?? []).map((m) =>
         Milestone.create({
-          id: MilestoneId.of(m.id),
+          id: MilestoneId.from(m.id),
           name: m.name,
           targetDate: LocalDate.fromString(m.targetDate),
         })
       ),
-      createdBy: UserId.of(parsed.createdBy),
-      createdAt: Timestamp.of(new Date(parsed.createdAt)),
-      updatedAt: Timestamp.of(new Date(parsed.updatedAt)),
-      deletedAt:
-        parsed.deletedAt === null
+      createdBy: UserId.from(parsed.createdBy),
+      createdAt: Timestamp.fromMillis(parsed.createdAt),
+      updatedAt: Timestamp.fromMillis(parsed.updatedAt),
+      archivedAt:
+        parsed.archivedAt === null
           ? null
-          : Timestamp.of(new Date(parsed.deletedAt)),
+          : Timestamp.fromMillis(parsed.archivedAt),
       version: row.version,
     };
   }

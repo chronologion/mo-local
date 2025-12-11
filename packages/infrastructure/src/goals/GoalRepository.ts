@@ -19,6 +19,7 @@ import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStor
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { MissingKeyError, PersistenceError } from '../errors';
+
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
  */
@@ -127,25 +128,25 @@ export class GoalRepository implements IGoalRepository {
     version: number
   ): GoalSnapshot {
     return {
-      id: GoalId.of(payload.id),
-      summary: Summary.of(payload.summary),
-      slice: Slice.of(payload.slice),
-      priority: Priority.of(payload.priority),
-      targetMonth: Month.fromString(payload.targetMonth),
-      createdBy: UserId.of(payload.createdBy),
-      createdAt: Timestamp.of(new Date(payload.createdAt)),
-      deletedAt:
-        payload.deletedAt === null
+      id: GoalId.from(payload.id),
+      summary: Summary.from(payload.summary),
+      slice: Slice.from(payload.slice),
+      priority: Priority.from(payload.priority),
+      targetMonth: Month.from(payload.targetMonth),
+      createdBy: UserId.from(payload.createdBy),
+      createdAt: Timestamp.fromMillis(payload.createdAt),
+      archivedAt:
+        payload.archivedAt === null
           ? null
-          : Timestamp.of(new Date(payload.deletedAt)),
+          : Timestamp.fromMillis(payload.archivedAt),
       version,
     };
   }
 
-  async delete(id: GoalId): Promise<void> {
+  async archive(id: GoalId): Promise<void> {
     const goal = await this.findById(id);
     if (!goal) return;
-    goal.delete();
+    goal.archive();
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
@@ -162,5 +163,5 @@ type SnapshotPayload = {
   targetMonth: string;
   createdBy: string;
   createdAt: number;
-  deletedAt: number | null;
+  archivedAt: number | null;
 };

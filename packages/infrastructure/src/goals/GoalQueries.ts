@@ -1,5 +1,6 @@
 import type { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
-import type { IGoalQueries, GoalListItemDto } from '@mo/application';
+import type { IGoalQueries } from '@mo/application';
+import type { GoalListItemDto } from '@mo/interface';
 
 /**
  * Goal queries backed by the in-memory projection maintained by GoalProjectionProcessor.

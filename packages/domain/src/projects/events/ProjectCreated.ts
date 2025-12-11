@@ -1,26 +1,36 @@
 import { DomainEvent } from '../../shared/DomainEvent';
-import { ProjectStatusValue } from '../ProjectStatus';
 import { projectEventTypes } from './eventTypes';
+import { ProjectId } from '../vos/ProjectId';
+import { ProjectName } from '../vos/ProjectName';
+import { ProjectStatus } from '../vos/ProjectStatus';
+import { LocalDate } from '../../shared/vos/LocalDate';
+import { ProjectDescription } from '../vos/ProjectDescription';
+import { GoalId } from '../../goals/vos/GoalId';
+import { UserId } from '../../identity/UserId';
+import { Timestamp } from '../../shared/vos/Timestamp';
 
-export class ProjectCreated implements DomainEvent {
+export class ProjectCreated implements DomainEvent<ProjectId> {
   readonly eventType = projectEventTypes.projectCreated;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      projectId: string;
-      name: string;
-      status: ProjectStatusValue;
-      startDate: string;
-      targetDate: string;
-      description: string;
-      goalId: string | null;
-      createdBy: string;
-      createdAt: Date;
+      projectId: ProjectId;
+      name: ProjectName;
+      status: ProjectStatus;
+      startDate: LocalDate;
+      targetDate: LocalDate;
+      description: ProjectDescription;
+      goalId: GoalId | null;
+      createdBy: UserId;
+      createdAt: Timestamp;
     }
-  ) {
-    this.aggregateId = payload.projectId;
-    this.occurredAt = payload.createdAt;
+  ) {}
+
+  get aggregateId(): ProjectId {
+    return this.payload.projectId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.createdAt;
   }
 }

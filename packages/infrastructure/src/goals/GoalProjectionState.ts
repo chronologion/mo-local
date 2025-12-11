@@ -2,25 +2,14 @@ import {
   PriorityLevel,
   SliceValue,
   eventTypes,
+  DomainEvent,
   GoalCreated,
   GoalSummaryChanged,
   GoalSliceChanged,
   GoalTargetChanged,
   GoalPriorityChanged,
   GoalArchived,
-  GoalAccessGranted,
-  GoalAccessRevoked,
 } from '@mo/domain';
-
-export type SupportedGoalEvent =
-  | GoalCreated
-  | GoalSummaryChanged
-  | GoalSliceChanged
-  | GoalTargetChanged
-  | GoalPriorityChanged
-  | GoalArchived
-  | GoalAccessGranted
-  | GoalAccessRevoked;
 
 export type GoalListItem = {
   id: string;
@@ -29,7 +18,7 @@ export type GoalListItem = {
   priority: PriorityLevel;
   targetMonth: string;
   createdAt: number;
-  deletedAt: number | null;
+  archivedAt: number | null;
 };
 
 export type GoalSnapshotState = {
@@ -40,7 +29,7 @@ export type GoalSnapshotState = {
   targetMonth: string;
   createdBy: string;
   createdAt: number;
-  deletedAt: number | null;
+  archivedAt: number | null;
   version: number;
 };
 
@@ -55,55 +44,55 @@ export type AnalyticsDelta = {
  */
 export const applyEventToSnapshot = (
   current: GoalSnapshotState | null,
-  event: SupportedGoalEvent,
+  event: DomainEvent,
   version: number
 ): GoalSnapshotState | null => {
   switch (event.eventType) {
     case eventTypes.goalCreated:
       return {
-        id: event.payload.goalId,
-        summary: event.payload.summary,
-        slice: event.payload.slice,
-        priority: event.payload.priority,
-        targetMonth: event.payload.targetMonth,
-        createdBy: event.payload.createdBy,
-        createdAt: event.payload.createdAt.getTime(),
-        deletedAt: null,
+        id: (event as GoalCreated).payload.goalId.value,
+        summary: (event as GoalCreated).payload.summary.value,
+        slice: (event as GoalCreated).payload.slice.value,
+        priority: (event as GoalCreated).payload.priority.level,
+        targetMonth: (event as GoalCreated).payload.targetMonth.value,
+        createdBy: (event as GoalCreated).payload.createdBy.value,
+        createdAt: (event as GoalCreated).payload.createdAt.value,
+        archivedAt: null,
         version,
       };
     case eventTypes.goalSummaryChanged:
       if (!current) return null;
       return {
         ...current,
-        summary: event.payload.summary,
+        summary: (event as GoalSummaryChanged).payload.summary.value,
         version,
       };
     case eventTypes.goalSliceChanged:
       if (!current) return null;
       return {
         ...current,
-        slice: event.payload.slice,
+        slice: (event as GoalSliceChanged).payload.slice.value,
         version,
       };
     case eventTypes.goalTargetChanged:
       if (!current) return null;
       return {
         ...current,
-        targetMonth: event.payload.targetMonth,
+        targetMonth: (event as GoalTargetChanged).payload.targetMonth.value,
         version,
       };
     case eventTypes.goalPriorityChanged:
       if (!current) return null;
       return {
         ...current,
-        priority: event.payload.priority,
+        priority: (event as GoalPriorityChanged).payload.priority.level,
         version,
       };
     case eventTypes.goalArchived:
       if (!current) return null;
       return {
         ...current,
-        deletedAt: event.payload.deletedAt.getTime(),
+        archivedAt: (event as GoalArchived).payload.archivedAt.value,
         version,
       };
     case eventTypes.goalAccessGranted:
@@ -125,8 +114,8 @@ export const buildAnalyticsDeltas = (
 ): AnalyticsDelta => {
   const deltas: AnalyticsDelta = { monthly: [], category: [] };
 
-  const prevActive = previous && previous.deletedAt === null;
-  const nextActive = next && next.deletedAt === null;
+  const prevActive = previous && previous.archivedAt === null;
+  const nextActive = next && next.archivedAt === null;
 
   const prevMonth = prevActive ? previous.targetMonth : null;
   const nextMonth = nextActive ? next.targetMonth : null;
@@ -171,7 +160,7 @@ export const snapshotToListItem = (
   priority: snapshot.priority,
   targetMonth: snapshot.targetMonth,
   createdAt: snapshot.createdAt,
-  deletedAt: snapshot.deletedAt,
+  archivedAt: snapshot.archivedAt,
 });
 
 const parseYear = (targetMonth: string): number => {

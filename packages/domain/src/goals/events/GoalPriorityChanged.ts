@@ -1,20 +1,44 @@
 import { DomainEvent } from '../../shared/DomainEvent';
-import { PriorityLevel } from '../Priority';
+import { Priority } from '../vos/Priority';
+import { GoalId } from '../vos/GoalId';
+import { Timestamp } from '../../shared/vos/Timestamp';
 import { goalEventTypes } from './eventTypes';
+import { ToJSON } from '../../shared/serialization';
 
-export class GoalPriorityChanged implements DomainEvent {
+export type GoalPriorityChangedJSON = ToJSON<GoalPriorityChanged['payload']>;
+
+export class GoalPriorityChanged implements DomainEvent<GoalId> {
   readonly eventType = goalEventTypes.goalPriorityChanged;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      goalId: string;
-      priority: PriorityLevel;
-      changedAt: Date;
+      goalId: GoalId;
+      priority: Priority;
+      changedAt: Timestamp;
     }
-  ) {
-    this.aggregateId = payload.goalId;
-    this.occurredAt = payload.changedAt;
+  ) {}
+
+  get aggregateId(): GoalId {
+    return this.payload.goalId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.changedAt;
+  }
+
+  toJSON(): GoalPriorityChangedJSON {
+    return {
+      goalId: this.payload.goalId.value,
+      priority: this.payload.priority.value,
+      changedAt: this.payload.changedAt.value,
+    };
+  }
+
+  static fromJSON(json: GoalPriorityChangedJSON): GoalPriorityChanged {
+    return new GoalPriorityChanged({
+      goalId: GoalId.from(json.goalId),
+      priority: Priority.from(json.priority),
+      changedAt: Timestamp.fromMillis(json.changedAt),
+    });
   }
 }

@@ -13,18 +13,28 @@ import {
   GoalTargetChanged,
   GoalPriorityChanged,
   GoalAccessGranted,
+  GoalId,
+  Slice,
+  Summary,
+  Month,
+  Priority,
+  UserId,
+  Timestamp,
+  Permission,
 } from '@mo/domain';
 
-const baseDate = new Date('2025-01-01T00:00:00Z');
-const aggregateId = 'goal-1';
+const baseDate = Timestamp.fromMillis(
+  new Date('2025-01-01T00:00:00Z').getTime()
+);
+const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000001');
 
 const createdEvent = new GoalCreated({
   goalId: aggregateId,
-  slice: 'Health',
-  summary: 'Run a marathon',
-  targetMonth: '2025-12',
-  priority: 'must',
-  createdBy: 'user-1',
+  slice: Slice.from('Health'),
+  summary: Summary.from('Run a marathon'),
+  targetMonth: Month.from('2025-12'),
+  priority: Priority.from('must'),
+  createdBy: UserId.from('user-1'),
   createdAt: baseDate,
 });
 
@@ -32,12 +42,12 @@ describe('GoalProjectionState', () => {
   it('creates and updates a snapshot from events', () => {
     const created = applyEventToSnapshot(null, createdEvent, 1);
     expect(created).toMatchObject({
-      id: aggregateId,
+      id: aggregateId.value,
       slice: 'Health',
       summary: 'Run a marathon',
       targetMonth: '2025-12',
       priority: 'must',
-      deletedAt: null,
+      archivedAt: null,
       version: 1,
     });
 
@@ -45,7 +55,7 @@ describe('GoalProjectionState', () => {
       created,
       new GoalSummaryChanged({
         goalId: aggregateId,
-        summary: 'Run a half-marathon first',
+        summary: Summary.from('Run a half-marathon first'),
         changedAt: baseDate,
       }),
       2
@@ -57,7 +67,7 @@ describe('GoalProjectionState', () => {
       updated,
       new GoalSliceChanged({
         goalId: aggregateId,
-        slice: 'Leisure',
+        slice: Slice.from('Leisure'),
         changedAt: baseDate,
       }),
       3
@@ -69,7 +79,7 @@ describe('GoalProjectionState', () => {
       movedSlice,
       new GoalTargetChanged({
         goalId: aggregateId,
-        targetMonth: '2026-01',
+        targetMonth: Month.from('2026-01'),
         changedAt: baseDate,
       }),
       4
@@ -81,7 +91,7 @@ describe('GoalProjectionState', () => {
       retargeted,
       new GoalPriorityChanged({
         goalId: aggregateId,
-        priority: 'should',
+        priority: Priority.from('should'),
         changedAt: baseDate,
       }),
       5
@@ -89,13 +99,13 @@ describe('GoalProjectionState', () => {
     expect(reprioritized?.priority).toBe('should');
     expect(reprioritized?.version).toBe(5);
 
-    const deleted = applyEventToSnapshot(
+    const archived = applyEventToSnapshot(
       reprioritized,
-      new GoalArchived({ goalId: aggregateId, deletedAt: baseDate }),
+      new GoalArchived({ goalId: aggregateId, archivedAt: baseDate }),
       6
     );
-    expect(deleted?.deletedAt).toBe(baseDate.getTime());
-    expect(deleted?.version).toBe(6);
+    expect(archived?.archivedAt).toBe(baseDate.value);
+    expect(archived?.version).toBe(6);
   });
 
   it('ignores access events for snapshot payload but advances version', () => {
@@ -108,8 +118,8 @@ describe('GoalProjectionState', () => {
       created,
       new GoalAccessGranted({
         goalId: aggregateId,
-        grantedTo: 'user-2',
-        permission: 'edit',
+        grantedTo: UserId.from('user-2'),
+        permission: Permission.from('edit'),
         grantedAt: baseDate,
       }),
       2
@@ -145,13 +155,13 @@ describe('GoalProjectionState', () => {
     ) as GoalSnapshotState;
     const dto = snapshotToListItem(created);
     expect(dto).toMatchObject({
-      id: aggregateId,
+      id: aggregateId.value,
       summary: 'Run a marathon',
       slice: 'Health',
       priority: 'must',
       targetMonth: '2025-12',
       createdAt: created.createdAt,
-      deletedAt: null,
+      archivedAt: null,
     });
   });
 });

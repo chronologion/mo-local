@@ -1,5 +1,6 @@
 import type { ProjectProjectionProcessor } from './projection/ProjectProjectionProcessor';
-import type { IProjectQueries, ProjectListItemDto } from '@mo/application';
+import type { IProjectQueries } from '@mo/application';
+import type { ProjectListItemDto } from '@mo/interface';
 
 export class ProjectQueries implements IProjectQueries {
   constructor(private readonly projection: ProjectProjectionProcessor) {}

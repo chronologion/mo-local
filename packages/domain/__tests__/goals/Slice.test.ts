@@ -21,21 +21,21 @@ describe('Slice', () => {
     });
   });
 
-  describe('Slice.of()', () => {
+  describe('Slice.from()', () => {
     it('should create slice from valid string', () => {
-      const slice = Slice.of('Health');
+      const slice = Slice.from('Health');
       expect(slice).toBeInstanceOf(Slice);
       expect(slice.value).toBe('Health');
     });
 
     it('should throw on invalid slice value', () => {
-      expect(() => Slice.of('Invalid')).toThrow();
-      expect(() => Slice.of('health')).toThrow(); // Case sensitive
+      expect(() => Slice.from('Invalid')).toThrow();
+      expect(() => Slice.from('health')).toThrow(); // Case sensitive
     });
 
     it('should work with all valid slices', () => {
       ALL_SLICES.forEach((sliceValue) => {
-        const slice = Slice.of(sliceValue);
+        const slice = Slice.from(sliceValue);
         expect(slice.value).toBe(sliceValue);
       });
     });
@@ -49,8 +49,8 @@ describe('Slice', () => {
     });
 
     it('should return true for equivalent slices', () => {
-      const slice1 = Slice.of('Work');
-      const slice2 = Slice.of('Work');
+      const slice1 = Slice.from('Work');
+      const slice2 = Slice.from('Work');
       expect(slice1.equals(slice2)).toBe(true);
     });
 

@@ -18,10 +18,10 @@ describe('InMemoryGoalRepository', () => {
     const goal = Goal.create({
       id: GoalId.create(),
       slice: Slice.Health,
-      summary: Summary.of('Test goal'),
+      summary: Summary.from('Test goal'),
       targetMonth: Month.now(),
       priority: Priority.Must,
-      createdBy: UserId.of('user-1'),
+      createdBy: UserId.from('user-1'),
     });
     const key = Uint8Array.from([1, 2, 3, 4]);
 
@@ -40,13 +40,25 @@ describe('InMemoryEventBus', () => {
     const received: string[] = [];
 
     bus.subscribe('TestEvent', async (event) => {
-      received.push(event.aggregateId);
+      received.push((event.aggregateId as { value: string }).value);
     });
 
     const events = [
-      { eventType: 'TestEvent', occurredAt: new Date(), aggregateId: 'a-1' },
-      { eventType: 'OtherEvent', occurredAt: new Date(), aggregateId: 'a-2' },
-      { eventType: 'TestEvent', occurredAt: new Date(), aggregateId: 'a-3' },
+      {
+        eventType: 'TestEvent',
+        occurredAt: { value: Date.now() } as never,
+        aggregateId: { value: 'a-1' } as never,
+      },
+      {
+        eventType: 'OtherEvent',
+        occurredAt: { value: Date.now() } as never,
+        aggregateId: { value: 'a-2' } as never,
+      },
+      {
+        eventType: 'TestEvent',
+        occurredAt: { value: Date.now() } as never,
+        aggregateId: { value: 'a-3' } as never,
+      },
     ];
 
     await bus.publish(events);

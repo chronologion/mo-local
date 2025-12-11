@@ -11,7 +11,6 @@ import {
   GoalSnapshotState,
   applyEventToSnapshot,
   buildAnalyticsDeltas,
-  SupportedGoalEvent,
 } from '../GoalProjectionState';
 import {
   AnalyticsPayload,
@@ -70,7 +69,7 @@ export class GoalProjectionProcessor {
       'priority',
       'targetMonth',
       'createdAt',
-      'deletedAt',
+      'archivedAt',
     ] as const,
     searchOptions: {
       prefix: true,
@@ -288,10 +287,7 @@ export class GoalProjectionProcessor {
       );
     }
 
-    const domainEvent = (await this.toDomain.toDomain(
-      event,
-      kGoal
-    )) as SupportedGoalEvent;
+    const domainEvent = await this.toDomain.toDomain(event, kGoal);
     const previousSnapshot =
       this.snapshots.get(event.aggregateId) ??
       (await this.loadSnapshot(event.aggregateId, kGoal));
@@ -333,7 +329,7 @@ export class GoalProjectionProcessor {
         row.version,
         kGoal
       );
-      if (!snapshot || snapshot.deletedAt !== null) continue;
+      if (!snapshot || snapshot.archivedAt !== null) continue;
       this.snapshots.set(row.aggregate_id, snapshot);
       this.projections.set(row.aggregate_id, snapshotToListItem(snapshot));
     }
@@ -407,7 +403,7 @@ export class GoalProjectionProcessor {
   }
 
   private async updateAnalytics(
-    event: SupportedGoalEvent,
+    event: import('@mo/domain').DomainEvent,
     previous: GoalSnapshotState | null,
     next: GoalSnapshotState | null,
     sequence?: number,
@@ -421,7 +417,7 @@ export class GoalProjectionProcessor {
       updated,
       analyticsKey,
       sequence ?? 0,
-      occurredAt ?? event.occurredAt.getTime()
+      occurredAt ?? event.occurredAt.value
     );
     this.analyticsCache = updated;
   }
@@ -578,7 +574,7 @@ export class GoalProjectionProcessor {
     snapshot: GoalSnapshotState | null
   ): void {
     const existing = this.projections.get(aggregateId) ?? null;
-    if (!snapshot || snapshot.deletedAt !== null) {
+    if (!snapshot || snapshot.archivedAt !== null) {
       this.snapshots.delete(aggregateId);
       this.projections.delete(aggregateId);
       if (existing) {
@@ -634,7 +630,7 @@ export class GoalProjectionProcessor {
   private rebuildSearchIndexFromProjections(): void {
     this.searchIndex = this.createSearchIndex();
     const docs = [...this.projections.values()].filter(
-      (item) => item.deletedAt === null
+      (item) => item.archivedAt === null
     );
     if (docs.length > 0) {
       this.searchIndex.addAll(docs);

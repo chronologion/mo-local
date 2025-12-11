@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { validateCreateProjectCommand } from '../../../src/projects/commands/CreateProjectCommand';
-import { validateChangeProjectStatusCommand } from '../../../src/projects/commands/ChangeProjectStatusCommand';
-import { validateAddProjectMilestoneCommand } from '../../../src/projects/commands/AddProjectMilestoneCommand';
-import { validateArchiveProjectCommand } from '../../../src/projects/commands/ArchiveProjectCommand';
+import { validateCreateProjectCommand } from '../../../src/projects/commands/CreateProject';
+import { validateChangeProjectStatusCommand } from '../../../src/projects/commands/ChangeProjectStatus';
+import { validateAddProjectMilestoneCommand } from '../../../src/projects/commands/AddProjectMilestone';
+import { validateArchiveProjectCommand } from '../../../src/projects/commands/ArchiveProject';
 
 const now = Date.now();
 

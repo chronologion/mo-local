@@ -1,19 +1,44 @@
 import { DomainEvent } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
+import { GoalId } from '../vos/GoalId';
+import { Summary } from '../vos/Summary';
+import { Timestamp } from '../../shared/vos/Timestamp';
+import { ToJSON } from '../../shared/serialization';
 
-export class GoalSummaryChanged implements DomainEvent {
+export type GoalSummaryChangedJSON = ToJSON<GoalSummaryChanged['payload']>;
+
+export class GoalSummaryChanged implements DomainEvent<GoalId> {
   readonly eventType = goalEventTypes.goalSummaryChanged;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      goalId: string;
-      summary: string;
-      changedAt: Date;
+      goalId: GoalId;
+      summary: Summary;
+      changedAt: Timestamp;
     }
-  ) {
-    this.aggregateId = payload.goalId;
-    this.occurredAt = payload.changedAt;
+  ) {}
+
+  get aggregateId(): GoalId {
+    return this.payload.goalId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.changedAt;
+  }
+
+  toJSON(): GoalSummaryChangedJSON {
+    return {
+      goalId: this.payload.goalId.value,
+      summary: this.payload.summary.value,
+      changedAt: this.payload.changedAt.value,
+    };
+  }
+
+  static fromJSON(json: GoalSummaryChangedJSON): GoalSummaryChanged {
+    return new GoalSummaryChanged({
+      goalId: GoalId.from(json.goalId),
+      summary: Summary.from(json.summary),
+      changedAt: Timestamp.fromMillis(json.changedAt),
+    });
   }
 }

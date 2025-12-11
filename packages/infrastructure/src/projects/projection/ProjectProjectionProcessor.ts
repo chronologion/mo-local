@@ -56,7 +56,7 @@ export class ProjectProjectionProcessor {
       'milestoneCount',
       'createdAt',
       'updatedAt',
-      'deletedAt',
+      'archivedAt',
     ] as string[],
     searchOptions: {
       prefix: true,
@@ -110,7 +110,7 @@ export class ProjectProjectionProcessor {
     goalId?: string | null;
   }): ProjectListItem[] {
     const all = [...this.projections.values()].filter(
-      (p) => p.deletedAt === null
+      (p) => p.archivedAt === null
     );
     const filtered = filter
       ? all.filter((p) => {
@@ -277,7 +277,7 @@ export class ProjectProjectionProcessor {
     if (existing) {
       this.searchIndex.remove(existing);
     }
-    if (snapshot.deletedAt === null) {
+    if (snapshot.archivedAt === null) {
       this.projections.set(aggregateId, doc);
       this.searchIndex.add(doc);
     } else {
@@ -301,7 +301,7 @@ export class ProjectProjectionProcessor {
         row.version,
         kProject
       );
-      if (!snapshot || snapshot.deletedAt !== null) continue;
+      if (!snapshot || snapshot.archivedAt !== null) continue;
       this.snapshots.set(row.aggregate_id, snapshot);
       this.projections.set(
         row.aggregate_id,

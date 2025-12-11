@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
 import { Button } from '../ui/button';
-import { deriveLegacySaltForUser, encodeSalt } from '../../lib/deriveSalt';
+import { deriveLegacySaltForUser, encodeSalt } from '@mo/infrastructure';
 
 const toBase64 = (data: Uint8Array): string =>
   btoa(String.fromCharCode(...Array.from(data)));

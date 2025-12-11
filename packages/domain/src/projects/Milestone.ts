@@ -1,7 +1,7 @@
 import { Assert } from '../shared/Assert';
 import { Entity } from '../shared/Entity';
-import { LocalDate } from '../shared/LocalDate';
-import { MilestoneId } from './MilestoneId';
+import { LocalDate } from '../shared/vos/LocalDate';
+import { MilestoneId } from './vos/MilestoneId';
 
 export class Milestone extends Entity<MilestoneId> {
   private _name: string;

@@ -9,7 +9,7 @@ import {
   ProjectMilestoneAdded,
   ProjectMilestoneTargetDateChanged,
   ProjectMilestoneNameChanged,
-  ProjectMilestoneDeleted,
+  ProjectMilestoneArchived,
   ProjectArchived,
   ProjectStatusValue,
 } from '@mo/domain';
@@ -25,7 +25,7 @@ export type SupportedProjectEvent =
   | ProjectMilestoneAdded
   | ProjectMilestoneTargetDateChanged
   | ProjectMilestoneNameChanged
-  | ProjectMilestoneDeleted
+  | ProjectMilestoneArchived
   | ProjectArchived;
 
 export type ProjectMilestoneState = {
@@ -45,7 +45,7 @@ export type ProjectSnapshotState = {
   milestones: ProjectMilestoneState[];
   createdAt: number;
   updatedAt: number;
-  deletedAt: number | null;
+  archivedAt: number | null;
   version: number;
 };
 
@@ -60,7 +60,7 @@ export type ProjectListItem = {
   milestones: ProjectMilestoneState[];
   createdAt: number;
   updatedAt: number;
-  deletedAt: number | null;
+  archivedAt: number | null;
 };
 
 export const applyProjectEventToSnapshot = (
@@ -72,17 +72,17 @@ export const applyProjectEventToSnapshot = (
     case 'ProjectCreated': {
       const payload = event.payload;
       return {
-        id: payload.projectId,
-        name: payload.name,
-        status: payload.status,
-        startDate: payload.startDate,
-        targetDate: payload.targetDate,
-        description: payload.description,
-        goalId: payload.goalId,
+        id: payload.projectId.value,
+        name: payload.name.value,
+        status: payload.status.value,
+        startDate: payload.startDate.value,
+        targetDate: payload.targetDate.value,
+        description: payload.description.value,
+        goalId: payload.goalId ? payload.goalId.value : null,
         milestones: [],
-        createdAt: payload.createdAt.getTime(),
-        updatedAt: payload.createdAt.getTime(),
-        deletedAt: null,
+        createdAt: payload.createdAt.value,
+        updatedAt: payload.createdAt.value,
+        archivedAt: null,
         version,
       };
     }
@@ -90,8 +90,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        status: event.payload.status,
-        updatedAt: event.payload.changedAt.getTime(),
+        status: event.payload.status.value,
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
@@ -99,9 +99,9 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        startDate: event.payload.startDate,
-        targetDate: event.payload.targetDate,
-        updatedAt: event.payload.changedAt.getTime(),
+        startDate: event.payload.startDate.value,
+        targetDate: event.payload.targetDate.value,
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
@@ -109,8 +109,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        name: event.payload.name,
-        updatedAt: event.payload.changedAt.getTime(),
+        name: event.payload.name.value,
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
@@ -118,8 +118,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        description: event.payload.description,
-        updatedAt: event.payload.changedAt.getTime(),
+        description: event.payload.description.value,
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
@@ -127,8 +127,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        goalId: event.payload.goalId,
-        updatedAt: event.payload.addedAt.getTime(),
+        goalId: event.payload.goalId.value,
+        updatedAt: event.payload.addedAt.value,
         version,
       };
     }
@@ -137,7 +137,7 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         goalId: null,
-        updatedAt: event.payload.removedAt.getTime(),
+        updatedAt: event.payload.removedAt.value,
         version,
       };
     }
@@ -148,12 +148,12 @@ export const applyProjectEventToSnapshot = (
         milestones: [
           ...snapshot.milestones,
           {
-            id: event.payload.milestoneId,
+            id: event.payload.milestoneId.value,
             name: event.payload.name,
-            targetDate: event.payload.targetDate,
+            targetDate: event.payload.targetDate.value,
           },
         ],
-        updatedAt: event.payload.addedAt.getTime(),
+        updatedAt: event.payload.addedAt.value,
         version,
       };
     }
@@ -162,11 +162,11 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.payload.milestoneId
-            ? { ...m, targetDate: event.payload.targetDate }
+          m.id === event.payload.milestoneId.value
+            ? { ...m, targetDate: event.payload.targetDate.value }
             : m
         ),
-        updatedAt: event.payload.changedAt.getTime(),
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
@@ -175,22 +175,22 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.payload.milestoneId
+          m.id === event.payload.milestoneId.value
             ? { ...m, name: event.payload.name }
             : m
         ),
-        updatedAt: event.payload.changedAt.getTime(),
+        updatedAt: event.payload.changedAt.value,
         version,
       };
     }
-    case 'ProjectMilestoneDeleted': {
+    case 'ProjectMilestoneArchived': {
       if (!snapshot) return null;
       return {
         ...snapshot,
         milestones: snapshot.milestones.filter(
-          (m) => m.id !== event.payload.milestoneId
+          (m) => m.id !== event.payload.milestoneId.value
         ),
-        updatedAt: event.payload.deletedAt.getTime(),
+        updatedAt: event.payload.archivedAt.value,
         version,
       };
     }
@@ -198,8 +198,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        deletedAt: event.payload.deletedAt.getTime(),
-        updatedAt: event.payload.deletedAt.getTime(),
+        archivedAt: event.payload.archivedAt.value,
+        updatedAt: event.payload.archivedAt.value,
         version,
       };
     }
@@ -221,5 +221,5 @@ export const projectSnapshotToListItem = (
   milestones: snapshot.milestones,
   createdAt: snapshot.createdAt,
   updatedAt: snapshot.updatedAt,
-  deletedAt: snapshot.deletedAt,
+  archivedAt: snapshot.archivedAt,
 });

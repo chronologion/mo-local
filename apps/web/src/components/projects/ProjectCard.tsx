@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ProjectListItem } from '@mo/infrastructure/browser';
+import type { GoalListItemDto, ProjectListItemDto } from '@mo/interface';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
@@ -13,17 +13,16 @@ import {
   SelectValue,
 } from '../ui/select';
 import { RefreshCw, Archive } from 'lucide-react';
-import { GoalListItem } from '@mo/infrastructure/browser';
 import { MilestonesList } from './ProjectMilestones';
 import { ProjectMilestoneInput } from './ProjectMilestoneInput';
 
 type ProjectCardProps = {
-  project: ProjectListItem;
-  goals: GoalListItem[];
+  project: ProjectListItemDto;
+  goals: GoalListItemDto[];
   onUpdate: (
     projectId: string,
     changes: {
-      status?: ProjectListItem['status'];
+      status?: ProjectListItemDto['status'];
       name?: string;
       description?: string;
       startDate?: string;
@@ -43,12 +42,12 @@ type ProjectCardProps = {
     milestoneId: string,
     changes: { name?: string; targetDate?: string }
   ) => Promise<void>;
-  onDeleteMilestone: (projectId: string, milestoneId: string) => Promise<void>;
+  onArchiveMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 };
 
 const allowedTransitions: Record<
-  ProjectListItem['status'],
-  ProjectListItem['status'][]
+  ProjectListItemDto['status'],
+  ProjectListItemDto['status'][]
 > = {
   planned: ['in_progress', 'canceled'],
   in_progress: ['completed', 'canceled'],
@@ -63,7 +62,7 @@ export function ProjectCard({
   onArchive,
   onAddMilestone,
   onUpdateMilestone,
-  onDeleteMilestone,
+  onArchiveMilestone,
   isUpdating,
   isArchiving,
 }: ProjectCardProps) {
@@ -173,8 +172,8 @@ export function ProjectCard({
           onUpdate={async (milestoneId, changes) => {
             await onUpdateMilestone(project.id, milestoneId, changes);
           }}
-          onDelete={async (milestoneId) => {
-            await onDeleteMilestone(project.id, milestoneId);
+          onArchive={async (milestoneId) => {
+            await onArchiveMilestone(project.id, milestoneId);
           }}
           disabled={isUpdating}
         />

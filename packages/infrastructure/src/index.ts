@@ -3,6 +3,7 @@ export * from './livestore/adapters/LiveStoreToDomainAdapter';
 export * from './events/InMemoryEventBus';
 export * from './crypto/NodeCryptoService';
 export * from './crypto/SharingCrypto';
+export * from './crypto/deriveSalt';
 export * from './crypto/AggregateKeyManager';
 export * from './crypto/KeyWrapping';
 export * from './crypto/IndexedDBKeyStore';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GoalCommandHandler } from '../../../src/goals/handlers/GoalCommandHandler';
+import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
   InMemoryEventBus,
   InMemoryGoalRepository,
@@ -8,16 +8,16 @@ import {
 } from '../../fixtures/ports';
 import { ConcurrencyError } from '../../../src/errors/ConcurrencyError';
 import {
-  ChangeGoalPriorityCommand,
-  ChangeGoalSliceCommand,
-  ChangeGoalSummaryCommand,
-  ChangeGoalTargetMonthCommand,
-  CreateGoalCommand,
+  ChangeGoalPriority,
+  ChangeGoalSlice,
+  ChangeGoalSummary,
+  ChangeGoalTargetMonth,
+  CreateGoal,
 } from '../../../src/goals/commands';
 
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
 const userId = 'user-1';
-const baseCreate = new CreateGoalCommand({
+const baseCreate = new CreateGoal({
   goalId,
   slice: 'Health' as const,
   summary: 'Run a marathon',
@@ -53,7 +53,7 @@ describe('GoalCommandHandler', () => {
     const before = eventBus.getPublished().length;
 
     await handler.handleChangeSummary(
-      new ChangeGoalSummaryCommand({
+      new ChangeGoalSummary({
         goalId,
         summary: 'Run a faster marathon',
         userId,
@@ -70,7 +70,7 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeSummary(
-        new ChangeGoalSummaryCommand({
+        new ChangeGoalSummary({
           goalId,
           summary: 'Another summary',
           userId,
@@ -88,7 +88,7 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangePriority(
-        new ChangeGoalPriorityCommand({
+        new ChangeGoalPriority({
           goalId,
           priority: 'should',
           userId,
@@ -106,7 +106,7 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeSlice(
-        new ChangeGoalSliceCommand({
+        new ChangeGoalSlice({
           goalId,
           slice: 'Work',
           userId,
@@ -124,7 +124,7 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeTargetMonth(
-        new ChangeGoalTargetMonthCommand({
+        new ChangeGoalTargetMonth({
           goalId,
           targetMonth: '2026-01',
           userId,

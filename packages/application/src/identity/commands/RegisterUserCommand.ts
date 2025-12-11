@@ -4,7 +4,7 @@ import {
   ValidationError,
   failure,
   success,
-} from '../../results/CommandResult';
+} from '../../shared/ports/CommandResult';
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface RegisterUserCommand {
@@ -27,7 +27,11 @@ export function validateRegisterUserCommand(
 ): CommandResult<ValidatedRegisterUserCommand> {
   const errors: ValidationError[] = [];
 
-  const userId = safeConvert(() => UserId.of(command.userId), 'userId', errors);
+  const userId = safeConvert(
+    () => UserId.from(command.userId),
+    'userId',
+    errors
+  );
   const signingPublicKey = validateBytes(
     command.signingPublicKey,
     'signingPublicKey',

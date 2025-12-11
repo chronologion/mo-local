@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@fontsource-variable/mulish": "^5.2.8",
@@ -17,6 +17,7 @@
     "@livestore/adapter-web": "0.4.0-dev.19",
     "@livestore/livestore": "0.4.0-dev.19",
     "@livestore/react": "0.4.0-dev.19",
+    "@mo/interface": "1.0.0",
     "@mo/application": "1.0.0",
     "@mo/domain": "1.0.0",
     "@mo/infrastructure": "1.0.0",

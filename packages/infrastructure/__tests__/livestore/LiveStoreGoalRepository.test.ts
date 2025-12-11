@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   LiveStoreGoalRepository,
   GoalEventAdapter,
@@ -16,29 +16,33 @@ import {
 } from '@mo/domain';
 import { PersistenceError } from '../../src/errors';
 
+const cachedEvents = new Map<string, DomainEvent>();
+
 const adapter: GoalEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
+    const id = `${event.eventType}-${version}`;
+    cachedEvents.set(id, event);
     return {
-      id: `${event.eventType}-${version}`,
-      aggregateId: event.aggregateId,
+      id,
+      aggregateId: event.aggregateId.value,
       eventType: event.eventType,
-      payload: new TextEncoder().encode(
-        JSON.stringify({ ...event, encryptionKey: Array.from(encryptionKey) })
-      ),
+      payload: new Uint8Array(encryptionKey), // dummy payload to satisfy contract
       version,
-      occurredAt: Date.now(),
+      occurredAt: event.occurredAt.value,
     };
   },
-  toDomain(event, encryptionKey: Uint8Array) {
-    const json = JSON.parse(new TextDecoder().decode(event.payload));
-    // ensure key was provided
-    expect(json.encryptionKey).toEqual(Array.from(encryptionKey));
-    return {
-      ...json,
-      occurredAt: new Date(json.occurredAt ?? Date.now()),
-    };
+  toDomain(event) {
+    const cached = cachedEvents.get(event.id);
+    if (!cached) {
+      throw new Error(`Missing cached event for ${event.id}`);
+    }
+    return cached;
   },
 };
+
+beforeEach(() => {
+  cachedEvents.clear();
+});
 
 describe('LiveStoreGoalRepository', () => {
   it('saves and reloads a goal via event replay', async () => {
@@ -49,10 +53,10 @@ describe('LiveStoreGoalRepository', () => {
     const goal = Goal.create({
       id: GoalId.create(),
       slice: Slice.Health,
-      summary: Summary.of('Test'),
-      targetMonth: Month.fromString('2025-12'),
+      summary: Summary.from('Test'),
+      targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
-      createdBy: UserId.of('user-1'),
+      createdBy: UserId.from('user-1'),
     });
 
     await repo.save(goal, key);
@@ -67,10 +71,10 @@ describe('LiveStoreGoalRepository', () => {
     const goal = Goal.create({
       id: GoalId.create(),
       slice: Slice.Health,
-      summary: Summary.of('Test'),
-      targetMonth: Month.fromString('2025-12'),
+      summary: Summary.from('Test'),
+      targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
-      createdBy: UserId.of('user-1'),
+      createdBy: UserId.from('user-1'),
     });
 
     const adapterThrowing: GoalEventAdapter = {

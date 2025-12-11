@@ -1,4 +1,4 @@
-import { ValidationError } from '../results/CommandResult';
+import { ValidationError } from './ports/CommandResult';
 
 export const safeConvert = <T>(
   fn: () => T,

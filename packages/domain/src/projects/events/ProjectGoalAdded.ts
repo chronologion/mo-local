@@ -1,19 +1,25 @@
 import { DomainEvent } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
+import { ProjectId } from '../vos/ProjectId';
+import { GoalId } from '../../goals/vos/GoalId';
+import { Timestamp } from '../../shared/vos/Timestamp';
 
-export class ProjectGoalAdded implements DomainEvent {
+export class ProjectGoalAdded implements DomainEvent<ProjectId> {
   readonly eventType = projectEventTypes.projectGoalAdded;
-  readonly occurredAt: Date;
-  readonly aggregateId: string;
 
   constructor(
     public readonly payload: {
-      projectId: string;
-      goalId: string;
-      addedAt: Date;
+      projectId: ProjectId;
+      goalId: GoalId;
+      addedAt: Timestamp;
     }
-  ) {
-    this.aggregateId = payload.projectId;
-    this.occurredAt = payload.addedAt;
+  ) {}
+
+  get aggregateId(): ProjectId {
+    return this.payload.projectId;
+  }
+
+  get occurredAt(): Timestamp {
+    return this.payload.addedAt;
   }
 }

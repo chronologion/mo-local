@@ -9,9 +9,14 @@ import {
   deriveLegacySaltForUser,
   encodeSalt,
   generateRandomSalt,
-} from '../lib/deriveSalt';
-import { parseBackupEnvelope } from './backupEnvelope';
+} from '@mo/infrastructure';
+import { parseBackupEnvelope } from '@mo/interface';
 import { z } from 'zod';
+import {
+  InterfaceProvider,
+  type InterfaceContextValue,
+  type InterfaceServices,
+} from '@mo/interface/react';
 
 const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';
@@ -418,6 +423,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return <div>Loading app...</div>;
   }
 
+  const interfaceServices: InterfaceServices = {
+    goalCommandBus: services.goalCommandBus,
+    goalQueryBus: services.goalQueryBus,
+    projectCommandBus: services.projectCommandBus,
+    projectQueryBus: services.projectQueryBus,
+    goalProjection: services.goalProjection,
+    projectProjection: services.projectProjection,
+  };
+
+  const interfaceContextValue: InterfaceContextValue = {
+    services: interfaceServices,
+    session,
+  };
+
   return (
     <>
       <AppContext.Provider
@@ -433,7 +452,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           restoreBackup,
         }}
       >
-        {children}
+        <InterfaceProvider value={interfaceContextValue}>
+          {children}
+        </InterfaceProvider>
       </AppContext.Provider>
       {debugInfo && import.meta.env.DEV ? (
         <DebugPanel

@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, PlusCircle } from 'lucide-react';
-import { useProjects } from '../../hooks/useProjects';
-import { useProjectCommands } from '../../hooks/useProjectCommands';
-import { useGoals } from '../../hooks/useGoals';
+import { useGoals, useProjects, useProjectCommands } from '@mo/interface/react';
 import {
   Card,
   CardContent,
@@ -22,7 +20,7 @@ export function ProjectsPage() {
     archiveProject,
     addMilestone,
     updateMilestone,
-    deleteMilestone,
+    archiveMilestone,
     loading: mutating,
     error: mutationError,
   } = useProjectCommands();
@@ -30,7 +28,7 @@ export function ProjectsPage() {
   const [uiError, setUiError] = useState<string | null>(null);
 
   const activeProjects = useMemo(
-    () => projects.filter((p) => p.deletedAt === null),
+    () => projects.filter((p) => p.archivedAt === null),
     [projects]
   );
 
@@ -125,16 +123,16 @@ export function ProjectsPage() {
                   setUiError(message);
                 }
               }}
-              onDeleteMilestone={async (projectId, milestoneId) => {
+              onArchiveMilestone={async (projectId, milestoneId) => {
                 setUiError(null);
                 try {
-                  await deleteMilestone(projectId, milestoneId);
+                  await archiveMilestone(projectId, milestoneId);
                   await refresh();
                 } catch (err) {
                   const message =
                     err instanceof Error
                       ? err.message
-                      : 'Failed to delete milestone';
+                      : 'Failed to archive milestone';
                   setUiError(message);
                 }
               }}

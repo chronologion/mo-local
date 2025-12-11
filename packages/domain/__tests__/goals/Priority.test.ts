@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Priority } from '../../src/goals/Priority';
+import { Priority } from '../../src/goals/vos/Priority';
 
 describe('Priority', () => {
   describe('static constants', () => {
@@ -16,16 +16,16 @@ describe('Priority', () => {
     });
   });
 
-  describe('Priority.of()', () => {
+  describe('Priority.from()', () => {
     it('should create priority from valid string', () => {
-      const priority = Priority.of('must');
+      const priority = Priority.from('must');
       expect(priority).toBeInstanceOf(Priority);
       expect(priority.level).toBe('must');
     });
 
     it('should throw on invalid priority level', () => {
-      expect(() => Priority.of('high')).toThrow();
-      expect(() => Priority.of('Must')).toThrow(); // Case sensitive
+      expect(() => Priority.from('high')).toThrow();
+      expect(() => Priority.from('Must')).toThrow(); // Case sensitive
     });
   });
 
