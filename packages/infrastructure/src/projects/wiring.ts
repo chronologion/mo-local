@@ -128,16 +128,22 @@ const buildProjectCommandBus = (
     wrapProject(handler.handleCreate.bind(handler), command)
   );
 
-  projectCommandBus.register('ChangeProjectStatus', (command: ChangeProjectStatus) =>
-    wrapProject(handler.handleChangeStatus.bind(handler), command)
+  projectCommandBus.register(
+    'ChangeProjectStatus',
+    (command: ChangeProjectStatus) =>
+      wrapProject(handler.handleChangeStatus.bind(handler), command)
   );
 
-  projectCommandBus.register('ChangeProjectDates', (command: ChangeProjectDates) =>
-    wrapProject(handler.handleChangeDates.bind(handler), command)
+  projectCommandBus.register(
+    'ChangeProjectDates',
+    (command: ChangeProjectDates) =>
+      wrapProject(handler.handleChangeDates.bind(handler), command)
   );
 
-  projectCommandBus.register('ChangeProjectName', (command: ChangeProjectName) =>
-    wrapProject(handler.handleChangeName.bind(handler), command)
+  projectCommandBus.register(
+    'ChangeProjectName',
+    (command: ChangeProjectName) =>
+      wrapProject(handler.handleChangeName.bind(handler), command)
   );
 
   projectCommandBus.register(
@@ -150,8 +156,10 @@ const buildProjectCommandBus = (
     wrapProject(handler.handleAddGoal.bind(handler), command)
   );
 
-  projectCommandBus.register('RemoveProjectGoal', (command: RemoveProjectGoal) =>
-    wrapProject(handler.handleRemoveGoal.bind(handler), command)
+  projectCommandBus.register(
+    'RemoveProjectGoal',
+    (command: RemoveProjectGoal) =>
+      wrapProject(handler.handleRemoveGoal.bind(handler), command)
   );
 
   projectCommandBus.register(

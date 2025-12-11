@@ -42,9 +42,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     super();
   }
 
-  async handleCreate(
-    command: CreateProject
-  ): Promise<ProjectCommandResult> {
+  async handleCreate(command: CreateProject): Promise<ProjectCommandResult> {
     const {
       projectId,
       name,
@@ -145,9 +143,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     return this.persist(project);
   }
 
-  async handleAddGoal(
-    command: AddProjectGoal
-  ): Promise<ProjectCommandResult> {
+  async handleAddGoal(command: AddProjectGoal): Promise<ProjectCommandResult> {
     const { projectId, goalId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       goalId: (c) => GoalId.from(c.goalId),
@@ -239,9 +235,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     return this.persist(project);
   }
 
-  async handleArchive(
-    command: ArchiveProject
-  ): Promise<ProjectCommandResult> {
+  async handleArchive(command: ArchiveProject): Promise<ProjectCommandResult> {
     const { projectId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       userId: (c) => UserId.from(c.userId),
