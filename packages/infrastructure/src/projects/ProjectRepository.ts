@@ -48,7 +48,7 @@ export class ProjectRepository implements IProjectRepository {
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
-  async findById(id: ProjectId): Promise<Project | null> {
+  async load(id: ProjectId): Promise<Project | null> {
     const kProject = await this.keyProvider(id.value);
     if (!kProject) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);

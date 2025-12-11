@@ -1,4 +1,5 @@
 import { Goal, GoalId } from '@mo/domain';
+import type { Repository } from '../../shared/ports/Repository';
 
 /**
  * Persistence boundary for Goal aggregates.
@@ -7,10 +8,6 @@ import { Goal, GoalId } from '@mo/domain';
  * optimistic concurrency, and applying the provided encryption key where
  * necessary.
  */
-export interface IGoalRepository {
-  findById(id: GoalId): Promise<Goal | null>;
-
-  save(goal: Goal, encryptionKey: Uint8Array): Promise<void>;
-
+export interface IGoalRepository extends Repository<Goal, GoalId> {
   archive(id: GoalId): Promise<void>;
 }

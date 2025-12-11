@@ -148,7 +148,7 @@ export class ProjectCommandHandler {
   }
 
   private async loadProject(projectId: ProjectId): Promise<Project> {
-    const project = await this.projectRepo.findById(projectId);
+    const project = await this.projectRepo.load(projectId);
     if (!project) {
       throw new NotFoundError(`Project ${projectId.value} not found`);
     }

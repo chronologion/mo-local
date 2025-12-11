@@ -26,11 +26,11 @@ describe('InMemoryGoalRepository', () => {
     const key = Uint8Array.from([1, 2, 3, 4]);
 
     await repo.save(goal, key);
-    expect(await repo.findById(goal.id)).toBe(goal);
+    expect(await repo.load(goal.id)).toBe(goal);
     expect(repo.getStoredKey(goal.id)).toEqual(key);
 
     await repo.delete(goal.id);
-    expect(await repo.findById(goal.id)).toBeNull();
+    expect(await repo.load(goal.id)).toBeNull();
   });
 });
 

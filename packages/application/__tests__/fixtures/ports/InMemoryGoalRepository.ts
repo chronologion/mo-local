@@ -1,5 +1,5 @@
 import { Goal, GoalId } from '@mo/domain';
-import { IGoalRepository } from '../IGoalRepository';
+import { IGoalRepository } from '../../../src/goals/ports/IGoalRepository';
 
 type StoredGoal = {
   goal: Goal;
@@ -14,7 +14,7 @@ export class InMemoryGoalRepository implements IGoalRepository {
   private failSave = false;
   private errorToThrow: Error | null = null;
 
-  async findById(id: GoalId): Promise<Goal | null> {
+  async load(id: GoalId): Promise<Goal | null> {
     return this.store.get(id.value)?.goal ?? null;
   }
 
@@ -29,6 +29,13 @@ export class InMemoryGoalRepository implements IGoalRepository {
       throw new Error('save failed');
     }
     this.store.set(goal.id.value, { goal, encryptionKey });
+  }
+
+  async archive(id: GoalId): Promise<void> {
+    const stored = this.store.get(id.value);
+    if (!stored) return;
+    stored.goal.archive();
+    await this.save(stored.goal, stored.encryptionKey);
   }
 
   async delete(id: GoalId): Promise<void> {

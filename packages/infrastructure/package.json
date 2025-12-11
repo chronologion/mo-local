@@ -11,7 +11,8 @@
     "./browser": "./src/browser.ts",
     "./browser/schema": "./src/goals/schema.ts",
     "./goals/schema": "./src/goals/schema.ts",
-    "./browser/worker": "./src/browser/worker.ts"
+    "./browser/worker": "./src/browser/worker.ts",
+    "./crypto/deriveSalt": "./src/crypto/deriveSalt.ts"
   },
   "scripts": {
     "test": "vitest --no-watch",

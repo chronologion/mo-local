@@ -39,7 +39,7 @@ export class GoalRepository implements IGoalRepository {
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
-  async findById(id: GoalId): Promise<Goal | null> {
+  async load(id: GoalId): Promise<Goal | null> {
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
@@ -144,7 +144,7 @@ export class GoalRepository implements IGoalRepository {
   }
 
   async archive(id: GoalId): Promise<void> {
-    const goal = await this.findById(id);
+    const goal = await this.load(id);
     if (!goal) return;
     goal.archive();
     const kGoal = await this.keyProvider(id.value);

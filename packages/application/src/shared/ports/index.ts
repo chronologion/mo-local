@@ -9,4 +9,5 @@ export * from './CommandResult';
 export * from './cqrsTypes';
 export * from './BaseCommand';
 export * from './BaseCommandHandler';
-export * from './queries';
+export * from './Repository';
+export * from './ReadModel';

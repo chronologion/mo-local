@@ -30,7 +30,7 @@ export class LiveStoreGoalRepository {
     ) => Promise<Uint8Array | null>
   ) {}
 
-  async findById(id: GoalId): Promise<Goal | null> {
+  async load(id: GoalId): Promise<Goal | null> {
     const encryptedEvents = await this.eventStore.getEvents(id.value);
     if (encryptedEvents.length === 0) return null;
 

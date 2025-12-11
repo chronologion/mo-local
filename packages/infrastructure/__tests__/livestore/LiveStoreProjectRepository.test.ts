@@ -66,7 +66,7 @@ describe('LiveStoreProjectRepository', () => {
     });
 
     await repo.save(project, kProject);
-    const loaded = await repo.findById(project.id);
+    const loaded = await repo.load(project.id);
 
     expect(loaded).not.toBeNull();
     expect(loaded?.name.value).toBe('Alpha');

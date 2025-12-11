@@ -179,7 +179,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   private async loadGoal(goalId: GoalId): Promise<Goal> {
-    const goal = await this.goalRepo.findById(goalId);
+    const goal = await this.goalRepo.load(goalId);
     if (!goal) {
       throw new NotFoundError(`Goal ${goalId.value} not found`);
     }

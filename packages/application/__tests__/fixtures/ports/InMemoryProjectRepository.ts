@@ -1,5 +1,5 @@
 import { Project, ProjectId } from '@mo/domain';
-import { IProjectRepository } from '../IProjectRepository';
+import { IProjectRepository } from '../../../src/projects/ports/IProjectRepository';
 
 type StoredProject = {
   project: Project;
@@ -11,7 +11,7 @@ export class InMemoryProjectRepository implements IProjectRepository {
   private failSave = false;
   private errorToThrow: Error | null = null;
 
-  async findById(id: ProjectId): Promise<Project | null> {
+  async load(id: ProjectId): Promise<Project | null> {
     return this.store.get(id.value)?.project ?? null;
   }
 
@@ -26,6 +26,13 @@ export class InMemoryProjectRepository implements IProjectRepository {
       throw new Error('save failed');
     }
     this.store.set(project.id.value, { project, encryptionKey });
+  }
+
+  async archive(id: ProjectId): Promise<void> {
+    const stored = this.store.get(id.value);
+    if (!stored) return;
+    stored.project.archive();
+    await this.save(stored.project, stored.encryptionKey);
   }
 
   async delete(id: ProjectId): Promise<void> {

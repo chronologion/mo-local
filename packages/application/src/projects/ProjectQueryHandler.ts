@@ -1,5 +1,5 @@
 import type { IQueryHandler } from '../shared/ports/cqrsTypes';
-import type { IProjectQueries } from './ports/IProjectQueries';
+import type { IProjectReadModel } from './ports/IProjectReadModel';
 import type { ProjectListItemDto } from '@mo/interface';
 import { ListProjectsQuery } from './queries/ListProjectsQuery';
 import { GetProjectByIdQuery } from './queries/GetProjectByIdQuery';
@@ -19,16 +19,16 @@ export class ProjectQueryHandler implements IQueryHandler<
   ProjectQuery,
   ProjectQueryResult
 > {
-  constructor(private readonly queries: IProjectQueries) {}
+  constructor(private readonly readModel: IProjectReadModel) {}
 
   execute(query: ProjectQuery): Promise<ProjectQueryResult> {
     switch (query.type) {
       case 'ListProjects':
-        return this.queries.listProjects(query.filter);
+        return this.readModel.list(query.filter);
       case 'GetProjectById':
-        return this.queries.getProjectById(query.projectId);
+        return this.readModel.getById(query.projectId);
       case 'SearchProjects':
-        return this.queries.searchProjects(query.term, query.filter);
+        return this.readModel.search(query.term, query.filter);
       default: {
         const _exhaustive: never = query;
         return Promise.reject(

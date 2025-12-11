@@ -61,7 +61,7 @@ describe('LiveStoreGoalRepository', () => {
 
     await repo.save(goal, key);
 
-    const loaded = await repo.findById(goal.id);
+    const loaded = await repo.load(goal.id);
     expect(loaded).not.toBeNull();
     expect(loaded?.summary.value).toBe('Test');
   });

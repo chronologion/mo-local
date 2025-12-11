@@ -29,7 +29,7 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     ) => Promise<Uint8Array | null>
   ) {}
 
-  async findById(id: ProjectId): Promise<Project | null> {
+  async load(id: ProjectId): Promise<Project | null> {
     const encryptedEvents = await this.eventStore.getEvents(id.value);
     if (encryptedEvents.length === 0) return null;
 
