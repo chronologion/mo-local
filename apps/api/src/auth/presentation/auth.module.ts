@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../../database/database.module';
+import { DatabaseModule } from '../../platform/database/database.module';
 import { KratosSessionGuard } from './guards/kratos-session.guard';
 import { KratosClient } from '../infrastructure/kratos.client';
 import { KratosPasswordService } from '../infrastructure/kratos-password.service';

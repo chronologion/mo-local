@@ -10,7 +10,7 @@ import {
   type MigrationResultSet,
 } from 'kysely';
 import { Pool } from 'pg';
-import { Database } from '../database/database.types';
+import { Database } from '../platform/database/database.types';
 
 config();
 
