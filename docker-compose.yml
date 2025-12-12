@@ -1,0 +1,115 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mo-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: postgres
+    ports:
+      - '5434:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  kratos-migrate:
+    image: oryd/kratos:v1.3.0
+    container_name: mo-local-kratos-migrate
+    command:
+      [
+        'migrate',
+        'sql',
+        '-e',
+        '--yes'
+      ]
+    environment:
+      DSN: postgres://postgres:devpassword@postgres:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
+    depends_on:
+      - postgres
+    volumes:
+      - ./infra/kratos:/etc/config/kratos
+
+  kratos:
+    image: oryd/kratos:v1.3.0
+    container_name: mo-local-kratos
+    command:
+      [
+        'serve',
+        '--dev',
+        '--config',
+        '/etc/config/kratos/kratos.yml'
+      ]
+    environment:
+      DSN: postgres://postgres:devpassword@postgres:5432/kratos?sslmode=disable&max_conns=20&max_idle_conns=4
+      SERVE_PUBLIC_BASE_URL: http://localhost:4455/
+      SERVE_ADMIN_BASE_URL: http://kratos:4434/
+      LOG_LEVEL: debug
+      LOG_FORMAT: json
+      LOG_LEAK_SENSITIVE_VALUES: 'false'
+      COURIER_SMTP_CONNECTION_URI: smtps://foo:bar@localhost:1025/
+      SELF_SERVICE_DEFAULT_BROWSER_RETURN_URL: http://localhost:5173/
+      SELF_SERVICE_ALLOWED_RETURN_URLS: http://localhost:5173/
+      SECRETS_DEFAULT: dev-default-secret-0123
+      SECRETS_COOKIE: dev-cookie-secret-0123
+      SECRETS_CIPHER: dev-cipher-secret-0123456789abcd
+      SESSION_LIFESPAN: 24h
+      SERVE_PUBLIC_PORT: 4455
+      SERVE_ADMIN_PORT: 4434
+      SERVE_PUBLIC_CORS_ENABLED: 'true'
+      SERVE_PUBLIC_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:4000
+      SERVE_PUBLIC_CORS_ALLOWED_METHODS: GET,POST,PUT,PATCH,DELETE,OPTIONS
+      SERVE_PUBLIC_CORS_ALLOWED_HEADERS: Authorization,Cookie,Content-Type,X-CSRF-Token
+      SERVE_PUBLIC_CORS_ALLOW_CREDENTIALS: 'true'
+    ports:
+      - '4455:4455'
+      - '4434:4434'
+    depends_on:
+      - postgres
+      - kratos-migrate
+    volumes:
+      - ./infra/kratos:/etc/config/kratos
+
+  api:
+    image: node:22-alpine
+    container_name: mo-local-api
+    working_dir: /workspace
+    command: >
+      sh -c "corepack enable &&
+      yarn install &&
+      yarn workspace @mo/api build &&
+      yarn workspace @mo/api start"
+    environment:
+      DATABASE_URL: postgres://postgres:devpassword@postgres:5432/mo_local
+      KRATOS_PUBLIC_URL: http://kratos:4455
+      PORT: 4000
+    ports:
+      - '4000:4000'
+    volumes:
+      - .:/workspace
+    depends_on:
+      - postgres
+      - kratos
+
+  web:
+    image: node:22-alpine
+    container_name: mo-local-web
+    working_dir: /workspace
+    command: >
+      sh -c "corepack enable &&
+      yarn install &&
+      yarn workspace @mo/web dev --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_API_URL: http://localhost:4000
+      VITE_AUTH_URL: http://localhost:4455
+    ports:
+      - '5173:5173'
+    volumes:
+      - .:/workspace
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

@@ -9,6 +9,13 @@
   "scripts": {
     "dev": "yarn workspace @mo/web dev",
     "dev:api": "yarn workspace @mo/api dev",
+    "dev:stack": "NODE_ENV=development ./scripts/dev-stack.sh start",
+    "dev:stack:stop": "./scripts/dev-stack.sh stop",
+    "dev:stack:logs": "./scripts/dev-stack.sh logs",
+    "dev:stack:status": "./scripts/dev-stack.sh status",
+    "db:migrate": "yarn workspace @mo/api db:migrate",
+    "db:migrate:down": "yarn workspace @mo/api db:migrate:down",
+    "e2e": "yarn workspace @mo/e2e test",
     "build": "yarn workspaces run build",
     "test": "yarn workspaces run test",
     "typecheck": "yarn workspaces run typecheck",

@@ -9,7 +9,7 @@ MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS do
 - **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`), and identity commands.
 - **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
 - **packages/interface** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
-- **apps/api** – Placeholder for the future NestJS backend (not yet implemented).
+- **apps/api** – NestJS backend bootstrap (Kysely, Kratos auth guard, `/health`, `/me`, migrations for `users` and `invites`; sync/events table is handled in a separate issue).
 
 Everything runs locally today; sync + sharing + backend APIs are tracked as follow-up work.
 
@@ -33,6 +33,19 @@ Everything runs locally today; sync + sharing + backend APIs are tracked as foll
 | `yarn format:check` | Ensure Prettier formatting.                   |
 
 Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/web test`, `build`, etc.).
+
+### Backend + Dev Stack (Docker + Kratos + Kysely)
+
+- Fixed ports: Postgres `5434`, API `4000`, Web `5173`, Kratos public `4455`, Kratos admin `4434`.
+- Bring the stack up/down/logs/status:
+  - `yarn dev:stack`
+  - `yarn dev:stack:stop`
+  - `yarn dev:stack:logs`
+  - `yarn dev:stack:status`
+- Env template: copy `.env.example` → `.env` if you want to override `DATABASE_URL`, `KRATOS_PUBLIC_URL`, etc.
+- Migrations (Kysely): `yarn db:migrate` / `yarn db:migrate:down` (applies `users` + `invites`; sync/events table is intentionally excluded here).
+- Auth: Kratos is wired as the identity provider; the API guard validates sessions via Kratos and upserts the `users` row on first request.
+- E2E (Playwright): `yarn e2e` (stack must be running; includes basic health checks for API/Kratos/Web).
 
 ## Key Concepts
 

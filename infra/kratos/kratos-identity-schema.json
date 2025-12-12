@@ -1,0 +1,20 @@
+{
+  "$id": "https://mo-local/kratos-identity-schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "default",
+  "type": "object",
+  "properties": {
+    "traits": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      },
+      "required": ["email"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["traits"]
+}
