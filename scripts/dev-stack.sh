@@ -27,6 +27,12 @@ case "$ACTION" in
     docker compose -f "$COMPOSE_FILE" down
     echo "Stack stopped."
     ;;
+  reset)
+    print_summary
+    echo "Resetting stack (including volumes)..."
+    docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
+    echo "Stack reset."
+    ;;
   logs)
     docker compose -f "$COMPOSE_FILE" logs -f
     ;;
@@ -35,7 +41,7 @@ case "$ACTION" in
     ;;
   *)
     echo "Unknown action: $ACTION"
-    echo "Usage: $0 [start|stop|logs|status]"
+    echo "Usage: $0 [start|stop|reset|logs|status]"
     exit 1
     ;;
 esac
