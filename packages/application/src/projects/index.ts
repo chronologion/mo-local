@@ -1,4 +1,5 @@
 export * from './commands';
+export * from './dtos';
 export * from './ProjectCommandHandler';
 export * from './queries';
 export * from './ProjectQueryHandler';

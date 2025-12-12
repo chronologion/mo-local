@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GoalListItemDto } from '@mo/presentation';
+import type { GoalListItemDto } from '@mo/application';
 import { useProjects } from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';

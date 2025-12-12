@@ -1,5 +1,5 @@
 import type { ReadModel } from '../../shared/ports/ReadModel';
-import type { ProjectListItemDto } from '@mo/presentation';
+import type { ProjectListItemDto } from '../dtos';
 
 /**
  * Read-side ports for project projections.

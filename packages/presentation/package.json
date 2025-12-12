@@ -13,6 +13,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@mo/application": "1.0.0",
     "@mo/domain": "1.0.0"
   },
   "devDependencies": {

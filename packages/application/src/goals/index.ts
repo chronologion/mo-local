@@ -1,4 +1,5 @@
 export * from './commands';
+export * from './dtos';
 export * from './GoalCommandHandler';
 export * from './queries';
 export * from './GoalQueryHandler';

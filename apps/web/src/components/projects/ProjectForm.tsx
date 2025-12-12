@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import type { GoalListItemDto } from '@mo/presentation';
+import type { GoalListItemDto } from '@mo/application';
 
 export type ProjectFormValues = {
   name: string;

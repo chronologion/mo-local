@@ -1,6 +1,6 @@
 import type { IQueryHandler } from '../shared/ports/cqrsTypes';
 import type { IProjectReadModel } from './ports/IProjectReadModel';
-import type { ProjectListItemDto } from '@mo/presentation';
+import type { ProjectListItemDto } from './dtos';
 import { ListProjectsQuery } from './queries/ListProjectsQuery';
 import { GetProjectByIdQuery } from './queries/GetProjectByIdQuery';
 import { SearchProjectsQuery } from './queries/SearchProjectsQuery';
