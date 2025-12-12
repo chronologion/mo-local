@@ -23,6 +23,6 @@ export interface InvitesTable {
 }
 
 export interface Database {
-  users: UsersTable;
-  invites: InvitesTable;
+  'auth.users': UsersTable;
+  'auth.invites': InvitesTable;
 }

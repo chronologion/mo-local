@@ -1,7 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthUser } from '../auth/auth-user.decorator';
-import { KratosSessionGuard } from '../auth/presentation/guards/kratos-session.guard';
-import { AuthenticatedUser } from '../auth/domain/authenticated-user';
+import { AuthUser } from '../../auth-user.decorator';
+import { KratosSessionGuard } from '../guards/kratos-session.guard';
+import { AuthenticatedUser } from '../../domain/authenticated-user';
 
 @Controller('me')
 @UseGuards(KratosSessionGuard)

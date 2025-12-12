@@ -13,7 +13,7 @@ export class KyselyUserRepository extends UserRepository {
   async ensureExists(user: { id: string }): Promise<void> {
     await this.database
       .getDb()
-      .insertInto('users')
+      .insertInto('auth.users')
       .values({
         id: user.id,
       })

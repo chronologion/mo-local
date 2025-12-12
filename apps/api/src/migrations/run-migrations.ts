@@ -1,11 +1,12 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { config } from 'dotenv';
 import {
   Kysely,
   Migrator,
-  FileMigrationProvider,
   PostgresDialect,
+  type Migration,
   type MigrationResultSet,
 } from 'kysely';
 import { Pool } from 'pg';
@@ -23,15 +24,46 @@ const db = new Kysely<Database>({
   }),
 });
 
-const migrationsFolder = path.join(__dirname, 'definitions');
+const migrationsRoot = path.join(__dirname, 'definitions');
+
+async function loadMigrations(): Promise<Record<string, Migration>> {
+  const files: string[] = [];
+
+  async function walk(dir: string): Promise<void> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  await walk(migrationsRoot);
+  files.sort();
+
+  const migrations: Record<string, Migration> = {};
+  for (const file of files) {
+    const mod = (await import(pathToFileURL(file).href)) as {
+      up: Migration['up'];
+      down: Migration['down'];
+    };
+    const relative = path.relative(migrationsRoot, file);
+    const name = relative.replace(/\\/g, '/').replace(/\.ts$/, '');
+    migrations[name] = { up: mod.up, down: mod.down };
+  }
+  return migrations;
+}
 
 const migrator = new Migrator({
   db,
-  provider: new FileMigrationProvider({
-    fs,
-    path,
-    migrationFolder: migrationsFolder,
-  }),
+  provider: {
+    async getMigrations() {
+      return loadMigrations();
+    },
+  },
 });
 
 async function run(): Promise<void> {
