@@ -275,7 +275,8 @@ export class KratosClient {
       return null;
     }
     try {
-      return JSON.parse(text) as unknown;
+      const parsed: unknown = JSON.parse(text);
+      return parsed;
     } catch {
       return text;
     }

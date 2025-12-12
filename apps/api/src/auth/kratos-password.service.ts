@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+type JsonObject = Record<string, unknown>;
+
 type KratosSession = {
   sessionToken: string;
   identityId: string;
   email?: string;
 };
+
+const isObject = (value: unknown): value is JsonObject =>
+  typeof value === 'object' && value !== null;
+
+const isUnknownArray = (value: unknown): value is unknown[] =>
+  Array.isArray(value);
 
 @Injectable()
 export class KratosPasswordService {
@@ -46,20 +54,33 @@ export class KratosPasswordService {
     });
   }
 
-  whoAmI(
+  async whoAmI(
     sessionToken: string
   ): Promise<{ identityId: string; email?: string }> {
-    return this.requestJson<{
-      identity: { id: string; traits: { email?: string } };
-    }>('/sessions/whoami', {
+    const payload = await this.requestJson('/sessions/whoami', {
       headers: {
         accept: 'application/json',
         'x-session-token': sessionToken,
       },
-    }).then((body) => ({
-      identityId: body.identity.id,
-      email: body.identity.traits.email,
-    }));
+    });
+
+    if (!isObject(payload)) {
+      throw new Error('Kratos whoami response is invalid');
+    }
+    const identity = payload.identity;
+    if (!isObject(identity)) {
+      throw new Error('Kratos whoami response missing identity');
+    }
+    const identityId = identity.id;
+    if (typeof identityId !== 'string' || !identityId) {
+      throw new Error('Kratos whoami response missing identity id');
+    }
+    const traits = identity.traits;
+    const email =
+      isObject(traits) && typeof traits.email === 'string'
+        ? traits.email
+        : undefined;
+    return { identityId, email };
   }
 
   async logout(sessionToken: string): Promise<void> {
@@ -83,59 +104,109 @@ export class KratosPasswordService {
     payload: Record<string, unknown>;
     errorMessage: string;
   }): Promise<KratosSession> {
-    const flow = await this.requestJson<{
-      id: string;
-      ui?: {
-        nodes?: Array<{ attributes?: { name?: string; value?: string } }>;
-      };
-    }>(params.flowPath, {
+    const flowPayload = await this.requestJson(params.flowPath, {
       headers: { accept: 'application/json' },
       redirect: 'manual',
     });
-    const csrfToken =
-      flow.ui?.nodes?.find((node) => node.attributes?.name === 'csrf_token')
-        ?.attributes?.value ?? undefined;
-    const body: Record<string, unknown> = {
-      ...params.payload,
-      ...(csrfToken ? { csrf_token: csrfToken } : {}),
-    };
-    const response = await this.requestJson<{
-      session_token: string;
-      session: { identity: { id: string; traits: { email?: string } } };
-    }>(`${params.submitPath}?flow=${flow.id}`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.session_token) {
+
+    if (!isObject(flowPayload)) {
       throw new Error(params.errorMessage);
     }
+    const flowId = flowPayload.id;
+    if (typeof flowId !== 'string' || !flowId) {
+      throw new Error('Kratos flow response missing flow id');
+    }
+
+    const ui = flowPayload.ui;
+    const nodes = isObject(ui) && isUnknownArray(ui.nodes) ? ui.nodes : [];
+    const csrfToken = nodes
+      .map((node) => (isObject(node) ? node.attributes : null))
+      .filter(isObject)
+      .find((attrs) => attrs.name === 'csrf_token');
+    const csrfValue =
+      csrfToken && typeof csrfToken.value === 'string' ? csrfToken.value : '';
+
+    const body: Record<string, unknown> = {
+      ...params.payload,
+      ...(csrfValue ? { csrf_token: csrfValue } : {}),
+    };
+
+    const responsePayload = await this.requestJson(
+      `${params.submitPath}?flow=${flowId}`,
+      {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!isObject(responsePayload)) {
+      throw new Error(params.errorMessage);
+    }
+
+    const sessionToken = responsePayload.session_token;
+    if (typeof sessionToken !== 'string' || !sessionToken) {
+      throw new Error(params.errorMessage);
+    }
+    const session = responsePayload.session;
+    if (!isObject(session)) {
+      throw new Error(params.errorMessage);
+    }
+    const identity = session.identity;
+    if (!isObject(identity)) {
+      throw new Error(params.errorMessage);
+    }
+    const identityId = identity.id;
+    if (typeof identityId !== 'string' || !identityId) {
+      throw new Error(params.errorMessage);
+    }
+    const traits = identity.traits;
+    const email =
+      isObject(traits) && typeof traits.email === 'string'
+        ? traits.email
+        : undefined;
     return {
-      sessionToken: response.session_token,
-      identityId: response.session.identity.id,
-      email: response.session.identity.traits.email,
+      sessionToken,
+      identityId,
+      email,
     };
   }
 
-  private async requestJson<T>(
+  private async requestJson(
     path: string,
     init: RequestInit,
     okStatuses: number[] = [200]
-  ): Promise<T> {
+  ): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await fetch(url, init);
-    const payload = (await response.json().catch(() => ({}))) as unknown;
+    const payload = await this.readJson(response);
     if (!okStatuses.includes(response.status)) {
-      const reason =
-        payload && typeof payload === 'object' && 'error' in payload
-          ? (payload as { error?: { message?: string } }).error?.message
-          : null;
+      const reason = this.extractErrorMessage(payload);
       const message = reason ?? `Kratos request failed (${response.status})`;
       throw new Error(message);
     }
-    return payload as T;
+    return payload;
+  }
+
+  private async readJson(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      return parsed;
+    } catch {
+      return text;
+    }
+  }
+
+  private extractErrorMessage(payload: unknown): string | null {
+    if (!isObject(payload)) return null;
+    const error = payload.error;
+    if (!isObject(error)) return null;
+    const message = error.message;
+    return typeof message === 'string' ? message : null;
   }
 }
