@@ -10,5 +10,6 @@ export * from './crypto/IndexedDBKeyStore';
 export * from './crypto/WebCryptoService';
 export * from './browser/LiveStoreEventStore';
 export * from './browser/sleep';
+export * from './kratos/client';
 export * from './goals';
 export * from './projects';

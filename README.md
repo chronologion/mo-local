@@ -46,6 +46,7 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 - Migrations (Kysely): `yarn db:migrate` / `yarn db:migrate:down` (applies `users` + `invites`; sync/events table is intentionally excluded here).
 - Auth: Kratos is wired as the identity provider; the API guard validates sessions via Kratos and upserts the `users` row on first request.
 - E2E (Playwright): `yarn e2e` (stack must be running; includes basic health checks for API/Kratos/Web).
+- Web auth UI: after local onboarding/unlock, use “Connect to cloud” in the header to sign up or log in via Kratos (email + password). Session tokens persist locally for this POC and power `/me`; logout clears them. Configure Kratos origin with `VITE_AUTH_URL`.
 
 ## Key Concepts
 

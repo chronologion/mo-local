@@ -4,6 +4,7 @@ import { useApp } from './providers/AppProvider';
 import { Card, CardContent } from './components/ui/card';
 import { Onboarding } from './components/auth/Onboarding';
 import { Unlock } from './components/auth/Unlock';
+import { RemoteAuthStatus } from './components/auth/RemoteAuthStatus';
 
 const GoalsPage = lazy(() =>
   import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
@@ -31,9 +32,12 @@ export default function App() {
               <div className="text-sm">Offline POC · LiveStore/OPFS</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="h-4 w-4 text-accent2" />
-            Zero-knowledge, local-first
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-accent2" />
+              Zero-knowledge, local-first
+            </div>
+            {session.status === 'ready' ? <RemoteAuthStatus /> : null}
           </div>
         </div>
       </header>

@@ -64,11 +64,11 @@ export class LocalDate extends ValueObject<string> {
     return this._value >= other._value;
   }
 
-  toString(): string {
+  override toString(): string {
     return this._value;
   }
 
-  get value(): string {
+  override get value(): string {
     return this._value;
   }
 }

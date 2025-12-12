@@ -117,7 +117,7 @@ export class Month extends ValueObject<string> {
     return new Month(newYear, newMonth);
   }
 
-  equals(other: Month): boolean {
+  override equals(other: Month): boolean {
     return this._year === other._year && this._month === other._month;
   }
 }

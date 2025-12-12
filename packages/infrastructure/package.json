@@ -13,6 +13,7 @@
     "./events/InMemoryEventBus": "./src/events/InMemoryEventBus.ts",
     "./crypto/IndexedDBKeyStore": "./src/crypto/IndexedDBKeyStore.ts",
     "./crypto/WebCryptoService": "./src/crypto/WebCryptoService.ts",
+    "./kratos/client": "./src/kratos/client.ts",
     "./livestore/adapters/LiveStoreToDomainAdapter": "./src/livestore/adapters/LiveStoreToDomainAdapter.ts",
     "./goals/wiring": "./src/goals/wiring.ts",
     "./projects/wiring": "./src/projects/wiring.ts",
