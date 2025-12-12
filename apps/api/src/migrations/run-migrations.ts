@@ -10,7 +10,7 @@ import {
   type MigrationResultSet,
 } from 'kysely';
 import { Pool } from 'pg';
-import { Database } from '../platform/database/database.types';
+import { Database } from '../platform/infrastructure/database/database.types';
 
 config();
 
@@ -24,7 +24,10 @@ const db = new Kysely<Database>({
   }),
 });
 
-const migrationsRoot = path.join(__dirname, 'definitions');
+const migrationsRoots = [
+  path.join(__dirname, '..', 'auth', 'migrations'),
+  path.join(__dirname),
+];
 
 async function loadMigrations(): Promise<Record<string, Migration>> {
   const files: string[] = [];
@@ -41,7 +44,13 @@ async function loadMigrations(): Promise<Record<string, Migration>> {
     }
   }
 
-  await walk(migrationsRoot);
+  for (const root of migrationsRoots) {
+    try {
+      await walk(root);
+    } catch {
+      // Skip missing roots
+    }
+  }
   files.sort();
 
   const migrations: Record<string, Migration> = {};
@@ -50,8 +59,12 @@ async function loadMigrations(): Promise<Record<string, Migration>> {
       up: Migration['up'];
       down: Migration['down'];
     };
-    const relative = path.relative(migrationsRoot, file);
-    const name = relative.replace(/\\/g, '/').replace(/\.ts$/, '');
+    const relative = migrationsRoots
+      .map((root) => path.relative(root, file))
+      .find((rel) => !rel.startsWith('..'));
+    const name = (relative ?? path.basename(file))
+      .replace(/\\/g, '/')
+      .replace(/\.ts$/, '');
     migrations[name] = { up: mod.up, down: mod.down };
   }
   return migrations;

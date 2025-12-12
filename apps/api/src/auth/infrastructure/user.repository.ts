@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../../platform/database/database.service';
+import { DatabaseService } from '../../platform/infrastructure/database/database.service';
 import { UserRepository } from '../application/ports/user-repository';
 
 @Injectable()

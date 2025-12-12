@@ -1,5 +1,5 @@
 import { Kysely, sql } from 'kysely';
-import { Database } from '../../../platform/database/database.types';
+import { Database } from '../../platform/infrastructure/database/database.types';
 
 export async function up(db: Kysely<Database>): Promise<void> {
   await db.schema.createSchema('auth').ifNotExists().execute();
