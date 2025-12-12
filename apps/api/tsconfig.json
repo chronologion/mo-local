@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022"],
     "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -15,7 +15,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node"]
+    "types": ["node", "undici-types"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

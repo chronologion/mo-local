@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { z } from 'zod';
 
 type RemoteAuthState =
   | { status: 'disconnected' }
@@ -56,7 +57,58 @@ type SessionResponse = {
   email?: string;
 };
 
-const requestJson = async <T,>(path: string, init: RequestInit): Promise<T> => {
+const sessionResponseSchema = z.object({
+  sessionToken: z.string(),
+  identityId: z.string(),
+  email: z.string().optional(),
+});
+
+const whoamiResponseSchema = z.object({
+  identityId: z.string(),
+  email: z.string().optional(),
+});
+
+const logoutResponseSchema = z.object({
+  revoked: z.boolean(),
+});
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const parseJson = async (response: Response): Promise<unknown> => {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed;
+  } catch {
+    return text;
+  }
+};
+
+const extractErrorMessage = (payload: unknown): string | null => {
+  if (!isObject(payload)) return null;
+  if (isObject(payload.error) && typeof payload.error.message === 'string') {
+    return payload.error.message;
+  }
+  const message = payload.message;
+  if (typeof message === 'string') {
+    return message;
+  }
+  if (
+    Array.isArray(message) &&
+    message.every((item) => typeof item === 'string')
+  ) {
+    return message.join(', ');
+  }
+  return null;
+};
+
+const requestJson = async <T,>(
+  path: string,
+  init: RequestInit,
+  schema: z.ZodSchema<T>
+): Promise<T> => {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
@@ -64,16 +116,20 @@ const requestJson = async <T,>(path: string, init: RequestInit): Promise<T> => {
       ...(init.headers ?? {}),
     },
   });
-  const payload = (await response.json().catch(() => ({}))) as {
-    error?: { message?: string };
-    message?: string;
-  };
+
+  const payload = await parseJson(response);
   if (!response.ok) {
-    const reason = payload?.error?.message ?? payload?.message;
-    const message = reason ?? `Request to ${path} failed`;
+    const reason = extractErrorMessage(payload);
+    const message =
+      reason ?? `Request to ${path} failed (status ${response.status})`;
     throw new Error(message);
   }
-  return payload as T;
+
+  const parsed = schema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error(`Unexpected response from ${path}`);
+  }
+  return parsed.data;
 };
 
 export const RemoteAuthProvider = ({
@@ -105,12 +161,13 @@ export const RemoteAuthProvider = ({
     setState({ status: 'connecting' });
     setError(null);
     try {
-      const whoami = await requestJson<{ identityId: string; email?: string }>(
+      const whoami = await requestJson(
         '/auth/whoami',
         {
           method: 'GET',
           headers: { 'x-session-token': storedToken },
-        }
+        },
+        whoamiResponseSchema
       );
       setState({
         status: 'connected',
@@ -136,13 +193,17 @@ export const RemoteAuthProvider = ({
       setState({ status: 'connecting' });
       setError(null);
       try {
-        const session = await requestJson<SessionResponse>('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: params.email,
-            password: params.password,
-          }),
-        });
+        const session = await requestJson(
+          '/auth/register',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              email: params.email,
+              password: params.password,
+            }),
+          },
+          sessionResponseSchema
+        );
         adoptSession(session);
       } catch (err) {
         const message =
@@ -160,13 +221,17 @@ export const RemoteAuthProvider = ({
       setState({ status: 'connecting' });
       setError(null);
       try {
-        const session = await requestJson<SessionResponse>('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: params.email,
-            password: params.password,
-          }),
-        });
+        const session = await requestJson(
+          '/auth/login',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              email: params.email,
+              password: params.password,
+            }),
+          },
+          sessionResponseSchema
+        );
         adoptSession(session);
       } catch (err) {
         const message =
@@ -184,10 +249,14 @@ export const RemoteAuthProvider = ({
     setError(null);
     try {
       if (token) {
-        await requestJson<{ revoked: boolean }>('/auth/logout', {
-          method: 'POST',
-          body: JSON.stringify({ sessionToken: token }),
-        });
+        await requestJson(
+          '/auth/logout',
+          {
+            method: 'POST',
+            body: JSON.stringify({ sessionToken: token }),
+          },
+          logoutResponseSchema
+        );
       }
     } catch (err) {
       const message =

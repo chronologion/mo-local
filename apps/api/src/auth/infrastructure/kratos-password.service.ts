@@ -54,40 +54,11 @@ export class KratosPasswordService {
     });
   }
 
-  async whoAmI(
-    sessionToken: string
-  ): Promise<{ identityId: string; email?: string }> {
-    const payload = await this.requestJson('/sessions/whoami', {
-      headers: {
-        accept: 'application/json',
-        'x-session-token': sessionToken,
-      },
-    });
-
-    if (!isObject(payload)) {
-      throw new Error('Kratos whoami response is invalid');
-    }
-    const identity = payload.identity;
-    if (!isObject(identity)) {
-      throw new Error('Kratos whoami response missing identity');
-    }
-    const identityId = identity.id;
-    if (typeof identityId !== 'string' || !identityId) {
-      throw new Error('Kratos whoami response missing identity id');
-    }
-    const traits = identity.traits;
-    const email =
-      isObject(traits) && typeof traits.email === 'string'
-        ? traits.email
-        : undefined;
-    return { identityId, email };
-  }
-
   async logout(sessionToken: string): Promise<void> {
     await this.requestJson(
       '/self-service/logout/api',
       {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           accept: 'application/json',
           'content-type': 'application/json',

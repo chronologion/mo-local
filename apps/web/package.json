@@ -45,6 +45,7 @@
     "@vitejs/plugin-react-swc": "^4.2.2",
     "autoprefixer": "10.4.20",
     "class-variance-authority": "^0.7.1",
+    "jsdom": "^27.3.0",
     "lucide-react": "^0.555.0",
     "postcss": "8.4.47",
     "tailwindcss": "4.1.17",

@@ -1,19 +1,19 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Request } from 'express';
-import { AuthenticatedUser } from './auth.types';
-import { KratosClient } from './kratos.client';
-import { UserProvisioner } from './user-provisioner.service';
+import { AuthenticatedUser } from '../../domain/authenticated-user';
+import { AuthService } from '../../application/auth.service';
 
 @Injectable()
 export class KratosSessionGuard implements CanActivate {
-  constructor(
-    private readonly kratosClient: KratosClient,
-    private readonly userProvisioner: UserProvisioner
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const cookieHeader = request.headers.cookie;
     const sessionTokenHeader = request.headers['x-session-token'];
     const sessionToken =
       typeof sessionTokenHeader === 'string'
@@ -22,8 +22,11 @@ export class KratosSessionGuard implements CanActivate {
           ? sessionTokenHeader[0]
           : undefined;
 
-    const authUser = await this.kratosClient.whoAmI(cookieHeader, sessionToken);
-    await this.userProvisioner.ensureExists(authUser);
+    if (!sessionToken) {
+      throw new UnauthorizedException('x-session-token header is required');
+    }
+
+    const authUser = await this.authService.validateSession(sessionToken);
     (request as RequestWithAuthUser).authUser = authUser;
     return true;
   }

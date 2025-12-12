@@ -13,12 +13,30 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 const createResponse = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status });
 
+const createLocalStorage = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+};
+
 describe('RemoteAuthProvider', () => {
   const fetchMock = vi.spyOn(global, 'fetch');
+  const localStorageStub = createLocalStorage();
 
   beforeEach(() => {
     fetchMock.mockReset();
-    localStorage.clear();
+    vi.stubGlobal('localStorage', localStorageStub);
+    localStorageStub.clear();
   });
 
   afterEach(() => {
