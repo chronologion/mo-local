@@ -33,7 +33,8 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@livestore/devtools-vite": "0.4.0-dev.19",
