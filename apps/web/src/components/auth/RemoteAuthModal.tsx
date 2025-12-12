@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogIn, UserPlus, X } from 'lucide-react';
+import { LogIn, UserPlus } from 'lucide-react';
 import { useRemoteAuth } from '../../providers/RemoteAuthProvider';
 import { Button } from '../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 type RemoteAuthModalProps = {
   open: boolean;
@@ -43,13 +51,18 @@ export function RemoteAuthModal({
     [submitting, state.status]
   );
 
-  if (!open) return null;
+  const handleTabChange = (value: string) => {
+    if (value !== 'login' && value !== 'signup') return;
+    setTab(value);
+    setLocalError(null);
+    clearError();
+  };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (intent: 'login' | 'signup') => {
     setSubmitting(true);
     setLocalError(null);
     try {
-      if (tab === 'signup') {
+      if (intent === 'signup') {
         await signUp({ email, password });
       } else {
         await logIn({ email, password });
@@ -66,88 +79,115 @@ export function RemoteAuthModal({
   const showError = localError ?? error;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-panel/90 p-6 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-widest text-accent">
-              Connect to cloud
-            </p>
-            <h3 className="text-xl font-semibold">
-              {tab === 'signup' ? 'Create account' : 'Log in'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Accounts live in Kratos. Password stays with Kratos; keys stay
-              local.
-            </p>
-          </div>
-          <Button variant="ghost" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <button
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-              tab === 'signup'
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-foreground'
-            }`}
-            onClick={() => setTab('signup')}
-            disabled={disableActions}
-          >
-            <UserPlus className="h-4 w-4" />
-            Sign up
-          </button>
-          <button
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-              tab === 'login'
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-foreground'
-            }`}
-            onClick={() => setTab('login')}
-            disabled={disableActions}
-          >
-            <LogIn className="h-4 w-4" />
-            Log in
-          </button>
-        </div>
-        <div className="mt-6 space-y-4">
-          <div className="space-y-2">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              value={email}
-              placeholder="you@example.com"
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={disableActions}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Password</Label>
-            <Input
-              type="password"
-              value={password}
-              placeholder="Min 8 characters"
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={disableActions}
-            />
-          </div>
-          {showError ? (
-            <p className="text-sm text-destructive">{showError}</p>
-          ) : null}
-          <Button
-            className="w-full"
-            onClick={() => void handleSubmit()}
-            disabled={!email || !password || disableActions}
-          >
-            {state.status === 'connecting' || submitting
-              ? 'Connecting…'
-              : tab === 'signup'
-                ? 'Create account'
-                : 'Log in'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <p className="text-xs uppercase tracking-widest text-accent">
+            Connect to cloud
+          </p>
+          <DialogTitle>
+            {tab === 'signup' ? 'Create account' : 'Log in'}
+          </DialogTitle>
+          <DialogDescription>
+            Accounts live in Kratos. Password stays with Kratos; keys stay
+            local.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs value={tab} onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="signup" disabled={disableActions}>
+              <UserPlus className="h-4 w-4" />
+              Sign up
+            </TabsTrigger>
+            <TabsTrigger value="login" disabled={disableActions}>
+              <LogIn className="h-4 w-4" />
+              Log in
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="signup">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  placeholder="you@example.com"
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={disableActions}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  placeholder="Min 8 characters"
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={disableActions}
+                />
+              </div>
+              {showError ? (
+                <p className="text-sm text-destructive">{showError}</p>
+              ) : null}
+              <Button
+                className="w-full"
+                onClick={() => void handleSubmit('signup')}
+                disabled={!email || !password || disableActions}
+              >
+                {state.status === 'connecting' || submitting
+                  ? 'Connecting…'
+                  : 'Create account'}
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="login">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  placeholder="you@example.com"
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={disableActions}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  placeholder="Min 8 characters"
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={disableActions}
+                />
+              </div>
+              {showError ? (
+                <p className="text-sm text-destructive">{showError}</p>
+              ) : null}
+              <Button
+                className="w-full"
+                onClick={() => void handleSubmit('login')}
+                disabled={!email || !password || disableActions}
+              >
+                {state.status === 'connecting' || submitting
+                  ? 'Connecting…'
+                  : 'Log in'}
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 }

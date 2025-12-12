@@ -9,4 +9,3 @@ export type GoalListItemDto = {
   createdAt: number;
   archivedAt: number | null;
 };
-
