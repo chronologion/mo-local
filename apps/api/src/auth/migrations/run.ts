@@ -3,7 +3,7 @@ import { config } from 'dotenv';
 import {
   resolveConnectionString,
   runMigrations,
-} from '../../platform/infrastructure/migrations/migrator';
+} from '@platform/infrastructure/migrations/migrator';
 
 config();
 

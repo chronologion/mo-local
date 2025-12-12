@@ -1,5 +1,5 @@
 import { Kysely } from 'kysely';
-import { Database } from '../../platform/infrastructure/database/database.types';
+import { Database } from '@platform/infrastructure/database/database.types';
 
 /**
  * Legacy placeholder to satisfy existing migration history.

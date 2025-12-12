@@ -15,7 +15,12 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node", "undici-types"]
+    "types": ["node", "undici-types"],
+    "baseUrl": "./src",
+    "paths": {
+      "@platform/*": ["platform/*"],
+      "@auth/*": ["auth/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
