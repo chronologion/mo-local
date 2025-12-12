@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, PlusCircle } from 'lucide-react';
-import { useGoals, useProjects, useProjectCommands } from '@mo/interface/react';
+import {
+  useGoals,
+  useProjects,
+  useProjectCommands,
+} from '@mo/presentation/react';
 import {
   Card,
   CardContent,

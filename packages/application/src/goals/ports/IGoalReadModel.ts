@@ -1,5 +1,5 @@
 import type { ReadModel } from '../../shared/ports/ReadModel';
-import type { GoalListItemDto } from '@mo/interface';
+import type { GoalListItemDto } from '@mo/presentation';
 
 /**
  * Read-side port for goal projections.

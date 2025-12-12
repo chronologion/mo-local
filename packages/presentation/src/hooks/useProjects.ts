@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GoalListItemDto as GoalListItem } from '@mo/interface';
-import { ListGoalsQuery } from '@mo/application';
+import type { ProjectListItemDto as ProjectListItem } from '@mo/presentation';
+import { ListProjectsQuery } from '@mo/application';
 import { useInterface } from '../context';
 
-export const useGoals = () => {
+export const useProjects = (filter?: {
+  status?: string;
+  goalId?: string | null;
+}) => {
   const { services } = useInterface();
-  const [goals, setGoals] = useState<GoalListItem[]>([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,29 +16,29 @@ export const useGoals = () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await services.goalQueryBus.dispatch(
-        new ListGoalsQuery(undefined)
+      const list = await services.projectQueryBus.dispatch(
+        new ListProjectsQuery(filter)
       );
       if (!Array.isArray(list)) {
         throw new Error('Invalid query result');
       }
-      setGoals(list as GoalListItem[]);
+      setProjects(list as ProjectListItem[]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [services.goalQueryBus]);
+  }, [filter, services.projectQueryBus]);
 
   useEffect(() => {
     refresh();
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     const wireSubscription = async () => {
-      await services.goalProjection.whenReady();
+      await services.projectProjection.whenReady();
       if (cancelled) return;
-      unsubscribe = services.goalProjection.subscribe(() => {
+      unsubscribe = services.projectProjection.subscribe(() => {
         void refresh();
       });
     };
@@ -44,7 +47,7 @@ export const useGoals = () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [refresh, services.goalProjection]);
+  }, [refresh, services.projectProjection]);
 
-  return { goals, loading, error, refresh };
+  return { projects, loading, error, refresh };
 };

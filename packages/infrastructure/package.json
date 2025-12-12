@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@livestore/wa-sqlite": "1.0.5",
-    "@mo/interface": "1.0.0",
+    "@mo/presentation": "1.0.0",
     "@mo/application": "1.0.0",
     "@mo/domain": "1.0.0",
     "minisearch": "^7.2.0"

@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
 import { KeyRound, RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
-import { useGoals, useGoalCommands, useGoalSearch } from '@mo/interface/react';
+import {
+  useGoals,
+  useGoalCommands,
+  useGoalSearch,
+} from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import {
   Card,

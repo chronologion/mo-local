@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { GoalListItemDto, ProjectListItemDto } from '@mo/interface';
+import type { GoalListItemDto, ProjectListItemDto } from '@mo/presentation';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';

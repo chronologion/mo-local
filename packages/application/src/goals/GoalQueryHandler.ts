@@ -1,6 +1,6 @@
 import type { IQueryHandler } from '../shared/ports/cqrsTypes';
 import type { IGoalReadModel } from './ports/IGoalReadModel';
-import type { GoalListItemDto } from '@mo/interface';
+import type { GoalListItemDto } from '@mo/presentation';
 import { ListGoalsQuery, GetGoalByIdQuery, SearchGoalsQuery } from './queries';
 
 export type GoalQuery = ListGoalsQuery | GetGoalByIdQuery | SearchGoalsQuery;

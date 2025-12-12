@@ -1,5 +1,5 @@
 import type { IGoalReadModel, GoalListFilter } from '@mo/application';
-import type { GoalListItemDto } from '@mo/interface';
+import type { GoalListItemDto } from '@mo/presentation';
 import type { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
 
 /**

@@ -8,7 +8,7 @@ MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS do
 - **packages/domain** – Pure TypeScript domain for Goals (Balanced Wheel), Projects, and Identity (aggregates, value objects, fluent assertions).
 - **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`), and identity commands.
 - **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
-- **packages/interface** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
+- **packages/presentation** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
 - **apps/api** – NestJS backend bootstrap (Kysely, Kratos auth guard, `/health`, `/me`, migrations for `users` and `invites`; sync/events table is handled in a separate issue).
 
 Everything runs locally today; sync + sharing + backend APIs are tracked as follow-up work.
@@ -58,7 +58,7 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 - **React wiring**:
   - `createAppServices` (`apps/web/src/bootstrap/createAppServices.ts`) is the app-level composition root: it wires LiveStore, per-BC event stores, crypto, key store, event bus, and BC bootstraps (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`).
   - `AppProvider` bootstraps `createAppServices`, drives onboarding/unlock state, and wraps the interface layer.
-  - `packages/interface` exposes `InterfaceProvider` and hooks such as `useGoals`, `useGoalById`, `useGoalSearch`, `useGoalCommands`, `useProjects`, `useProjectCommands` over per-BC command/query buses + projection ports.
+  - `packages/presentation` exposes `InterfaceProvider` and hooks such as `useGoals`, `useGoalById`, `useGoalSearch`, `useGoalCommands`, `useProjects`, `useProjectCommands` over per-BC command/query buses + projection ports.
 
 ## Working With Data
 

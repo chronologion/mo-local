@@ -10,13 +10,13 @@ import {
   encodeSalt,
   generateRandomSalt,
 } from '@mo/infrastructure/crypto/deriveSalt';
-import { parseBackupEnvelope } from '@mo/interface';
+import { parseBackupEnvelope } from '@mo/presentation';
 import { z } from 'zod';
 import {
   InterfaceProvider,
   type InterfaceContextValue,
   type InterfaceServices,
-} from '@mo/interface/react';
+} from '@mo/presentation/react';
 
 const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';

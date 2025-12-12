@@ -86,7 +86,7 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 - **Domain** has zero external dependencies. All invariants rely on the internal `Assert` DSL, and we keep the "no primitive types" obsession across Goals and Projects.
 - **Application** depends on Domain only and defines CQRS types and ports: generic `Repository` / `ReadModel` plus per-BC ports such as `IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`, alongside `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
 - **Infrastructure** implements those ports, translates domain events to encrypted LiveStore payloads, runs projection processors and read models per BC, and exposes browser-friendly wiring functions (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`) instead of owning a global composition root.
-- **Interface** is split between `packages/interface` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
+- **Presentation** is split between `packages/presentation` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
 
 ## 4. Domain Layer
 
@@ -159,7 +159,7 @@ At runtime, the web app integrates LiveStore as follows:
    - a projection processor (`GoalProjectionProcessor` / `ProjectProjectionProcessor`) that maintains snapshots, analytics, and search indices in LiveStore,
    - a read model (`GoalReadModel` / `ProjectReadModel`) implementing the application `*ReadModel` ports,
    - and typed command/query buses (`goalCommandBus` / `goalQueryBus`, `projectCommandBus` / `projectQueryBus`).
-4. `AppProvider` exposes these buses and projection ports to the interface layer via `InterfaceProvider` from `@mo/interface/react`, and uses the underlying `Store` only for diagnostics/debug UI in DEV.
+4. `AppProvider` exposes these buses and projection ports to the presentation layer via `InterfaceProvider` from `@mo/presentation/react`, and uses the underlying `Store` only for diagnostics/debug UI in DEV.
 5. LiveStore uses OPFS under the hood; all event, snapshot, analytics, and search tables live in the same per-origin SQLite database.
 
 ### 6.2 Event versioning & migrations
@@ -180,10 +180,10 @@ At runtime, the web app integrates LiveStore as follows:
 ### 7.1 Providers & hooks
 
 - `AppProvider` (in `apps/web`) is the app composition root: it bootstraps LiveStore + BC wiring via `createAppServices`, tracks session state (`needs-onboarding` → `locked` → `ready`), and wires the `InterfaceProvider`.
-- `InterfaceProvider` (in `packages/interface`) exposes an `InterfaceContext` with:
+- `InterfaceProvider` (in `packages/presentation`) exposes an `InterfaceContext` with:
   - per-BC command/query buses, and
   - projection ports (`goalProjection`, `projectProjection`) that provide `whenReady()` + `subscribe()` for reactive UI updates.
-- Hooks in `packages/interface/src/hooks` (`useGoalCommands`, `useGoals`, `useGoalById`, `useGoalSearch`, `useProjects`, `useProjectCommands`) talk only to the application layer via those buses/ports; they never touch LiveStore or crypto directly.
+- Hooks in `packages/presentation/src/hooks` (`useGoalCommands`, `useGoals`, `useGoalById`, `useGoalSearch`, `useProjects`, `useProjectCommands`) talk only to the application layer via those buses/ports; they never touch LiveStore or crypto directly.
 
 ### 7.2 Components
 

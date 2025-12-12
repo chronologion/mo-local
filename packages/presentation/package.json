@@ -1,5 +1,5 @@
 {
-  "name": "@mo/interface",
+  "name": "@mo/presentation",
   "version": "1.0.0",
   "private": true,
   "main": "./src/index.ts",
