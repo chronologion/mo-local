@@ -19,6 +19,7 @@ async function main(): Promise<void> {
   await runMigrations({
     migrationsPath,
     connectionString,
+    migrationTableName: 'auth_migrations',
   });
 }
 

@@ -13,11 +13,13 @@ import { Database } from '../database/database.types';
 type MigratorConfig = {
   migrationsPath: string;
   connectionString: string;
+  migrationTableName?: string;
 };
 
 export async function runMigrations({
   migrationsPath,
   connectionString,
+  migrationTableName,
 }: MigratorConfig): Promise<void> {
   const db = new Kysely<Database>({
     dialect: new PostgresDialect({
@@ -35,6 +37,7 @@ export async function runMigrations({
   const migrator = new Migrator({
     db,
     provider,
+    migrationTableName,
   });
 
   const direction = process.argv[2] === 'down' ? 'down' : 'up';
