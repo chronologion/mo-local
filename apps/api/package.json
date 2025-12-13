@@ -10,8 +10,8 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "db:migrate": "tsx src/auth/migrations/run.ts",
-    "db:migrate:down": "tsx src/auth/migrations/run.ts down"
+    "db:migrate": "tsx src/auth/infrastructure/migrations/run.ts",
+    "db:migrate:down": "tsx src/auth/infrastructure/migrations/run.ts down"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.9",
