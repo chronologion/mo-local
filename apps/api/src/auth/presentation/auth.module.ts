@@ -8,7 +8,6 @@ import { MeController } from './controllers/me.controller';
 import { AuthService } from '../application/auth.service';
 import { KyselyUserRepository } from '../infrastructure/user.repository';
 import { UserRepository } from '../application/ports/user-repository';
-import '../presentation/types/express';
 
 @Module({
   imports: [DatabaseModule],
