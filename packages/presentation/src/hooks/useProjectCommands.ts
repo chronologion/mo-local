@@ -27,18 +27,6 @@ export const useProjectCommands = () => {
   const [error, setError] = useState<string | null>(null);
 
   const ensureUserId = () => {
-    const metaRaw =
-      typeof localStorage !== 'undefined'
-        ? localStorage.getItem('mo-local-user')
-        : null;
-    if (metaRaw) {
-      try {
-        const parsed = JSON.parse(metaRaw) as { userId?: string };
-        if (parsed.userId) return parsed.userId;
-      } catch {
-        // ignore parse errors
-      }
-    }
     if (session.status === 'ready' && session.userId) {
       return session.userId;
     }
