@@ -43,6 +43,7 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
   - `yarn dev:stack:stop`
   - `yarn dev:stack:logs`
   - `yarn dev:stack:status`
+- These commands are thin wrappers over `scripts/dev-stack.sh`, which centralizes the `docker compose` incantation (project name, env plumbing, and common flags) so you get a single, consistent entrypoint instead of manually remembering long compose commands.
 - Env template: copy `.env.example` → `.env` if you want to override `DATABASE_URL`, `KRATOS_PUBLIC_URL`, etc.
 - Migrations (Kysely): `yarn db:migrate` / `yarn db:migrate:down` run the auth BC migrations (`apps/api/src/auth/infrastructure/migrations/auth`, tracked in the `auth_migrations` table; sync/events table is intentionally excluded here). Compose boot runs an idempotent `postgres-init` helper to create `mo_local` + `kratos` even on reused volumes.
 - Auth: Kratos is wired as the identity provider; the API guard validates sessions via Kratos and upserts the `users` row on first request. Logout uses Kratos `DELETE /self-service/logout/api` with `session_token`.
