@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { DatabaseModule } from '@platform/infrastructure/database/database.module';
-import { AuthModule } from '@auth/presentation/auth.module';
+import { AccessModule } from '@access/presentation/access.module';
 import { HealthController } from '@platform/presentation/health.controller';
 
 @Module({
@@ -9,8 +8,7 @@ import { HealthController } from '@platform/presentation/health.controller';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    DatabaseModule,
-    AuthModule,
+    AccessModule,
   ],
   controllers: [HealthController],
 })

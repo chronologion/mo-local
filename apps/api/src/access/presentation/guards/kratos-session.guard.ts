@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { AuthenticatedUser } from '../../domain/authenticated-user';
+import { AuthenticatedIdentity } from '../../application/authenticated-identity';
 import { AuthService } from '../../application/auth.service';
 import { SESSION_COOKIE_NAME, parseCookies } from '../session-cookie';
 
@@ -28,12 +28,12 @@ export class KratosSessionGuard implements CanActivate {
       throw new UnauthorizedException('Session token is required');
     }
 
-    const authUser = await this.authService.validateSession(sessionToken);
-    (request as RequestWithAuthUser).authUser = authUser;
+    const authIdentity = await this.authService.validateSession(sessionToken);
+    (request as RequestWithAuthIdentity).authIdentity = authIdentity;
     return true;
   }
 }
 
-interface RequestWithAuthUser extends Request {
-  authUser?: AuthenticatedUser;
+interface RequestWithAuthIdentity extends Request {
+  authIdentity?: AuthenticatedIdentity;
 }

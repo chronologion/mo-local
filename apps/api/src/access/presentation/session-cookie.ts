@@ -1,5 +1,8 @@
 export const SESSION_COOKIE_NAME = 'mo_session';
 export const SESSION_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+export const SESSION_COOKIE_SECURE =
+  process.env.SESSION_COOKIE_SECURE === 'true' ||
+  process.env.NODE_ENV === 'production';
 
 export const parseCookies = (
   header: string | undefined

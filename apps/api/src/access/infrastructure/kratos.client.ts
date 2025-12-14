@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthenticatedUser } from '../domain/authenticated-user';
+import { AuthenticatedIdentity } from '../application/authenticated-identity';
 
 type JsonObject = Record<string, unknown>;
 
@@ -11,7 +11,7 @@ const isObject = (value: unknown): value is JsonObject =>
 export class KratosClient {
   constructor(private readonly config: ConfigService) {}
 
-  async whoAmI(sessionToken?: string): Promise<AuthenticatedUser> {
+  async whoAmI(sessionToken?: string): Promise<AuthenticatedIdentity> {
     const kratosUrl = this.config.get<string>('KRATOS_PUBLIC_URL');
 
     if (!kratosUrl) {

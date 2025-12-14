@@ -1,11 +1,11 @@
 import { Kysely, sql } from 'kysely';
-import { Database } from '@platform/infrastructure/database/database.types';
+import { AccessDatabase } from '../../database.types';
 
-export async function up(db: Kysely<Database>): Promise<void> {
-  await db.schema.createSchema('auth').ifNotExists().execute();
+export async function up(db: Kysely<AccessDatabase>): Promise<void> {
+  await db.schema.createSchema('access').ifNotExists().execute();
 
   await db.schema
-    .createTable('auth.identities')
+    .createTable('access.identities')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
     .addColumn('public_key', 'bytea')
     .addColumn('created_at', 'timestamptz', (col) =>
@@ -14,7 +14,7 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .execute();
 
   await db.schema
-    .createTable('auth.invites')
+    .createTable('access.invites')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
     .addColumn('aggregate_id', 'uuid', (col) => col.notNull())
     .addColumn('token', 'varchar', (col) => col.notNull().unique())
@@ -27,14 +27,14 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('auth_invites_aggregate_idx')
-    .on('auth.invites')
+    .createIndex('access_invites_aggregate_idx')
+    .on('access.invites')
     .column('aggregate_id')
     .execute();
 }
 
-export async function down(db: Kysely<Database>): Promise<void> {
-  await db.schema.dropTable('auth.invites').ifExists().execute();
-  await db.schema.dropTable('auth.identities').ifExists().execute();
-  await db.schema.dropSchema('auth').ifExists().execute();
+export async function down(db: Kysely<AccessDatabase>): Promise<void> {
+  await db.schema.dropTable('access.invites').ifExists().execute();
+  await db.schema.dropTable('access.identities').ifExists().execute();
+  await db.schema.dropSchema('access').ifExists().execute();
 }

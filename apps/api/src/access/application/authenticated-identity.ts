@@ -1,4 +1,4 @@
-export interface AuthenticatedUser {
+export interface AuthenticatedIdentity {
   id: string;
   traits: Record<string, unknown>;
 }

@@ -6,13 +6,13 @@ type TimestampColumn = ColumnType<
   Date | string
 >;
 
-export interface IdentitiesTable {
+export interface AccessIdentitiesTable {
   id: string;
   public_key: Buffer | null;
   created_at: TimestampColumn;
 }
 
-export interface InvitesTable {
+export interface AccessInvitesTable {
   id: string;
   aggregate_id: string;
   token: string;
@@ -22,7 +22,7 @@ export interface InvitesTable {
   expires_at: TimestampColumn | null;
 }
 
-export interface Database {
-  'auth.identities': IdentitiesTable;
-  'auth.invites': InvitesTable;
+export interface AccessDatabase {
+  'access.identities': AccessIdentitiesTable;
+  'access.invites': AccessInvitesTable;
 }

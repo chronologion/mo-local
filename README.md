@@ -9,7 +9,7 @@ MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS do
 - **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`), and identity commands.
 - **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
 - **packages/presentation** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
-- **apps/api** – NestJS backend bootstrap (Kysely, Kratos auth guard, `/health`, `/me`, `/auth/*`, migrations for `users` and `invites`; sync/events table is handled in a separate issue).
+- **apps/api** – NestJS backend bootstrap (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, and an Access bounded context with migrations for `access.identities` and `access.invites`; sync/events table is handled in a separate issue).
 
 Everything runs locally today; sync + sharing + backend APIs are tracked as follow-up work.
 
@@ -45,8 +45,8 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
   - `yarn dev:stack:status`
 - These commands are thin wrappers over `scripts/dev-stack.sh`, which centralizes the `docker compose` incantation (project name, env plumbing, and common flags) so you get a single, consistent entrypoint instead of manually remembering long compose commands.
 - Env template: copy `.env.example` → `.env` if you want to override `DATABASE_URL`, `KRATOS_PUBLIC_URL`, etc.
-- Migrations (Kysely): `yarn db:migrate` / `yarn db:migrate:down` run the auth BC migrations (`apps/api/src/auth/infrastructure/migrations/auth`, tracked in the `auth_migrations` table; sync/events table is intentionally excluded here). Compose boot runs an idempotent `postgres-init` helper to create `mo_local` + `kratos` even on reused volumes.
-- Auth: Kratos is wired as the identity provider; the API guard validates sessions via Kratos and upserts the `users` row on first request. Logout uses Kratos `DELETE /self-service/logout/api` with `session_token`.
+- Migrations (Kysely): `yarn db:migrate` / `yarn db:migrate:down` run the Access BC migrations (`apps/api/src/access/infrastructure/migrations/auth`, tracked in the `access_migrations` table; sync/events table is intentionally excluded here). Compose boot runs an idempotent `postgres-init` helper to create `mo_local` + `kratos` even on reused volumes.
+- Auth: Kratos is wired as the identity provider; the API guard validates sessions via Kratos and upserts a row in `access.identities` on first request. Logout uses Kratos `DELETE /self-service/logout/api` with `session_token`.
 - E2E (Playwright): `yarn e2e` (stack must be running; includes basic health checks for API/Kratos/Web).
 - Web auth UI: after local onboarding/unlock, use “Connect to cloud” in the header to sign up or log in via Kratos (email + password). The API sets an HTTP-only `mo_session` cookie (no localStorage tokens); the web client always calls the API with `credentials: 'include'`. Validation errors from Kratos (e.g. invalid email, weak password, bad credentials) are surfaced inline in the modal; generic 400s on login are mapped to a friendly “Email or password is incorrect.” Configure Kratos origin with `VITE_AUTH_URL`.
 
@@ -100,6 +100,7 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 - `yarn test` runs Vitest suites in every workspace (domain/application/infrastructure/web).
 - `yarn lint` + `yarn typecheck` ensure the flat ESLint config and TypeScript stay clean.
 - `yarn format:check`/`yarn format` keep Markdown/TS/TSX/JSON formatted via Prettier.
+- API auth/guard coverage lives in `apps/api/src/__tests__/access/auth.e2e.spec.ts` (Vitest + Supertest, using in-memory Kratos fakes).
 
 ## Troubleshooting
 

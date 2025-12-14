@@ -12,11 +12,12 @@ import type { Response } from 'express';
 import { RegisterDto, LoginDto, LogoutDto } from '../dto/auth.dto';
 import { AuthService } from '../../application/auth.service';
 import { KratosSessionGuard } from '../guards/kratos-session.guard';
-import { AuthUser } from '../../auth-user.decorator';
-import { AuthenticatedUser } from '../../domain/authenticated-user';
+import { AuthIdentity } from '../../auth-identity.decorator';
+import { AuthenticatedIdentity } from '../../application/authenticated-identity';
 import {
   SESSION_COOKIE_MAX_AGE_MS,
   SESSION_COOKIE_NAME,
+  SESSION_COOKIE_SECURE,
   parseCookies,
 } from '../session-cookie';
 
@@ -33,7 +34,7 @@ export class AuthController {
     res.cookie(SESSION_COOKIE_NAME, session.sessionToken, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: false,
+      secure: SESSION_COOKIE_SECURE,
       maxAge: SESSION_COOKIE_MAX_AGE_MS,
       path: '/',
     });
@@ -49,7 +50,7 @@ export class AuthController {
     res.cookie(SESSION_COOKIE_NAME, session.sessionToken, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: false,
+      secure: SESSION_COOKIE_SECURE,
       maxAge: SESSION_COOKIE_MAX_AGE_MS,
       path: '/',
     });
@@ -58,13 +59,17 @@ export class AuthController {
 
   @Get('whoami')
   @UseGuards(KratosSessionGuard)
-  whoami(@AuthUser() user: AuthenticatedUser | undefined) {
-    if (!user) {
-      throw new BadRequestException('Authenticated user missing from context');
+  whoami(@AuthIdentity() identity: AuthenticatedIdentity | undefined) {
+    if (!identity) {
+      throw new BadRequestException(
+        'Authenticated identity missing from context'
+      );
     }
     const email =
-      typeof user.traits.email === 'string' ? user.traits.email : undefined;
-    return { identityId: user.id, email };
+      typeof identity.traits.email === 'string'
+        ? identity.traits.email
+        : undefined;
+    return { identityId: identity.id, email };
   }
 
   @Post('logout')

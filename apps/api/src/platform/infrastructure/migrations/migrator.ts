@@ -8,7 +8,6 @@ import {
   type MigrationResultSet,
 } from 'kysely';
 import { Pool } from 'pg';
-import { Database } from '../database/database.types';
 
 type MigratorConfig = {
   migrationsPath: string;
@@ -16,12 +15,12 @@ type MigratorConfig = {
   migrationTableName?: string;
 };
 
-export async function runMigrations({
+export async function runMigrations<DB>({
   migrationsPath,
   connectionString,
   migrationTableName,
 }: MigratorConfig): Promise<void> {
-  const db = new Kysely<Database>({
+  const db = new Kysely<DB>({
     dialect: new PostgresDialect({
       pool: new Pool({ connectionString }),
     }),

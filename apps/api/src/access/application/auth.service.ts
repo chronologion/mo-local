@@ -1,9 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { KratosPasswordService } from '../infrastructure/kratos-password.service';
 import { KratosClient } from '../infrastructure/kratos.client';
-import { IdentityRepository } from './ports/user-repository';
-import { AuthenticatedUser } from '../domain/authenticated-user';
+import { IdentityRepository } from './ports/identity-repository';
+import { AuthenticatedIdentity } from './authenticated-identity';
 
 @Injectable()
 export class AuthService {
@@ -42,9 +41,9 @@ export class AuthService {
 
   async validateSession(
     sessionToken: string
-  ): Promise<AuthenticatedUser & { email?: string }> {
-    const session = await this.kratosClient.whoAmI(sessionToken);
-    await this.identities.ensureExists({ id: session.id });
-    return session;
+  ): Promise<AuthenticatedIdentity & { email?: string }> {
+    const sessionIdentity = await this.kratosClient.whoAmI(sessionToken);
+    await this.identities.ensureExists({ id: sessionIdentity.id });
+    return sessionIdentity;
   }
 }

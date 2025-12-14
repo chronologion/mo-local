@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '@platform/infrastructure/database/database.module';
 import { KratosSessionGuard } from './guards/kratos-session.guard';
 import { KratosClient } from '../infrastructure/kratos.client';
 import { KratosPasswordService } from '../infrastructure/kratos-password.service';
 import { AuthController } from './controllers/auth.controller';
 import { MeController } from './controllers/me.controller';
 import { AuthService } from '../application/auth.service';
-import { KyselyIdentityRepository } from '../infrastructure/user.repository';
-import { IdentityRepository } from '../application/ports/user-repository';
+import { KyselyIdentityRepository } from '../infrastructure/identity.repository';
+import { IdentityRepository } from '../application/ports/identity-repository';
+import { AccessDatabaseModule } from '../infrastructure/database.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [AccessDatabaseModule],
   controllers: [AuthController, MeController],
   providers: [
     KratosClient,
@@ -29,4 +29,4 @@ import { IdentityRepository } from '../application/ports/user-repository';
     AuthService,
   ],
 })
-export class AuthModule {}
+export class AccessModule {}

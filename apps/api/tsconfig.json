@@ -15,11 +15,11 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node"],
+    "types": ["node", "vitest/globals"],
     "baseUrl": "./src",
     "paths": {
       "@platform/*": ["platform/*"],
-      "@auth/*": ["auth/*"]
+      "@access/*": ["access/*"]
     }
   },
   "include": ["src/**/*"],

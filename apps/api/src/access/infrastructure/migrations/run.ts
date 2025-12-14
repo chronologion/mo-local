@@ -4,6 +4,7 @@ import {
   resolveConnectionString,
   runMigrations,
 } from '@platform/infrastructure/migrations/migrator';
+import { AccessDatabase } from '../database.types';
 
 config();
 
@@ -14,12 +15,12 @@ async function main(): Promise<void> {
       'postgres://postgres:devpassword@localhost:5434/mo_local'
   );
 
-  const migrationsPath = path.join(__dirname, 'auth');
+  const migrationsPath = path.join(__dirname, 'access');
 
-  await runMigrations({
+  await runMigrations<AccessDatabase>({
     migrationsPath,
     connectionString,
-    migrationTableName: 'auth_migrations',
+    migrationTableName: 'access_migrations',
   });
 }
 
