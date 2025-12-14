@@ -16,7 +16,12 @@ export class DatabaseService<DB = unknown> implements OnModuleDestroy {
     }
 
     const dialect = new PostgresDialect({
-      pool: new Pool({ connectionString }),
+      pool: new Pool({
+        connectionString,
+        max: envInt('DB_POOL_MAX', 10),
+        idleTimeoutMillis: envInt('DB_POOL_IDLE_MS', 30000),
+        connectionTimeoutMillis: envInt('DB_POOL_CONNECT_TIMEOUT_MS', 5000),
+      }),
     });
 
     this.db = new Kysely<DB>({ dialect });
@@ -29,4 +34,11 @@ export class DatabaseService<DB = unknown> implements OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     await this.db.destroy();
   }
+}
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }

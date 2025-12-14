@@ -9,8 +9,16 @@ import { AuthenticatedIdentity } from '../../application/authenticated-identity'
 import { AuthService } from '../../application/auth.service';
 import { SESSION_COOKIE_NAME, parseCookies } from '../session-cookie';
 
+type CacheEntry = {
+  value: AuthenticatedIdentity;
+  expiresAt: number;
+};
+
 @Injectable()
 export class KratosSessionGuard implements CanActivate {
+  private cache = new Map<string, CacheEntry>();
+  private readonly ttlMs = Number(process.env.SESSION_CACHE_TTL_MS ?? '30000');
+
   constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,9 +36,31 @@ export class KratosSessionGuard implements CanActivate {
       throw new UnauthorizedException('Session token is required');
     }
 
-    const authIdentity = await this.authService.validateSession(sessionToken);
+    const cached = this.readCache(sessionToken);
+    const authIdentity =
+      cached ?? (await this.authService.validateSession(sessionToken));
+
+    if (!cached) {
+      this.writeCache(sessionToken, authIdentity);
+    }
+
     (request as RequestWithAuthIdentity).authIdentity = authIdentity;
     return true;
+  }
+
+  private readCache(token: string): AuthenticatedIdentity | null {
+    const entry = this.cache.get(token);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(token);
+      return null;
+    }
+    return entry.value;
+  }
+
+  private writeCache(token: string, value: AuthenticatedIdentity): void {
+    const expiresAt = Date.now() + this.ttlMs;
+    this.cache.set(token, { value, expiresAt });
   }
 }
 
