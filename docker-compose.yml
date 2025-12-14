@@ -111,6 +111,14 @@ services:
       - '4000:4000'
     volumes:
       - .:/workspace
+      - node_modules_root:/workspace/node_modules
+      - node_modules_api:/workspace/apps/api/node_modules
+      - node_modules_web:/workspace/apps/web/node_modules
+      - node_modules_e2e:/workspace/apps/e2e/node_modules
+      - node_modules_application:/workspace/packages/application/node_modules
+      - node_modules_domain:/workspace/packages/domain/node_modules
+      - node_modules_infrastructure:/workspace/packages/infrastructure/node_modules
+      - node_modules_presentation:/workspace/packages/presentation/node_modules
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -133,9 +141,25 @@ services:
       - '5173:5173'
     volumes:
       - .:/workspace
+      - node_modules_root:/workspace/node_modules
+      - node_modules_api:/workspace/apps/api/node_modules
+      - node_modules_web:/workspace/apps/web/node_modules
+      - node_modules_e2e:/workspace/apps/e2e/node_modules
+      - node_modules_application:/workspace/packages/application/node_modules
+      - node_modules_domain:/workspace/packages/domain/node_modules
+      - node_modules_infrastructure:/workspace/packages/infrastructure/node_modules
+      - node_modules_presentation:/workspace/packages/presentation/node_modules
     depends_on:
       - api
     restart: unless-stopped
 
 volumes:
   pgdata:
+  node_modules_root:
+  node_modules_api:
+  node_modules_web:
+  node_modules_e2e:
+  node_modules_application:
+  node_modules_domain:
+  node_modules_infrastructure:
+  node_modules_presentation:
