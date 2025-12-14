@@ -243,11 +243,46 @@ export function ProjectsPage() {
               onSubmit={async (values) => {
                 setEditError(null);
                 try {
-                  await updateProject({
-                    projectId: editingProject.id,
-                    ...values,
-                  });
-                  await refresh();
+                  const changes = { projectId: editingProject.id } as {
+                    projectId: string;
+                    name?: string;
+                    description?: string;
+                    startDate?: string;
+                    targetDate?: string;
+                    goalId?: string | null;
+                  };
+                  if (values.name !== editingProject.name) {
+                    changes.name = values.name;
+                  }
+                  if (
+                    (values.description ?? '') !==
+                    (editingProject.description ?? '')
+                  ) {
+                    changes.description = values.description;
+                  }
+                  if (
+                    values.startDate !== editingProject.startDate ||
+                    values.targetDate !== editingProject.targetDate
+                  ) {
+                    changes.startDate = values.startDate;
+                    changes.targetDate = values.targetDate;
+                  }
+                  if (values.goalId !== editingProject.goalId) {
+                    changes.goalId = values.goalId;
+                  }
+
+                  // If nothing changed, just close the dialog.
+                  const hasChanges =
+                    changes.name ||
+                    changes.description ||
+                    changes.startDate ||
+                    changes.targetDate ||
+                    changes.goalId !== undefined;
+
+                  if (hasChanges) {
+                    await updateProject(changes);
+                    await refresh();
+                  }
                   setEditingProject(null);
                 } catch (err) {
                   const message =
