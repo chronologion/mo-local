@@ -28,11 +28,29 @@ type DayCell = {
   disabled?: boolean;
 };
 
-const toISO = (date: Date) => date.toISOString().slice(0, 10);
+const parseIsoDate = (
+  value: string
+): { year: number; monthIndex: number; day: number } | null => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  ) {
+    return null;
+  }
+  return { year, monthIndex: month - 1, day };
+};
 
 const parseValue = (value?: string) => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const parts = parseIsoDate(value);
+  if (!parts) return null;
+  const parsed = new Date(parts.year, parts.monthIndex, parts.day);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
@@ -118,7 +136,11 @@ export function DatePicker({
         activeMonth.getMonth(),
         day
       );
-      const iso = toISO(date);
+      const iso = [
+        String(date.getFullYear()).padStart(4, '0'),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(day).padStart(2, '0'),
+      ].join('-');
       cells.push({
         key: iso,
         label: day,
