@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cloud, LogOut, Plug, RefreshCw, UserRound } from 'lucide-react';
+import { Cloud, LogOut, Plug, RefreshCw } from 'lucide-react';
 import { useRemoteAuth } from '../../providers/RemoteAuthProvider';
 import { Button } from '../ui/button';
 import { RemoteAuthModal } from './RemoteAuthModal';
@@ -58,15 +58,6 @@ export function RemoteAuthStatus() {
             >
               <Plug className="h-4 w-4 text-accent2" />
               Connect to cloud
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openModal('login')}
-              className="flex items-center gap-1 text-sm"
-            >
-              <UserRound className="h-4 w-4 text-foreground" />
-              Login
             </Button>
           </div>
         )}
