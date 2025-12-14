@@ -24,12 +24,13 @@ export function RemoteAuthModal({
   onClose,
   mode = 'signup',
 }: RemoteAuthModalProps) {
-  const { signUp, logIn, state, error, clearError } = useRemoteAuth();
+  const { signUp, logIn, state } = useRemoteAuth();
   const [tab, setTab] = useState<'login' | 'signup'>(mode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -37,8 +38,8 @@ export function RemoteAuthModal({
     setEmail('');
     setPassword('');
     setLocalError(null);
-    clearError();
-  }, [open, mode, clearError]);
+    setSuccess(null);
+  }, [open, mode]);
 
   useEffect(() => {
     if (state.status === 'connected') {
@@ -55,28 +56,31 @@ export function RemoteAuthModal({
     if (value !== 'login' && value !== 'signup') return;
     setTab(value);
     setLocalError(null);
-    clearError();
+    setSuccess(null);
   };
 
   const handleSubmit = async (intent: 'login' | 'signup') => {
     setSubmitting(true);
     setLocalError(null);
+    setSuccess(null);
     try {
       if (intent === 'signup') {
         await signUp({ email, password });
       } else {
         await logIn({ email, password });
       }
+      setSuccess(intent === 'signup' ? 'Account created' : 'Logged in');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Request failed, try again';
       setLocalError(message);
+      setSuccess(null);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const showError = localError ?? error;
+  const showError = localError;
 
   return (
     <Dialog
@@ -89,7 +93,7 @@ export function RemoteAuthModal({
     >
       <DialogContent>
         <DialogHeader>
-          <p className="text-xs uppercase tracking-widest text-accent">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
             Connect to cloud
           </p>
           <DialogTitle>
@@ -103,11 +107,19 @@ export function RemoteAuthModal({
 
         <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="signup" disabled={disableActions}>
+            <TabsTrigger
+              value="signup"
+              disabled={disableActions}
+              className="gap-2"
+            >
               <UserPlus className="h-4 w-4" />
               Sign up
             </TabsTrigger>
-            <TabsTrigger value="login" disabled={disableActions}>
+            <TabsTrigger
+              value="login"
+              disabled={disableActions}
+              className="gap-2"
+            >
               <LogIn className="h-4 w-4" />
               Log in
             </TabsTrigger>
@@ -130,13 +142,17 @@ export function RemoteAuthModal({
                 <Input
                   type="password"
                   value={password}
-                  placeholder="Min 8 characters"
+                  placeholder="Enter a strong password"
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={disableActions}
                 />
               </div>
               {showError ? (
-                <p className="text-sm text-destructive">{showError}</p>
+                <p className="text-sm text-destructive">
+                  An error occurred: {showError}
+                </p>
+              ) : success && tab === 'signup' ? (
+                <p className="text-sm text-green-600">{success}</p>
               ) : null}
               <Button
                 className="w-full"
@@ -167,13 +183,17 @@ export function RemoteAuthModal({
                 <Input
                   type="password"
                   value={password}
-                  placeholder="Min 8 characters"
+                  placeholder="Enter your password"
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={disableActions}
                 />
               </div>
               {showError ? (
-                <p className="text-sm text-destructive">{showError}</p>
+                <p className="text-sm text-destructive">
+                  An error occurred: {showError}
+                </p>
+              ) : success && tab === 'login' ? (
+                <p className="text-sm text-green-600">{success}</p>
               ) : null}
               <Button
                 className="w-full"

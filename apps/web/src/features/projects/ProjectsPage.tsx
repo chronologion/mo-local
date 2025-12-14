@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, PlusCircle } from 'lucide-react';
+import { RefreshCw, PlusCircle, Search } from 'lucide-react';
 import {
   useGoals,
   useProjects,
   useProjectCommands,
 } from '@mo/presentation/react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { ProjectForm } from '../../components/projects/ProjectForm';
 import { ProjectCard } from '../../components/projects/ProjectCard';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import type { ProjectListItemDto } from '@mo/application';
+import { useToast } from '../../components/ui/toast';
 
 export function ProjectsPage() {
   const { projects, loading, error, refresh } = useProjects();
@@ -26,68 +28,71 @@ export function ProjectsPage() {
     updateMilestone,
     archiveMilestone,
     loading: mutating,
-    error: mutationError,
   } = useProjectCommands();
-  const [showForm, setShowForm] = useState(false);
-  const [uiError, setUiError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingProject, setEditingProject] =
+    useState<ProjectListItemDto | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const toast = useToast();
 
   const activeProjects = useMemo(
-    () => projects.filter((p) => p.archivedAt === null),
-    [projects]
+    () =>
+      projects
+        .filter((p) => p.archivedAt === null)
+        .filter((p) => {
+          if (!search.trim()) return true;
+          const needle = search.toLowerCase();
+          return (
+            p.name.toLowerCase().includes(needle) ||
+            (p.description ?? '').toLowerCase().includes(needle)
+          );
+        }),
+    [projects, search]
   );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Projects</h2>
-          <p className="text-sm text-muted-foreground">
-            Day-precision timelines, optional goal linkage, milestones coming
-            next.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">Projects</h1>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
+          <div className="relative w-full md:w-72">
+            <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm text-foreground shadow-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              placeholder="Search projects..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setShowForm((prev) => !prev)}
+            onClick={() => setCreateOpen(true)}
           >
             <PlusCircle className="mr-2 h-4 w-4" />
-            {showForm ? 'Hide form' : 'New project'}
+            New project
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => refresh()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refresh()}
+            aria-label="Refresh projects"
+          >
             <RefreshCw className="h-4 w-4" />
-            <span className="sr-only">Refresh</span>
           </Button>
         </div>
       </div>
-
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create project</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProjectForm
-              goals={goals}
-              onSubmit={async (values) => {
-                await createProject(values);
-                await refresh();
-                setShowForm(false);
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {search ? (
+        <span className="text-xs text-muted-foreground">
+          {activeProjects.length} result(s)
+        </span>
+      ) : null}
 
       {error && (
         <div className="text-sm text-destructive">
           Failed to load projects: {error}
-        </div>
-      )}
-      {(mutationError || uiError) && (
-        <div className="text-sm text-destructive">
-          Project mutation failed: {uiError ?? mutationError}
         </div>
       )}
       {loading ? (
@@ -99,10 +104,10 @@ export function ProjectsPage() {
               key={project.id}
               project={project}
               goals={goals}
+              onEdit={(p) => setEditingProject(p)}
               isUpdating={mutating}
               isArchiving={mutating}
               onAddMilestone={async (projectId, milestone) => {
-                setUiError(null);
                 try {
                   await addMilestone(projectId, milestone);
                   await refresh();
@@ -111,11 +116,13 @@ export function ProjectsPage() {
                     err instanceof Error
                       ? err.message
                       : 'Failed to add milestone';
-                  setUiError(message);
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
                 }
               }}
               onUpdateMilestone={async (projectId, milestoneId, changes) => {
-                setUiError(null);
                 try {
                   await updateMilestone(projectId, milestoneId, changes);
                   await refresh();
@@ -124,11 +131,13 @@ export function ProjectsPage() {
                     err instanceof Error
                       ? err.message
                       : 'Failed to update milestone';
-                  setUiError(message);
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
                 }
               }}
               onArchiveMilestone={async (projectId, milestoneId) => {
-                setUiError(null);
                 try {
                   await archiveMilestone(projectId, milestoneId);
                   await refresh();
@@ -137,11 +146,13 @@ export function ProjectsPage() {
                     err instanceof Error
                       ? err.message
                       : 'Failed to archive milestone';
-                  setUiError(message);
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
                 }
               }}
               onUpdate={async (projectId, changes) => {
-                setUiError(null);
                 try {
                   await updateProject({ projectId, ...changes });
                   await refresh();
@@ -150,11 +161,13 @@ export function ProjectsPage() {
                     err instanceof Error
                       ? err.message
                       : 'Failed to update project';
-                  setUiError(message);
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
                 }
               }}
               onArchive={async (projectId) => {
-                setUiError(null);
                 try {
                   await archiveProject(projectId);
                   await refresh();
@@ -163,7 +176,10 @@ export function ProjectsPage() {
                     err instanceof Error
                       ? err.message
                       : 'Failed to archive project';
-                  setUiError(message);
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
                 }
               }}
             />
@@ -175,6 +191,79 @@ export function ProjectsPage() {
           )}
         </div>
       )}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create project</DialogTitle>
+          </DialogHeader>
+          <ProjectForm
+            goals={goals}
+            onSubmit={async (values) => {
+              setCreateError(null);
+              try {
+                await createProject(values);
+                await refresh();
+                setCreateOpen(false);
+              } catch (err) {
+                const message =
+                  err instanceof Error
+                    ? err.message
+                    : 'Failed to create project';
+                setCreateError(message);
+              }
+            }}
+          />
+          {createError ? (
+            <p className="text-sm text-destructive">{createError}</p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!editingProject}
+        onOpenChange={(open) => {
+          if (!open) setEditingProject(null);
+          setEditError(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit project</DialogTitle>
+          </DialogHeader>
+          {editingProject ? (
+            <ProjectForm
+              goals={goals}
+              initialValues={{
+                name: editingProject.name,
+                description: editingProject.description,
+                startDate: editingProject.startDate,
+                targetDate: editingProject.targetDate,
+                goalId: editingProject.goalId,
+              }}
+              submitLabel="Save changes"
+              onSubmit={async (values) => {
+                setEditError(null);
+                try {
+                  await updateProject({
+                    projectId: editingProject.id,
+                    ...values,
+                  });
+                  await refresh();
+                  setEditingProject(null);
+                } catch (err) {
+                  const message =
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to update project';
+                  setEditError(message);
+                }
+              }}
+            />
+          ) : null}
+          {editError ? (
+            <p className="text-sm text-destructive">{editError}</p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

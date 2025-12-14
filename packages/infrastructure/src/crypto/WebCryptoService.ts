@@ -23,6 +23,8 @@ const ECDH_CURVE = 'P-256';
 const ECDH_ALGO = 'ECDH';
 const ECDSA_ALGO = 'ECDSA';
 const HKDF_HASH = 'SHA-256';
+const HKDF_ALGO = 'HKDF';
+const PBKDF2_ALGO = 'PBKDF2';
 const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_ITERATIONS = 600_000;
 const AES_GCM_ALGO = 'AES-GCM';
@@ -32,6 +34,14 @@ const ECDSA_HASH = 'SHA-256';
 const KEY_FORMAT_RAW = 'raw';
 const KEY_FORMAT_PKCS8 = 'pkcs8';
 const KEY_FORMAT_SPKI = 'spki';
+const AES_GCM_USAGES: ReadonlyArray<KeyUsage> = ['encrypt', 'decrypt'];
+const ECDH_DERIVE_USAGES: ReadonlyArray<KeyUsage> = ['deriveBits', 'deriveKey'];
+const ECDH_DERIVE_KEY_USAGES: ReadonlyArray<KeyUsage> = ['deriveKey'];
+const ECDSA_USAGES: ReadonlyArray<KeyUsage> = ['sign', 'verify'];
+const DERIVE_KEY_USAGES: ReadonlyArray<KeyUsage> = ['deriveKey'];
+const SIGN_KEY_USAGES: ReadonlyArray<KeyUsage> = ['sign'];
+const VERIFY_KEY_USAGES: ReadonlyArray<KeyUsage> = ['verify'];
+const DEFAULT_TEXT_ENCODER = new TextEncoder();
 const toArrayBuffer = (view: Uint8Array): ArrayBuffer => {
   const copy = new Uint8Array(view.byteLength);
   copy.set(view);
@@ -54,9 +64,9 @@ export class WebCryptoService implements ICryptoService {
     const key = await subtle.generateKey(
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
-    const exported = await subtle.exportKey('raw', key);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, key);
     return new Uint8Array(exported);
   }
 
@@ -64,7 +74,7 @@ export class WebCryptoService implements ICryptoService {
     const keyPair = await subtle.generateKey(
       { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['sign', 'verify']
+      ECDSA_USAGES
     );
     const publicKey = await subtle.exportKey(
       KEY_FORMAT_SPKI,
@@ -88,7 +98,7 @@ export class WebCryptoService implements ICryptoService {
     const keyPair = await subtle.generateKey(
       { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['deriveBits', 'deriveKey']
+      ECDH_DERIVE_USAGES
     );
     const publicKey = await subtle.exportKey(KEY_FORMAT_RAW, keyPair.publicKey);
     const privateKey = await subtle.exportKey(
@@ -109,11 +119,11 @@ export class WebCryptoService implements ICryptoService {
     ensureKeyLength(key);
     const iv = cryptoApi.getRandomValues(new Uint8Array(IV_LENGTH));
     const cryptoKey = await subtle.importKey(
-      'raw',
+      KEY_FORMAT_RAW,
       toArrayBuffer(key),
       { name: AES_GCM_ALGO },
       false,
-      ['encrypt']
+      AES_GCM_USAGES
     );
 
     const params: AesGcmParams & { additionalData?: BufferSource } = {
@@ -150,11 +160,11 @@ export class WebCryptoService implements ICryptoService {
     const payload = ciphertext.slice(IV_LENGTH);
 
     const cryptoKey = await subtle.importKey(
-      'raw',
+      KEY_FORMAT_RAW,
       toArrayBuffer(key),
       { name: AES_GCM_ALGO },
       false,
-      ['decrypt']
+      AES_GCM_USAGES
     );
 
     const params: AesGcmParams & { additionalData?: BufferSource } = {
@@ -194,14 +204,14 @@ export class WebCryptoService implements ICryptoService {
     const ephemeral = await subtle.generateKey(
       { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['deriveKey']
+      ECDH_DERIVE_KEY_USAGES
     );
     const aesKey = await subtle.deriveKey(
       { name: ECDH_ALGO, public: publicKey },
       ephemeral.privateKey,
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
     const iv = cryptoApi.getRandomValues(new Uint8Array(ECIES_IV_LENGTH));
     const ciphertext = await subtle.encrypt(
@@ -233,7 +243,7 @@ export class WebCryptoService implements ICryptoService {
       toArrayBuffer(recipientPrivateKey),
       { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['deriveKey']
+      ECDH_DERIVE_KEY_USAGES
     );
     const publicKey = await subtle.importKey(
       KEY_FORMAT_RAW,
@@ -247,7 +257,7 @@ export class WebCryptoService implements ICryptoService {
       privateKey,
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['decrypt']
+      AES_GCM_USAGES
     );
 
     const plaintext = await subtle.decrypt(
@@ -266,27 +276,27 @@ export class WebCryptoService implements ICryptoService {
   ): Promise<SymmetricKey> {
     ensureKeyLength(masterKey);
     const baseKey = await subtle.importKey(
-      'raw',
+      KEY_FORMAT_RAW,
       toArrayBuffer(masterKey),
-      'HKDF',
+      HKDF_ALGO,
       false,
-      ['deriveKey']
+      DERIVE_KEY_USAGES
     );
 
     const derived = await subtle.deriveKey(
       {
-        name: 'HKDF',
+        name: HKDF_ALGO,
         hash: HKDF_HASH,
         salt: HKDF_SALT,
-        info: new TextEncoder().encode(context),
+        info: DEFAULT_TEXT_ENCODER.encode(context),
       },
       baseKey,
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
 
-    const exported = await subtle.exportKey('raw', derived);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, derived);
     return new Uint8Array(exported);
   }
 
@@ -294,18 +304,17 @@ export class WebCryptoService implements ICryptoService {
     password: string,
     salt: Uint8Array
   ): Promise<SymmetricKey> {
-    const encoder = new TextEncoder();
     const passwordKey = await subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      'PBKDF2',
+      KEY_FORMAT_RAW,
+      DEFAULT_TEXT_ENCODER.encode(password),
+      PBKDF2_ALGO,
       false,
-      ['deriveKey']
+      DERIVE_KEY_USAGES
     );
 
     const derived = await subtle.deriveKey(
       {
-        name: 'PBKDF2',
+        name: PBKDF2_ALGO,
         salt: toArrayBuffer(salt),
         iterations: PBKDF2_ITERATIONS,
         hash: PBKDF2_HASH,
@@ -313,10 +322,10 @@ export class WebCryptoService implements ICryptoService {
       passwordKey,
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
 
-    const exported = await subtle.exportKey('raw', derived);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, derived);
     return new Uint8Array(exported);
   }
 
@@ -333,7 +342,7 @@ export class WebCryptoService implements ICryptoService {
       toArrayBuffer(privateKey),
       { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['sign']
+      SIGN_KEY_USAGES
     );
     const signature = await subtle.sign(
       { name: ECDSA_ALGO, hash: ECDSA_HASH },
@@ -353,7 +362,7 @@ export class WebCryptoService implements ICryptoService {
       toArrayBuffer(publicKey),
       { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['verify']
+      VERIFY_KEY_USAGES
     );
     return subtle.verify(
       { name: ECDSA_ALGO, hash: ECDSA_HASH },

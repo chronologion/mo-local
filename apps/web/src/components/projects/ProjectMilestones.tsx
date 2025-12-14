@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { useState } from 'react';
+import { Archive, Pencil } from 'lucide-react';
 
 type Milestone = {
   id: string;
@@ -30,43 +31,52 @@ export function MilestonesList({
     targetDate: '',
   });
 
+  const sorted = [...milestones].sort((a, b) =>
+    a.targetDate.localeCompare(b.targetDate)
+  );
+
   return (
     <div className="space-y-3">
       {milestones.length === 0 ? (
         <div className="text-xs text-muted-foreground">No milestones yet.</div>
       ) : (
-        milestones.map((m) => {
+        sorted.map((m) => {
           const isEditing = editingId === m.id;
           return (
             <div
               key={m.id}
-              className="flex flex-col gap-2 rounded-lg border border-border p-3"
+              className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {m.name}
+                </span>
+                <div className="flex flex-shrink-0 items-center gap-2">
                   <Badge variant="secondary">{m.targetDate}</Badge>
-                  <span className="font-medium">{m.name}</span>
-                </div>
-                <div className="flex gap-2 text-xs text-muted-foreground">
-                  <button
-                    className="underline"
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Edit milestone"
                     disabled={disabled}
                     onClick={() => {
                       setEditingId(m.id);
                       setDraft({ name: m.name, targetDate: m.targetDate });
                     }}
                   >
-                    Edit
-                  </button>
-                  <button
-                    className="underline text-destructive"
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    aria-label="Archive milestone"
                     disabled={disabled}
                     onClick={async () => {
                       await onArchive(m.id);
                     }}
                   >
-                    Archive
-                  </button>
+                    <Archive className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
               {isEditing && (
@@ -97,10 +107,19 @@ export function MilestonesList({
                     <Button
                       size="sm"
                       onClick={async () => {
-                        await onUpdate(m.id, {
-                          name: draft.name,
-                          targetDate: draft.targetDate,
-                        });
+                        const changes: { name?: string; targetDate?: string } =
+                          {};
+                        if (draft.name !== m.name) {
+                          changes.name = draft.name;
+                        }
+                        if (draft.targetDate !== m.targetDate) {
+                          changes.targetDate = draft.targetDate;
+                        }
+                        if (Object.keys(changes).length === 0) {
+                          setEditingId(null);
+                          return;
+                        }
+                        await onUpdate(m.id, changes);
                         setEditingId(null);
                       }}
                       disabled={disabled}

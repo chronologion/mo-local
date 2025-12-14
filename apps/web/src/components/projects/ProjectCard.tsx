@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import type { GoalListItemDto, ProjectListItemDto } from '@mo/application';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
+import { RefreshCw, Archive, Pencil, Plus } from 'lucide-react';
+import { MilestonesList } from './ProjectMilestones';
+import { ProjectMilestoneInput } from './ProjectMilestoneInput';
+import { useToast } from '../ui/toast';
 import {
   Select,
   SelectContent,
@@ -12,13 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { RefreshCw, Archive } from 'lucide-react';
-import { MilestonesList } from './ProjectMilestones';
-import { ProjectMilestoneInput } from './ProjectMilestoneInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 type ProjectCardProps = {
   project: ProjectListItemDto;
   goals: GoalListItemDto[];
+  onEdit: (project: ProjectListItemDto) => void;
   onUpdate: (
     projectId: string,
     changes: {
@@ -54,10 +54,17 @@ const allowedTransitions: Record<
   completed: [],
   canceled: [],
 };
+const statusLabels: Record<ProjectListItemDto['status'], string> = {
+  planned: 'Planned',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  canceled: 'Canceled',
+};
 
 export function ProjectCard({
   project,
   goals,
+  onEdit,
   onUpdate,
   onArchive,
   onAddMilestone,
@@ -66,202 +73,184 @@ export function ProjectCard({
   isUpdating,
   isArchiving,
 }: ProjectCardProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({
-    name: project.name,
-    description: project.description,
-    startDate: project.startDate,
-    targetDate: project.targetDate,
-    goalId: project.goalId ?? 'none',
-  });
-
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  const toast = useToast();
   const nextStatuses = useMemo(
     () => allowedTransitions[project.status],
     [project.status]
   );
-
-  const save = async () => {
-    const changes: Record<string, unknown> = {};
-    if (draft.name !== project.name) changes.name = draft.name;
-    if (draft.description !== project.description)
-      changes.description = draft.description;
-    if (
-      draft.startDate !== project.startDate ||
-      draft.targetDate !== project.targetDate
-    ) {
-      // ChangeProjectDates expects both dates together.
-      changes.startDate = draft.startDate;
-      changes.targetDate = draft.targetDate;
-    }
-    const draftGoalId = draft.goalId === 'none' ? null : draft.goalId;
-    if (draftGoalId !== project.goalId) changes.goalId = draftGoalId;
-    if (Object.keys(changes).length === 0) {
-      setEditing(false);
-      return;
-    }
-    await onUpdate(project.id, changes);
-    setEditing(false);
-  };
 
   const linkLabel = project.goalId
     ? (goals.find((g) => g.id === project.goalId)?.summary ?? project.goalId)
     : 'Unlinked';
 
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge>{project.status.replace('_', ' ')}</Badge>
-          <Badge variant="secondary">
-            {project.startDate} → {project.targetDate}
-          </Badge>
-          <Badge variant="outline">Goal: {linkLabel}</Badge>
+    <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">Goal: {linkLabel}</Badge>
+            </div>
+            <div className="text-lg font-semibold">{project.name}</div>
+          </div>
+          <div className="flex flex-col items-end gap-2 text-sm text-muted-foreground">
+            <span className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+              {project.startDate} → {project.targetDate}
+            </span>
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          Updated {new Date(project.updatedAt).toLocaleDateString()}
-        </div>
-      </div>
-      <div className="space-y-1">
-        <div className="text-lg font-semibold">{project.name}</div>
-        <div className="text-sm text-muted-foreground">
-          {project.description}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {nextStatuses.map((status) => (
-          <Button
-            key={status}
-            size="sm"
-            variant="secondary"
-            onClick={async () => {
-              await onUpdate(project.id, { status });
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            value={project.status}
+            onValueChange={(value) => {
+              if (value === project.status) return;
+              void (async () => {
+                try {
+                  await onUpdate(project.id, {
+                    status: value as ProjectListItemDto['status'],
+                  });
+                } catch (err) {
+                  const message =
+                    err instanceof Error
+                      ? err.message
+                      : 'Failed to change status';
+                  toast({
+                    title: 'Project update failed',
+                    description: message,
+                  });
+                }
+              })();
             }}
-            disabled={isUpdating}
           >
-            Move to {status.replace('_', ' ')}
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={project.status} disabled>
+                {statusLabels[project.status]}
+              </SelectItem>
+              {nextStatuses.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {statusLabels[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onEdit(project)}
+            disabled={isUpdating}
+            aria-label="Edit project"
+          >
+            <Pencil className="h-4 w-4" />
           </Button>
-        ))}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={async () => {
-            await onArchive(project.id);
-          }}
-          disabled={isArchiving}
-        >
-          {isArchiving ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Archive className="h-4 w-4" />
-          )}
-          <span className="sr-only">Archive</span>
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => setEditing((prev) => !prev)}
-          disabled={isUpdating}
-        >
-          {editing ? 'Cancel' : 'Edit'}
-        </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={async () => {
+              try {
+                await onArchive(project.id);
+              } catch (err) {
+                const message =
+                  err instanceof Error
+                    ? err.message
+                    : 'Failed to archive project';
+                toast({
+                  title: 'Project update failed',
+                  description: message,
+                });
+              }
+            }}
+            disabled={isArchiving}
+            aria-label="Archive project"
+          >
+            {isArchiving ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            <span className="sr-only">Archive</span>
+          </Button>
+        </div>
       </div>
       <div className="space-y-2">
-        <div className="text-sm font-medium">Milestones</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium">Milestones</div>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setMilestoneOpen(true)}
+            disabled={isUpdating}
+            aria-label="Add milestone"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
         <MilestonesList
           milestones={project.milestones ?? []}
           onUpdate={async (milestoneId, changes) => {
-            await onUpdateMilestone(project.id, milestoneId, changes);
+            try {
+              await onUpdateMilestone(project.id, milestoneId, changes);
+            } catch (err) {
+              const message =
+                err instanceof Error
+                  ? err.message
+                  : 'Failed to update milestone';
+              toast({
+                title: 'Milestone update failed',
+                description:
+                  message.replace(/must be true, got: false/i, '').trim() ||
+                  message,
+              });
+            }
           }}
           onArchive={async (milestoneId) => {
-            await onArchiveMilestone(project.id, milestoneId);
+            try {
+              await onArchiveMilestone(project.id, milestoneId);
+            } catch (err) {
+              const message =
+                err instanceof Error
+                  ? err.message
+                  : 'Failed to archive milestone';
+              toast({
+                title: 'Milestone archive failed',
+                description: message,
+              });
+            }
           }}
           disabled={isUpdating}
         />
-        <ProjectMilestoneInput
-          onAdd={async (milestone) => {
-            await onAddMilestone(project.id, milestone);
-          }}
-          startDate={project.startDate}
-          targetDate={project.targetDate}
-        />
       </div>
-      {editing && (
-        <div className="grid gap-3">
-          <div className="space-y-1">
-            <Label>Name</Label>
-            <Input
-              value={draft.name}
-              onChange={(ev) =>
-                setDraft((prev) => ({ ...prev, name: ev.target.value }))
+      <Dialog open={milestoneOpen} onOpenChange={setMilestoneOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add milestone</DialogTitle>
+          </DialogHeader>
+          <ProjectMilestoneInput
+            onAdd={async (milestone) => {
+              setMilestoneError(null);
+              try {
+                await onAddMilestone(project.id, milestone);
+                setMilestoneOpen(false);
+              } catch (err) {
+                const message =
+                  err instanceof Error
+                    ? err.message
+                    : 'Failed to add milestone';
+                setMilestoneError(message);
               }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Description</Label>
-            <Textarea
-              value={draft.description}
-              onChange={(ev) =>
-                setDraft((prev) => ({ ...prev, description: ev.target.value }))
-              }
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Start</Label>
-              <Input
-                type="date"
-                value={draft.startDate}
-                onChange={(ev) =>
-                  setDraft((prev) => ({ ...prev, startDate: ev.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Target</Label>
-              <Input
-                type="date"
-                value={draft.targetDate}
-                onChange={(ev) =>
-                  setDraft((prev) => ({ ...prev, targetDate: ev.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label>Linked Goal</Label>
-            <Select
-              value={draft.goalId}
-              onValueChange={(value) =>
-                setDraft((prev) => ({ ...prev, goalId: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select goal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No goal</SelectItem>
-                {goals.map((goal) => (
-                  <SelectItem key={goal.id} value={goal.id}>
-                    {goal.summary}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button
-            onClick={async () => {
-              await save();
             }}
-            disabled={isUpdating}
-          >
-            {isUpdating ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              'Save'
-            )}
-          </Button>
-        </div>
-      )}
+            startDate={project.startDate}
+            targetDate={project.targetDate}
+          />
+          {milestoneError ? (
+            <p className="text-sm text-destructive">{milestoneError}</p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

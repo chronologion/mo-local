@@ -78,10 +78,9 @@ describe('RemoteAuthProvider', () => {
     expect(localStorage.getItem('mo-remote-session-token')).toBeNull();
   });
 
-  it('signs up and stores session token', async () => {
+  it('signs up and connects', async () => {
     fetchMock.mockResolvedValue(
       createResponse({
-        sessionToken: 'session-abc',
         identityId: 'id-123',
         email: 'new@example.com',
       })
@@ -96,18 +95,14 @@ describe('RemoteAuthProvider', () => {
     expect(fetchMock).toHaveBeenCalled();
     expect(result.current.state.status).toBe('connected');
     if (result.current.state.status === 'connected') {
-      expect(result.current.state.sessionToken).toBe('session-abc');
-      expect(localStorage.getItem('mo-remote-session-token')).toBe(
-        'session-abc'
-      );
+      expect(result.current.state.identityId).toBe('id-123');
     }
   });
 
-  it('logs out and clears persisted token', async () => {
+  it('logs out and clears session', async () => {
     fetchMock
       .mockResolvedValueOnce(
         createResponse({
-          sessionToken: 'session-logout',
           identityId: 'id-logout',
           email: 'bye@example.com',
         })
@@ -125,6 +120,5 @@ describe('RemoteAuthProvider', () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.current.state.status).toBe('disconnected');
-    expect(localStorage.getItem('mo-remote-session-token')).toBeNull();
   });
 });

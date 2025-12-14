@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { DatePicker } from '../ui/date-picker';
+import { Input } from '../ui/input';
 
 export function ProjectMilestoneInput({
   onAdd,
@@ -50,10 +51,11 @@ export function ProjectMilestoneInput({
       </div>
       <div className="space-y-1">
         <Label>Target date</Label>
-        <Input
-          type="date"
+        <DatePicker
           value={targetDate}
-          onChange={(ev) => setTargetDate(ev.target.value)}
+          onChange={(next) => setTargetDate(next)}
+          min={startDate}
+          max={projectTargetDate}
         />
       </div>
       <Button type="submit" disabled={submitting}>

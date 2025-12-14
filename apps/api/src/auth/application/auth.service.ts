@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { KratosPasswordService } from '../infrastructure/kratos-password.service';
 import { KratosClient } from '../infrastructure/kratos.client';
 import { UserRepository } from './ports/user-repository';
@@ -13,15 +14,26 @@ export class AuthService {
   ) {}
 
   async register(email: string, password: string) {
-    const session = await this.kratosPassword.register(email, password);
-    await this.users.ensureExists({ id: session.identityId });
-    return session;
+    try {
+      const session = await this.kratosPassword.register(email, password);
+      await this.users.ensureExists({ id: session.identityId });
+      return session;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Registration failed';
+      throw new BadRequestException(message);
+    }
   }
 
   async login(email: string, password: string) {
-    const session = await this.kratosPassword.login(email, password);
-    await this.users.ensureExists({ id: session.identityId });
-    return session;
+    try {
+      const session = await this.kratosPassword.login(email, password);
+      await this.users.ensureExists({ id: session.identityId });
+      return session;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      throw new BadRequestException(message);
+    }
   }
 
   async logout(sessionToken: string): Promise<void> {

@@ -27,10 +27,22 @@ export const useProjectCommands = () => {
   const [error, setError] = useState<string | null>(null);
 
   const ensureUserId = () => {
-    if (session.status !== 'ready') {
-      throw new Error('User not ready');
+    const metaRaw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('mo-local-user')
+        : null;
+    if (metaRaw) {
+      try {
+        const parsed = JSON.parse(metaRaw) as { userId?: string };
+        if (parsed.userId) return parsed.userId;
+      } catch {
+        // ignore parse errors
+      }
     }
-    return session.userId;
+    if (session.status === 'ready' && session.userId) {
+      return session.userId;
+    }
+    throw new Error('Unlock your local vault before editing projects');
   };
 
   const dispatch = useCallback(

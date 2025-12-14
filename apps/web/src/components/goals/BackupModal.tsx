@@ -3,6 +3,13 @@ import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
 import { Button } from '../ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import {
   deriveLegacySaltForUser,
   encodeSalt,
 } from '@mo/infrastructure/crypto/deriveSalt';
@@ -95,8 +102,6 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     void run();
   }, [open, masterKey, services, session, userId, userMeta]);
 
-  if (!open) return null;
-
   const downloadBackup = () => {
     if (!backupCipher) return;
     const blob = new Blob([backupCipher], { type: 'application/json' });
@@ -109,37 +114,36 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-panel/90 p-6 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Backup identity keys (not goal data)
-            </h3>
-            <p className="text-sm">
-              Save this file securely. It only contains your signing and
-              per-goal keys so you can decrypt data; it does not include your
-              goals or event history. Until sync or log export exists, your
-              goals stay on this device.
-            </p>
-          </div>
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-        <div className="mt-4 space-y-3">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Backup identity keys (not goal data)</DialogTitle>
+          <DialogDescription>
+            Save this file securely. It only contains your signing and per-goal
+            keys; it does not include your goals or event history. Until sync or
+            log export exists, your goals stay on this device.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
           {backupLoading ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-foreground">
               <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
               Loading keys…
             </div>
           ) : backupError ? (
-            <p className="text-sm text-red-400">{backupError}</p>
+            <p className="text-sm text-destructive">{backupError}</p>
           ) : backupCipher ? (
-            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs">
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
               Encrypted backup ready. Use Download or Copy to save it securely.
             </div>
           ) : null}
+
           <div className="flex items-center gap-2">
             <Button
               onClick={downloadBackup}
@@ -160,13 +164,14 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               Copy
             </Button>
           </div>
-          <p className="text-xs">
+
+          <p className="text-xs text-muted-foreground">
             Keep backups offline. Anyone with this file can impersonate you. To
             see your goals on another device you will also need their event data
             (future sync/export), not just this key backup.
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

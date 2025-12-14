@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { RemoteAuthModal } from './RemoteAuthModal';
 
 export function RemoteAuthStatus() {
-  const { state, logOut, error, clearError } = useRemoteAuth();
+  const { state, logOut, clearError } = useRemoteAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [initialTab, setInitialTab] = useState<'login' | 'signup'>('signup');
 
@@ -14,6 +14,8 @@ export function RemoteAuthStatus() {
       setModalOpen(false);
     }
   }, [state.status]);
+
+  // Errors are surfaced inline inside the modal; avoid double toasts here.
 
   const openModal = (tab: 'login' | 'signup') => {
     clearError();
@@ -25,10 +27,10 @@ export function RemoteAuthStatus() {
     <>
       <div className="flex items-center gap-3">
         {state.status === 'connected' ? (
-          <div className="flex items-center gap-2 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-sm text-green-200">
-            <Cloud className="h-4 w-4" />
-            <span>Connected</span>
-            <span className="text-xs text-green-100/80">
+          <div className="flex items-center gap-2 rounded-full border border-green-700 bg-green-800 px-3 py-1 text-sm text-white shadow-sm">
+            <Cloud className="h-4 w-4 text-white" />
+            <span className="font-medium text-white">Connected</span>
+            <span className="text-xs text-white/80">
               {state.email ?? state.identityId}
             </span>
             <Button
@@ -68,11 +70,6 @@ export function RemoteAuthStatus() {
             </Button>
           </div>
         )}
-        {error ? (
-          <span className="text-xs text-amber-300">
-            {error} — reconnect to continue
-          </span>
-        ) : null}
       </div>
       <RemoteAuthModal
         open={modalOpen}

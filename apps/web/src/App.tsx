@@ -1,10 +1,13 @@
 import { lazy, Suspense, useState } from 'react';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { useApp } from './providers/AppProvider';
-import { Card, CardContent } from './components/ui/card';
+import { Button } from './components/ui/button';
 import { Onboarding } from './components/auth/Onboarding';
 import { Unlock } from './components/auth/Unlock';
 import { RemoteAuthStatus } from './components/auth/RemoteAuthStatus';
+import { BackupModal } from './components/goals/BackupModal';
+import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
+import { ToastProvider } from './components/ui/toast';
 
 const GoalsPage = lazy(() =>
   import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
@@ -18,81 +21,82 @@ const ProjectsPage = lazy(() =>
 export default function App() {
   const { session } = useApp();
   const [tab, setTab] = useState<'goals' | 'projects'>('goals');
+  const [backupOpen, setBackupOpen] = useState(false);
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-white/5 bg-panel/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg from-accent to-accent2 font-bold">
-              MO
+    <ToastProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        <header className="border-b border-border/70 bg-background shadow-sm">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 text-foreground">
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg from-accent to-accent2 bg-gradient-to-br font-bold text-foreground">
+                <Sparkles className="h-4 w-4 text-black" />
+              </div>
+              <div>
+                <div className="text-sm font-bold">
+                  Local-first / ES / ZK sync
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-xs uppercase tracking-widest">MO Local</div>
-              <div className="text-sm">Offline POC · LiveStore/OPFS</div>
+            <div className="flex items-center gap-4 text-sm">
+              {session.status === 'ready' ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setBackupOpen(true)}
+                  className="hidden md:inline-flex"
+                >
+                  Backup keys
+                </Button>
+              ) : null}
+              {session.status === 'ready' ? <RemoteAuthStatus /> : null}
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-accent2" />
-              Zero-knowledge, local-first
+        </header>
+        {session.status === 'loading' && (
+          <div className="mx-auto max-w-md px-4 py-10">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 p-4 shadow-sm">
+              <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                Loading identity…
+              </span>
             </div>
-            {session.status === 'ready' ? <RemoteAuthStatus /> : null}
           </div>
-        </div>
-      </header>
-      {session.status === 'loading' && (
-        <div className="mx-auto max-w-5xl px-4 py-10">
-          <Card>
-            <CardContent className="flex items-center gap-3">
-              <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
-              Loading identity…
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      {session.status === 'needs-onboarding' && <Onboarding />}
-      {session.status === 'locked' && <Unlock />}
-      {session.status === 'ready' && (
-        <Suspense
-          fallback={
-            <div className="mx-auto max-w-5xl px-4 py-10">
-              <Card>
-                <CardContent className="flex items-center gap-3">
-                  <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
-                  Loading…
-                </CardContent>
-              </Card>
-            </div>
-          }
-        >
-          <div className="mx-auto max-w-6xl px-4 pt-4">
-            <div className="mb-4 flex gap-2">
-              <button
-                className={`rounded-full px-4 py-2 text-sm ${
-                  tab === 'goals'
-                    ? 'bg-accent text-white'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-                onClick={() => setTab('goals')}
+        )}
+        {session.status === 'needs-onboarding' && <Onboarding />}
+        {session.status === 'locked' && <Unlock />}
+        {session.status === 'ready' && (
+          <Suspense
+            fallback={
+              <div className="mx-auto max-w-md px-4 py-10">
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 p-4 shadow-sm">
+                  <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium text-foreground">
+                    Loading…
+                  </span>
+                </div>
+              </div>
+            }
+          >
+            <div className="mx-auto max-w-6xl px-4 pt-4">
+              <Tabs
+                value={tab}
+                onValueChange={(v) => setTab(v as 'goals' | 'projects')}
               >
-                Goals
-              </button>
-              <button
-                className={`rounded-full px-4 py-2 text-sm ${
-                  tab === 'projects'
-                    ? 'bg-accent text-white'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-                onClick={() => setTab('projects')}
-              >
-                Projects
-              </button>
+                <TabsList>
+                  <TabsTrigger value="goals">Goals</TabsTrigger>
+                  <TabsTrigger value="projects">Projects</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-          </div>
-          {tab === 'goals' ? <GoalsPage /> : <ProjectsPage />}
-        </Suspense>
-      )}
-    </div>
+            {tab === 'goals' ? <GoalsPage /> : <ProjectsPage />}
+            <BackupModal
+              open={backupOpen}
+              onClose={() => setBackupOpen(false)}
+            />
+          </Suspense>
+        )}
+      </div>
+    </ToastProvider>
   );
 }

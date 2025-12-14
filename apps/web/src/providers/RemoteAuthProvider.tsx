@@ -12,7 +12,6 @@ type RemoteAuthState =
   | { status: 'connecting' }
   | {
       status: 'connected';
-      sessionToken: string;
       identityId: string;
       email?: string;
     };
@@ -23,12 +22,10 @@ type RemoteAuthContextValue = {
   signUp: (params: { email: string; password: string }) => Promise<void>;
   logIn: (params: { email: string; password: string }) => Promise<void>;
   logOut: () => Promise<void>;
-  getSessionToken: () => string | null;
   refreshSession: () => Promise<void>;
   clearError: () => void;
 };
 
-const SESSION_STORAGE_KEY = 'mo-remote-session-token';
 const apiBaseUrl =
   import.meta.env.VITE_API_URL ??
   import.meta.env.VITE_API_BASE_URL ??
@@ -36,29 +33,7 @@ const apiBaseUrl =
 
 const RemoteAuthContext = createContext<RemoteAuthContextValue | null>(null);
 
-const safeGetStoredToken = (): string | null => {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage.getItem(SESSION_STORAGE_KEY);
-};
-
-const persistSessionToken = (token: string): void => {
-  if (typeof localStorage === 'undefined') return;
-  localStorage.setItem(SESSION_STORAGE_KEY, token);
-};
-
-const clearStoredSessionToken = (): void => {
-  if (typeof localStorage === 'undefined') return;
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-};
-
-type SessionResponse = {
-  sessionToken: string;
-  identityId: string;
-  email?: string;
-};
-
 const sessionResponseSchema = z.object({
-  sessionToken: z.string(),
   identityId: z.string(),
   email: z.string().optional(),
 });
@@ -99,7 +74,7 @@ const extractErrorMessage = (payload: unknown): string | null => {
     Array.isArray(message) &&
     message.every((item) => typeof item === 'string')
   ) {
-    return message.join(', ');
+    return message.join(' | ');
   }
   return null;
 };
@@ -111,6 +86,7 @@ const requestJson = async <T,>(
 ): Promise<T> => {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'content-type': 'application/json',
       ...(init.headers ?? {}),
@@ -119,9 +95,43 @@ const requestJson = async <T,>(
 
   const payload = await parseJson(response);
   if (!response.ok) {
-    const reason = extractErrorMessage(payload);
-    const message =
-      reason ?? `Request to ${path} failed (status ${response.status})`;
+    const reason =
+      extractErrorMessage(payload) ??
+      (typeof payload === 'string'
+        ? payload
+        : (() => {
+            try {
+              return JSON.stringify(payload);
+            } catch {
+              return null;
+            }
+          })());
+    const isAuthPath =
+      path === '/auth/login' ||
+      path === '/auth/register' ||
+      path === '/auth/logout';
+    let message: string;
+    if (reason) {
+      const normalized = reason.toLowerCase();
+      if (
+        path === '/auth/login' &&
+        response.status === 400 &&
+        (normalized === 'bad request' ||
+          normalized.includes('request failed') ||
+          normalized.includes('invalid session') ||
+          normalized === 'unauthorized')
+      ) {
+        message = 'Email or password is incorrect.';
+      } else {
+        message = reason;
+      }
+    } else if (path === '/auth/login' && response.status === 400) {
+      message = 'Email or password is incorrect.';
+    } else if (isAuthPath && response.status === 400) {
+      message = 'Unable to authenticate with the provided credentials.';
+    } else {
+      message = `Request to ${path} failed (status ${response.status})`;
+    }
     throw new Error(message);
   }
 
@@ -142,22 +152,7 @@ export const RemoteAuthProvider = ({
   });
   const [error, setError] = useState<string | null>(null);
 
-  const adoptSession = useCallback((session: SessionResponse) => {
-    persistSessionToken(session.sessionToken);
-    setState({
-      status: 'connected',
-      sessionToken: session.sessionToken,
-      identityId: session.identityId,
-      email: session.email,
-    });
-  }, []);
-
   const refreshSession = useCallback(async () => {
-    const storedToken = safeGetStoredToken();
-    if (!storedToken) {
-      setState({ status: 'disconnected' });
-      return;
-    }
     setState({ status: 'connecting' });
     setError(null);
     try {
@@ -165,18 +160,15 @@ export const RemoteAuthProvider = ({
         '/auth/whoami',
         {
           method: 'GET',
-          headers: { 'x-session-token': storedToken },
         },
         whoamiResponseSchema
       );
       setState({
         status: 'connected',
-        sessionToken: storedToken,
         identityId: whoami.identityId,
         email: whoami.email,
       });
     } catch (err) {
-      clearStoredSessionToken();
       const message =
         err instanceof Error ? err.message : 'Session is no longer valid';
       setError(message);
@@ -204,7 +196,11 @@ export const RemoteAuthProvider = ({
           },
           sessionResponseSchema
         );
-        adoptSession(session);
+        setState({
+          status: 'connected',
+          identityId: session.identityId,
+          email: session.email,
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Unable to sign up right now';
@@ -213,7 +209,7 @@ export const RemoteAuthProvider = ({
         throw err;
       }
     },
-    [adoptSession]
+    []
   );
 
   const logIn = useCallback(
@@ -232,7 +228,11 @@ export const RemoteAuthProvider = ({
           },
           sessionResponseSchema
         );
-        adoptSession(session);
+        setState({
+          status: 'connected',
+          identityId: session.identityId,
+          email: session.email,
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Login failed, try again';
@@ -241,55 +241,43 @@ export const RemoteAuthProvider = ({
         throw err;
       }
     },
-    [adoptSession]
+    []
   );
 
   const logOut = useCallback(async () => {
-    const token = state.status === 'connected' ? state.sessionToken : null;
     setError(null);
     try {
-      if (token) {
-        await requestJson(
-          '/auth/logout',
-          {
-            method: 'POST',
-            body: JSON.stringify({ sessionToken: token }),
-          },
-          logoutResponseSchema
-        );
-      }
+      await requestJson(
+        '/auth/logout',
+        {
+          method: 'POST',
+          body: JSON.stringify({}),
+        },
+        logoutResponseSchema
+      );
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to logout session';
+        err instanceof Error ? err.message : 'Unable to log out right now';
       setError(message);
     } finally {
-      clearStoredSessionToken();
       setState({ status: 'disconnected' });
     }
-  }, [state]);
+  }, []);
 
-  const getSessionToken = useCallback(() => {
-    if (state.status === 'connected') {
-      return state.sessionToken;
-    }
-    return safeGetStoredToken();
-  }, [state]);
-
-  const clearError = useCallback(() => setError(null), []);
-
-  const value: RemoteAuthContextValue = {
-    state,
-    error,
-    signUp,
-    logIn,
-    logOut,
-    getSessionToken,
-    refreshSession,
-    clearError,
-  };
+  const clearError = () => setError(null);
 
   return (
-    <RemoteAuthContext.Provider value={value}>
+    <RemoteAuthContext.Provider
+      value={{
+        state,
+        error,
+        signUp,
+        logIn,
+        logOut,
+        refreshSession,
+        clearError,
+      }}
+    >
       {children}
     </RemoteAuthContext.Provider>
   );
@@ -297,8 +285,6 @@ export const RemoteAuthProvider = ({
 
 export const useRemoteAuth = (): RemoteAuthContextValue => {
   const ctx = useContext(RemoteAuthContext);
-  if (!ctx) {
-    throw new Error('RemoteAuthProvider missing');
-  }
+  if (!ctx) throw new Error('RemoteAuthProvider missing');
   return ctx;
 };

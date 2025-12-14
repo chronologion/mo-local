@@ -4,29 +4,29 @@
   --font-body: ui-sans-serif, system-ui, sans-serif;
   --shadow-card: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
-  --color-surface: 222 47% 11%;
-  --color-panel: 223 37% 15%;
-  --color-accent2: 210 100% 70%;
+  --color-surface: hsl(222 47% 11%);
+  --color-panel: hsl(223 37% 15%);
+  --color-accent2: hsl(210 100% 70%);
 
-  --color-background: 0 0% 100%;
-  --color-foreground: 0 0% 10%;
-  --color-card: 0 0% 100%;
-  --color-card-foreground: 0 0% 10%;
-  --color-popover: 0 0% 100%;
-  --color-popover-foreground: 0 0% 10%;
-  --color-primary: 221 83% 53%;
-  --color-primary-foreground: 0 0% 100%;
-  --color-secondary: 210 40% 96%;
-  --color-secondary-foreground: 0 0% 10%;
-  --color-muted: 210 40% 96%;
-  --color-muted-foreground: 0 0% 35%;
-  --color-accent: 210 40% 96%;
-  --color-accent-foreground: 0 0% 9%;
-  --color-destructive: 0 84% 60%;
-  --color-destructive-foreground: 0 0% 98%;
-  --color-border: 214 32% 91%;
-  --color-input: 214 32% 91%;
-  --color-ring: 221 83% 53%;
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(0 0% 10%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(0 0% 10%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(0 0% 10%);
+  --color-primary: hsl(221 83% 53%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(210 40% 96%);
+  --color-secondary-foreground: hsl(0 0% 10%);
+  --color-muted: hsl(210 40% 96%);
+  --color-muted-foreground: hsl(0 0% 35%);
+  --color-accent: hsl(210 40% 96%);
+  --color-accent-foreground: hsl(0 0% 9%);
+  --color-destructive: hsl(0 84% 60%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(214 32% 91%);
+  --color-input: hsl(214 32% 91%);
+  --color-ring: hsl(221 83% 53%);
 
   --radius: 0.5rem;
 }

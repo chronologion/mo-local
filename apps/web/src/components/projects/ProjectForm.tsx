@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Input } from '../ui/input';
 import {
   Select,
   SelectContent,
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import type { GoalListItemDto } from '@mo/application';
+import { DatePicker } from '../ui/date-picker';
 
 export type ProjectFormValues = {
   name: string;
@@ -23,18 +24,27 @@ export type ProjectFormValues = {
 type ProjectFormProps = {
   onSubmit: (values: ProjectFormValues) => Promise<void>;
   goals: GoalListItemDto[];
+  initialValues?: ProjectFormValues;
+  submitLabel?: string;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function ProjectForm({ onSubmit, goals }: ProjectFormProps) {
-  const [values, setValues] = useState<ProjectFormValues>({
-    name: '',
-    startDate: today(),
-    targetDate: today(),
-    description: '',
-    goalId: null,
-  });
+export function ProjectForm({
+  onSubmit,
+  goals,
+  initialValues,
+  submitLabel = 'Create Project',
+}: ProjectFormProps) {
+  const [values, setValues] = useState<ProjectFormValues>(
+    initialValues ?? {
+      name: '',
+      startDate: today(),
+      targetDate: today(),
+      description: '',
+      goalId: null,
+    }
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -42,13 +52,15 @@ export function ProjectForm({ onSubmit, goals }: ProjectFormProps) {
     setSubmitting(true);
     try {
       await onSubmit(values);
-      setValues({
-        name: '',
-        startDate: today(),
-        targetDate: today(),
-        description: '',
-        goalId: null,
-      });
+      if (!initialValues) {
+        setValues({
+          name: '',
+          startDate: today(),
+          targetDate: today(),
+          description: '',
+          goalId: null,
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -64,29 +76,28 @@ export function ProjectForm({ onSubmit, goals }: ProjectFormProps) {
             setValues((prev) => ({ ...prev, name: ev.target.value }))
           }
           required
+          placeholder="Project name"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>Start Date</Label>
-          <Input
-            type="date"
+          <Label>Start date</Label>
+          <DatePicker
             value={values.startDate}
-            onChange={(ev) =>
-              setValues((prev) => ({ ...prev, startDate: ev.target.value }))
+            onChange={(next) =>
+              setValues((prev) => ({ ...prev, startDate: next }))
             }
-            required
+            max={values.targetDate}
           />
         </div>
         <div className="space-y-1">
-          <Label>Target Date</Label>
-          <Input
-            type="date"
+          <Label>Target date</Label>
+          <DatePicker
             value={values.targetDate}
-            onChange={(ev) =>
-              setValues((prev) => ({ ...prev, targetDate: ev.target.value }))
+            onChange={(next) =>
+              setValues((prev) => ({ ...prev, targetDate: next }))
             }
-            required
+            min={values.startDate}
           />
         </div>
       </div>
@@ -125,7 +136,7 @@ export function ProjectForm({ onSubmit, goals }: ProjectFormProps) {
         </Select>
       </div>
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Creating…' : 'Create Project'}
+        {submitting ? 'Saving…' : submitLabel}
       </Button>
     </form>
   );

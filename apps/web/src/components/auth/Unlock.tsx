@@ -35,10 +35,10 @@ export function Unlock() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
-      <Card>
+      <Card className="border border-border bg-card/90 shadow-md">
         <CardHeader className="space-y-2">
-          <div className="flex items-center gap-2 text-accent">
-            <Lock className="h-5 w-5" />
+          <div className="flex items-center gap-2 text-primary">
+            <Lock className="h-5 w-5 text-primary" />
             <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
               Unlock
             </span>
@@ -62,7 +62,7 @@ export function Unlock() {
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Unlocking…' : 'Unlock'}
-                <Lock className="ml-2 h-4 w-4" />
+                <Lock className="ml-2 h-4 w-4 text-primary-foreground" />
               </Button>
               {session.status === 'locked' ? (
                 <span className="text-sm text-muted-foreground">
