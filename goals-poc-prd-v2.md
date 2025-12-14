@@ -35,7 +35,7 @@ Build a local-first proof of concept that demonstrates:
 | --------------- | -------------------------------------------------------------------------------------------------------- |
 | Frontend        | React + TypeScript + Vite + shadcn/ui                                                                    |
 | Architecture    | Clean Architecture (4 layers)                                                                            |
-| Bounded Context | Goals + Projects BCs (Projects shares the same architecture pattern; UI is still Goals‑centric for now) |
+| Bounded Context | Goals + Projects BCs (Projects shares the same architecture pattern; UI is still Goals‑centric for now)  |
 | Domain          | Balanced Wheel with 8 slices: Health, Family, Relationships, Work, Money, Learning, Mindfulness, Leisure |
 | Views           | Wheel view, Timeline view (design reference; current UI focuses on list/dashboard)                       |
 | Local Storage   | LiveStore (SQLite via OPFS/wa-sqlite)                                                                    |
