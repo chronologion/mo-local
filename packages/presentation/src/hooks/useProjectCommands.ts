@@ -27,8 +27,9 @@ export const useProjectCommands = () => {
   const [error, setError] = useState<string | null>(null);
 
   const ensureUserId = () => {
-    if (session.status === 'ready' && session.userId) {
-      return session.userId;
+    if (session.status === 'ready') {
+      if (session.userId) return session.userId;
+      throw new Error('Unlock your local vault before editing projects');
     }
     throw new Error('Unlock your local vault before editing projects');
   };

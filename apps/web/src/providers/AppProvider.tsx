@@ -64,11 +64,19 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+const userMetaSchema = z.object({
+  userId: z.string().min(1),
+  pwdSalt: z.string().optional(),
+});
+
 const loadMeta = (): UserMeta | null => {
   const raw = localStorage.getItem(USER_META_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as UserMeta;
+    const parsed = JSON.parse(raw);
+    const safe = userMetaSchema.safeParse(parsed);
+    if (!safe.success) return null;
+    return safe.data;
   } catch {
     return null;
   }
