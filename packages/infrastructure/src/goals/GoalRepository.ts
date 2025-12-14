@@ -127,17 +127,13 @@ export class GoalRepository implements IGoalRepository {
     payload: SnapshotPayload,
     version: number
   ): GoalSnapshot {
-    const createdByRaw =
-      payload.createdBy && payload.createdBy.length > 0
-        ? payload.createdBy
-        : 'legacy-snapshot-user';
     return {
       id: GoalId.from(payload.id),
       summary: Summary.from(payload.summary),
       slice: Slice.from(payload.slice),
       priority: Priority.from(payload.priority),
       targetMonth: Month.from(payload.targetMonth),
-      createdBy: UserId.from(createdByRaw),
+      createdBy: UserId.from(payload.createdBy),
       createdAt: Timestamp.fromMillis(payload.createdAt),
       archivedAt:
         payload.archivedAt === null

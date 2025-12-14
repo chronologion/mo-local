@@ -218,10 +218,6 @@ export class ProjectRepository implements IProjectRepository {
     const parsed: SnapshotPayload = JSON.parse(
       new TextDecoder().decode(plaintext)
     );
-    const createdByRaw =
-      parsed.createdBy && parsed.createdBy.length > 0
-        ? parsed.createdBy
-        : 'legacy-snapshot-user';
     return {
       id: ProjectId.from(parsed.id),
       name: ProjectName.from(parsed.name),
@@ -237,7 +233,7 @@ export class ProjectRepository implements IProjectRepository {
           targetDate: LocalDate.fromString(m.targetDate),
         })
       ),
-      createdBy: UserId.from(createdByRaw),
+      createdBy: UserId.from(parsed.createdBy),
       createdAt: Timestamp.fromMillis(parsed.createdAt),
       updatedAt: Timestamp.fromMillis(parsed.updatedAt),
       archivedAt:
