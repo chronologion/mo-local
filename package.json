@@ -11,6 +11,7 @@
     "dev:api": "yarn workspace @mo/api dev",
     "dev:stack": "NODE_ENV=development ./scripts/dev-stack.sh start",
     "dev:stack:stop": "./scripts/dev-stack.sh stop",
+    "dev:stack:reset": "./scripts/dev-stack.sh reset",
     "dev:stack:logs": "./scripts/dev-stack.sh logs",
     "dev:stack:status": "./scripts/dev-stack.sh status",
     "db:migrate": "yarn workspace @mo/api db:migrate",

@@ -6,8 +6,8 @@ import { KratosPasswordService } from '../infrastructure/kratos-password.service
 import { AuthController } from './controllers/auth.controller';
 import { MeController } from './controllers/me.controller';
 import { AuthService } from '../application/auth.service';
-import { KyselyUserRepository } from '../infrastructure/user.repository';
-import { UserRepository } from '../application/ports/user-repository';
+import { KyselyIdentityRepository } from '../infrastructure/user.repository';
+import { IdentityRepository } from '../application/ports/user-repository';
 
 @Module({
   imports: [DatabaseModule],
@@ -18,8 +18,8 @@ import { UserRepository } from '../application/ports/user-repository';
     KratosPasswordService,
     AuthService,
     {
-      provide: UserRepository,
-      useClass: KyselyUserRepository,
+      provide: IdentityRepository,
+      useClass: KyselyIdentityRepository,
     },
   ],
   exports: [

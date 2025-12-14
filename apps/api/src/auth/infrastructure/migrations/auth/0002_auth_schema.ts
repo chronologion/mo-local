@@ -5,7 +5,7 @@ export async function up(db: Kysely<Database>): Promise<void> {
   await db.schema.createSchema('auth').ifNotExists().execute();
 
   await db.schema
-    .createTable('auth.users')
+    .createTable('auth.identities')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
     .addColumn('public_key', 'bytea')
     .addColumn('created_at', 'timestamptz', (col) =>
@@ -35,6 +35,6 @@ export async function up(db: Kysely<Database>): Promise<void> {
 
 export async function down(db: Kysely<Database>): Promise<void> {
   await db.schema.dropTable('auth.invites').ifExists().execute();
-  await db.schema.dropTable('auth.users').ifExists().execute();
+  await db.schema.dropTable('auth.identities').ifExists().execute();
   await db.schema.dropSchema('auth').ifExists().execute();
 }

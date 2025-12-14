@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '@platform/infrastructure/database/database.service';
-import { UserRepository } from '../application/ports/user-repository';
+import { IdentityRepository } from '../application/ports/user-repository';
 
 @Injectable()
-export class KyselyUserRepository extends UserRepository {
-  private readonly logger = new Logger(KyselyUserRepository.name);
+export class KyselyIdentityRepository extends IdentityRepository {
+  private readonly logger = new Logger(KyselyIdentityRepository.name);
 
   constructor(private readonly database: DatabaseService) {
     super();
@@ -13,7 +13,7 @@ export class KyselyUserRepository extends UserRepository {
   async ensureExists(user: { id: string }): Promise<void> {
     await this.database
       .getDb()
-      .insertInto('auth.users')
+      .insertInto('auth.identities')
       .values({
         id: user.id,
       })
