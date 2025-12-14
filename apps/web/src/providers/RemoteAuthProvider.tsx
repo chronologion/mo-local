@@ -79,19 +79,39 @@ const extractErrorMessage = (payload: unknown): string | null => {
   return null;
 };
 
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly payload?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 const requestJson = async <T,>(
   path: string,
   init: RequestInit,
   schema: z.ZodSchema<T>
 ): Promise<T> => {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        'content-type': 'application/json',
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? `Network error calling ${path}: ${err.message}`
+        : `Network error calling ${path}`;
+    throw new ApiError(message);
+  }
 
   const payload = await parseJson(response);
   if (!response.ok) {
@@ -132,12 +152,12 @@ const requestJson = async <T,>(
     } else {
       message = `Request to ${path} failed (status ${response.status})`;
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status, payload);
   }
 
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    throw new Error(`Unexpected response from ${path}`);
+    throw new ApiError(`Unexpected response from ${path}`, response.status);
   }
   return parsed.data;
 };
@@ -169,6 +189,12 @@ export const RemoteAuthProvider = ({
         email: whoami.email,
       });
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        // Unauthenticated: stay silent and mark disconnected.
+        setState({ status: 'disconnected' });
+        setError(null);
+        return;
+      }
       const message =
         err instanceof Error ? err.message : 'Session is no longer valid';
       setError(message);
