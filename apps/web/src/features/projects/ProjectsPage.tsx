@@ -11,6 +11,7 @@ import { ProjectCard } from '../../components/projects/ProjectCard';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
@@ -195,6 +196,10 @@ export function ProjectsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create project</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new project by providing name, dates, description, and
+              optional goal link.
+            </DialogDescription>
           </DialogHeader>
           <ProjectForm
             goals={goals}
@@ -228,6 +233,10 @@ export function ProjectsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit project</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit project details including name, dates, description, and goal
+              link.
+            </DialogDescription>
           </DialogHeader>
           {editingProject ? (
             <ProjectForm
