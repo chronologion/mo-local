@@ -143,4 +143,20 @@ describe('ProjectCommandHandler', () => {
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });
+
+  it('does not depend on userId for project updates', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate());
+
+    const commandWithoutUserId = {
+      type: 'ChangeProjectName',
+      projectId,
+      name: 'Updated name',
+      timestamp: Date.now(),
+    } as unknown as ChangeProjectName;
+
+    await expect(
+      handler.handleChangeName(commandWithoutUserId)
+    ).resolves.toBeDefined();
+  });
 });

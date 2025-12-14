@@ -202,7 +202,7 @@ export class ProjectRepository implements IProjectRepository {
       description: string;
       goalId: string | null;
       milestones?: { id: string; name: string; targetDate: string }[];
-      createdBy: string;
+      createdBy?: string;
       createdAt: number;
       updatedAt: number;
       archivedAt: number | null;
@@ -218,6 +218,10 @@ export class ProjectRepository implements IProjectRepository {
     const parsed: SnapshotPayload = JSON.parse(
       new TextDecoder().decode(plaintext)
     );
+    const createdByRaw =
+      typeof parsed.createdBy === 'string' && parsed.createdBy.trim().length > 0
+        ? parsed.createdBy
+        : 'imported';
     return {
       id: ProjectId.from(parsed.id),
       name: ProjectName.from(parsed.name),
@@ -233,7 +237,7 @@ export class ProjectRepository implements IProjectRepository {
           targetDate: LocalDate.fromString(m.targetDate),
         })
       ),
-      createdBy: UserId.from(parsed.createdBy),
+      createdBy: UserId.from(createdByRaw),
       createdAt: Timestamp.fromMillis(parsed.createdAt),
       updatedAt: Timestamp.fromMillis(parsed.updatedAt),
       archivedAt:
