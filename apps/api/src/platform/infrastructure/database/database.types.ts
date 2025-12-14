@@ -14,7 +14,7 @@ export interface UsersTable {
 
 export interface InvitesTable {
   id: string;
-  goal_id: string;
+  aggregate_id: string;
   token: string;
   permission: 'view' | 'edit';
   wrapped_key: Buffer;

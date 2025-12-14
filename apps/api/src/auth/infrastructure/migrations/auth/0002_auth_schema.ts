@@ -16,7 +16,7 @@ export async function up(db: Kysely<Database>): Promise<void> {
   await db.schema
     .createTable('auth.invites')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
-    .addColumn('goal_id', 'uuid', (col) => col.notNull())
+    .addColumn('aggregate_id', 'uuid', (col) => col.notNull())
     .addColumn('token', 'varchar', (col) => col.notNull().unique())
     .addColumn('permission', 'varchar', (col) => col.notNull())
     .addColumn('wrapped_key', 'bytea', (col) => col.notNull())
@@ -27,9 +27,9 @@ export async function up(db: Kysely<Database>): Promise<void> {
     .execute();
 
   await db.schema
-    .createIndex('auth_invites_goal_idx')
+    .createIndex('auth_invites_aggregate_idx')
     .on('auth.invites')
-    .column('goal_id')
+    .column('aggregate_id')
     .execute();
 }
 
