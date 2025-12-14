@@ -18,7 +18,8 @@ Everything runs locally today; sync + sharing + backend APIs are tracked as foll
 1. Install Node.js 20+ and Yarn 1.x.
 2. Install dependencies: `yarn install`.
 3. Start the web app: `yarn dev` (or `yarn workspace @mo/web dev`). Vite serves the UI at `http://localhost:5173`.
-4. The first load walks through onboarding: pick a passphrase, generate identity keys, and land on the Goal dashboard.
+4. (Optional) Start the full Docker dev stack (Postgres + Kratos + API) with `yarn dev:stack` so cloud auth works end-to-end. See “Backend + Dev Stack” below for stop/logs/status helpers.
+5. The first load walks through onboarding: pick a passphrase, generate identity keys, and land on the Goal dashboard.
 
 ### Development Scripts (root `package.json`)
 
