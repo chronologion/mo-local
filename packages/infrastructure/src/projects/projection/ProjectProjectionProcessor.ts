@@ -340,7 +340,7 @@ export class ProjectProjectionProcessor {
     event: EncryptedEvent
   ): Promise<void> {
     const aad = new TextEncoder().encode(
-      `${aggregateId}:snapshot:${event.sequence}`
+      `${aggregateId}:snapshot:${event.version}`
     );
     const payloadBytes = new TextEncoder().encode(JSON.stringify(snapshot));
     const cipher = await this.crypto.encrypt(payloadBytes, key, aad);
@@ -358,7 +358,7 @@ export class ProjectProjectionProcessor {
         aggregateId,
         cipher as Uint8Array<ArrayBuffer>,
         event.version,
-        event.sequence ?? snapshot.version,
+        event.sequence ?? 0,
         event.occurredAt,
       ],
     });
@@ -389,8 +389,7 @@ export class ProjectProjectionProcessor {
       aad
     );
     const json = new TextDecoder().decode(plaintext);
-    const parsed = JSON.parse(json);
-    this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(parsed, {
+    this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(json, {
       idField: PROJECT_SEARCH_CONFIG.idField,
       fields: [...PROJECT_SEARCH_CONFIG.fields],
       storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],

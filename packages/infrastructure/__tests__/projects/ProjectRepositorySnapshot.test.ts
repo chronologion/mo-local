@@ -10,6 +10,7 @@ class SnapshotStoreStub {
     string,
     { payload_encrypted: Uint8Array; version: number }
   >();
+  readonly deleted: string[] = [];
 
   subscribe(): () => void {
     return () => {};
@@ -40,6 +41,12 @@ class SnapshotStoreStub {
       const row = this.snapshots.get(aggregateId);
       return (row ? [row] : []) as unknown as TResult;
     }
+    if (query.includes('DELETE FROM project_snapshots')) {
+      const aggregateId = bindValues[0] as string;
+      this.snapshots.delete(aggregateId);
+      this.deleted.push(aggregateId);
+      return [] as unknown as TResult;
+    }
     // ProjectRepository.load only issues a SELECT against project_snapshots.
     return [] as unknown as TResult;
   }
@@ -69,7 +76,7 @@ describe('ProjectRepository snapshot compatibility', () => {
     const storeStub = new SnapshotStoreStub();
     const store = storeStub as unknown as Store;
     const eventStore = new EmptyEventStoreStub();
-    const aggregateId = '00000000-0000-0000-0000-00000000pr01';
+    const aggregateId = '00000000-0000-0000-0000-000000000001';
     const projectId = ProjectId.from(aggregateId);
 
     const legacySnapshotPayload = {
@@ -108,5 +115,31 @@ describe('ProjectRepository snapshot compatibility', () => {
     expect(loaded).not.toBeNull();
     expect(loaded?.id.value).toBe(aggregateId);
     expect(loaded?.createdBy.value).toBe('imported');
+  });
+
+  it('purges corrupt snapshots and returns null instead of throwing', async () => {
+    const crypto = new WebCryptoService();
+    const kProject = await crypto.generateKey();
+    const storeStub = new SnapshotStoreStub();
+    const store = storeStub as unknown as Store;
+    const eventStore = new EmptyEventStoreStub();
+    const aggregateId = '00000000-0000-0000-0000-000000000002';
+    const projectId = ProjectId.from(aggregateId);
+
+    // Save an intentionally corrupt payload that will fail decryption.
+    const corruptCipher = new Uint8Array(64).fill(7);
+    storeStub.saveSnapshot(aggregateId, corruptCipher, 1);
+
+    const repo = new ProjectRepository(
+      eventStore,
+      store,
+      crypto,
+      async () => kProject
+    );
+
+    const loaded = await repo.load(projectId);
+
+    expect(loaded).toBeNull();
+    expect(storeStub.deleted).toContain(aggregateId);
   });
 });

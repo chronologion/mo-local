@@ -75,6 +75,17 @@ class StoreStub {
       const row = this.snapshots.get(aggregateId);
       return (row ? [row] : []) as unknown as TResult;
     }
+    if (
+      query.includes(
+        'SELECT aggregate_id, payload_encrypted, version, last_sequence, updated_at FROM project_snapshots'
+      )
+    ) {
+      const rows = [...this.snapshots.entries()].map(([aggregateId, row]) => ({
+        aggregate_id: aggregateId,
+        ...row,
+      }));
+      return rows as unknown as TResult;
+    }
     if (query.includes('INSERT INTO project_projection_meta')) {
       const [, value] = bindValues as [string, string];
       this.meta.set('project_last_sequence', value as string);
@@ -244,5 +255,74 @@ describe('ProjectProjectionProcessor', () => {
     await processor.start();
     const results = await processor.searchProjects('build');
     expect(results.some((p) => p.id === projectId)).toBe(true);
+  });
+
+  it('can restart from snapshots when sequence differs from version', async () => {
+    const projectA = '00000000-0000-0000-0000-000000000401';
+    const projectB = '00000000-0000-0000-0000-000000000402';
+    const kProjectA = await crypto.generateKey();
+    const kProjectB = await crypto.generateKey();
+    await keyStore.saveAggregateKey(projectA, kProjectA);
+    await keyStore.saveAggregateKey(projectB, kProjectB);
+
+    const createdA = new ProjectCreated({
+      projectId: ProjectId.from(projectA),
+      name: ProjectName.from('Alpha'),
+      status: ProjectStatus.from('planned'),
+      startDate: LocalDate.fromString('2025-01-01'),
+      targetDate: LocalDate.fromString('2025-02-01'),
+      description: ProjectDescription.from('desc'),
+      goalId: null,
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(
+        new Date('2025-01-01T00:00:00Z').getTime()
+      ),
+    });
+    const createdB = new ProjectCreated({
+      projectId: ProjectId.from(projectB),
+      name: ProjectName.from('Beta'),
+      status: ProjectStatus.from('planned'),
+      startDate: LocalDate.fromString('2025-01-01'),
+      targetDate: LocalDate.fromString('2025-02-01'),
+      description: ProjectDescription.from('desc'),
+      goalId: null,
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(
+        new Date('2025-01-01T00:00:00Z').getTime()
+      ),
+    });
+
+    await eventStore.append(
+      projectA,
+      [await toEncrypted.toEncrypted(createdA, 1, kProjectA)]
+    );
+    await eventStore.append(
+      projectB,
+      [await toEncrypted.toEncrypted(createdB, 1, kProjectB)]
+    );
+
+    const first = new ProjectProjectionProcessor(
+      store,
+      eventStore,
+      crypto,
+      keyStore as unknown as IndexedDBKeyStore,
+      toDomain
+    );
+    await first.start();
+    expect(first.listProjects().map((p) => p.id).sort()).toEqual(
+      [projectA, projectB].sort()
+    );
+
+    const second = new ProjectProjectionProcessor(
+      store,
+      eventStore,
+      crypto,
+      keyStore as unknown as IndexedDBKeyStore,
+      toDomain
+    );
+    await second.start();
+    expect(second.listProjects().map((p) => p.id).sort()).toEqual(
+      [projectA, projectB].sort()
+    );
   });
 });

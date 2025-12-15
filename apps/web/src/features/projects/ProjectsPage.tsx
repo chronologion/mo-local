@@ -280,18 +280,8 @@ export function ProjectsPage() {
                     changes.goalId = values.goalId;
                   }
 
-                  // If nothing changed, just close the dialog.
-                  const hasChanges =
-                    changes.name ||
-                    changes.description ||
-                    changes.startDate ||
-                    changes.targetDate ||
-                    changes.goalId !== undefined;
-
-                  if (hasChanges) {
-                    await updateProject(changes);
-                    await refresh();
-                  }
+                  await updateProject(changes);
+                  await refresh();
                   setEditingProject(null);
                 } catch (err) {
                   const message =
