@@ -35,19 +35,23 @@ const apiBaseUrl =
 
 const RemoteAuthContext = createContext<RemoteAuthContextValue | null>(null);
 
+export type RemoteAuthProviderProps = {
+  children: React.ReactNode;
+  client?: ICloudAccessClient;
+};
+
 export const RemoteAuthProvider = ({
   children,
-}: {
-  children: React.ReactNode;
-}) => {
+  client: injectedClient,
+}: RemoteAuthProviderProps) => {
   const [state, setState] = useState<RemoteAuthState>({
     status: 'disconnected',
   });
   const [error, setError] = useState<string | null>(null);
 
   const client: ICloudAccessClient = useMemo(
-    () => new HttpCloudAccessClient(apiBaseUrl),
-    []
+    () => injectedClient ?? new HttpCloudAccessClient(apiBaseUrl),
+    [injectedClient]
   );
 
   const refreshSession = useCallback(async () => {

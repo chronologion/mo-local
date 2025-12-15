@@ -5,58 +5,53 @@ import {
   RemoteAuthProvider,
   useRemoteAuth,
 } from '../../src/providers/RemoteAuthProvider';
+import type { ICloudAccessClient } from '@mo/application';
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <RemoteAuthProvider>{children}</RemoteAuthProvider>
-);
+const createClient = (
+  overrides: Partial<ICloudAccessClient> = {}
+): ICloudAccessClient => ({
+  whoAmI: vi.fn(async () => null),
+  register: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
+  login: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
+  logout: vi.fn(async () => ({ revoked: true })),
+  ...overrides,
+});
 
-const createResponse = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status });
-
-const createLocalStorage = () => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => (key in store ? store[key] : null),
-    setItem: (key: string, value: string) => {
-      store[key] = value;
-    },
-    removeItem: (key: string) => {
-      delete store[key];
-    },
-    clear: () => {
-      store = {};
-    },
-  };
-};
+const createWrapper =
+  (client: ICloudAccessClient) =>
+  ({ children }: { children: React.ReactNode }) => (
+    <RemoteAuthProvider client={client}>{children}</RemoteAuthProvider>
+  );
 
 describe('RemoteAuthProvider', () => {
-  const fetchMock = vi.spyOn(global, 'fetch');
-  const localStorageStub = createLocalStorage();
-
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal('localStorage', localStorageStub);
-    localStorageStub.clear();
+    vi.resetAllMocks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('starts disconnected without stored token', async () => {
-    fetchMock.mockResolvedValue(createResponse({}));
-    const { result } = renderHook(() => useRemoteAuth(), { wrapper });
+  it('starts disconnected when whoami returns null', async () => {
+    const client = createClient();
+    const { result } = renderHook(() => useRemoteAuth(), {
+      wrapper: createWrapper(client),
+    });
     await waitFor(() => {
       expect(result.current.state.status).toBe('disconnected');
     });
   });
 
-  it('restores a stored session token when whoami succeeds', async () => {
-    localStorage.setItem('mo-remote-session-token', 'token-123');
-    fetchMock.mockResolvedValue(
-      createResponse({ identityId: 'user-1', email: 'user@example.com' })
-    );
-    const { result } = renderHook(() => useRemoteAuth(), { wrapper });
+  it('connects when whoami succeeds', async () => {
+    const client = createClient({
+      whoAmI: vi.fn(async () => ({
+        identityId: 'user-1',
+        email: 'user@example.com',
+      })),
+    });
+    const { result } = renderHook(() => useRemoteAuth(), {
+      wrapper: createWrapper(client),
+    });
     await waitFor(() => {
       expect(result.current.state.status).toBe('connected');
     });
@@ -67,32 +62,41 @@ describe('RemoteAuthProvider', () => {
     }
   });
 
-  it('clears invalid stored token when whoami fails', async () => {
-    localStorage.setItem('mo-remote-session-token', 'token-123');
-    fetchMock.mockResolvedValue(new Response('{}', { status: 401 }));
-    const { result } = renderHook(() => useRemoteAuth(), { wrapper });
+  it('sets an error when whoami throws', async () => {
+    const client = createClient({
+      whoAmI: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+    });
+    const { result } = renderHook(() => useRemoteAuth(), {
+      wrapper: createWrapper(client),
+    });
     await waitFor(() => {
       expect(result.current.state.status).toBe('disconnected');
       expect(result.current.error).toBeTruthy();
     });
-    expect(localStorage.getItem('mo-remote-session-token')).toBeNull();
   });
 
   it('signs up and connects', async () => {
-    fetchMock.mockResolvedValue(
-      createResponse({
+    const client = createClient({
+      register: vi.fn(async () => ({
         identityId: 'id-123',
         email: 'new@example.com',
-      })
-    );
-    const { result } = renderHook(() => useRemoteAuth(), { wrapper });
+      })),
+    });
+    const { result } = renderHook(() => useRemoteAuth(), {
+      wrapper: createWrapper(client),
+    });
     await act(async () => {
       await result.current.signUp({
         email: 'new@example.com',
         password: 'secret123',
       });
     });
-    expect(fetchMock).toHaveBeenCalled();
+    expect(client.register).toHaveBeenCalledWith({
+      email: 'new@example.com',
+      password: 'secret123',
+    });
     expect(result.current.state.status).toBe('connected');
     if (result.current.state.status === 'connected') {
       expect(result.current.state.identityId).toBe('id-123');
@@ -100,15 +104,16 @@ describe('RemoteAuthProvider', () => {
   });
 
   it('logs out and clears session', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        createResponse({
-          identityId: 'id-logout',
-          email: 'bye@example.com',
-        })
-      )
-      .mockResolvedValueOnce(createResponse({ revoked: true }));
-    const { result } = renderHook(() => useRemoteAuth(), { wrapper });
+    const client = createClient({
+      register: vi.fn(async () => ({
+        identityId: 'id-logout',
+        email: 'bye@example.com',
+      })),
+      logout: vi.fn(async () => ({ revoked: true })),
+    });
+    const { result } = renderHook(() => useRemoteAuth(), {
+      wrapper: createWrapper(client),
+    });
     await act(async () => {
       await result.current.signUp({
         email: 'bye@example.com',
@@ -118,7 +123,7 @@ describe('RemoteAuthProvider', () => {
     await act(async () => {
       await result.current.logOut();
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(client.logout).toHaveBeenCalledTimes(1);
     expect(result.current.state.status).toBe('disconnected');
   });
 });
