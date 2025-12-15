@@ -202,7 +202,7 @@ export class ProjectRepository implements IProjectRepository {
       description: string;
       goalId: string | null;
       milestones?: { id: string; name: string; targetDate: string }[];
-      createdBy: string;
+      createdBy?: string;
       createdAt: number;
       updatedAt: number;
       archivedAt: number | null;
@@ -210,14 +210,27 @@ export class ProjectRepository implements IProjectRepository {
     const aad = new TextEncoder().encode(
       `${aggregateId}:snapshot:${row.version}`
     );
-    const plaintext = await this.crypto.decrypt(
-      row.payload_encrypted,
-      key,
-      aad
-    );
-    const parsed: SnapshotPayload = JSON.parse(
-      new TextDecoder().decode(plaintext)
-    );
+    let plaintext: Uint8Array;
+    try {
+      plaintext = await this.crypto.decrypt(row.payload_encrypted, key, aad);
+    } catch (error) {
+      if (this.isCryptoOperationError(error)) {
+        this.purgeCorruptSnapshot(aggregateId);
+        return null;
+      }
+      throw error;
+    }
+    let parsed: SnapshotPayload;
+    try {
+      parsed = JSON.parse(new TextDecoder().decode(plaintext));
+    } catch (error) {
+      this.purgeCorruptSnapshot(aggregateId);
+      return null;
+    }
+    const createdByRaw =
+      typeof parsed.createdBy === 'string' && parsed.createdBy.trim().length > 0
+        ? parsed.createdBy
+        : 'imported';
     return {
       id: ProjectId.from(parsed.id),
       name: ProjectName.from(parsed.name),
@@ -233,7 +246,7 @@ export class ProjectRepository implements IProjectRepository {
           targetDate: LocalDate.fromString(m.targetDate),
         })
       ),
-      createdBy: UserId.from(parsed.createdBy),
+      createdBy: UserId.from(createdByRaw),
       createdAt: Timestamp.fromMillis(parsed.createdAt),
       updatedAt: Timestamp.fromMillis(parsed.updatedAt),
       archivedAt:
@@ -242,5 +255,26 @@ export class ProjectRepository implements IProjectRepository {
           : Timestamp.fromMillis(parsed.archivedAt),
       version: row.version,
     };
+  }
+
+  private isCryptoOperationError(error: unknown): boolean {
+    return (
+      (error instanceof DOMException && error.name === 'OperationError') ||
+      (typeof error === 'object' &&
+        error !== null &&
+        'name' in error &&
+        (error as { name?: string }).name === 'OperationError')
+    );
+  }
+
+  private purgeCorruptSnapshot(aggregateId: string): void {
+    console.warn(
+      '[ProjectRepository] Corrupt snapshot detected; removing',
+      aggregateId
+    );
+    this.store.query({
+      query: 'DELETE FROM project_snapshots WHERE aggregate_id = ?',
+      bindValues: [aggregateId],
+    });
   }
 }

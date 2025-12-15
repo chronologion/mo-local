@@ -10,13 +10,13 @@ import {
   encodeSalt,
   generateRandomSalt,
 } from '@mo/infrastructure/crypto/deriveSalt';
-import { parseBackupEnvelope } from '@mo/interface';
+import { parseBackupEnvelope } from '@mo/presentation';
 import { z } from 'zod';
 import {
   InterfaceProvider,
   type InterfaceContextValue,
   type InterfaceServices,
-} from '@mo/interface/react';
+} from '@mo/presentation/react';
 
 const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';
@@ -64,11 +64,19 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+const userMetaSchema = z.object({
+  userId: z.string().min(1),
+  pwdSalt: z.string().optional(),
+});
+
 const loadMeta = (): UserMeta | null => {
   const raw = localStorage.getItem(USER_META_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as UserMeta;
+    const parsed = JSON.parse(raw);
+    const safe = userMetaSchema.safeParse(parsed);
+    if (!safe.success) return null;
+    return safe.data;
   } catch {
     return null;
   }

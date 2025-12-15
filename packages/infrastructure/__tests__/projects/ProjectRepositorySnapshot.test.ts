@@ -1,0 +1,145 @@
+import { describe, expect, it } from 'vitest';
+import { ProjectRepository } from '../../src/projects/ProjectRepository';
+import { WebCryptoService } from '../../src/crypto/WebCryptoService';
+import type { IEventStore, EncryptedEvent } from '@mo/application';
+import { ProjectId, ProjectName } from '@mo/domain';
+import type { Store } from '@livestore/livestore';
+
+class SnapshotStoreStub {
+  private readonly snapshots = new Map<
+    string,
+    { payload_encrypted: Uint8Array; version: number }
+  >();
+  readonly deleted: string[] = [];
+
+  subscribe(): () => void {
+    return () => {};
+  }
+
+  saveSnapshot(
+    aggregateId: string,
+    payloadEncrypted: Uint8Array,
+    version: number
+  ): void {
+    this.snapshots.set(aggregateId, {
+      payload_encrypted: payloadEncrypted,
+      version,
+    });
+  }
+
+  query<TResult>({
+    query,
+    bindValues,
+  }: {
+    query: string;
+    bindValues: Array<string | number | Uint8Array>;
+  }): TResult {
+    if (
+      query.includes('SELECT payload_encrypted, version FROM project_snapshots')
+    ) {
+      const aggregateId = bindValues[0] as string;
+      const row = this.snapshots.get(aggregateId);
+      return (row ? [row] : []) as unknown as TResult;
+    }
+    if (query.includes('DELETE FROM project_snapshots')) {
+      const aggregateId = bindValues[0] as string;
+      this.snapshots.delete(aggregateId);
+      this.deleted.push(aggregateId);
+      return [] as unknown as TResult;
+    }
+    // ProjectRepository.load only issues a SELECT against project_snapshots.
+    return [] as unknown as TResult;
+  }
+}
+
+class EmptyEventStoreStub implements IEventStore {
+  async append(_aggregateId: string, _events: EncryptedEvent[]): Promise<void> {
+    // no-op for this test
+  }
+
+  async getEvents(
+    _aggregateId: string,
+    _fromVersion = 1
+  ): Promise<EncryptedEvent[]> {
+    return [];
+  }
+
+  async getAllEvents(): Promise<EncryptedEvent[]> {
+    return [];
+  }
+}
+
+describe('ProjectRepository snapshot compatibility', () => {
+  it('reconstitutes projects when snapshot is missing createdBy', async () => {
+    const crypto = new WebCryptoService();
+    const kProject = await crypto.generateKey();
+    const storeStub = new SnapshotStoreStub();
+    const store = storeStub as unknown as Store;
+    const eventStore = new EmptyEventStoreStub();
+    const aggregateId = '00000000-0000-0000-0000-000000000001';
+    const projectId = ProjectId.from(aggregateId);
+
+    const legacySnapshotPayload = {
+      id: aggregateId,
+      name: ProjectName.from('Legacy').value,
+      status: 'planned' as const,
+      startDate: '2025-01-01',
+      targetDate: '2025-02-01',
+      description: 'desc',
+      goalId: null as string | null,
+      milestones: [] as { id: string; name: string; targetDate: string }[],
+      // NOTE: createdBy intentionally omitted to simulate legacy snapshots.
+      createdAt: Date.UTC(2025, 0, 1),
+      updatedAt: Date.UTC(2025, 0, 1),
+      archivedAt: null as number | null,
+    };
+
+    const version = 1;
+    const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+    const plaintext = new TextEncoder().encode(
+      JSON.stringify(legacySnapshotPayload)
+    );
+    const cipher = await crypto.encrypt(plaintext, kProject, aad);
+
+    storeStub.saveSnapshot(aggregateId, cipher, version);
+
+    const repo = new ProjectRepository(
+      eventStore,
+      store,
+      crypto,
+      async (id: string) => (id === aggregateId ? kProject : null)
+    );
+
+    const loaded = await repo.load(projectId);
+
+    expect(loaded).not.toBeNull();
+    expect(loaded?.id.value).toBe(aggregateId);
+    expect(loaded?.createdBy.value).toBe('imported');
+  });
+
+  it('purges corrupt snapshots and returns null instead of throwing', async () => {
+    const crypto = new WebCryptoService();
+    const kProject = await crypto.generateKey();
+    const storeStub = new SnapshotStoreStub();
+    const store = storeStub as unknown as Store;
+    const eventStore = new EmptyEventStoreStub();
+    const aggregateId = '00000000-0000-0000-0000-000000000002';
+    const projectId = ProjectId.from(aggregateId);
+
+    // Save an intentionally corrupt payload that will fail decryption.
+    const corruptCipher = new Uint8Array(64).fill(7);
+    storeStub.saveSnapshot(aggregateId, corruptCipher, 1);
+
+    const repo = new ProjectRepository(
+      eventStore,
+      store,
+      crypto,
+      async () => kProject
+    );
+
+    const loaded = await repo.load(projectId);
+
+    expect(loaded).toBeNull();
+    expect(storeStub.deleted).toContain(aggregateId);
+  });
+});

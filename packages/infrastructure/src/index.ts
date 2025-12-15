@@ -12,3 +12,4 @@ export * from './browser/LiveStoreEventStore';
 export * from './browser/sleep';
 export * from './goals';
 export * from './projects';
+export * from './cloud';

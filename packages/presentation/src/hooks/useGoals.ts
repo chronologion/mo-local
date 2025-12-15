@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GoalListItemDto as GoalListItem } from '@mo/interface';
+import type { GoalListItemDto as GoalListItem } from '@mo/application';
 import { ListGoalsQuery } from '@mo/application';
 import { useInterface } from '../context';
 

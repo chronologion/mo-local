@@ -27,7 +27,7 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
         fontFamily: 'monospace',
         fontSize: 12,
         lineHeight: 1.4,
-        zIndex: 9999,
+        zIndex: 10,
         boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
       }}
     >

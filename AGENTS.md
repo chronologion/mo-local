@@ -1,6 +1,6 @@
 This monorepo contains the documentation and implementation of ALC-244 (Linear): Local-first event-sourced zero-knowledge sync architecture POC.
 
-Read @goals-poc-prd-v2.md for the full PRD of what we're working on here.
+Read `goals-poc-prd-v2.md` for the full PRD of what we're working on here.
 
 Key rules:
 
@@ -9,7 +9,7 @@ Key rules:
 - Make a branch per Linear subissue and use short conventional commit messages.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
-- Don't "hand-code" dependency versions in package.json! Just install latest, unless there's a reason not to.
+- NEVER "hand-code" dependency versions in `package.json`! Just install latest, unless there's a reason not to, but you must justify and get approval first.
 - Follow DDD/clean architecture layering and split responsibilities according to best practices! Domain is core without dependencies. Commands and Queries are lean objects, no logic. Handlers have the logic.
 - Domain classes – aggregates, entities and domain events – use VOs for their members. We have a "no primitive types" obsessions!
 - In case of blocking issues and PRD divergence you can't reconcile – stop and ask.

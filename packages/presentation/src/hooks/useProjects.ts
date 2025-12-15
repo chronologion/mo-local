@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ProjectListItemDto as ProjectListItem } from '@mo/interface';
+import type { ProjectListItemDto as ProjectListItem } from '@mo/application';
 import { ListProjectsQuery } from '@mo/application';
 import { useInterface } from '../context';
 

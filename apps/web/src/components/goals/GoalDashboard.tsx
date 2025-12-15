@@ -1,25 +1,19 @@
 import { useMemo, useState } from 'react';
-import { KeyRound, RefreshCw } from 'lucide-react';
-import { useApp } from '../../providers/AppProvider';
-import { useGoals, useGoalCommands, useGoalSearch } from '@mo/interface/react';
-import { Button } from '../ui/button';
+import { RefreshCw, Search } from 'lucide-react';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Input } from '../ui/input';
+  useGoals,
+  useGoalCommands,
+  useGoalSearch,
+} from '@mo/presentation/react';
+import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { GoalForm } from './GoalForm';
 import { GoalCard } from './GoalCard';
-import { BackupModal } from './BackupModal';
 import { GoalFormValues } from './goalFormTypes';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import type { GoalListItemDto } from '@mo/application';
 
 export function GoalDashboard() {
-  const { session } = useApp();
   const { goals, loading, error, refresh } = useGoals();
   const {
     createGoal,
@@ -28,8 +22,9 @@ export function GoalDashboard() {
     loading: mutating,
     error: mutationError,
   } = useGoalCommands();
-  const [backupOpen, setBackupOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<GoalListItemDto | null>(null);
   const [pending, setPending] = useState<{
     id: string;
     action: 'archive' | 'update';
@@ -75,109 +70,115 @@ export function GoalDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-10">
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="secondary">local-only</Badge>
-              <span className="flex items-center gap-1">
-                <KeyRound className="h-4 w-4 text-primary" /> User:{' '}
-                {session.status === 'ready' ? session.userId : '—'}
-              </span>
-            </div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              Goals (offline)
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              No sync or sharing yet. Everything persists in OPFS/LiveStore.
-            </p>
+            <h1 className="text-2xl font-semibold text-foreground">Goals</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setBackupOpen(true)}>
-              Backup keys
-            </Button>
-            <Button variant="secondary" onClick={refresh} disabled={loading}>
-              <RefreshCw
-                className={cn('mr-2 h-4 w-4', loading && 'animate-spin')}
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
+            <div className="relative w-full md:w-72">
+              <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm text-foreground shadow-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+                placeholder="Search goals..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
-              Refresh
+            </div>
+            <Button onClick={() => setCreateOpen(true)}>New goal</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refresh}
+              disabled={loading}
+              className="gap-2"
+              aria-label="Refresh goals"
+            >
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              <span className="sr-only">Refresh goals</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>New goal</CardTitle>
-          <CardDescription>
-            All data is encrypted locally before hitting storage.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <GoalForm onSubmit={handleCreateGoal} />
+      {search && (
+        <div className="text-sm text-muted-foreground">
+          {searching ? 'Searching…' : `${searchResults.length} result(s)`}
+        </div>
+      )}
+      {sortedGoals.length === 0 && !loading ? (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center text-muted-foreground">
+          No goals yet. Start by creating one.
+        </div>
+      ) : null}
+      <div className="grid gap-4 md:grid-cols-2">
+        {(search ? searchResults : sortedGoals).map((goal) => (
+          <GoalCard
+            key={goal.id}
+            goal={goal}
+            onEdit={(g) => setEditingGoal(g)}
+            onArchive={() => handleArchiveGoal(goal.id)}
+            isUpdating={
+              mutating &&
+              !!pending &&
+              pending.id === goal.id &&
+              pending.action === 'update'
+            }
+            isArchiving={
+              mutating &&
+              !!pending &&
+              pending.id === goal.id &&
+              pending.action === 'archive'
+            }
+          />
+        ))}
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create goal</DialogTitle>
+          </DialogHeader>
+          <GoalForm
+            onSubmit={async (params) => {
+              await handleCreateGoal(params);
+              setCreateOpen(false);
+            }}
+          />
           {(mutationError || error) && (
             <p className="text-sm text-destructive">{mutationError || error}</p>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Your goals</CardTitle>
-            <CardDescription>
-              Reacts to LiveStore commits; keeps projections current without
-              reload.
-            </CardDescription>
-          </div>
-          {loading && (
-            <span className="text-sm text-muted-foreground">Loading…</span>
-          )}
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <Input
-              placeholder="Search goals..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="md:w-80"
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!editingGoal}
+        onOpenChange={(open) => {
+          if (!open) setEditingGoal(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit goal</DialogTitle>
+          </DialogHeader>
+          {editingGoal ? (
+            <GoalForm
+              initialValues={{
+                summary: editingGoal.summary,
+                slice: editingGoal.slice as GoalFormValues['slice'],
+                priority: editingGoal.priority as GoalFormValues['priority'],
+                targetMonth: editingGoal.targetMonth,
+              }}
+              submitLabel="Save changes"
+              onSubmit={async (changes) => {
+                await handleUpdateGoal(editingGoal.id, changes);
+                setEditingGoal(null);
+              }}
             />
-            {search && (
-              <span className="text-sm text-muted-foreground">
-                {searching ? 'Searching…' : `${searchResults.length} result(s)`}
-              </span>
-            )}
-          </div>
-          {sortedGoals.length === 0 && !loading ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-muted-foreground">
-              No goals yet. Start by creating one.
-            </div>
           ) : null}
-          <div className="grid gap-4 md:grid-cols-2">
-            {(search ? searchResults : sortedGoals).map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                onSave={(changes) => handleUpdateGoal(goal.id, changes)}
-                onArchive={() => handleArchiveGoal(goal.id)}
-                isUpdating={
-                  mutating &&
-                  !!pending &&
-                  pending.id === goal.id &&
-                  pending.action === 'update'
-                }
-                isArchiving={
-                  mutating &&
-                  !!pending &&
-                  pending.id === goal.id &&
-                  pending.action === 'archive'
-                }
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <BackupModal open={backupOpen} onClose={() => setBackupOpen(false)} />
+          {(mutationError || error) && (
+            <p className="text-sm text-destructive">{mutationError || error}</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

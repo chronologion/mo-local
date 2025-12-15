@@ -27,10 +27,11 @@ export const useProjectCommands = () => {
   const [error, setError] = useState<string | null>(null);
 
   const ensureUserId = () => {
-    if (session.status !== 'ready') {
-      throw new Error('User not ready');
+    if (session.status === 'ready') {
+      if (session.userId) return session.userId;
+      throw new Error('Unlock your local vault before editing projects');
     }
-    return session.userId;
+    throw new Error('Unlock your local vault before editing projects');
   };
 
   const dispatch = useCallback(
@@ -40,11 +41,19 @@ export const useProjectCommands = () => {
       const result = await services.projectCommandBus.dispatch(command);
       setLoading(false);
       if (!result.ok) {
-        const message =
-          result.errors?.map((err) => err.message).join(', ') ??
-          'Unknown project command error';
-        setError(message);
-        throw new Error(message);
+        const errorMessage =
+          result.errors
+            ?.map((err) => err.message)
+            .filter((msg) => msg && msg.trim().length > 0)
+            .join(', ') || 'Unknown project command error';
+        // Surface details in dev console to aid debugging of silent failures.
+        console.error('[ProjectCommandBus] Dispatch failed', {
+          command,
+          errors: result.errors,
+          message: errorMessage,
+        });
+        setError(errorMessage);
+        throw new Error(errorMessage);
       }
       return result.value;
     },

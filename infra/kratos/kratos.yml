@@ -1,0 +1,85 @@
+version: v1.3.0
+
+serve:
+  public:
+    port: 4455
+    base_url: http://localhost:4455/
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:5173
+        - http://localhost:4000
+      allowed_methods:
+        - OPTIONS
+        - POST
+        - GET
+        - PUT
+        - PATCH
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Cookie
+        - Content-Type
+        - X-CSRF-Token
+      exposed_headers:
+        - Content-Type
+        - Set-Cookie
+      allow_credentials: true
+  admin:
+    port: 4434
+    base_url: http://localhost:4434/
+
+selfservice:
+  default_browser_return_url: http://localhost:5173/
+  methods:
+    password:
+      enabled: true
+  flows:
+    settings:
+      privileged_session_max_age: 15m
+      required_aal: highest_available
+    recovery:
+      enabled: false
+    verification:
+      enabled: false
+    login:
+      lifespan: 10m
+    registration:
+      lifespan: 10m
+      after:
+        password:
+          hooks:
+            - hook: session
+
+log:
+  level: debug
+  format: json
+  leak_sensitive_values: false
+
+secrets:
+  cookie:
+    - dev-cookie-secret-0123
+  default:
+    - dev-default-secret-0123
+  cipher:
+    - dev-cipher-secret-0123456789abcd
+
+ciphers:
+  algorithm: xchacha20-poly1305
+
+hashers:
+  algorithm: bcrypt
+  bcrypt:
+    cost: 12
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/kratos-identity-schema.json
+
+session:
+  lifespan: 24h
+  cookie:
+    path: /
+    persistent: true

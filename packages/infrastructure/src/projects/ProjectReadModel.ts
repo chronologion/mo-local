@@ -1,5 +1,5 @@
 import type { IProjectReadModel, ProjectListFilter } from '@mo/application';
-import type { ProjectListItemDto } from '@mo/interface';
+import type { ProjectListItemDto } from '@mo/application';
 import type { ProjectProjectionProcessor } from './projection/ProjectProjectionProcessor';
 
 /**

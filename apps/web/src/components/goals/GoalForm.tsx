@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -16,23 +16,46 @@ import {
   sliceOptions,
 } from './goalFormTypes';
 import { Sparkles } from 'lucide-react';
+import { MonthPicker } from '../ui/month-picker';
 
 type GoalFormProps = {
   onSubmit: (params: GoalFormValues) => Promise<void>;
+  initialValues?: GoalFormValues;
+  submitLabel?: string;
 };
 
-export function GoalForm({ onSubmit }: GoalFormProps) {
-  const [values, setValues] = useState<GoalFormValues>({
-    summary: '',
-    slice: 'Health',
-    priority: 'must',
-    targetMonth: getDefaultTargetMonth(),
-  });
+const defaultValues: GoalFormValues = {
+  summary: '',
+  slice: 'Health',
+  priority: 'must',
+  targetMonth: getDefaultTargetMonth(),
+};
+
+export function GoalForm({
+  onSubmit,
+  initialValues,
+  submitLabel = 'Create goal',
+}: GoalFormProps) {
+  const [values, setValues] = useState<GoalFormValues>(
+    initialValues ?? defaultValues
+  );
+
+  useEffect(() => {
+    if (initialValues) {
+      setValues(initialValues);
+    }
+  }, [initialValues]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     await onSubmit(values);
-    setValues((prev) => ({ ...prev, summary: '' }));
+    if (!initialValues) {
+      setValues((prev) => ({
+        ...prev,
+        summary: '',
+        targetMonth: getDefaultTargetMonth(),
+      }));
+    }
   };
 
   return (
@@ -96,17 +119,16 @@ export function GoalForm({ onSubmit }: GoalFormProps) {
       </div>
       <div className="space-y-2">
         <Label>Target month</Label>
-        <Input
-          type="month"
+        <MonthPicker
           value={values.targetMonth}
-          onChange={(e) =>
-            setValues((prev) => ({ ...prev, targetMonth: e.target.value }))
+          onChange={(next) =>
+            setValues((prev) => ({ ...prev, targetMonth: next }))
           }
         />
       </div>
       <div className="md:col-span-2">
         <Button type="submit" className="w-full md:w-auto">
-          Create goal
+          {submitLabel}
           <Sparkles className="ml-2 h-4 w-4" />
         </Button>
       </div>

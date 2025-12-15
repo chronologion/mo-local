@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./goals": "./src/goals/index.ts",
     "./projects": "./src/projects/index.ts",
+    "./cloud": "./src/cloud/index.ts",
     "./browser": "./src/browser.ts",
     "./browser/wiring/store": "./src/browser/wiring/store.ts",
     "./events/InMemoryEventBus": "./src/events/InMemoryEventBus.ts",
@@ -27,10 +28,10 @@
   },
   "dependencies": {
     "@livestore/wa-sqlite": "1.0.5",
-    "@mo/interface": "1.0.0",
     "@mo/application": "1.0.0",
     "@mo/domain": "1.0.0",
-    "minisearch": "^7.2.0"
+    "minisearch": "^7.2.0",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

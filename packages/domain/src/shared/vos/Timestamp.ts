@@ -55,15 +55,15 @@ export class Timestamp extends ValueObject<number> {
     return this._value > other._value;
   }
 
-  equals(other: Timestamp): boolean {
+  override equals(other: Timestamp): boolean {
     return this._value === other._value;
   }
 
-  toString(): string {
+  override toString(): string {
     return this.toISOString();
   }
 
-  get value(): number {
+  override get value(): number {
     return this._value;
   }
 }

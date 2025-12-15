@@ -23,11 +23,11 @@ Build a local-first proof of concept that demonstrates:
 | Per-goal encryption & key storage                 | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK.                         |
 | LiveStore persistence                             | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite.                                   |
 | React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine.                                                    |
-| Tests (Vitest)                                    | ✅ Implemented | Domain, application, infrastructure, and web suites run via `yarn test`.                         |
+| Tests (Vitest + Playwright)                       | ✅ Implemented | Unit suites run via `yarn test`; Playwright e2e runs via `yarn e2e` (stack required).            |
 | Backend APIs (NestJS + Postgres)                  | 🔜 Planned     | `apps/api` is a placeholder; server and sync endpoints are the next phase after the offline POC. |
 | Sync + multi-device replication                   | 🔜 Planned     | No push/pull transport yet. Backups currently move keys only, not event logs.                    |
 | Sharing / invites / wrapped key distribution      | 🔜 Planned     | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet.       |
-| Docker Compose dev stack                          | 🔜 Planned     | Documented as future work to support full-stack + E2E; not present in repo yet.                  |
+| Docker Compose dev stack                          | ✅ Implemented | Local dev stack for Postgres + Kratos + API + Web (used by Playwright e2e).                      |
 
 ### 2.1 In-scope (POC)
 
@@ -35,7 +35,7 @@ Build a local-first proof of concept that demonstrates:
 | --------------- | -------------------------------------------------------------------------------------------------------- |
 | Frontend        | React + TypeScript + Vite + shadcn/ui                                                                    |
 | Architecture    | Clean Architecture (4 layers)                                                                            |
-| Bounded Context | Goals + Projects BCs (Projects shares the same architecture pattern; UI is still Goals‑centric for now) |
+| Bounded Context | Goals + Projects BCs (Projects shares the same architecture pattern; UI is still Goals‑centric for now)  |
 | Domain          | Balanced Wheel with 8 slices: Health, Family, Relationships, Work, Money, Learning, Mindfulness, Leisure |
 | Views           | Wheel view, Timeline view (design reference; current UI focuses on list/dashboard)                       |
 | Local Storage   | LiveStore (SQLite via OPFS/wa-sqlite)                                                                    |
@@ -86,7 +86,7 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 - **Domain** has zero external dependencies. All invariants rely on the internal `Assert` DSL, and we keep the "no primitive types" obsession across Goals and Projects.
 - **Application** depends on Domain only and defines CQRS types and ports: generic `Repository` / `ReadModel` plus per-BC ports such as `IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`, alongside `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
 - **Infrastructure** implements those ports, translates domain events to encrypted LiveStore payloads, runs projection processors and read models per BC, and exposes browser-friendly wiring functions (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`) instead of owning a global composition root.
-- **Interface** is split between `packages/interface` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
+- **Presentation** is split between `packages/presentation` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
 
 ## 4. Domain Layer
 
@@ -159,7 +159,7 @@ At runtime, the web app integrates LiveStore as follows:
    - a projection processor (`GoalProjectionProcessor` / `ProjectProjectionProcessor`) that maintains snapshots, analytics, and search indices in LiveStore,
    - a read model (`GoalReadModel` / `ProjectReadModel`) implementing the application `*ReadModel` ports,
    - and typed command/query buses (`goalCommandBus` / `goalQueryBus`, `projectCommandBus` / `projectQueryBus`).
-4. `AppProvider` exposes these buses and projection ports to the interface layer via `InterfaceProvider` from `@mo/interface/react`, and uses the underlying `Store` only for diagnostics/debug UI in DEV.
+4. `AppProvider` exposes these buses and projection ports to the presentation layer via `InterfaceProvider` from `@mo/presentation/react`, and uses the underlying `Store` only for diagnostics/debug UI in DEV.
 5. LiveStore uses OPFS under the hood; all event, snapshot, analytics, and search tables live in the same per-origin SQLite database.
 
 ### 6.2 Event versioning & migrations
@@ -180,10 +180,10 @@ At runtime, the web app integrates LiveStore as follows:
 ### 7.1 Providers & hooks
 
 - `AppProvider` (in `apps/web`) is the app composition root: it bootstraps LiveStore + BC wiring via `createAppServices`, tracks session state (`needs-onboarding` → `locked` → `ready`), and wires the `InterfaceProvider`.
-- `InterfaceProvider` (in `packages/interface`) exposes an `InterfaceContext` with:
+- `InterfaceProvider` (in `packages/presentation`) exposes an `InterfaceContext` with:
   - per-BC command/query buses, and
   - projection ports (`goalProjection`, `projectProjection`) that provide `whenReady()` + `subscribe()` for reactive UI updates.
-- Hooks in `packages/interface/src/hooks` (`useGoalCommands`, `useGoals`, `useGoalById`, `useGoalSearch`, `useProjects`, `useProjectCommands`) talk only to the application layer via those buses/ports; they never touch LiveStore or crypto directly.
+- Hooks in `packages/presentation/src/hooks` (`useGoalCommands`, `useGoals`, `useGoalById`, `useGoalSearch`, `useProjects`, `useProjectCommands`) talk only to the application layer via those buses/ports; they never touch LiveStore or crypto directly.
 
 ### 7.2 Components
 
@@ -217,7 +217,9 @@ At runtime, the web app integrates LiveStore as follows:
 
 ### Testing & quality
 
-- `yarn test` – runs Vitest suites in `apps/web`, `packages/domain`, `packages/application`, and `packages/infrastructure`.
+- `yarn test` – runs unit tests (Vitest) across packages/apps.
+- `yarn test:integration` – runs API integration tests (requires the dev stack).
+- `yarn e2e` – runs Playwright tests (requires the dev stack).
 - `yarn lint` – ESLint flat config across repo.
 - `yarn typecheck` – `tsc --noEmit` for every workspace.
 - `yarn format` / `yarn format:check` – Prettier for TS/TSX/JSON/MD.
@@ -235,7 +237,7 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 
 - Vite dev server with React SWC transforms.
 - LiveStore worker (`packages/infrastructure/src/browser/worker.ts`) is bundled via `?worker` imports.
-- No Docker Compose or backend processes yet; `apps/api` is empty.
+- Docker Compose dev stack is available via `yarn dev:stack`; `apps/api` provides health + auth endpoints.
 
 ## 9. Current Limitations & Follow-ups
 

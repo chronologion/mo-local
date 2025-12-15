@@ -92,7 +92,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     const { projectId, status } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       status: (c) => ProjectStatus.from(c.status),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -107,7 +106,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       projectId: (c) => ProjectId.from(c.projectId),
       startDate: (c) => LocalDate.fromString(c.startDate),
       targetDate: (c) => LocalDate.fromString(c.targetDate),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -121,7 +119,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     const { projectId, name } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       name: (c) => ProjectName.from(c.name),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -135,7 +132,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     const { projectId, description } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       description: (c) => ProjectDescription.from(c.description),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -147,7 +143,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     const { projectId, goalId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       goalId: (c) => GoalId.from(c.goalId),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -160,7 +155,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   ): Promise<ProjectCommandResult> {
     const { projectId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -178,7 +172,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
         milestoneId: (c) => MilestoneId.from(c.milestoneId),
         name: (c) => c.name,
         targetDate: (c) => LocalDate.fromString(c.targetDate),
-        userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
       }
     );
@@ -198,7 +191,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
       targetDate: (c) => LocalDate.fromString(c.targetDate),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -213,7 +205,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
       name: (c) => c.name,
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -227,7 +218,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     const { projectId, milestoneId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
@@ -238,7 +228,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   async handleArchive(command: ArchiveProject): Promise<ProjectCommandResult> {
     const { projectId } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
-      userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);

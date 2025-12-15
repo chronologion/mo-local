@@ -1,5 +1,4 @@
 import { ICryptoService, KeyPair, SymmetricKey } from '@mo/application';
-import type { webcrypto as NodeWebCrypto } from 'node:crypto';
 import {
   decodeEnvelope,
   encodeEnvelope,
@@ -7,10 +6,8 @@ import {
   ECIES_IV_LENGTH,
 } from './eciesEnvelope';
 
-type CryptoLike = Pick<typeof NodeWebCrypto, 'subtle' | 'getRandomValues'>;
-
-const resolveCrypto = (): CryptoLike => {
-  const cryptoLike = (globalThis as unknown as { crypto?: CryptoLike }).crypto;
+const resolveCrypto = (): Crypto => {
+  const cryptoLike = globalThis.crypto;
   if (!cryptoLike?.subtle || !cryptoLike.getRandomValues) {
     throw new Error('Web Crypto API is not available');
   }
@@ -22,8 +19,34 @@ const subtle = cryptoApi.subtle;
 const IV_LENGTH = 12;
 const KEY_LENGTH = 32;
 const HKDF_SALT = new TextEncoder().encode('mo-local-v1');
-const CURVE = 'P-256';
+const ECDH_CURVE = 'P-256';
+const ECDH_ALGO = 'ECDH';
+const ECDSA_ALGO = 'ECDSA';
+const HKDF_HASH = 'SHA-256';
+const HKDF_ALGO = 'HKDF';
+const PBKDF2_ALGO = 'PBKDF2';
+const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_ITERATIONS = 600_000;
+const AES_GCM_ALGO = 'AES-GCM';
+const AES_GCM_KEY_BITS = 256;
+const AES_GCM_TAG_LENGTH = 128;
+const ECDSA_HASH = 'SHA-256';
+const KEY_FORMAT_RAW = 'raw';
+const KEY_FORMAT_PKCS8 = 'pkcs8';
+const KEY_FORMAT_SPKI = 'spki';
+const AES_GCM_USAGES: ReadonlyArray<KeyUsage> = ['encrypt', 'decrypt'];
+const ECDH_DERIVE_USAGES: ReadonlyArray<KeyUsage> = ['deriveBits', 'deriveKey'];
+const ECDH_DERIVE_KEY_USAGES: ReadonlyArray<KeyUsage> = ['deriveKey'];
+const ECDSA_USAGES: ReadonlyArray<KeyUsage> = ['sign', 'verify'];
+const DERIVE_KEY_USAGES: ReadonlyArray<KeyUsage> = ['deriveKey'];
+const SIGN_KEY_USAGES: ReadonlyArray<KeyUsage> = ['sign'];
+const VERIFY_KEY_USAGES: ReadonlyArray<KeyUsage> = ['verify'];
+const DEFAULT_TEXT_ENCODER = new TextEncoder();
+const toArrayBuffer = (view: Uint8Array): ArrayBuffer => {
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+};
 
 const ensureKeyLength = (key: Uint8Array): void => {
   if (key.length !== KEY_LENGTH) {
@@ -39,22 +62,28 @@ const ensureKeyLength = (key: Uint8Array): void => {
 export class WebCryptoService implements ICryptoService {
   async generateKey(): Promise<SymmetricKey> {
     const key = await subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
+      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
-    const exported = await subtle.exportKey('raw', key);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, key);
     return new Uint8Array(exported);
   }
 
   async generateSigningKeyPair(): Promise<KeyPair> {
     const keyPair = await subtle.generateKey(
-      { name: 'ECDSA', namedCurve: CURVE },
+      { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['sign', 'verify']
+      ECDSA_USAGES
     );
-    const publicKey = await subtle.exportKey('spki', keyPair.publicKey);
-    const privateKey = await subtle.exportKey('pkcs8', keyPair.privateKey);
+    const publicKey = await subtle.exportKey(
+      KEY_FORMAT_SPKI,
+      keyPair.publicKey
+    );
+    const privateKey = await subtle.exportKey(
+      KEY_FORMAT_PKCS8,
+      keyPair.privateKey
+    );
     return {
       publicKey: new Uint8Array(publicKey),
       privateKey: new Uint8Array(privateKey),
@@ -67,12 +96,15 @@ export class WebCryptoService implements ICryptoService {
 
   async generateKeyPair(): Promise<KeyPair> {
     const keyPair = await subtle.generateKey(
-      { name: 'ECDH', namedCurve: CURVE },
+      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['deriveBits', 'deriveKey']
+      ECDH_DERIVE_USAGES
     );
-    const publicKey = await subtle.exportKey('raw', keyPair.publicKey);
-    const privateKey = await subtle.exportKey('pkcs8', keyPair.privateKey);
+    const publicKey = await subtle.exportKey(KEY_FORMAT_RAW, keyPair.publicKey);
+    const privateKey = await subtle.exportKey(
+      KEY_FORMAT_PKCS8,
+      keyPair.privateKey
+    );
     return {
       publicKey: new Uint8Array(publicKey),
       privateKey: new Uint8Array(privateKey),
@@ -87,23 +119,27 @@ export class WebCryptoService implements ICryptoService {
     ensureKeyLength(key);
     const iv = cryptoApi.getRandomValues(new Uint8Array(IV_LENGTH));
     const cryptoKey = await subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-GCM' },
+      KEY_FORMAT_RAW,
+      toArrayBuffer(key),
+      { name: AES_GCM_ALGO },
       false,
-      ['encrypt']
+      AES_GCM_USAGES
     );
 
     const params: AesGcmParams & { additionalData?: BufferSource } = {
-      name: 'AES-GCM',
+      name: AES_GCM_ALGO,
       iv,
-      tagLength: 128,
+      tagLength: AES_GCM_TAG_LENGTH,
     };
     if (aad) {
       params.additionalData = new Uint8Array(aad);
     }
 
-    const ciphertext = await subtle.encrypt(params, cryptoKey, plaintext);
+    const ciphertext = await subtle.encrypt(
+      params,
+      cryptoKey,
+      toArrayBuffer(plaintext)
+    );
 
     const result = new Uint8Array(iv.length + ciphertext.byteLength);
     result.set(iv, 0);
@@ -124,23 +160,27 @@ export class WebCryptoService implements ICryptoService {
     const payload = ciphertext.slice(IV_LENGTH);
 
     const cryptoKey = await subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-GCM' },
+      KEY_FORMAT_RAW,
+      toArrayBuffer(key),
+      { name: AES_GCM_ALGO },
       false,
-      ['decrypt']
+      AES_GCM_USAGES
     );
 
     const params: AesGcmParams & { additionalData?: BufferSource } = {
-      name: 'AES-GCM',
+      name: AES_GCM_ALGO,
       iv,
-      tagLength: 128,
+      tagLength: AES_GCM_TAG_LENGTH,
     };
     if (aad) {
       params.additionalData = new Uint8Array(aad);
     }
 
-    const plaintext = await subtle.decrypt(params, cryptoKey, payload);
+    const plaintext = await subtle.decrypt(
+      params,
+      cryptoKey,
+      toArrayBuffer(payload)
+    );
 
     return new Uint8Array(plaintext);
   }
@@ -155,31 +195,34 @@ export class WebCryptoService implements ICryptoService {
     }
 
     const publicKey = await subtle.importKey(
-      'raw',
-      recipientPublicKey,
-      { name: 'ECDH', namedCurve: CURVE },
+      KEY_FORMAT_RAW,
+      toArrayBuffer(recipientPublicKey),
+      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       false,
       []
     );
     const ephemeral = await subtle.generateKey(
-      { name: 'ECDH', namedCurve: CURVE },
+      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       true,
-      ['deriveKey']
+      ECDH_DERIVE_KEY_USAGES
     );
     const aesKey = await subtle.deriveKey(
-      { name: 'ECDH', public: publicKey },
+      { name: ECDH_ALGO, public: publicKey },
       ephemeral.privateKey,
-      { name: 'AES-GCM', length: 256 },
+      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
     const iv = cryptoApi.getRandomValues(new Uint8Array(ECIES_IV_LENGTH));
     const ciphertext = await subtle.encrypt(
-      { name: 'AES-GCM', iv, tagLength: 128 },
+      { name: AES_GCM_ALGO, iv, tagLength: AES_GCM_TAG_LENGTH },
       aesKey,
-      keyToWrap
+      toArrayBuffer(keyToWrap)
     );
-    const ephemeralRaw = await subtle.exportKey('raw', ephemeral.publicKey);
+    const ephemeralRaw = await subtle.exportKey(
+      KEY_FORMAT_RAW,
+      ephemeral.publicKey
+    );
 
     return encodeEnvelope(
       new Uint8Array(ephemeralRaw),
@@ -193,33 +236,34 @@ export class WebCryptoService implements ICryptoService {
     recipientPrivateKey: Uint8Array
   ): Promise<Uint8Array> {
     const { ephemeralRaw, iv, payload } = decodeEnvelope(wrappedKey);
+    const ivCopy = new Uint8Array(iv);
 
     const privateKey = await subtle.importKey(
-      'pkcs8',
-      recipientPrivateKey,
-      { name: 'ECDH', namedCurve: CURVE },
+      KEY_FORMAT_PKCS8,
+      toArrayBuffer(recipientPrivateKey),
+      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['deriveKey']
+      ECDH_DERIVE_KEY_USAGES
     );
     const publicKey = await subtle.importKey(
-      'raw',
-      ephemeralRaw,
-      { name: 'ECDH', namedCurve: CURVE },
+      KEY_FORMAT_RAW,
+      toArrayBuffer(ephemeralRaw),
+      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
       false,
       []
     );
     const aesKey = await subtle.deriveKey(
-      { name: 'ECDH', public: publicKey },
+      { name: ECDH_ALGO, public: publicKey },
       privateKey,
-      { name: 'AES-GCM', length: 256 },
+      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['decrypt']
+      AES_GCM_USAGES
     );
 
     const plaintext = await subtle.decrypt(
-      { name: 'AES-GCM', iv, tagLength: 128 },
+      { name: AES_GCM_ALGO, iv: ivCopy, tagLength: AES_GCM_TAG_LENGTH },
       aesKey,
-      payload
+      toArrayBuffer(payload)
     );
     const result = new Uint8Array(plaintext);
     ensureKeyLength(result);
@@ -231,24 +275,28 @@ export class WebCryptoService implements ICryptoService {
     context: string
   ): Promise<SymmetricKey> {
     ensureKeyLength(masterKey);
-    const baseKey = await subtle.importKey('raw', masterKey, 'HKDF', false, [
-      'deriveKey',
-    ]);
+    const baseKey = await subtle.importKey(
+      KEY_FORMAT_RAW,
+      toArrayBuffer(masterKey),
+      HKDF_ALGO,
+      false,
+      DERIVE_KEY_USAGES
+    );
 
     const derived = await subtle.deriveKey(
       {
-        name: 'HKDF',
-        hash: 'SHA-256',
+        name: HKDF_ALGO,
+        hash: HKDF_HASH,
         salt: HKDF_SALT,
-        info: new TextEncoder().encode(context),
+        info: DEFAULT_TEXT_ENCODER.encode(context),
       },
       baseKey,
-      { name: 'AES-GCM', length: 256 },
+      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
 
-    const exported = await subtle.exportKey('raw', derived);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, derived);
     return new Uint8Array(exported);
   }
 
@@ -256,29 +304,28 @@ export class WebCryptoService implements ICryptoService {
     password: string,
     salt: Uint8Array
   ): Promise<SymmetricKey> {
-    const encoder = new TextEncoder();
     const passwordKey = await subtle.importKey(
-      'raw',
-      encoder.encode(password),
-      'PBKDF2',
+      KEY_FORMAT_RAW,
+      DEFAULT_TEXT_ENCODER.encode(password),
+      PBKDF2_ALGO,
       false,
-      ['deriveKey']
+      DERIVE_KEY_USAGES
     );
 
     const derived = await subtle.deriveKey(
       {
-        name: 'PBKDF2',
-        salt,
+        name: PBKDF2_ALGO,
+        salt: toArrayBuffer(salt),
         iterations: PBKDF2_ITERATIONS,
-        hash: 'SHA-256',
+        hash: PBKDF2_HASH,
       },
       passwordKey,
-      { name: 'AES-GCM', length: 256 },
+      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
       true,
-      ['encrypt', 'decrypt']
+      AES_GCM_USAGES
     );
 
-    const exported = await subtle.exportKey('raw', derived);
+    const exported = await subtle.exportKey(KEY_FORMAT_RAW, derived);
     return new Uint8Array(exported);
   }
 
@@ -291,16 +338,16 @@ export class WebCryptoService implements ICryptoService {
 
   async sign(data: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> {
     const key = await subtle.importKey(
-      'pkcs8',
-      privateKey,
-      { name: 'ECDSA', namedCurve: CURVE },
+      KEY_FORMAT_PKCS8,
+      toArrayBuffer(privateKey),
+      { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['sign']
+      SIGN_KEY_USAGES
     );
     const signature = await subtle.sign(
-      { name: 'ECDSA', hash: 'SHA-256' },
+      { name: ECDSA_ALGO, hash: ECDSA_HASH },
       key,
-      data
+      toArrayBuffer(data)
     );
     return new Uint8Array(signature);
   }
@@ -311,17 +358,17 @@ export class WebCryptoService implements ICryptoService {
     publicKey: Uint8Array
   ): Promise<boolean> {
     const key = await subtle.importKey(
-      'spki',
-      publicKey,
-      { name: 'ECDSA', namedCurve: CURVE },
+      KEY_FORMAT_SPKI,
+      toArrayBuffer(publicKey),
+      { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
       false,
-      ['verify']
+      VERIFY_KEY_USAGES
     );
     return subtle.verify(
-      { name: 'ECDSA', hash: 'SHA-256' },
+      { name: ECDSA_ALGO, hash: ECDSA_HASH },
       key,
-      signature,
-      data
+      toArrayBuffer(signature),
+      toArrayBuffer(data)
     );
   }
 }
