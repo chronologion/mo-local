@@ -96,12 +96,23 @@ export function DatePicker({
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
-      if (
-        anchorRef.current &&
-        !anchorRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (anchorRef.current?.contains(target)) return;
+
+      // If the click is inside any Radix Select portal (month dropdown), ignore.
+      const path = event.composedPath();
+      const isSelectPortalClick = path.some(
+        (node) =>
+          node instanceof Element &&
+          (node.matches('[data-radix-select-content]') ||
+            node.matches('[data-radix-select-viewport]') ||
+            node.matches('[data-radix-select-item]') ||
+            node.getAttribute('role') === 'listbox')
+      );
+      if (isSelectPortalClick) return;
+
+      setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);

@@ -3,6 +3,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { DatePicker } from '../ui/date-picker';
 import { Archive, Pencil } from 'lucide-react';
 
 type Milestone = {
@@ -15,6 +16,8 @@ export function MilestonesList({
   milestones,
   onUpdate,
   onArchive,
+  startDate,
+  targetDate,
   disabled,
 }: {
   milestones: Milestone[];
@@ -23,6 +26,8 @@ export function MilestonesList({
     changes: { name?: string; targetDate?: string }
   ) => Promise<void>;
   onArchive: (milestoneId: string) => Promise<void>;
+  startDate: string;
+  targetDate: string;
   disabled?: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,6 +35,7 @@ export function MilestonesList({
     name: '',
     targetDate: '',
   });
+  const [error, setError] = useState<string | null>(null);
 
   const sorted = [...milestones].sort((a, b) =>
     a.targetDate.localeCompare(b.targetDate)
@@ -61,6 +67,7 @@ export function MilestonesList({
                     onClick={() => {
                       setEditingId(m.id);
                       setDraft({ name: m.name, targetDate: m.targetDate });
+                      setError(null);
                     }}
                   >
                     <Pencil className="h-4 w-4" />
@@ -92,21 +99,21 @@ export function MilestonesList({
                   </div>
                   <div className="space-y-1">
                     <Label>Target date</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={draft.targetDate}
-                      onChange={(ev) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          targetDate: ev.target.value,
-                        }))
+                      onChange={(next) =>
+                        setDraft((prev) => ({ ...prev, targetDate: next }))
                       }
+                      min={startDate}
+                      max={targetDate}
+                      placeholder="Select milestone date"
                     />
                   </div>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       onClick={async () => {
+                        setError(null);
                         const changes: { name?: string; targetDate?: string } =
                           {};
                         if (draft.name !== m.name) {
@@ -114,6 +121,20 @@ export function MilestonesList({
                         }
                         if (draft.targetDate !== m.targetDate) {
                           changes.targetDate = draft.targetDate;
+                        }
+                        if (!draft.targetDate) {
+                          setError('Target date is required');
+                          return;
+                        }
+                        if (draft.targetDate < startDate) {
+                          setError('Milestone must be on/after project start');
+                          return;
+                        }
+                        if (draft.targetDate > targetDate) {
+                          setError(
+                            'Milestone must be on/before project target'
+                          );
+                          return;
                         }
                         if (Object.keys(changes).length === 0) {
                           setEditingId(null);
@@ -129,12 +150,18 @@ export function MilestonesList({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setEditingId(null)}
+                      onClick={() => {
+                        setEditingId(null);
+                        setError(null);
+                      }}
                       disabled={disabled}
                     >
                       Cancel
                     </Button>
                   </div>
+                  {error ? (
+                    <p className="text-xs text-destructive">{error}</p>
+                  ) : null}
                 </div>
               )}
             </div>

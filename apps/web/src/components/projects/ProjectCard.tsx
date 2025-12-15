@@ -191,6 +191,8 @@ export function ProjectCard({
         </div>
         <MilestonesList
           milestones={project.milestones ?? []}
+          startDate={project.startDate}
+          targetDate={project.targetDate}
           onUpdate={async (milestoneId, changes) => {
             try {
               await onUpdateMilestone(project.id, milestoneId, changes);
