@@ -23,11 +23,11 @@ Build a local-first proof of concept that demonstrates:
 | Per-goal encryption & key storage                 | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK.                         |
 | LiveStore persistence                             | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite.                                   |
 | React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine.                                                    |
-| Tests (Vitest)                                    | ✅ Implemented | Domain, application, infrastructure, and web suites run via `yarn test`.                         |
+| Tests (Vitest + Playwright)                       | ✅ Implemented | Unit suites run via `yarn test`; Playwright e2e runs via `yarn e2e` (stack required).            |
 | Backend APIs (NestJS + Postgres)                  | 🔜 Planned     | `apps/api` is a placeholder; server and sync endpoints are the next phase after the offline POC. |
 | Sync + multi-device replication                   | 🔜 Planned     | No push/pull transport yet. Backups currently move keys only, not event logs.                    |
 | Sharing / invites / wrapped key distribution      | 🔜 Planned     | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet.       |
-| Docker Compose dev stack                          | 🔜 Planned     | Documented as future work to support full-stack + E2E; not present in repo yet.                  |
+| Docker Compose dev stack                          | ✅ Implemented | Local dev stack for Postgres + Kratos + API + Web (used by Playwright e2e).                      |
 
 ### 2.1 In-scope (POC)
 
@@ -217,7 +217,9 @@ At runtime, the web app integrates LiveStore as follows:
 
 ### Testing & quality
 
-- `yarn test` – runs Vitest suites in `apps/web`, `packages/domain`, `packages/application`, and `packages/infrastructure`.
+- `yarn test` – runs unit tests (Vitest) across packages/apps.
+- `yarn test:integration` – runs API integration tests (requires the dev stack).
+- `yarn e2e` – runs Playwright tests (requires the dev stack).
 - `yarn lint` – ESLint flat config across repo.
 - `yarn typecheck` – `tsc --noEmit` for every workspace.
 - `yarn format` / `yarn format:check` – Prettier for TS/TSX/JSON/MD.
@@ -235,7 +237,7 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 
 - Vite dev server with React SWC transforms.
 - LiveStore worker (`packages/infrastructure/src/browser/worker.ts`) is bundled via `?worker` imports.
-- No Docker Compose or backend processes yet; `apps/api` is empty.
+- Docker Compose dev stack is available via `yarn dev:stack`; `apps/api` provides health + auth endpoints.
 
 ## 9. Current Limitations & Follow-ups
 

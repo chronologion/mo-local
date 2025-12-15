@@ -28,7 +28,8 @@ Everything runs locally today; sync + sharing + backend APIs are tracked as foll
 | `yarn dev`          | Run the web client (`apps/web`).              |
 | `yarn dev:api`      | Run the NestJS API (ts-node-dev + Kysely).    |
 | `yarn build`        | Build all workspaces.                         |
-| `yarn test`         | Run Vitest suites across all packages/apps.   |
+| `yarn test`         | Run unit tests (Vitest) across packages/apps. |
+| `yarn test:all`     | Run unit + integration + e2e.                 |
 | `yarn lint`         | Lint `.ts/.tsx` files via flat ESLint config. |
 | `yarn typecheck`    | Type-check every workspace.                   |
 | `yarn format:check` | Ensure Prettier formatting.                   |
@@ -97,10 +98,12 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 
 ## Testing & Quality
 
-- `yarn test` runs Vitest suites in every workspace (domain/application/infrastructure/web).
+- `yarn test` runs unit tests (Vitest) in workspaces (domain/application/infrastructure/presentation/web + API unit subset).
+- `yarn test:integration` runs API integration tests (requires the dev stack).
+- `yarn e2e` runs Playwright against the running dev stack.
 - `yarn lint` + `yarn typecheck` ensure the flat ESLint config and TypeScript stay clean.
 - `yarn format:check`/`yarn format` keep Markdown/TS/TSX/JSON formatted via Prettier.
-- API auth/guard coverage lives in `apps/api/src/__tests__/access/auth.e2e.spec.ts` (Vitest + Supertest, using in-memory Kratos fakes).
+- API auth/guard coverage lives in `apps/api/src/__tests__/access/auth.e2e.test.ts` (Vitest + Supertest, using in-memory Kratos fakes).
 
 ## Troubleshooting
 
