@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./goals": "./src/goals/index.ts",
     "./projects": "./src/projects/index.ts",
+    "./cloud": "./src/cloud/index.ts",
     "./browser": "./src/browser.ts",
     "./browser/wiring/store": "./src/browser/wiring/store.ts",
     "./events/InMemoryEventBus": "./src/events/InMemoryEventBus.ts",

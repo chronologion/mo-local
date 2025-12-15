@@ -3,9 +3,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
-import { z } from 'zod';
+import type { CloudIdentitySession, ICloudAccessClient } from '@mo/application';
+import { HttpCloudAccessClient } from '@mo/infrastructure/cloud';
 
 type RemoteAuthState =
   | { status: 'disconnected' }
@@ -33,135 +35,6 @@ const apiBaseUrl =
 
 const RemoteAuthContext = createContext<RemoteAuthContextValue | null>(null);
 
-const sessionResponseSchema = z.object({
-  identityId: z.string(),
-  email: z.string().optional(),
-});
-
-const whoamiResponseSchema = z.object({
-  identityId: z.string(),
-  email: z.string().optional(),
-});
-
-const logoutResponseSchema = z.object({
-  revoked: z.boolean(),
-});
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const parseJson = async (response: Response): Promise<unknown> => {
-  const text = await response.text();
-  if (!text) return null;
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return parsed;
-  } catch {
-    return text;
-  }
-};
-
-const extractErrorMessage = (payload: unknown): string | null => {
-  if (!isObject(payload)) return null;
-  if (isObject(payload.error) && typeof payload.error.message === 'string') {
-    return payload.error.message;
-  }
-  const message = payload.message;
-  if (typeof message === 'string') {
-    return message;
-  }
-  if (
-    Array.isArray(message) &&
-    message.every((item) => typeof item === 'string')
-  ) {
-    return message.join(' | ');
-  }
-  return null;
-};
-
-class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly payload?: unknown
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-const requestJson = async <T,>(
-  path: string,
-  init: RequestInit,
-  schema: z.ZodSchema<T>
-): Promise<T> => {
-  let response: Response;
-  try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      ...init,
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        ...(init.headers ?? {}),
-      },
-    });
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? `Network error calling ${path}: ${err.message}`
-        : `Network error calling ${path}`;
-    throw new ApiError(message);
-  }
-
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    const reason =
-      extractErrorMessage(payload) ??
-      (typeof payload === 'string'
-        ? payload
-        : (() => {
-            try {
-              return JSON.stringify(payload);
-            } catch {
-              return null;
-            }
-          })());
-    const isAuthPath =
-      path === '/auth/login' ||
-      path === '/auth/register' ||
-      path === '/auth/logout';
-    let message: string;
-    if (reason) {
-      const normalized = reason.toLowerCase();
-      if (
-        path === '/auth/login' &&
-        response.status === 400 &&
-        (normalized === 'bad request' ||
-          normalized.includes('request failed') ||
-          normalized.includes('invalid session') ||
-          normalized === 'unauthorized')
-      ) {
-        message = 'Email or password is incorrect.';
-      } else {
-        message = reason;
-      }
-    } else if (path === '/auth/login' && response.status === 400) {
-      message = 'Email or password is incorrect.';
-    } else if (isAuthPath && response.status === 400) {
-      message = 'Unable to authenticate with the provided credentials.';
-    } else {
-      message = `Request to ${path} failed (status ${response.status})`;
-    }
-    throw new ApiError(message, response.status, payload);
-  }
-
-  const parsed = schema.safeParse(payload);
-  if (!parsed.success) {
-    throw new ApiError(`Unexpected response from ${path}`, response.status);
-  }
-  return parsed.data;
-};
-
 export const RemoteAuthProvider = ({
   children,
 }: {
@@ -172,35 +45,32 @@ export const RemoteAuthProvider = ({
   });
   const [error, setError] = useState<string | null>(null);
 
+  const client: ICloudAccessClient = useMemo(
+    () => new HttpCloudAccessClient(apiBaseUrl),
+    []
+  );
+
   const refreshSession = useCallback(async () => {
     setState({ status: 'connecting' });
     setError(null);
     try {
-      const whoami = await requestJson(
-        '/auth/whoami',
-        {
-          method: 'GET',
-        },
-        whoamiResponseSchema
-      );
-      setState({
-        status: 'connected',
-        identityId: whoami.identityId,
-        email: whoami.email,
-      });
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        // Unauthenticated: stay silent and mark disconnected.
+      const whoami: CloudIdentitySession | null = await client.whoAmI();
+      if (whoami) {
+        setState({
+          status: 'connected',
+          identityId: whoami.identityId,
+          email: whoami.email,
+        });
+      } else {
         setState({ status: 'disconnected' });
-        setError(null);
-        return;
       }
+    } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Session is no longer valid';
       setError(message);
       setState({ status: 'disconnected' });
     }
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     void refreshSession();
@@ -211,17 +81,10 @@ export const RemoteAuthProvider = ({
       setState({ status: 'connecting' });
       setError(null);
       try {
-        const session = await requestJson(
-          '/auth/register',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              email: params.email,
-              password: params.password,
-            }),
-          },
-          sessionResponseSchema
-        );
+        const session = await client.register({
+          email: params.email,
+          password: params.password,
+        });
         setState({
           status: 'connected',
           identityId: session.identityId,
@@ -235,7 +98,7 @@ export const RemoteAuthProvider = ({
         throw err;
       }
     },
-    []
+    [client]
   );
 
   const logIn = useCallback(
@@ -243,17 +106,10 @@ export const RemoteAuthProvider = ({
       setState({ status: 'connecting' });
       setError(null);
       try {
-        const session = await requestJson(
-          '/auth/login',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              email: params.email,
-              password: params.password,
-            }),
-          },
-          sessionResponseSchema
-        );
+        const session = await client.login({
+          email: params.email,
+          password: params.password,
+        });
         setState({
           status: 'connected',
           identityId: session.identityId,
@@ -267,20 +123,13 @@ export const RemoteAuthProvider = ({
         throw err;
       }
     },
-    []
+    [client]
   );
 
   const logOut = useCallback(async () => {
     setError(null);
     try {
-      await requestJson(
-        '/auth/logout',
-        {
-          method: 'POST',
-          body: JSON.stringify({}),
-        },
-        logoutResponseSchema
-      );
+      await client.logout();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unable to log out right now';
@@ -288,7 +137,7 @@ export const RemoteAuthProvider = ({
     } finally {
       setState({ status: 'disconnected' });
     }
-  }, []);
+  }, [client]);
 
   const clearError = () => setError(null);
 
