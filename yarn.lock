@@ -662,67 +662,67 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@livestore/adapter-web@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/adapter-web/-/adapter-web-0.4.0-dev.19.tgz#66425757e1d43717129c69b452a76f9869451311"
-  integrity sha512-IFzBRCkvhpy1FRtxVXBpVMU5c9Y+jJSDCLYWstALnFtADYqm9JTPZECxZp511Z5Q6do5VO6WUE4yQo8JZwo+UA==
+"@livestore/adapter-web@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/adapter-web/-/adapter-web-0.4.0-dev.21.tgz#731e25c2e1c3ef064a38a27288ffe1a6ef4e2c7d"
+  integrity sha512-Hq8x1ZdQrFn3P0Mo1q+66NKfe+aFFZf0upRjEAm9XxVNbtpsX/PMgKCq/YFf1yPPXTvRx3QgcVRNWkzuKm+bGA==
   dependencies:
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/devtools-web-common" "0.4.0-dev.19"
-    "@livestore/sqlite-wasm" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
-    "@livestore/webmesh" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/devtools-web-common" "0.4.0-dev.21"
+    "@livestore/sqlite-wasm" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
+    "@livestore/webmesh" "0.4.0-dev.21"
     "@opentelemetry/api" "1.9.0"
 
-"@livestore/common-cf@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/common-cf/-/common-cf-0.4.0-dev.19.tgz#9f7647b19dff2d2d1b7d23ce6636a4c752972f43"
-  integrity sha512-pl5+FG5x0PQxslT+ZVlJj3Vq6KpLzXp9gPRZQ7NCoLrwJn370l1YpTzWa54RbDPMyoa1g409afva4aca4b/1eQ==
+"@livestore/common-cf@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/common-cf/-/common-cf-0.4.0-dev.21.tgz#ead8edb2c4283a706b5dc9f079ca084e7c6ca09f"
+  integrity sha512-D4WXKnx1sNqfyqdMVxyRdWH+JeELITTXgiO2kqEqNJH+ZL/aCwbwgMnShH7iKP9vCV4Ds+lpa9QT0P2f6fO0sw==
   dependencies:
     "@cloudflare/workers-types" "4.20251118.0"
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
 
-"@livestore/common@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/common/-/common-0.4.0-dev.19.tgz#9afbeb38194cfa518fd71c886d71cdad8d553ff4"
-  integrity sha512-59LYASmN4ZLYjxJ9qBOWFqcLzo4PoAa3pCkzD5qAcCNcY+fI6hA6/oP+LKuNqCswQQmkI8/0yhoO2peX7SFCIg==
+"@livestore/common@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/common/-/common-0.4.0-dev.21.tgz#73340ac77f775dd8194e871af8548267ccb58352"
+  integrity sha512-I/CF8J+tkIMzKMm3TXZBSDuBIDwzYSuqi+EfE9Kif3UsgpQno2FI/jCt7P/saS5L1cseT473I9lUaRLX1T0w3Q==
   dependencies:
-    "@livestore/utils" "0.4.0-dev.19"
-    "@livestore/webmesh" "0.4.0-dev.19"
+    "@livestore/utils" "0.4.0-dev.21"
+    "@livestore/webmesh" "0.4.0-dev.21"
     "@opentelemetry/api" "1.9.0"
 
-"@livestore/devtools-vite@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/devtools-vite/-/devtools-vite-0.4.0-dev.19.tgz#a614d8a3874f7e14cea794c7708d8abbe301c643"
-  integrity sha512-N8JKkbVFgOGHT3hNIlKi2ZtHbXcewSSITta8/GjR1aAvo3P2ScCJasOXVUEbMq2ZPaI+zwI4fZQPoIzerBam2g==
+"@livestore/devtools-vite@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/devtools-vite/-/devtools-vite-0.4.0-dev.21.tgz#c35f3f4c5b7db6f159c38330930f15ddc153fd6c"
+  integrity sha512-SlHdopKsFMg58UYRZm5EUuDYb+FXTGEsdYeo0kN6A7wyu1o+pcxXZW/Wdse8Ng4gMS5WoZbHqFwrSu+3SsH+sA==
   dependencies:
-    "@livestore/adapter-web" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
+    "@livestore/adapter-web" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
     vite "*"
 
-"@livestore/devtools-web-common@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/devtools-web-common/-/devtools-web-common-0.4.0-dev.19.tgz#b5f74aeb7597f885455ca86ff27c24c39244f2cd"
-  integrity sha512-WmGbYblC+vSps2RvwqDlbaMm+3+488iY2uG4rRlsUtcCrxEmjV1xYuMk85XKjhHo1QvMNMtaLdhAMzxqWG30aQ==
+"@livestore/devtools-web-common@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/devtools-web-common/-/devtools-web-common-0.4.0-dev.21.tgz#d98ec8b8dd0fd4afb298c9f6be8d8e6dbf9cf07e"
+  integrity sha512-7WFMSu2pEhHR3eCOr9HYdgZNQkGr088U0Txit8/im7oSEEw1XqBS/GxeOXnFMes/xXtG6MPXlaCYujtt60pQVw==
   dependencies:
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
-    "@livestore/webmesh" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
+    "@livestore/webmesh" "0.4.0-dev.21"
 
-"@livestore/livestore@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/livestore/-/livestore-0.4.0-dev.19.tgz#e0f4af3ecfbe1755fe2461175ea3e3ecbf2ab5fe"
-  integrity sha512-GyBFn/UOCuEbcMKJxydns2EwMcdYfWHHaTJhNlIpCo/CExuJtMQIn4yP+ofdNj2RXvhPsjhoS9LNcNG67LWOeA==
+"@livestore/livestore@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/livestore/-/livestore-0.4.0-dev.21.tgz#03260ef5b1ac13aba7ad5526cf948d82a42db079"
+  integrity sha512-Gv37A2w2QG2SVTK7waBrdBlf/7Zkq5aRvxMa65odA9928sQaKmuwMuLiwCif2dni51s4HHo5hLq9sHJmhhU8kA==
   dependencies:
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
     "@opentelemetry/api" "1.9.0"
 
-"@livestore/peer-deps@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/peer-deps/-/peer-deps-0.4.0-dev.19.tgz#3a2a52ea8c22cbf3a3be58d3c4213f0b7b94cd3a"
-  integrity sha512-71VJX2T9VgnzkewjwDbRCC83ML3qhxEBaZA+nh+m2jieve3wvdpBiJaVN173f21GSwawwX1DKiwADEfT3Kwhyg==
+"@livestore/peer-deps@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/peer-deps/-/peer-deps-0.4.0-dev.21.tgz#8aeab5ecccf8abbfaa72e06367f3b7fa0a5ddc8f"
+  integrity sha512-vvqdrGo6G4GXscT7N8zw84KHNAIo3JopRZxe3aD3cIyWKRurzR8TvGjZ2kXePOdkpj4Wmm1+jBd0XEpiwQReZg==
   dependencies:
     "@effect/ai" "0.29.0"
     "@effect/cli" "0.71.0"
@@ -740,33 +740,33 @@
     "@effect/typeclass" "0.37.0"
     "@opentelemetry/api" "1.9.0"
     "@opentelemetry/resources" "2.0.1"
-    effect "3.18.4"
+    effect "3.19.9"
 
-"@livestore/react@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/react/-/react-0.4.0-dev.19.tgz#f8f61b70dc955d15441678af3111bcfe3a75e8a0"
-  integrity sha512-FkjmLwmUJcb6jc1iDiBXg6BAIPlWDXmaQyclKcdJdloL3W0vIFF1MEuIc3wshZVDaKBBFJXTll05lf3BOhLQYg==
+"@livestore/react@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/react/-/react-0.4.0-dev.21.tgz#2dfdf95e7749b891086269955e572ab53ff7212a"
+  integrity sha512-GiRw1EvYfGg0228ULHwZgZ9VNYdbxuekGrEJ4LX/DICMeenZa0kRgdAgwK8sr7mSOTTBKYCzAeh5WSX82eHI2g==
   dependencies:
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/livestore" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/livestore" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
     "@opentelemetry/api" "1.9.0"
 
-"@livestore/sqlite-wasm@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/sqlite-wasm/-/sqlite-wasm-0.4.0-dev.19.tgz#28b29a422917ba4de7cb8936e5964eb7c87b4fc1"
-  integrity sha512-lArWbwTgIcTIJFyDdXF9qB/ITjRll6Q9Q6BTIzGF1C3WOCTs8z9KPLKNAnaS+zK03hscshPtoL6cXs3o5peyhw==
+"@livestore/sqlite-wasm@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/sqlite-wasm/-/sqlite-wasm-0.4.0-dev.21.tgz#5ec6c313deac95969157ad0c7c59a4abefa284fc"
+  integrity sha512-VMl9Vh9xVPOvmbHbDONLqKH6ddNNBbS6/7m7tMpjNMOMly1E0VaiuFTMm3WK9V8KOquwopm07yMYJMW3rkwRZw==
   dependencies:
     "@cloudflare/workers-types" "4.20251118.0"
-    "@livestore/common" "0.4.0-dev.19"
-    "@livestore/common-cf" "0.4.0-dev.19"
-    "@livestore/utils" "0.4.0-dev.19"
-    "@livestore/wa-sqlite" "0.4.0-dev.19"
+    "@livestore/common" "0.4.0-dev.21"
+    "@livestore/common-cf" "0.4.0-dev.21"
+    "@livestore/utils" "0.4.0-dev.21"
+    "@livestore/wa-sqlite" "0.4.0-dev.21"
 
-"@livestore/utils@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/utils/-/utils-0.4.0-dev.19.tgz#2cd035bcfa92dea9b07b3ad7e243caccbb67a847"
-  integrity sha512-qgUF1tecwjrM2y9/GrHdjrnb7xYb2Y8eAznz0E39cNDR60XJ99GMRvxkL7oLOHsvLs0BcuOvPPe6abLnvSEfmQ==
+"@livestore/utils@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/utils/-/utils-0.4.0-dev.21.tgz#3faaec8a4b803cf27c7cdb780547fab413984ab9"
+  integrity sha512-SRpYGdLt84Eli2BujepKOLHKIquObiQ4Zjq2ruQ83CwdofL61+JZRF+QeVhTiMSVWxzVkfCPu0Wg5c3o4fSAYw==
   dependencies:
     "@effect/platform-node" "0.98.4"
     "@standard-schema/spec" "1.0.0"
@@ -774,22 +774,22 @@
     pretty-bytes "7.0.1"
     qrcode-generator "2.0.4"
 
-"@livestore/wa-sqlite@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/wa-sqlite/-/wa-sqlite-0.4.0-dev.19.tgz#433625f3def2210c4a1242f937e122833d0bdd78"
-  integrity sha512-UKplc38/BUiogAuWgk/nDrifDeyLdFT+ZL4kxPY53mNz4OunfE88daiSiqpTSTLZslq8mUrn8BRTOB3wee+SXA==
+"@livestore/wa-sqlite@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/wa-sqlite/-/wa-sqlite-0.4.0-dev.21.tgz#a3be1592c6b4328acb5106d2b75e1658405495ff"
+  integrity sha512-qNwB2Y05i8QoVSZhIFJVFvxrubKspFmmt7J+VScae2v2kkfWt3gBg8/9N2WMJy7BYo4Q8Cq2YzgMiQrA7A4tDA==
 
 "@livestore/wa-sqlite@1.0.5":
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/@livestore/wa-sqlite/-/wa-sqlite-1.0.5.tgz#99d75bb87820166fc0d7536436d2b8ea789ad1fe"
   integrity sha512-OIxBEtl027kSl/z3772YgYf7ZlkE8aDWvLmm+O/hbPJO/lubv9+2EaDpXeoxsyg2xIIpkpXXSreEzFckkT1/QQ==
 
-"@livestore/webmesh@0.4.0-dev.19":
-  version "0.4.0-dev.19"
-  resolved "https://registry.yarnpkg.com/@livestore/webmesh/-/webmesh-0.4.0-dev.19.tgz#fa08a0d6c98831f764991c0a339060ee7580e467"
-  integrity sha512-vw9hSWS7KOUwhldSHNmDprPgMWtzmxU1EV32So+q2+w9gSjtREmwaZw0fBLLcOSIBvhalAXpGRaylB23Krar9Q==
+"@livestore/webmesh@0.4.0-dev.21":
+  version "0.4.0-dev.21"
+  resolved "https://registry.yarnpkg.com/@livestore/webmesh/-/webmesh-0.4.0-dev.21.tgz#fb9e59b9dd5d21fa1cb12b39d63cebdc70df4011"
+  integrity sha512-mDVqfamqGZL6oZhgFxXU8Ha8e10xxaui+RSc9XjEuwCx0VHKwtK7hW73Uu0pI9wmC+2+Rdf0yylkjYV153GaKQ==
   dependencies:
-    "@livestore/utils" "0.4.0-dev.19"
+    "@livestore/utils" "0.4.0-dev.21"
 
 "@lukeed/csprng@^1.0.0":
   version "1.1.0"
@@ -2588,10 +2588,10 @@ ee-first@1.1.1:
   resolved "https://registry.yarnpkg.com/ee-first/-/ee-first-1.1.1.tgz#590c61156b0ae2f4f0255732a158b266bc56b21d"
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
-effect@3.18.4:
-  version "3.18.4"
-  resolved "https://registry.yarnpkg.com/effect/-/effect-3.18.4.tgz#e241fde5cc090608c51c5e29e2da357bb5d0e815"
-  integrity sha512-b1LXQJLe9D11wfnOKAk3PKxuqYshQ0Heez+y5pnkd3jLj1yx9QhM72zZ9uUrOQyNvrs2GZZd/3maL0ZV18YuDA==
+effect@3.19.9:
+  version "3.19.9"
+  resolved "https://registry.yarnpkg.com/effect/-/effect-3.19.9.tgz#d558510da745bd7057b75009fbc5d0e678e0bd78"
+  integrity sha512-taMXnfG/p+j7AmMOHHQaCHvjqwu9QBO3cxuZqL2dMG/yWcEMw0ZHruHe9B49OxtfKH/vKKDDKRhZ+1GJ2p5R5w==
   dependencies:
     "@standard-schema/spec" "^1.0.0"
     fast-check "^3.23.1"
