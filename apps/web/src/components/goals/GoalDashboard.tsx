@@ -161,6 +161,7 @@ export function GoalDashboard() {
           </DialogHeader>
           {editingGoal ? (
             <GoalForm
+              key={editingGoal.id}
               initialValues={{
                 summary: editingGoal.summary,
                 slice: editingGoal.slice as GoalFormValues['slice'],

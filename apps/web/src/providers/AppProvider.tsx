@@ -109,6 +109,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const { signal } = controller;
     let unsubscribe: (() => void) | undefined;
     let intervalId: number | undefined;
+    let createdServices: Services | null = null;
     (async () => {
       try {
         const currentStoreId = loadStoreId();
@@ -166,7 +167,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount,
             aggregateCount,
             tables: tablesList,
-            onRebuild: rebuildProjections,
+            onRebuild: () => {
+              const goalCtx = svc.contexts.goals;
+              const projectCtx = svc.contexts.projects;
+              if (!goalCtx || !projectCtx) {
+                return;
+              }
+              void (async () => {
+                await goalCtx.goalProjection.resetAndRebuild();
+                await projectCtx.projectProjection.resetAndRebuild();
+              })();
+            },
           });
         };
 
@@ -183,6 +194,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (!signal.aborted) {
           setServices(svc);
         }
+        createdServices = svc;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to initialize app';
@@ -196,6 +208,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       unsubscribe?.();
       if (intervalId !== undefined) {
         window.clearInterval(intervalId);
+      }
+      try {
+        createdServices?.contexts.goals?.goalProjection.stop();
+        createdServices?.contexts.projects?.projectProjection.stop();
+        void (
+          createdServices?.store as unknown as {
+            shutdownPromise?: () => Promise<void>;
+          }
+        ).shutdownPromise?.();
+      } catch (error) {
+        console.warn('Failed to shutdown LiveStore cleanly', error);
       }
     };
   }, []);
@@ -491,7 +514,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           {children}
         </InterfaceProvider>
       </AppContext.Provider>
-      {debugInfo && import.meta.env.DEV ? (
+      {debugInfo && import.meta.env.DEV && session.status === 'ready' ? (
         <DebugPanel
           info={{
             vfsName: 'adapter-web',
@@ -508,6 +531,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             storage: debugInfo.storage,
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
+            onRebuild: debugInfo.onRebuild,
           }}
         />
       ) : null}

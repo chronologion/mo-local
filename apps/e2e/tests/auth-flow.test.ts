@@ -19,7 +19,9 @@ test.describe('Kratos auth flow', () => {
       .catch(() => undefined);
 
     const unlockButton = page.getByRole('button', { name: 'Unlock' });
-    const connectButton = page.getByRole('button', { name: 'Connect to cloud' });
+    const connectButton = page.getByRole('button', {
+      name: 'Connect to cloud',
+    });
     await Promise.race([
       connectButton.waitFor({ timeout: 25_000 }),
       unlockButton.waitFor({ timeout: 25_000 }),
