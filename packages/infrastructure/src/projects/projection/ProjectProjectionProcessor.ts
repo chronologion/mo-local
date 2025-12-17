@@ -196,10 +196,13 @@ export class ProjectProjectionProcessor {
       } catch (error) {
         if (error instanceof MissingKeyError) {
           console.warn(
-            '[ProjectProjectionProcessor] Missing key, will retry when key is available',
+            '[ProjectProjectionProcessor] Missing key, skipping event for aggregate',
             event.aggregateId
           );
-          break;
+          if (event.sequence > processedMax) {
+            processedMax = event.sequence;
+          }
+          continue;
         }
         throw error;
       }

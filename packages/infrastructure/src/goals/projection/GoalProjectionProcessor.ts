@@ -219,10 +219,13 @@ export class GoalProjectionProcessor {
       } catch (error) {
         if (error instanceof MissingKeyError) {
           console.warn(
-            '[GoalProjectionProcessor] Missing key, will retry when key is available',
+            '[GoalProjectionProcessor] Missing key, skipping event for aggregate',
             event.aggregateId
           );
-          break;
+          if (event.sequence && event.sequence > processedMax) {
+            processedMax = event.sequence;
+          }
+          continue;
         }
         throw error;
       }

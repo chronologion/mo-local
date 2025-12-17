@@ -223,7 +223,7 @@ export class ProjectRepository implements IProjectRepository {
     let parsed: SnapshotPayload;
     try {
       parsed = JSON.parse(new TextDecoder().decode(plaintext));
-    } catch (error) {
+    } catch {
       this.purgeCorruptSnapshot(aggregateId);
       return null;
     }

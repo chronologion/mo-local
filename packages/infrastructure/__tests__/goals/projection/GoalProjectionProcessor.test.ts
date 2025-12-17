@@ -502,4 +502,70 @@ describe('GoalProjectionProcessor', () => {
     const results = processor.searchGoals('odo');
     expect(results.map((r) => r.id)).toContain(goalId);
   });
+
+  it('skips events for aggregates without keys while still advancing sequence', async () => {
+    const otherGoalId = GoalId.from(
+      '00000000-0000-0000-0000-000000000099'
+    ).value;
+    const kMissing = await crypto.generateKey();
+    const kPresent = await crypto.generateKey();
+
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+
+    // Event for aggregate without a stored key.
+    const missingCreated = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: GoalId.from(otherGoalId),
+        slice: Slice.from('Health'),
+        summary: Summary.from('Run'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      }),
+      1,
+      kMissing
+    );
+
+    // Event for aggregate with a stored key.
+    await keyStore.saveAggregateKey(goalId, kPresent);
+    const presentCreated = await toEncrypted.toEncrypted(
+      new GoalCreated({
+        goalId: aggregateId,
+        slice: Slice.from('Work'),
+        summary: Summary.from('Build'),
+        targetMonth: Month.from('2025-10'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-02-01T00:00:00Z').getTime()
+        ),
+      }),
+      2,
+      kPresent
+    );
+
+    const events: EncryptedEvent[] = [
+      { ...missingCreated, sequence: 1 },
+      { ...presentCreated, sequence: 2 },
+    ];
+    const eventStore = new EventStoreStub(events);
+    store.eventLog = events;
+
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      eventStore,
+      crypto,
+      keyStore as unknown as InMemoryKeyStore,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+
+    // Snapshot should exist only for the aggregate we have a key for.
+    expect(store.snapshots.has(goalId)).toBe(true);
+    expect(store.snapshots.has(otherGoalId)).toBe(false);
+  });
 });

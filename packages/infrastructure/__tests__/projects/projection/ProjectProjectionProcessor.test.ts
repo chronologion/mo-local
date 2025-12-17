@@ -292,14 +292,12 @@ describe('ProjectProjectionProcessor', () => {
       ),
     });
 
-    await eventStore.append(
-      projectA,
-      [await toEncrypted.toEncrypted(createdA, 1, kProjectA)]
-    );
-    await eventStore.append(
-      projectB,
-      [await toEncrypted.toEncrypted(createdB, 1, kProjectB)]
-    );
+    await eventStore.append(projectA, [
+      await toEncrypted.toEncrypted(createdA, 1, kProjectA),
+    ]);
+    await eventStore.append(projectB, [
+      await toEncrypted.toEncrypted(createdB, 1, kProjectB),
+    ]);
 
     const first = new ProjectProjectionProcessor(
       store,
@@ -309,9 +307,12 @@ describe('ProjectProjectionProcessor', () => {
       toDomain
     );
     await first.start();
-    expect(first.listProjects().map((p) => p.id).sort()).toEqual(
-      [projectA, projectB].sort()
-    );
+    expect(
+      first
+        .listProjects()
+        .map((p) => p.id)
+        .sort()
+    ).toEqual([projectA, projectB].sort());
 
     const second = new ProjectProjectionProcessor(
       store,
@@ -321,8 +322,72 @@ describe('ProjectProjectionProcessor', () => {
       toDomain
     );
     await second.start();
-    expect(second.listProjects().map((p) => p.id).sort()).toEqual(
-      [projectA, projectB].sort()
+    expect(
+      second
+        .listProjects()
+        .map((p) => p.id)
+        .sort()
+    ).toEqual([projectA, projectB].sort());
+  });
+
+  it('skips project events for aggregates without keys while still projecting others', async () => {
+    const missingProjectId = '00000000-0000-0000-0000-000000000501';
+    const kMissing = await crypto.generateKey();
+    const kPresent = (await keyStore.getAggregateKey(projectId))!;
+
+    const missingCreated = new ProjectCreated({
+      projectId: ProjectId.from(missingProjectId),
+      name: ProjectName.from('Missing'),
+      status: ProjectStatus.from('planned'),
+      startDate: LocalDate.fromString('2025-01-01'),
+      targetDate: LocalDate.fromString('2025-02-01'),
+      description: ProjectDescription.from('desc'),
+      goalId: null,
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(
+        new Date('2025-01-01T00:00:00Z').getTime()
+      ),
+    });
+    const presentCreated = new ProjectCreated({
+      projectId: ProjectId.from(projectId),
+      name: ProjectName.from('Present'),
+      status: ProjectStatus.from('planned'),
+      startDate: LocalDate.fromString('2025-01-01'),
+      targetDate: LocalDate.fromString('2025-02-01'),
+      description: ProjectDescription.from('desc'),
+      goalId: null,
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(
+        new Date('2025-01-01T00:00:00Z').getTime()
+      ),
+    });
+
+    const missingEncrypted = await toEncrypted.toEncrypted(
+      missingCreated,
+      1,
+      kMissing
     );
+    const presentEncrypted = await toEncrypted.toEncrypted(
+      presentCreated,
+      2,
+      kPresent
+    );
+
+    await eventStore.append(missingProjectId, [missingEncrypted]);
+    await eventStore.append(projectId, [presentEncrypted]);
+
+    const processor = new ProjectProjectionProcessor(
+      store,
+      eventStore,
+      crypto,
+      keyStore as unknown as IndexedDBKeyStore,
+      toDomain
+    );
+
+    await processor.start();
+
+    const ids = processor.listProjects().map((p) => p.id);
+    expect(ids).toContain(projectId);
+    expect(ids).not.toContain(missingProjectId);
   });
 });
