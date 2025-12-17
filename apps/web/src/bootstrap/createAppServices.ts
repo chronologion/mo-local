@@ -52,7 +52,14 @@ export const createAppServices = async ({
   const keyStore = new IndexedDBKeyStore();
   const eventBus = new InMemoryEventBus();
   const toDomain = new LiveStoreToDomainAdapter(crypto);
-  const storeBundle = await createStoreAndEventStores(adapter, storeId);
+  const apiBaseUrl =
+    import.meta.env.VITE_API_URL ??
+    import.meta.env.VITE_API_BASE_URL ??
+    'http://localhost:4000';
+
+  const storeBundle = await createStoreAndEventStores(adapter, storeId, {
+    syncPayload: { apiBaseUrl },
+  });
 
   const ctx: AppServices['contexts'] = {};
   if (contexts.includes('goals')) {

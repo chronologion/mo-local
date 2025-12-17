@@ -8,6 +8,10 @@ import {
   schema as defaultSchema,
   events as goalEvents,
 } from '../../goals/schema';
+import {
+  SyncPayload,
+  SyncPayloadSchema,
+} from '../../livestore/sync/CloudSyncBackend';
 
 export type StoreAndEventStores = {
   store: Store;
@@ -15,14 +19,21 @@ export type StoreAndEventStores = {
   projectEventStore: BrowserLiveStoreEventStore;
 };
 
+export type StoreAndEventStoresOptions = {
+  syncPayload?: SyncPayload;
+};
+
 export const createStoreAndEventStores = async (
   adapter: Adapter,
-  storeId: string
+  storeId: string,
+  options?: StoreAndEventStoresOptions
 ): Promise<StoreAndEventStores> => {
   const store = (await createStorePromise({
     schema: defaultSchema,
     adapter,
     storeId,
+    syncPayloadSchema: SyncPayloadSchema,
+    syncPayload: options?.syncPayload,
   })) as unknown as Store; // LiveStore provides Store type via default export path
 
   const goalEventStore = new BrowserLiveStoreEventStore(
