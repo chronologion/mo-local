@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests --exclude \"**/*.e2e.test.ts\"",
     "test:integration": "vitest run src/__tests__/**/*.e2e.test.ts --passWithNoTests",
-    "db:migrate": "tsx src/access/infrastructure/migrations/run.ts",
-    "db:migrate:down": "tsx src/access/infrastructure/migrations/run.ts down"
+    "db:migrate": "tsx src/access/infrastructure/migrations/run.ts && tsx src/sync/infrastructure/migrations/run.ts",
+    "db:migrate:down": "tsx src/sync/infrastructure/migrations/run.ts down && tsx src/access/infrastructure/migrations/run.ts down"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.9",

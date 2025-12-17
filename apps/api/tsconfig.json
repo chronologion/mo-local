@@ -19,7 +19,8 @@
     "baseUrl": "./src",
     "paths": {
       "@platform/*": ["platform/*"],
-      "@access/*": ["access/*"]
+      "@access/*": ["access/*"],
+      "@sync/*": ["sync/*"]
     }
   },
   "include": ["src/**/*"],
