@@ -21,4 +21,11 @@ export interface SyncEventsTable {
 
 export interface SyncDatabase {
   'sync.events': SyncEventsTable;
+  'sync.stores': SyncStoreTable;
+}
+
+export interface SyncStoreTable {
+  store_id: string;
+  owner_identity_id: string;
+  created_at: TimestampColumn;
 }

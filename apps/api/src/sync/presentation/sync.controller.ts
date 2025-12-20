@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Query,
@@ -18,6 +19,7 @@ import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
 import { PullEventsDto } from './dto/PullEventsDto';
 import { PushEventsDto } from './dto/PushEventsDto';
+import { SyncAccessDeniedError } from '../application/ports/sync-access-policy';
 
 @Controller('sync')
 @UseGuards(KratosSessionGuard)
@@ -57,10 +59,17 @@ export class SyncController {
         const message =
           error.message ??
           'Sync push failed due to validation or sequence conflict';
-        if (message.toLowerCase().includes('duplicate')) {
-          throw new ConflictException(message);
+        if (error.details?.minimumExpectedSeqNum !== undefined) {
+          throw new ConflictException({
+            message,
+            minimumExpectedSeqNum: error.details.minimumExpectedSeqNum,
+            providedSeqNum: error.details.providedSeqNum,
+          });
         }
-        throw new BadRequestException(message);
+        throw new ConflictException(message);
+      }
+      if (error instanceof SyncAccessDeniedError) {
+        throw new ForbiddenException(error.message);
       }
       throw error;
     }
@@ -76,8 +85,10 @@ export class SyncController {
     }
     const ownerId = SyncOwnerId.from(identity.id);
     const storeId = SyncStoreId.from(dto.storeId);
-    const since = GlobalSequenceNumber.from(dto.since ?? 0);
-    const limit = dto.limit ?? 100;
+    const sinceValue = dto.since ?? 0;
+    const limitValue = dto.limit ?? 100;
+    const since = GlobalSequenceNumber.from(Number(sinceValue));
+    const limit = Number(limitValue);
 
     const { events, head } = await this.syncService.pullEvents({
       ownerId,

@@ -93,4 +93,37 @@ describe('CloudSyncBackend', () => {
     expect(firstBatch).toHaveLength(1);
     expect(firstBatch[0]?.eventEncoded.seqNum).toBe('e1');
   });
+
+  it('maps server-ahead conflicts to InvalidPushError(ServerAheadError)', async () => {
+    const fetchMock = vi.mocked(global.fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          message: 'Server ahead',
+          minimumExpectedSeqNum: 5,
+          providedSeqNum: 3,
+        }),
+        { status: 409 }
+      )
+    );
+
+    const backend = await Effect.runPromise(
+      makeCloudSyncBackend({
+        storeId: 'store-1',
+        clientId: 'client-1',
+        payload: { apiBaseUrl: 'http://api.example.com' },
+      })
+    );
+
+    const result = await Effect.runPromise(
+      Effect.either(backend.push([sampleEvent(3)]))
+    );
+
+    expect(result._tag).toBe('Left');
+    if (result._tag === 'Left') {
+      expect(result.left).toMatchObject({
+        cause: { _tag: 'ServerAheadError' },
+      });
+    }
+  });
 });

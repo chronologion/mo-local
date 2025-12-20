@@ -2,6 +2,7 @@ import {
   InvalidPullError,
   InvalidPushError,
   IsOfflineError,
+  ServerAheadError,
 } from '@livestore/common/sync';
 import { EventSequenceNumber, LiveStoreEvent } from '@livestore/common/schema';
 import { UnknownError } from '@livestore/common';
@@ -177,6 +178,27 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
 
             if (!response.ok) {
               const payloadJson = await safeParseJson(response);
+              if (
+                response.status === 409 &&
+                typeof payloadJson === 'object' &&
+                payloadJson !== null &&
+                'minimumExpectedSeqNum' in payloadJson
+              ) {
+                const min = Number(
+                  (payloadJson as { minimumExpectedSeqNum: unknown })
+                    .minimumExpectedSeqNum
+                );
+                const provided = Number(
+                  (payloadJson as { providedSeqNum?: unknown })
+                    .providedSeqNum ?? 0
+                );
+                throw new InvalidPushError({
+                  cause: new ServerAheadError({
+                    minimumExpectedNum: EventSequenceNumber.Global.make(min),
+                    providedNum: EventSequenceNumber.Global.make(provided),
+                  }),
+                });
+              }
               const message =
                 typeof payloadJson === 'object' && payloadJson !== null
                   ? ((payloadJson as { message?: string }).message ??

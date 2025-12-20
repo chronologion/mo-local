@@ -4,6 +4,7 @@ import {
   SyncRepositoryConflictError,
 } from '../../sync/application/ports/sync-event-repository';
 import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
+import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
 import { SyncService } from '../../sync/application/sync.service';
 import { SyncEvent } from '../../sync/domain/SyncEvent';
 import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
@@ -71,6 +72,24 @@ class AllowAllAccessPolicy extends SyncAccessPolicy {
   async ensureCanPush(): Promise<void> {}
 }
 
+class InMemorySyncStoreRepository extends SyncStoreRepository {
+  private owners = new Map<string, string>();
+
+  async ensureStoreOwner(
+    storeId: SyncStoreId,
+    ownerId: SyncOwnerId
+  ): Promise<void> {
+    const existing = this.owners.get(storeId.unwrap());
+    if (!existing) {
+      this.owners.set(storeId.unwrap(), ownerId.unwrap());
+      return;
+    }
+    if (existing !== ownerId.unwrap()) {
+      throw new Error('Store owned by another identity');
+    }
+  }
+}
+
 const makeEvent = (
   seqNum: number,
   parentSeqNum: number
@@ -85,11 +104,17 @@ const makeEvent = (
 
 describe('SyncService', () => {
   let repository: InMemorySyncEventRepository;
+  let storeRepository: InMemorySyncStoreRepository;
   let service: SyncService;
 
   beforeEach(() => {
     repository = new InMemorySyncEventRepository();
-    service = new SyncService(repository, new AllowAllAccessPolicy());
+    storeRepository = new InMemorySyncStoreRepository();
+    service = new SyncService(
+      repository,
+      storeRepository,
+      new AllowAllAccessPolicy()
+    );
   });
 
   it('pushes a valid ascending batch and updates head', async () => {
@@ -114,14 +139,32 @@ describe('SyncService', () => {
     expect(pulled.head.unwrap()).toBe(2);
   });
 
-  it('accepts non-ascending batches and reassigns server sequence numbers', async () => {
-    const batch = [makeEvent(5, 4), makeEvent(1, 0)];
+  it('rejects server-ahead pushes and preserves provided sequence numbers', async () => {
+    const initial = [makeEvent(1, 0)];
+    await service.pushEvents({
+      ownerId,
+      storeId,
+      events: initial,
+    });
+
+    await expect(
+      service.pushEvents({
+        ownerId,
+        storeId,
+        events: [makeEvent(1, 0)],
+      })
+    ).rejects.toMatchObject({
+      name: 'PushValidationError',
+      details: { minimumExpectedSeqNum: 2, providedSeqNum: 1 },
+    });
+
+    const batch = [makeEvent(2, 1), makeEvent(3, 2)];
     const result = await service.pushEvents({
       ownerId,
       storeId,
       events: batch,
     });
-    expect(result.lastSeqNum.unwrap()).toBe(2);
+    expect(result.lastSeqNum.unwrap()).toBe(3);
 
     const pulled = await service.pullEvents({
       ownerId,
@@ -129,7 +172,9 @@ describe('SyncService', () => {
       since: GlobalSequenceNumber.from(0),
       limit: 10,
     });
-    expect(pulled.events.map((e) => e.seqNum.unwrap())).toEqual([1, 2]);
+    expect(pulled.events.map((e) => e.seqNum.unwrap())).toEqual([1, 2, 3]);
+    const parentSeqNums = pulled.events.map((e) => e.parentSeqNum.unwrap());
+    expect(parentSeqNums).toEqual([0, 1, 2]);
   });
 
   it('pulls events after a cursor with pagination limit', async () => {
