@@ -5,6 +5,12 @@ const WRAPPED_LENGTH = KEY_LENGTH + 8; // AES-KW adds 64-bit integrity block
 
 const subtle = webcrypto.subtle;
 
+const toArrayBuffer = (input: Uint8Array): ArrayBuffer => {
+  const buffer = new ArrayBuffer(input.byteLength);
+  new Uint8Array(buffer).set(input);
+  return buffer;
+};
+
 const ensureKeyLength = (key: Uint8Array): void => {
   if (key.length !== KEY_LENGTH) {
     throw new Error(`Invalid key length: expected ${KEY_LENGTH} bytes`);
@@ -25,14 +31,14 @@ export class KeyWrapping {
 
     const keyMaterial = await subtle.importKey(
       'raw',
-      keyToWrap,
+      toArrayBuffer(keyToWrap),
       { name: 'AES-GCM' },
       true,
       ['encrypt', 'decrypt']
     );
     const wrapKey = await subtle.importKey(
       'raw',
-      wrappingKey,
+      toArrayBuffer(wrappingKey),
       { name: 'AES-KW' },
       false,
       ['wrapKey']
@@ -53,7 +59,7 @@ export class KeyWrapping {
 
     const unwrapKey = await subtle.importKey(
       'raw',
-      unwrappingKey,
+      toArrayBuffer(unwrappingKey),
       { name: 'AES-KW' },
       false,
       ['unwrapKey']
@@ -61,7 +67,7 @@ export class KeyWrapping {
 
     const unwrapped = await subtle.unwrapKey(
       'raw',
-      wrappedKey,
+      toArrayBuffer(wrappedKey),
       unwrapKey,
       'AES-KW',
       { name: 'AES-GCM' },
