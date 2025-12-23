@@ -1,5 +1,5 @@
-import { IKeyStore } from '../IKeyStore';
-import { IdentityKeys, KeyBackup } from '../types';
+import { IKeyStore } from '../../../src/shared/ports/IKeyStore';
+import { IdentityKeys, KeyBackup } from '../../../src/shared/ports/types';
 
 export class InMemoryKeyStore implements IKeyStore {
   private identityKeys = new Map<string, IdentityKeys>();

@@ -10,7 +10,6 @@ describe('UserCommandHandler', () => {
     const handler = new UserCommandHandler(keyStore, bus);
 
     await handler.handleRegister({
-      type: 'RegisterUser',
       userId: UserId.from('user-1'),
       signingPublicKey: new Uint8Array([1]),
       encryptionPublicKey: new Uint8Array([2]),
@@ -28,7 +27,6 @@ describe('UserCommandHandler', () => {
     const handler = new UserCommandHandler(keyStore, bus);
 
     await handler.handleImportKeys({
-      type: 'ImportUserKeys',
       userId: UserId.from('user-1'),
       backup: {
         identityKeys: {
@@ -43,6 +41,7 @@ describe('UserCommandHandler', () => {
     });
 
     const stored = await keyStore.exportKeys();
-    expect(stored.identityKeys.signingPrivateKey.length).toBe(1);
+    expect(stored.identityKeys).not.toBeNull();
+    expect(stored.identityKeys?.signingPrivateKey.length).toBe(1);
   });
 });

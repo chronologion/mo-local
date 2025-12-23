@@ -21,7 +21,6 @@ const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
 const userId = 'user-1';
 const baseCreate = () =>
   new CreateProject({
-    type: 'CreateProject',
     projectId,
     name: 'Project Alpha',
     status: 'planned',
@@ -61,7 +60,6 @@ describe('ProjectCommandHandler', () => {
 
     await handler.handleChangeStatus(
       new ChangeProjectStatus({
-        type: 'ChangeProjectStatus',
         projectId,
         status: 'in_progress',
         userId,
@@ -79,7 +77,6 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeName(
         new ChangeProjectName({
-          type: 'ChangeProjectName',
           projectId,
           name: 'New name',
           userId,
@@ -98,7 +95,6 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeDescription(
         new ChangeProjectDescription({
-          type: 'ChangeProjectDescription',
           projectId,
           description: 'New desc',
           userId,
@@ -117,7 +113,6 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeDates(
         new ChangeProjectDates({
-          type: 'ChangeProjectDates',
           projectId,
           startDate: '2025-01-02',
           targetDate: '2025-03-01',
@@ -134,7 +129,6 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeStatus(
         new ChangeProjectStatus({
-          type: 'ChangeProjectStatus',
           projectId,
           status: 'not-a-status' as never,
           userId,
@@ -149,7 +143,6 @@ describe('ProjectCommandHandler', () => {
     await handler.handleCreate(baseCreate());
 
     const commandWithoutUserId = {
-      type: 'ChangeProjectName',
       projectId,
       name: 'Updated name',
       timestamp: Date.now(),

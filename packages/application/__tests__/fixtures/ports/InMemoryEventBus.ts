@@ -1,6 +1,5 @@
 import { DomainEvent } from '@mo/domain';
-import { IEventBus } from '../IEventBus';
-import { EventHandler } from '../types';
+import { EventHandler, IEventBus } from '@mo/application';
 
 /**
  * In-process pub/sub for tests.
