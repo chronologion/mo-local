@@ -13,7 +13,7 @@ export interface SyncEventsTable {
   seq_num: number;
   parent_seq_num: number;
   name: string;
-  args: unknown;
+  args: string;
   client_id: string;
   session_id: string;
   created_at: TimestampColumn;

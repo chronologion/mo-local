@@ -2,12 +2,34 @@ import { Injectable } from '@nestjs/common';
 import {
   SyncEventRepository,
   SyncRepositoryConflictError,
+  SyncRepositoryHeadMismatchError,
 } from '../application/ports/sync-event-repository';
 import { SyncEvent } from '../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
 import { SyncDatabaseService } from './database.service';
+
+type SyncEventArgs = SyncEvent['args'];
+
+const serializeArgs = (value: SyncEventArgs): string => {
+  // Preserve key order for LiveStore equality (JSONB reorders keys).
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error('Sync event args are not JSON-serializable');
+  }
+  return serialized;
+};
+
+const parseArgs = (value: unknown): SyncEventArgs => {
+  if (typeof value !== 'string') return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed;
+  } catch {
+    return value;
+  }
+};
 
 @Injectable()
 export class KyselySyncEventRepository extends SyncEventRepository {
@@ -33,11 +55,41 @@ export class KyselySyncEventRepository extends SyncEventRepository {
     return GlobalSequenceNumber.from(headValue);
   }
 
-  async appendBatch(events: SyncEvent[]): Promise<void> {
-    if (events.length === 0) return;
+  async appendBatch(
+    events: SyncEvent[],
+    expectedParent: GlobalSequenceNumber
+  ): Promise<GlobalSequenceNumber> {
+    if (events.length === 0) return expectedParent;
     const db = this.dbService.getDb();
     try {
-      await db.transaction().execute(async (trx) => {
+      return await db.transaction().execute(async (trx) => {
+        const first = events[0];
+        if (!first) {
+          return expectedParent;
+        }
+        const ownerValue = first.ownerId.unwrap();
+        const storeValue = first.storeId.unwrap();
+        await trx
+          .selectFrom('sync.stores')
+          .select('store_id')
+          .where('store_id', '=', storeValue)
+          .forUpdate()
+          .executeTakeFirst();
+        const headRow = await trx
+          .selectFrom('sync.events')
+          .select(({ fn, val }) =>
+            fn.coalesce(fn.max<number>('seq_num'), val(0)).as('head')
+          )
+          .where('owner_identity_id', '=', ownerValue)
+          .where('store_id', '=', storeValue)
+          .executeTakeFirst();
+        const currentHead = Number(headRow?.head ?? 0);
+        if (currentHead !== expectedParent.unwrap()) {
+          throw new SyncRepositoryHeadMismatchError(
+            GlobalSequenceNumber.from(currentHead),
+            expectedParent
+          );
+        }
         await trx
           .insertInto('sync.events')
           .values(
@@ -47,13 +99,17 @@ export class KyselySyncEventRepository extends SyncEventRepository {
               seq_num: event.seqNum.unwrap(),
               parent_seq_num: event.parentSeqNum.unwrap(),
               name: event.name,
-              args: event.args,
+              args: serializeArgs(event.args),
               client_id: event.clientId,
               session_id: event.sessionId,
               created_at: event.createdAt,
             }))
           )
           .execute();
+        const last = events[events.length - 1];
+        return GlobalSequenceNumber.from(
+          Number(last?.seqNum.unwrap() ?? currentHead)
+        );
       });
     } catch (error) {
       // Postgres unique violation
@@ -67,6 +123,9 @@ export class KyselySyncEventRepository extends SyncEventRepository {
           'Conflict while appending sync events (duplicate sequence number)',
           error
         );
+      }
+      if (error instanceof SyncRepositoryHeadMismatchError) {
+        throw error;
       }
       throw error;
     }
@@ -105,7 +164,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
       seqNum: GlobalSequenceNumber.from(Number(row.seq_num)),
       parentSeqNum: GlobalSequenceNumber.from(Number(row.parent_seq_num)),
       name: row.name,
-      args: row.args,
+      args: parseArgs(row.args),
       clientId: row.client_id,
       sessionId: row.session_id,
       createdAt: new Date(row.created_at as Date),

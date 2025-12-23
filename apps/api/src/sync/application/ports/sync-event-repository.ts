@@ -13,13 +13,26 @@ export class SyncRepositoryConflictError extends Error {
   }
 }
 
+export class SyncRepositoryHeadMismatchError extends Error {
+  constructor(
+    readonly expectedHead: GlobalSequenceNumber,
+    readonly providedParent: GlobalSequenceNumber
+  ) {
+    super('Sync backend head mismatch');
+    this.name = 'SyncRepositoryHeadMismatchError';
+  }
+}
+
 export abstract class SyncEventRepository {
   abstract getHeadSequence(
     ownerId: SyncOwnerId,
     storeId: SyncStoreId
   ): Promise<GlobalSequenceNumber>;
 
-  abstract appendBatch(events: SyncEvent[]): Promise<void>;
+  abstract appendBatch(
+    events: SyncEvent[],
+    expectedParent: GlobalSequenceNumber
+  ): Promise<GlobalSequenceNumber>;
 
   abstract loadSince(
     ownerId: SyncOwnerId,

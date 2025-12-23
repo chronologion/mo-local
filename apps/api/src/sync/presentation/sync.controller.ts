@@ -5,6 +5,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Inject,
   Post,
   Query,
   UseGuards,
@@ -24,7 +25,7 @@ import { SyncAccessDeniedError } from '../application/ports/sync-access-policy';
 @Controller('sync')
 @UseGuards(KratosSessionGuard)
 export class SyncController {
-  constructor(private readonly syncService: SyncService) {}
+  constructor(@Inject(SyncService) private readonly syncService: SyncService) {}
 
   @Post('push')
   async push(
@@ -87,14 +88,18 @@ export class SyncController {
     const storeId = SyncStoreId.from(dto.storeId);
     const sinceValue = dto.since ?? 0;
     const limitValue = dto.limit ?? 100;
+    const waitValue = dto.waitMs ?? 0;
     const since = GlobalSequenceNumber.from(Number(sinceValue));
     const limit = Number(limitValue);
+    const waitMs = Math.min(Math.max(Number(waitValue), 0), 25_000);
 
-    const { events, head } = await this.syncService.pullEvents({
+    const { events, head } = await this.syncService.pullEventsWithWait({
       ownerId,
       storeId,
       since,
       limit,
+      waitMs,
+      pollIntervalMs: 500,
     });
 
     const responseEvents = events.map((event) => ({

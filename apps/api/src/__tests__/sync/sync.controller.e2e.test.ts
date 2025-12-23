@@ -12,6 +12,7 @@ import { SyncService } from '../../sync/application/sync.service';
 import {
   SyncEventRepository,
   SyncRepositoryConflictError,
+  SyncRepositoryHeadMismatchError,
 } from '../../sync/application/ports/sync-event-repository';
 import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
 import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
@@ -40,7 +41,17 @@ class InMemorySyncEventRepository extends SyncEventRepository {
     return GlobalSequenceNumber.from(head);
   }
 
-  async appendBatch(events: SyncEvent[]): Promise<void> {
+  async appendBatch(
+    events: SyncEvent[],
+    expectedParent: GlobalSequenceNumber
+  ): Promise<GlobalSequenceNumber> {
+    if (events.length === 0) return expectedParent;
+    const owner = events[0]?.ownerId ?? SyncOwnerId.from('user-1');
+    const store = events[0]?.storeId ?? SyncStoreId.from('store-1');
+    const head = await this.getHeadSequence(owner, store);
+    if (head.unwrap() !== expectedParent.unwrap()) {
+      throw new SyncRepositoryHeadMismatchError(head, expectedParent);
+    }
     for (const event of events) {
       const exists = this.events.some(
         (e) =>
@@ -56,6 +67,8 @@ class InMemorySyncEventRepository extends SyncEventRepository {
       this.events.push(event);
     }
     this.events.sort((a, b) => a.seqNum.unwrap() - b.seqNum.unwrap());
+    const last = events[events.length - 1];
+    return GlobalSequenceNumber.from(last?.seqNum.unwrap() ?? head.unwrap());
   }
 
   async loadSince(
@@ -83,14 +96,39 @@ class InMemorySyncStoreRepository extends SyncStoreRepository {
     storeId: SyncStoreId,
     ownerId: SyncOwnerId
   ): Promise<void> {
-    const existing = this.owners.get(storeId.unwrap());
-    if (!existing) {
-      this.owners.set(storeId.unwrap(), ownerId.unwrap());
+    const storeIdValue = storeId.unwrap();
+    const ownerValue = ownerId.unwrap();
+    const isLegacyStoreId = (value: string) => value.startsWith('mo-local-v2');
+    const existing = this.owners.get(storeIdValue);
+    if (existing) {
+      if (existing !== ownerValue) {
+        throw new Error('Store owned by another identity');
+      }
       return;
     }
-    if (existing !== ownerId.unwrap()) {
-      throw new Error('Store owned by another identity');
+
+    const ownedStores = [...this.owners.entries()].filter(
+      ([, owner]) => owner === ownerValue
+    );
+
+    if (ownedStores.length === 0) {
+      this.owners.set(storeIdValue, ownerValue);
+      return;
     }
+
+    if (ownedStores.length === 1) {
+      const [priorStoreId] = ownedStores[0] ?? [];
+      if (!priorStoreId) return;
+      if (priorStoreId === storeIdValue) return;
+      if (!isLegacyStoreId(priorStoreId) || isLegacyStoreId(storeIdValue)) {
+        throw new Error('Store already bound to this identity');
+      }
+      this.owners.delete(priorStoreId);
+      this.owners.set(storeIdValue, ownerValue);
+      return;
+    }
+
+    throw new Error('Multiple stores exist for identity');
   }
 }
 
@@ -155,11 +193,6 @@ describe('SyncController (integration, in-memory repos)', () => {
       })
     );
     await app.init();
-
-    const controller = app.get(SyncController) as SyncController & {
-      syncService?: SyncService;
-    };
-    controller.syncService = app.get(SyncService);
   });
 
   afterAll(async () => {
@@ -185,8 +218,8 @@ describe('SyncController (integration, in-memory repos)', () => {
       })
       .expect(409);
 
-    expect(conflict.body.minimumExpectedSeqNum).toBe(2);
-    expect(conflict.body.providedSeqNum).toBe(1);
+    expect(conflict.body.minimumExpectedSeqNum).toBe(1);
+    expect(conflict.body.providedSeqNum).toBe(0);
 
     const pull = await request(app.getHttpServer())
       .get('/sync/pull')
