@@ -1,5 +1,6 @@
 import { type Adapter } from '@livestore/livestore';
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
+import { CommittedEventPublisher } from '@mo/infrastructure';
 import { IndexedDBKeyStore } from '@mo/infrastructure/crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '@mo/infrastructure/crypto/WebCryptoService';
 import { LiveStoreToDomainAdapter } from '@mo/infrastructure/livestore/adapters/LiveStoreToDomainAdapter';
@@ -68,7 +69,6 @@ export const createAppServices = async ({
       eventStore: storeBundle.goalEventStore,
       crypto,
       keyStore,
-      eventBus,
       toDomain,
     });
   }
@@ -78,10 +78,25 @@ export const createAppServices = async ({
       eventStore: storeBundle.projectEventStore,
       crypto,
       keyStore,
-      eventBus,
       toDomain,
     });
   }
+
+  const publisher = new CommittedEventPublisher(
+    storeBundle.store,
+    eventBus,
+    toDomain,
+    keyStore,
+    CommittedEventPublisher.buildStreams({
+      goalEventStore: contexts.includes('goals')
+        ? storeBundle.goalEventStore
+        : undefined,
+      projectEventStore: contexts.includes('projects')
+        ? storeBundle.projectEventStore
+        : undefined,
+    })
+  );
+  await publisher.start();
 
   return {
     crypto,

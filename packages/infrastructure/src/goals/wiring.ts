@@ -19,7 +19,6 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IEventBus,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
@@ -44,7 +43,6 @@ export type GoalBootstrapDeps = {
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
-  eventBus: IEventBus;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -61,7 +59,6 @@ export const bootstrapGoalBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
-  eventBus,
   toDomain,
 }: GoalBootstrapDeps): GoalBoundedContextServices => {
   const goalRepo = new GoalRepository(
@@ -70,12 +67,7 @@ export const bootstrapGoalBoundedContext = ({
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
-  const goalHandler = new GoalCommandHandler(
-    goalRepo,
-    keyStore,
-    crypto,
-    eventBus
-  );
+  const goalHandler = new GoalCommandHandler(goalRepo, keyStore, crypto);
   const goalProjection = new GoalProjectionProcessor(
     store,
     eventStore,

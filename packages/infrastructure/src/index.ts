@@ -1,6 +1,7 @@
 export * from './livestore/adapters/DomainToLiveStoreAdapter';
 export * from './livestore/adapters/LiveStoreToDomainAdapter';
 export * from './events/InMemoryEventBus';
+export * from './eventing/CommittedEventPublisher';
 export * from './crypto/NodeCryptoService';
 export * from './crypto/SharingCrypto';
 export * from './crypto/deriveSalt';

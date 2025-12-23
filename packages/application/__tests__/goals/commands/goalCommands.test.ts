@@ -6,7 +6,6 @@ import {
 } from '../../../src/goals/commands';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
-  InMemoryEventBus,
   InMemoryGoalRepository,
   InMemoryKeyStore,
   MockCryptoService,
@@ -21,8 +20,7 @@ const makeHandler = () =>
   new GoalCommandHandler(
     new InMemoryGoalRepository(),
     new InMemoryKeyStore(),
-    new MockCryptoService(),
-    new InMemoryEventBus()
+    new MockCryptoService()
   );
 
 const createGoal = () =>

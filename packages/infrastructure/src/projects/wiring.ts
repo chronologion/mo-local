@@ -23,7 +23,6 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IEventBus,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
@@ -51,7 +50,6 @@ export type ProjectBootstrapDeps = {
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
-  eventBus: IEventBus;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -70,7 +68,6 @@ export const bootstrapProjectBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
-  eventBus,
   toDomain,
 }: ProjectBootstrapDeps): ProjectBoundedContextServices => {
   const projectRepo = new ProjectRepository(
@@ -82,8 +79,7 @@ export const bootstrapProjectBoundedContext = ({
   const projectHandler = new ProjectCommandHandler(
     projectRepo,
     keyStore,
-    crypto,
-    eventBus
+    crypto
   );
   const projectProjection = new ProjectProjectionProcessor(
     store,

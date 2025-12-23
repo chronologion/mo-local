@@ -7,7 +7,6 @@ import {
 } from '../../../src/projects/commands';
 import { ProjectCommandHandler } from '../../../src/projects/ProjectCommandHandler';
 import {
-  InMemoryEventBus,
   InMemoryKeyStore,
   InMemoryProjectRepository,
   MockCryptoService,
@@ -22,8 +21,7 @@ const makeHandler = () =>
   new ProjectCommandHandler(
     new InMemoryProjectRepository(),
     new InMemoryKeyStore(),
-    new MockCryptoService(),
-    new InMemoryEventBus()
+    new MockCryptoService()
   );
 
 const createProject = () =>

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
-  InMemoryEventBus,
   InMemoryGoalRepository,
   InMemoryKeyStore,
   MockCryptoService,
@@ -29,28 +28,25 @@ const baseCreate = new CreateGoal({
 
 const setup = () => {
   const repo = new InMemoryGoalRepository();
-  const eventBus = new InMemoryEventBus();
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
-  const handler = new GoalCommandHandler(repo, keyStore, crypto, eventBus);
-  return { repo, eventBus, keyStore, crypto, handler };
+  const handler = new GoalCommandHandler(repo, keyStore, crypto);
+  return { repo, keyStore, crypto, handler };
 };
 
 describe('GoalCommandHandler', () => {
   it('creates a goal and stores aggregate key', async () => {
-    const { handler, keyStore, eventBus } = setup();
+    const { handler, keyStore } = setup();
 
     await handler.handleCreate(baseCreate);
 
     const storedKey = await keyStore.getAggregateKey(goalId);
     expect(storedKey).toBeInstanceOf(Uint8Array);
-    expect(eventBus.getPublished().length).toBeGreaterThan(0);
   });
 
-  it('updates summary and publishes event', async () => {
-    const { handler, eventBus } = setup();
+  it('updates summary', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
 
     await handler.handleChangeSummary(
       new ChangeGoalSummary({
@@ -60,7 +56,6 @@ describe('GoalCommandHandler', () => {
         timestamp: Date.now(),
       })
     );
-    expect(eventBus.getPublished().length).toBeGreaterThan(before);
   });
 
   it('fails when aggregate key missing', async () => {
@@ -81,9 +76,8 @@ describe('GoalCommandHandler', () => {
   });
 
   it('does not publish when repository save fails', async () => {
-    const { handler, repo, eventBus } = setup();
+    const { handler, repo } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
     repo.failNextSave();
 
     await expect(
@@ -96,7 +90,6 @@ describe('GoalCommandHandler', () => {
         })
       )
     ).rejects.toThrow();
-    expect(eventBus.getPublished().length).toBe(before);
   });
 
   it('surfaces concurrency errors from repository', async () => {
@@ -116,11 +109,9 @@ describe('GoalCommandHandler', () => {
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 
-  it('fails when event bus publish fails', async () => {
-    const { handler, eventBus } = setup();
+  it('changes target month', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
-    eventBus.failNext(new Error('publish failed'));
 
     await expect(
       handler.handleChangeTargetMonth(
@@ -131,7 +122,6 @@ describe('GoalCommandHandler', () => {
           timestamp: Date.now(),
         })
       )
-    ).rejects.toThrow();
-    expect(eventBus.getPublished().length).toBe(before);
+    ).resolves.toBeDefined();
   });
 });

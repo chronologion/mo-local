@@ -24,7 +24,7 @@ import {
   ArchiveProject,
 } from './commands';
 import { IProjectRepository } from './ports/IProjectRepository';
-import { IEventBus, ICryptoService, IKeyStore } from '../shared/ports';
+import { ICryptoService, IKeyStore } from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
@@ -36,8 +36,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   constructor(
     private readonly projectRepo: IProjectRepository,
     private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService,
-    private readonly eventBus: IEventBus
+    private readonly crypto: ICryptoService
   ) {
     super();
   }
@@ -78,10 +77,8 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       createdBy: userId,
     });
 
-    const pending = project.getUncommittedEvents();
     await this.keyStore.saveAggregateKey(project.id.value, kProject);
     await this.projectRepo.save(project, kProject);
-    await this.eventBus.publish(pending);
     project.markEventsAsCommitted();
     return { projectId: project.id.value, encryptionKey: kProject };
   }
@@ -255,7 +252,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   }
 
   private async persist(project: Project): Promise<ProjectCommandResult> {
-    const pendingEvents = project.getUncommittedEvents();
     const kProject = await this.keyStore.getAggregateKey(project.id.value);
     if (!kProject) {
       throw new NotFoundError(
@@ -263,7 +259,6 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       );
     }
     await this.projectRepo.save(project, kProject);
-    await this.eventBus.publish(pendingEvents);
     project.markEventsAsCommitted();
     return { projectId: project.id.value };
   }

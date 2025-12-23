@@ -19,7 +19,7 @@ import {
   RevokeGoalAccess,
 } from './commands';
 import { IGoalRepository } from './ports/IGoalRepository';
-import { IEventBus, ICryptoService, IKeyStore } from '../shared/ports';
+import { ICryptoService, IKeyStore } from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
@@ -34,8 +34,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
   constructor(
     private readonly goalRepo: IGoalRepository,
     private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService,
-    private readonly eventBus: IEventBus
+    private readonly crypto: ICryptoService
   ) {
     super();
   }
@@ -62,10 +61,8 @@ export class GoalCommandHandler extends BaseCommandHandler {
       createdBy: userId,
     });
 
-    const pendingEvents = goal.getUncommittedEvents();
     await this.keyStore.saveAggregateKey(goal.id.value, kGoal);
     await this.goalRepo.save(goal, kGoal);
-    await this.eventBus.publish(pendingEvents);
     goal.markEventsAsCommitted();
 
     return { goalId: goal.id.value, encryptionKey: kGoal };
@@ -187,14 +184,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   private async persist(goal: Goal): Promise<GoalCommandResult> {
-    const pendingEvents = goal.getUncommittedEvents();
     const kGoal = await this.keyStore.getAggregateKey(goal.id.value);
     if (!kGoal) {
       throw new NotFoundError(`Aggregate key for ${goal.id.value} not found`);
     }
 
     await this.goalRepo.save(goal, kGoal);
-    await this.eventBus.publish(pendingEvents);
     goal.markEventsAsCommitted();
     return { goalId: goal.id.value };
   }

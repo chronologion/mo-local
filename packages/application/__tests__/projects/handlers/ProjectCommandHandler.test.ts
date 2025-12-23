@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  InMemoryEventBus,
   InMemoryKeyStore,
   InMemoryProjectRepository,
   MockCryptoService,
@@ -34,29 +33,26 @@ const baseCreate = () =>
 
 const setup = () => {
   const repo = new InMemoryProjectRepository();
-  const eventBus = new InMemoryEventBus();
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
-  const handler = new ProjectCommandHandler(repo, keyStore, crypto, eventBus);
-  return { repo, eventBus, keyStore, crypto, handler };
+  const handler = new ProjectCommandHandler(repo, keyStore, crypto);
+  return { repo, keyStore, crypto, handler };
 };
 
 describe('ProjectCommandHandler', () => {
   it('creates a project and stores aggregate key', async () => {
-    const { handler, keyStore, eventBus, repo } = setup();
+    const { handler, keyStore, repo } = setup();
     const result = await handler.handleCreate(baseCreate());
 
     expect(result.projectId).toBe(projectId);
     const storedKey = await keyStore.getAggregateKey(projectId);
     expect(storedKey).toBeInstanceOf(Uint8Array);
-    expect(eventBus.getPublished().length).toBeGreaterThan(0);
     expect(repo.getStoredKey(ProjectId.from(projectId))).toBeDefined();
   });
 
-  it('updates status and publishes event', async () => {
-    const { handler, eventBus } = setup();
+  it('updates status', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate());
-    const before = eventBus.getPublished().length;
 
     await handler.handleChangeStatus(
       new ChangeProjectStatus({
@@ -66,7 +62,6 @@ describe('ProjectCommandHandler', () => {
         timestamp: Date.now(),
       })
     );
-    expect(eventBus.getPublished().length).toBeGreaterThan(before);
   });
 
   it('fails when aggregate key missing', async () => {
@@ -87,9 +82,8 @@ describe('ProjectCommandHandler', () => {
   });
 
   it('does not publish when repository save fails', async () => {
-    const { handler, repo, eventBus } = setup();
+    const { handler, repo } = setup();
     await handler.handleCreate(baseCreate());
-    const before = eventBus.getPublished().length;
     repo.failNextSave();
 
     await expect(
@@ -102,7 +96,6 @@ describe('ProjectCommandHandler', () => {
         })
       )
     ).rejects.toBeInstanceOf(Error);
-    expect(eventBus.getPublished().length).toBe(before);
   });
 
   it('surfaces concurrency errors from repository', async () => {
