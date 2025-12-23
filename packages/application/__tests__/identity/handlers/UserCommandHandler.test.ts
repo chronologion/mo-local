@@ -13,7 +13,7 @@ describe('UserCommandHandler', () => {
       userId: UserId.from('user-1'),
       signingPublicKey: new Uint8Array([1]),
       encryptionPublicKey: new Uint8Array([2]),
-      timestamp: new Date(),
+      timestamp: Date.now(),
     });
 
     expect(
@@ -37,7 +37,7 @@ describe('UserCommandHandler', () => {
         },
         aggregateKeys: {},
       },
-      timestamp: new Date(),
+      timestamp: Date.now(),
     });
 
     const stored = await keyStore.exportKeys();

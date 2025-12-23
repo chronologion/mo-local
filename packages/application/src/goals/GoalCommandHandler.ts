@@ -7,6 +7,7 @@ import {
   Summary,
   UserId,
   Permission,
+  Timestamp,
 } from '@mo/domain';
 import {
   CreateGoal,
@@ -40,7 +41,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleCreate(command: CreateGoal): Promise<GoalCommandResult> {
-    const { goalId, slice, summary, targetMonth, priority, userId } =
+    const { goalId, slice, summary, targetMonth, priority, userId, timestamp } =
       this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         slice: (c) => Slice.from(c.slice),
@@ -59,6 +60,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       targetMonth,
       priority,
       createdBy: userId,
+      createdAt: timestamp,
     });
 
     await this.keyStore.saveAggregateKey(goal.id.value, kGoal);
@@ -71,108 +73,107 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSummary(
     command: ChangeGoalSummary
   ): Promise<GoalCommandResult> {
-    const { goalId, summary } = this.parseCommand(command, {
+    const { goalId, summary, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       summary: (c) => Summary.from(c.summary),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.changeSummary(summary);
+    goal.changeSummary(summary, timestamp);
     return this.persist(goal);
   }
 
   async handleChangeSlice(
     command: ChangeGoalSlice
   ): Promise<GoalCommandResult> {
-    const { goalId, slice } = this.parseCommand(command, {
+    const { goalId, slice, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       slice: (c) => Slice.from(c.slice),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.changeSlice(slice);
+    goal.changeSlice(slice, timestamp);
     return this.persist(goal);
   }
 
   async handleChangeTargetMonth(
     command: ChangeGoalTargetMonth
   ): Promise<GoalCommandResult> {
-    const { goalId, targetMonth } = this.parseCommand(command, {
+    const { goalId, targetMonth, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       targetMonth: (c) => Month.from(c.targetMonth),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.changeTargetMonth(targetMonth);
+    goal.changeTargetMonth(targetMonth, timestamp);
     return this.persist(goal);
   }
 
   async handleChangePriority(
     command: ChangeGoalPriority
   ): Promise<GoalCommandResult> {
-    const { goalId, priority } = this.parseCommand(command, {
+    const { goalId, priority, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       priority: (c) => Priority.from(c.priority),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.changePriority(priority);
+    goal.changePriority(priority, timestamp);
     return this.persist(goal);
   }
 
   async handleArchive(command: ArchiveGoal): Promise<GoalCommandResult> {
-    const { goalId } = this.parseCommand(command, {
+    const { goalId, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.archive();
+    goal.archive(timestamp);
     return this.persist(goal);
   }
 
   async handleGrantAccess(
     command: GrantGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, grantToUserId, permission } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      grantToUserId: (c) => UserId.from(c.grantToUserId),
-      permission: (c) => Permission.from(c.permission),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, grantToUserId, permission, timestamp } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        grantToUserId: (c) => UserId.from(c.grantToUserId),
+        permission: (c) => Permission.from(c.permission),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+      }
+    );
     const goal = await this.loadGoal(goalId);
-    goal.grantAccess(grantToUserId, permission);
+    goal.grantAccess(grantToUserId, permission, timestamp);
     return this.persist(goal);
   }
 
   async handleRevokeAccess(
     command: RevokeGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, revokeUserId } = this.parseCommand(command, {
+    const { goalId, revokeUserId, timestamp } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       revokeUserId: (c) => UserId.from(c.revokeUserId),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const goal = await this.loadGoal(goalId);
-    goal.revokeAccess(revokeUserId);
+    goal.revokeAccess(revokeUserId, timestamp);
     return this.persist(goal);
   }
 
-  private parseTimestamp(timestamp: number): Date {
+  private parseTimestamp(timestamp: number): Timestamp {
     if (!Number.isFinite(timestamp)) {
       throw new Error('Timestamp must be a finite number');
     }
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) {
-      throw new Error('Timestamp is not a valid date');
-    }
-    return date;
+    return Timestamp.fromMillis(timestamp);
   }
 
   private async loadGoal(goalId: GoalId): Promise<Goal> {

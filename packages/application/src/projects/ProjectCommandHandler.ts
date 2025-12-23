@@ -8,6 +8,7 @@ import {
   GoalId,
   MilestoneId,
   UserId,
+  Timestamp,
 } from '@mo/domain';
 import {
   CreateProject,
@@ -51,6 +52,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       description,
       goalId,
       userId,
+      timestamp,
     } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       name: (c) => ProjectName.from(c.name),
@@ -75,6 +77,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
       description,
       goalId: goalId ?? undefined,
       createdBy: userId,
+      createdAt: timestamp,
     });
 
     await this.keyStore.saveAggregateKey(project.id.value, kProject);
@@ -86,161 +89,167 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   async handleChangeStatus(
     command: ChangeProjectStatus
   ): Promise<ProjectCommandResult> {
-    const { projectId, status } = this.parseCommand(command, {
+    const { projectId, status, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       status: (c) => ProjectStatus.from(c.status),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.changeStatus(status);
+    project.changeStatus(status, timestamp);
     return this.persist(project);
   }
 
   async handleChangeDates(
     command: ChangeProjectDates
   ): Promise<ProjectCommandResult> {
-    const { projectId, startDate, targetDate } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      startDate: (c) => LocalDate.fromString(c.startDate),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { projectId, startDate, targetDate, timestamp } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        startDate: (c) => LocalDate.fromString(c.startDate),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+      }
+    );
     const project = await this.loadProject(projectId);
-    project.changeDates({ startDate, targetDate });
+    project.changeDates({ startDate, targetDate }, timestamp);
     return this.persist(project);
   }
 
   async handleChangeName(
     command: ChangeProjectName
   ): Promise<ProjectCommandResult> {
-    const { projectId, name } = this.parseCommand(command, {
+    const { projectId, name, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       name: (c) => ProjectName.from(c.name),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.changeName(name);
+    project.changeName(name, timestamp);
     return this.persist(project);
   }
 
   async handleChangeDescription(
     command: ChangeProjectDescription
   ): Promise<ProjectCommandResult> {
-    const { projectId, description } = this.parseCommand(command, {
+    const { projectId, description, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       description: (c) => ProjectDescription.from(c.description),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.changeDescription(description);
+    project.changeDescription(description, timestamp);
     return this.persist(project);
   }
 
   async handleAddGoal(command: AddProjectGoal): Promise<ProjectCommandResult> {
-    const { projectId, goalId } = this.parseCommand(command, {
+    const { projectId, goalId, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       goalId: (c) => GoalId.from(c.goalId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.addGoal(goalId);
+    project.addGoal(goalId, timestamp);
     return this.persist(project);
   }
 
   async handleRemoveGoal(
     command: RemoveProjectGoal
   ): Promise<ProjectCommandResult> {
-    const { projectId } = this.parseCommand(command, {
+    const { projectId, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.removeGoal();
+    project.removeGoal(timestamp);
     return this.persist(project);
   }
 
   async handleAddMilestone(
     command: AddProjectMilestone
   ): Promise<ProjectCommandResult> {
-    const { projectId, milestoneId, name, targetDate } = this.parseCommand(
-      command,
-      {
+    const { projectId, milestoneId, name, targetDate, timestamp } =
+      this.parseCommand(command, {
         projectId: (c) => ProjectId.from(c.projectId),
         milestoneId: (c) => MilestoneId.from(c.milestoneId),
         name: (c) => c.name,
         targetDate: (c) => LocalDate.fromString(c.targetDate),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
-      }
-    );
+      });
     const project = await this.loadProject(projectId);
-    project.addMilestone({
-      id: milestoneId,
-      name,
-      targetDate,
-    });
+    project.addMilestone(
+      {
+        id: milestoneId,
+        name,
+        targetDate,
+      },
+      timestamp
+    );
     return this.persist(project);
   }
 
   async handleChangeMilestoneTargetDate(
     command: ChangeProjectMilestoneTargetDate
   ): Promise<ProjectCommandResult> {
-    const { projectId, milestoneId, targetDate } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { projectId, milestoneId, targetDate, timestamp } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        milestoneId: (c) => MilestoneId.from(c.milestoneId),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+      }
+    );
     const project = await this.loadProject(projectId);
-    project.changeMilestoneTargetDate(milestoneId, targetDate);
+    project.changeMilestoneTargetDate(milestoneId, targetDate, timestamp);
     return this.persist(project);
   }
 
   async handleChangeMilestoneName(
     command: ChangeProjectMilestoneName
   ): Promise<ProjectCommandResult> {
-    const { projectId, milestoneId, name } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      name: (c) => c.name,
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { projectId, milestoneId, name, timestamp } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        milestoneId: (c) => MilestoneId.from(c.milestoneId),
+        name: (c) => c.name,
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+      }
+    );
     const project = await this.loadProject(projectId);
-    project.changeMilestoneName(milestoneId, name);
+    project.changeMilestoneName(milestoneId, name, timestamp);
     return this.persist(project);
   }
 
   async handleArchiveMilestone(
     command: ArchiveProjectMilestone
   ): Promise<ProjectCommandResult> {
-    const { projectId, milestoneId } = this.parseCommand(command, {
+    const { projectId, milestoneId, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.archiveMilestone(milestoneId);
+    project.archiveMilestone(milestoneId, timestamp);
     return this.persist(project);
   }
 
   async handleArchive(command: ArchiveProject): Promise<ProjectCommandResult> {
-    const { projectId } = this.parseCommand(command, {
+    const { projectId, timestamp } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
     });
     const project = await this.loadProject(projectId);
-    project.archive();
+    project.archive(timestamp);
     return this.persist(project);
   }
 
-  private parseTimestamp(timestamp: number): Date {
+  private parseTimestamp(timestamp: number): Timestamp {
     if (!Number.isFinite(timestamp)) {
       throw new Error('Timestamp must be a finite number');
     }
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) {
-      throw new Error('Timestamp is not a valid date');
-    }
-    return date;
+    return Timestamp.fromMillis(timestamp);
   }
 
   private async loadProject(projectId: ProjectId): Promise<Project> {

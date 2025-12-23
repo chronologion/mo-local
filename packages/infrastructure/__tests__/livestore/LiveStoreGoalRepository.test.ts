@@ -13,10 +13,12 @@ import {
   Priority,
   UserId,
   DomainEvent,
+  Timestamp,
 } from '@mo/domain';
 import { PersistenceError } from '../../src/errors';
 
 const cachedEvents = new Map<string, DomainEvent>();
+const createdAt = Timestamp.fromMillis(1_700_000_000_000);
 
 const adapter: GoalEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
@@ -57,6 +59,7 @@ describe('LiveStoreGoalRepository', () => {
       targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     await repo.save(goal, key);
@@ -75,6 +78,7 @@ describe('LiveStoreGoalRepository', () => {
       targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     const adapterThrowing: GoalEventAdapter = {

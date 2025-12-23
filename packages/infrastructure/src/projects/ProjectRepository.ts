@@ -1,4 +1,4 @@
-import { Project, ProjectId } from '@mo/domain';
+import { Project, ProjectId, Timestamp } from '@mo/domain';
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
@@ -101,7 +101,7 @@ export class ProjectRepository implements IProjectRepository {
     }
   }
 
-  async archive(_id: ProjectId): Promise<void> {
+  async archive(_id: ProjectId, _archivedAt: Timestamp): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
   }
 

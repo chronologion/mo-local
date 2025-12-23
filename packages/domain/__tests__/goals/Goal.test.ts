@@ -7,6 +7,11 @@ import { Month } from '../../src/goals/vos/Month';
 import { Summary } from '../../src/goals/vos/Summary';
 import { UserId } from '../../src/identity/UserId';
 import { Permission } from '../../src/goals/vos/Permission';
+import { Timestamp } from '../../src/shared/vos/Timestamp';
+
+const createdAt = Timestamp.fromMillis(1_700_000_000_000);
+const changedAt = Timestamp.fromMillis(1_700_000_000_500);
+const laterAt = Timestamp.fromMillis(1_700_000_001_000);
 
 describe('Goal Aggregate', () => {
   describe('creation', () => {
@@ -18,6 +23,7 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now().addMonths(6),
         priority: Priority.Must,
         createdBy: UserId.from('user-123'),
+        createdAt,
       });
 
       expect(goal.slice.equals(Slice.Health)).toBe(true);
@@ -35,6 +41,7 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.from('2024-12'),
         priority: Priority.Must,
         createdBy: UserId.from('user-456'),
+        createdAt,
       });
 
       const events = goal.getUncommittedEvents();
@@ -52,9 +59,10 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Should,
         createdBy: UserId.from('user-789'),
+        createdAt,
       });
 
-      goal.changeSummary(Summary.from('Master TypeScript and DDD'));
+      goal.changeSummary(Summary.from('Master TypeScript and DDD'), changedAt);
 
       expect(goal.summary.value).toBe('Master TypeScript and DDD');
       expect(goal.getUncommittedEvents()).toHaveLength(2); // Created + SummaryChanged
@@ -68,10 +76,11 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Maybe,
         createdBy: UserId.from('user-999'),
+        createdAt,
       });
 
       expect(() => {
-        goal.changeSummary(Summary.from('Learn React'));
+        goal.changeSummary(Summary.from('Learn React'), changedAt);
       }).toThrow();
     });
   });
@@ -85,9 +94,10 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now().addMonths(12),
         priority: Priority.Must,
         createdBy: UserId.from('user-abc'),
+        createdAt,
       });
 
-      goal.changeSlice(Slice.Learning);
+      goal.changeSlice(Slice.Learning, changedAt);
 
       expect(goal.slice.equals(Slice.Learning)).toBe(true);
     });
@@ -102,9 +112,10 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Maybe,
         createdBy: UserId.from('user-def'),
+        createdAt,
       });
 
-      goal.changePriority(Priority.Must);
+      goal.changePriority(Priority.Must, changedAt);
 
       expect(goal.priority.isMust()).toBe(true);
       expect(goal.priority.isHigherThan(Priority.Should)).toBe(true);
@@ -120,10 +131,11 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.from('2024-06'),
         priority: Priority.Should,
         createdBy: UserId.from('user-ghi'),
+        createdAt,
       });
 
       const newTarget = Month.from('2024-06').addMonths(3);
-      goal.changeTargetMonth(newTarget);
+      goal.changeTargetMonth(newTarget, changedAt);
 
       expect(goal.targetMonth.year).toBe(2024);
       expect(goal.targetMonth.month).toBe(9);
@@ -139,9 +151,10 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.from('2024-12'),
         priority: Priority.Maybe,
         createdBy: UserId.from('user-jkl'),
+        createdAt,
       });
 
-      goal.archive();
+      goal.archive(changedAt);
 
       expect(goal.isArchived).toBe(true);
       expect(goal.archivedAt).not.toBeNull();
@@ -155,12 +168,13 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Must,
         createdBy: UserId.from('user-mno'),
+        createdAt,
       });
 
-      goal.archive();
+      goal.archive(changedAt);
 
       expect(() => {
-        goal.changeSummary(Summary.from('Save $20k'));
+        goal.changeSummary(Summary.from('Save $20k'), laterAt);
       }).toThrow();
     });
   });
@@ -174,11 +188,13 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Must,
         createdBy: UserId.from('owner-123'),
+        createdAt,
       });
 
       goal.grantAccess(
         UserId.from('collaborator-456'),
-        Permission.from('edit')
+        Permission.from('edit'),
+        changedAt
       );
 
       expect(goal.accessList).toHaveLength(1);
@@ -195,11 +211,12 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Should,
         createdBy: UserId.from('owner-789'),
+        createdAt,
       });
 
       const collaboratorId = UserId.from('collaborator-999');
-      goal.grantAccess(collaboratorId, Permission.from('view'));
-      goal.revokeAccess(collaboratorId);
+      goal.grantAccess(collaboratorId, Permission.from('view'), changedAt);
+      goal.revokeAccess(collaboratorId, laterAt);
 
       expect(goal.accessList[0].isActive).toBe(false);
       expect(goal.accessList[0].revokedAt).not.toBeNull();
@@ -213,13 +230,14 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Maybe,
         createdBy: UserId.from('owner-aaa'),
+        createdAt,
       });
 
       const userId = UserId.from('collaborator-bbb');
-      goal.grantAccess(userId, Permission.from('view'));
+      goal.grantAccess(userId, Permission.from('view'), changedAt);
 
       expect(() => {
-        goal.grantAccess(userId, Permission.from('edit'));
+        goal.grantAccess(userId, Permission.from('edit'), laterAt);
       }).toThrow();
     });
   });
@@ -233,10 +251,11 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now().addMonths(3),
         priority: Priority.Should,
         createdBy: UserId.from('user-ccc'),
+        createdAt,
       });
 
-      goal.changeSummary(Summary.from('Ultimate fitness journey'));
-      goal.changePriority(Priority.Must);
+      goal.changeSummary(Summary.from('Ultimate fitness journey'), changedAt);
+      goal.changePriority(Priority.Must, laterAt);
 
       const events = goal.getUncommittedEvents();
       expect(events).toHaveLength(3); // Created + SummaryChanged + PriorityChanged
@@ -253,10 +272,11 @@ describe('Goal Aggregate', () => {
         targetMonth: Month.now(),
         priority: Priority.Must,
         createdBy: UserId.from('user-ddd'),
+        createdAt,
       });
 
       const initialVersion = goal.version;
-      goal.changeSummary(Summary.from('Bi-weekly date nights'));
+      goal.changeSummary(Summary.from('Bi-weekly date nights'), changedAt);
 
       expect(goal.version).toBe(initialVersion + 1);
     });

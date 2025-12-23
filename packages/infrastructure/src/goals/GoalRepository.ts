@@ -1,4 +1,4 @@
-import { Goal, GoalId } from '@mo/domain';
+import { Goal, GoalId, Timestamp } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
@@ -111,10 +111,10 @@ export class GoalRepository implements IGoalRepository {
     return decodeGoalSnapshotDomain(plaintext, row.version);
   }
 
-  async archive(id: GoalId): Promise<void> {
+  async archive(id: GoalId, archivedAt: Timestamp): Promise<void> {
     const goal = await this.load(id);
     if (!goal) return;
-    goal.archive();
+    goal.archive(archivedAt);
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);

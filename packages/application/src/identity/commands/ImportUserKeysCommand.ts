@@ -18,7 +18,7 @@ export interface ImportUserKeysCommand {
 export interface ValidatedImportUserKeysCommand {
   readonly userId: UserId;
   readonly backup: KeyBackup;
-  readonly timestamp: Date;
+  readonly timestamp: number;
 }
 
 export function validateImportUserKeysCommand(

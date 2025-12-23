@@ -12,10 +12,6 @@ export class Timestamp extends ValueObject<number> {
     super();
   }
 
-  static now(): Timestamp {
-    return new Timestamp(Date.now());
-  }
-
   static fromMillis(value: number): Timestamp {
     if (!Number.isFinite(value)) {
       throw new Error('Timestamp must be a finite number of milliseconds');

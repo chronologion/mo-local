@@ -54,7 +54,11 @@ export type GoalSnapshot = {
  * });
  *
  * goal.changeSummary(Summary.from('Run a sub-4 hour marathon'));
- * goal.grantAccess(UserId.from('user-456'), Permission.from('edit'));
+ * goal.grantAccess(
+ *   UserId.from('user-456'),
+ *   Permission.from('edit'),
+ *   Timestamp.fromMillis(Date.now())
+ * );
  * ```
  */
 export class Goal extends AggregateRoot<GoalId> {
@@ -108,6 +112,7 @@ export class Goal extends AggregateRoot<GoalId> {
     targetMonth: Month;
     priority: Priority;
     createdBy: UserId;
+    createdAt: Timestamp;
   }): Goal {
     const goal = new Goal(params.id);
     goal.apply(
@@ -118,7 +123,7 @@ export class Goal extends AggregateRoot<GoalId> {
         targetMonth: params.targetMonth,
         priority: params.priority,
         createdBy: params.createdBy,
-        createdAt: Timestamp.now(),
+        createdAt: params.createdAt,
       })
     );
     return goal;
@@ -175,7 +180,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or summary is unchanged
    */
-  changeSummary(newSummary: Summary): void {
+  changeSummary(newSummary: Summary, changedAt: Timestamp): void {
     this.assertNotArchived();
     Assert.that(newSummary.equals(this.summary), 'Summary unchanged').isFalse();
 
@@ -183,7 +188,7 @@ export class Goal extends AggregateRoot<GoalId> {
       new GoalSummaryChanged({
         goalId: this.id,
         summary: newSummary,
-        changedAt: Timestamp.now(),
+        changedAt,
       })
     );
   }
@@ -193,7 +198,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or slice is unchanged
    */
-  changeSlice(newSlice: Slice): void {
+  changeSlice(newSlice: Slice, changedAt: Timestamp): void {
     this.assertNotArchived();
     Assert.that(newSlice.equals(this.slice), 'Slice unchanged').isFalse();
 
@@ -201,7 +206,7 @@ export class Goal extends AggregateRoot<GoalId> {
       new GoalSliceChanged({
         goalId: this.id,
         slice: newSlice,
-        changedAt: Timestamp.now(),
+        changedAt,
       })
     );
   }
@@ -211,7 +216,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or month is unchanged
    */
-  changeTargetMonth(newMonth: Month): void {
+  changeTargetMonth(newMonth: Month, changedAt: Timestamp): void {
     this.assertNotArchived();
     Assert.that(
       newMonth.equals(this.targetMonth),
@@ -222,7 +227,7 @@ export class Goal extends AggregateRoot<GoalId> {
       new GoalTargetChanged({
         goalId: this.id,
         targetMonth: newMonth,
-        changedAt: Timestamp.now(),
+        changedAt,
       })
     );
   }
@@ -232,7 +237,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or priority is unchanged
    */
-  changePriority(newPriority: Priority): void {
+  changePriority(newPriority: Priority, changedAt: Timestamp): void {
     this.assertNotArchived();
     Assert.that(
       newPriority.equals(this.priority),
@@ -243,7 +248,7 @@ export class Goal extends AggregateRoot<GoalId> {
       new GoalPriorityChanged({
         goalId: this.id,
         priority: newPriority,
-        changedAt: Timestamp.now(),
+        changedAt,
       })
     );
   }
@@ -253,7 +258,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is already archived
    */
-  archive(): void {
+  archive(archivedAt: Timestamp): void {
     if (this.isArchived) {
       return;
     }
@@ -261,7 +266,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this.apply(
       new GoalArchived({
         goalId: this.id,
-        archivedAt: Timestamp.now(),
+        archivedAt,
       })
     );
   }
@@ -271,7 +276,11 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user already has access
    */
-  grantAccess(userId: UserId, permission: Permission): void {
+  grantAccess(
+    userId: UserId,
+    permission: Permission,
+    grantedAt: Timestamp
+  ): void {
     this.assertNotArchived();
 
     const existing = this._accessList.find(
@@ -287,7 +296,7 @@ export class Goal extends AggregateRoot<GoalId> {
         goalId: this.id,
         grantedTo: userId,
         permission,
-        grantedAt: Timestamp.now(),
+        grantedAt,
       })
     );
   }
@@ -297,7 +306,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user doesn't have active access
    */
-  revokeAccess(userId: UserId): void {
+  revokeAccess(userId: UserId, revokedAt: Timestamp): void {
     this.assertNotArchived();
 
     const existing = this._accessList.find(
@@ -309,7 +318,7 @@ export class Goal extends AggregateRoot<GoalId> {
       new GoalAccessRevoked({
         goalId: this.id,
         revokedFrom: userId,
-        revokedAt: Timestamp.now(),
+        revokedAt,
       })
     );
   }

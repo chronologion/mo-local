@@ -13,10 +13,12 @@ import {
   ProjectDescription,
   DomainEvent,
   UserId,
+  Timestamp,
 } from '@mo/domain';
 import { PersistenceError } from '../../src/errors';
 
 const cachedEvents = new Map<string, DomainEvent>();
+const createdAt = Timestamp.fromMillis(1_700_000_000_000);
 
 const adapter: ProjectEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
@@ -63,6 +65,7 @@ describe('LiveStoreProjectRepository', () => {
       description: ProjectDescription.from('desc'),
       goalId: null,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     await repo.save(project, kProject);
@@ -96,6 +99,7 @@ describe('LiveStoreProjectRepository', () => {
       description: ProjectDescription.from('desc'),
       goalId: null,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     await expect(failingRepo.save(project, kProject)).rejects.toBeInstanceOf(

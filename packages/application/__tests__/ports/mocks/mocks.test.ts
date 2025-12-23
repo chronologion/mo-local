@@ -7,6 +7,7 @@ import {
   Slice,
   Summary,
   UserId,
+  Timestamp,
 } from '@mo/domain';
 import { InMemoryGoalRepository } from '../../fixtures/ports/InMemoryGoalRepository';
 import { InMemoryEventBus } from '../../fixtures/ports/InMemoryEventBus';
@@ -22,6 +23,7 @@ describe('InMemoryGoalRepository', () => {
       targetMonth: Month.now(),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(1_700_000_000_000),
     });
     const key = Uint8Array.from([1, 2, 3, 4]);
 

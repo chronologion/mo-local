@@ -1,4 +1,4 @@
-import { Project, ProjectId, DomainEvent } from '@mo/domain';
+import { Project, ProjectId, DomainEvent, Timestamp } from '@mo/domain';
 import {
   ConcurrencyError,
   EncryptedEvent,
@@ -70,7 +70,7 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     }
   }
 
-  async archive(_id: ProjectId): Promise<void> {
+  async archive(_id: ProjectId, _archivedAt: Timestamp): Promise<void> {
     // Soft-delete is modeled as events; no physical deletion.
   }
 }

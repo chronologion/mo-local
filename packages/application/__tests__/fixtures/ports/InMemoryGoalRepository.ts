@@ -1,4 +1,4 @@
-import { Goal, GoalId } from '@mo/domain';
+import { Goal, GoalId, Timestamp } from '@mo/domain';
 import { IGoalRepository } from '../../../src/goals/ports/IGoalRepository';
 
 type StoredGoal = {
@@ -31,10 +31,10 @@ export class InMemoryGoalRepository implements IGoalRepository {
     this.store.set(goal.id.value, { goal, encryptionKey });
   }
 
-  async archive(id: GoalId): Promise<void> {
+  async archive(id: GoalId, archivedAt: Timestamp): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
-    stored.goal.archive();
+    stored.goal.archive(archivedAt);
     await this.save(stored.goal, stored.encryptionKey);
   }
 

@@ -23,7 +23,7 @@ export class UserCommandHandler {
         return command.userId;
       },
       get occurredAt() {
-        return Timestamp.fromDate(command.timestamp);
+        return Timestamp.fromMillis(command.timestamp);
       },
     };
     await this.eventBus.publish([registrationEvent]);

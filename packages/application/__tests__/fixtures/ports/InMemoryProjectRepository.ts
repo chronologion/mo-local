@@ -1,4 +1,4 @@
-import { Project, ProjectId } from '@mo/domain';
+import { Project, ProjectId, Timestamp } from '@mo/domain';
 import { IProjectRepository } from '../../../src/projects/ports/IProjectRepository';
 
 type StoredProject = {
@@ -28,10 +28,10 @@ export class InMemoryProjectRepository implements IProjectRepository {
     this.store.set(project.id.value, { project, encryptionKey });
   }
 
-  async archive(id: ProjectId): Promise<void> {
+  async archive(id: ProjectId, archivedAt: Timestamp): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
-    stored.project.archive();
+    stored.project.archive(archivedAt);
     await this.save(stored.project, stored.encryptionKey);
   }
 

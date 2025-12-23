@@ -1,4 +1,4 @@
-import { Goal, GoalId } from '@mo/domain';
+import { Goal, GoalId, Timestamp } from '@mo/domain';
 import type { Repository } from '../../shared/ports/Repository';
 
 /**
@@ -9,5 +9,5 @@ import type { Repository } from '../../shared/ports/Repository';
  * necessary.
  */
 export interface IGoalRepository extends Repository<Goal, GoalId> {
-  archive(id: GoalId): Promise<void>;
+  archive(id: GoalId, archivedAt: Timestamp): Promise<void>;
 }
