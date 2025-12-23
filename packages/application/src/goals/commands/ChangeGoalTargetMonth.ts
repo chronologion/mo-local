@@ -5,6 +5,7 @@ export type ChangeGoalTargetMonthPayload = {
   targetMonth: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ChangeGoalTargetMonth
@@ -16,6 +17,7 @@ export class ChangeGoalTargetMonth
   readonly targetMonth: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ChangeGoalTargetMonthPayload) {
     super(payload);
@@ -23,5 +25,6 @@ export class ChangeGoalTargetMonth
     this.targetMonth = payload.targetMonth;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

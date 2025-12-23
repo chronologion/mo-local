@@ -37,6 +37,7 @@ export type GoalListItem = {
   targetMonth: string;
   createdAt: number;
   archivedAt: number | null;
+  version: number;
 };
 
 export type GoalSnapshotState = {
@@ -179,6 +180,7 @@ export const snapshotToListItem = (
   targetMonth: snapshot.targetMonth,
   createdAt: snapshot.createdAt,
   archivedAt: snapshot.archivedAt,
+  version: snapshot.version,
 });
 
 const parseYear = (targetMonth: string): number => {

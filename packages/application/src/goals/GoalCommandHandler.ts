@@ -73,13 +73,23 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSummary(
     command: ChangeGoalSummary
   ): Promise<GoalCommandResult> {
-    const { goalId, summary, timestamp } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      summary: (c) => Summary.from(c.summary),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, summary, timestamp, knownVersion } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        summary: (c) => Summary.from(c.summary),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      }
+    );
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.changeSummary(summary, timestamp);
     return this.persist(goal);
   }
@@ -87,13 +97,23 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSlice(
     command: ChangeGoalSlice
   ): Promise<GoalCommandResult> {
-    const { goalId, slice, timestamp } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      slice: (c) => Slice.from(c.slice),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, slice, timestamp, knownVersion } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        slice: (c) => Slice.from(c.slice),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      }
+    );
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.changeSlice(slice, timestamp);
     return this.persist(goal);
   }
@@ -101,13 +121,23 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeTargetMonth(
     command: ChangeGoalTargetMonth
   ): Promise<GoalCommandResult> {
-    const { goalId, targetMonth, timestamp } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      targetMonth: (c) => Month.from(c.targetMonth),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, targetMonth, timestamp, knownVersion } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        targetMonth: (c) => Month.from(c.targetMonth),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      }
+    );
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.changeTargetMonth(targetMonth, timestamp);
     return this.persist(goal);
   }
@@ -115,24 +145,41 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangePriority(
     command: ChangeGoalPriority
   ): Promise<GoalCommandResult> {
-    const { goalId, priority, timestamp } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      priority: (c) => Priority.from(c.priority),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, priority, timestamp, knownVersion } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        priority: (c) => Priority.from(c.priority),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      }
+    );
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.changePriority(priority, timestamp);
     return this.persist(goal);
   }
 
   async handleArchive(command: ArchiveGoal): Promise<GoalCommandResult> {
-    const { goalId, timestamp } = this.parseCommand(command, {
+    const { goalId, timestamp, knownVersion } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
     });
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.archive(timestamp);
     return this.persist(goal);
   }
@@ -140,17 +187,22 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleGrantAccess(
     command: GrantGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, grantToUserId, permission, timestamp } = this.parseCommand(
-      command,
-      {
+    const { goalId, grantToUserId, permission, timestamp, knownVersion } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         grantToUserId: (c) => UserId.from(c.grantToUserId),
         permission: (c) => Permission.from(c.permission),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
-      }
-    );
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      });
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.grantAccess(grantToUserId, permission, timestamp);
     return this.persist(goal);
   }
@@ -158,13 +210,23 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleRevokeAccess(
     command: RevokeGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, revokeUserId, timestamp } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      revokeUserId: (c) => UserId.from(c.revokeUserId),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-    });
+    const { goalId, revokeUserId, timestamp, knownVersion } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        revokeUserId: (c) => UserId.from(c.revokeUserId),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      }
+    );
     const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
     goal.revokeAccess(revokeUserId, timestamp);
     return this.persist(goal);
   }

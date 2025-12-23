@@ -55,6 +55,7 @@ describe('Project commands', () => {
           status: 'invalid' as never,
           userId,
           timestamp: now,
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -73,6 +74,7 @@ describe('Project commands', () => {
           targetDate: '2025-01-02',
           userId,
           timestamp: now,
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -87,6 +89,7 @@ describe('Project commands', () => {
           projectId: 'not-a-uuid',
           userId,
           timestamp: now,
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);

@@ -80,6 +80,7 @@ export const useGoalCommands = () => {
       if (!current) {
         throw new Error('Goal not found');
       }
+      let knownVersion = current.version;
       let changed = false;
       if (params.summary !== undefined && params.summary !== current.summary) {
         const cmd = new ChangeGoalSummary({
@@ -87,6 +88,7 @@ export const useGoalCommands = () => {
           summary: params.summary,
           timestamp,
           userId,
+          knownVersion,
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -97,6 +99,7 @@ export const useGoalCommands = () => {
           );
         }
         changed = true;
+        knownVersion += 1;
       }
       if (params.slice !== undefined && params.slice !== current.slice) {
         const cmd = new ChangeGoalSlice({
@@ -104,6 +107,7 @@ export const useGoalCommands = () => {
           slice: params.slice,
           timestamp,
           userId,
+          knownVersion,
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -114,6 +118,7 @@ export const useGoalCommands = () => {
           );
         }
         changed = true;
+        knownVersion += 1;
       }
       if (
         params.priority !== undefined &&
@@ -124,6 +129,7 @@ export const useGoalCommands = () => {
           priority: params.priority,
           timestamp,
           userId,
+          knownVersion,
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -134,6 +140,7 @@ export const useGoalCommands = () => {
           );
         }
         changed = true;
+        knownVersion += 1;
       }
       if (
         params.targetMonth !== undefined &&
@@ -144,6 +151,7 @@ export const useGoalCommands = () => {
           targetMonth: params.targetMonth,
           timestamp,
           userId,
+          knownVersion,
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -154,6 +162,7 @@ export const useGoalCommands = () => {
           );
         }
         changed = true;
+        knownVersion += 1;
       }
       if (changed) {
         await services.goalProjection.whenReady();
@@ -172,10 +181,20 @@ export const useGoalCommands = () => {
     setError(null);
     try {
       const userId = ensureUser();
+      const current = await services.goalQueryBus.dispatch(
+        new GetGoalByIdQuery(goalId)
+      );
+      if (Array.isArray(current)) {
+        throw new Error('Invalid query result');
+      }
+      if (!current) {
+        throw new Error('Goal not found');
+      }
       const cmd = new ArchiveGoal({
         goalId,
         timestamp: Date.now(),
         userId,
+        knownVersion: current.version,
       });
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {

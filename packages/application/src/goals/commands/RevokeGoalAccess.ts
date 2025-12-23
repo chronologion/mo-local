@@ -5,6 +5,7 @@ export type RevokeGoalAccessPayload = {
   revokeUserId: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class RevokeGoalAccess
@@ -16,6 +17,7 @@ export class RevokeGoalAccess
   readonly revokeUserId: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: RevokeGoalAccessPayload) {
     super(payload);
@@ -23,5 +25,6 @@ export class RevokeGoalAccess
     this.revokeUserId = payload.revokeUserId;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

@@ -8,4 +8,5 @@ export type GoalListItemDto = {
   targetMonth: string;
   createdAt: number;
   archivedAt: number | null;
+  version: number;
 };

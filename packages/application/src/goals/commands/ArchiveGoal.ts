@@ -4,6 +4,7 @@ export type ArchiveGoalPayload = {
   goalId: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ArchiveGoal
@@ -14,11 +15,13 @@ export class ArchiveGoal
   readonly goalId: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ArchiveGoalPayload) {
     super(payload);
     this.goalId = payload.goalId;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

@@ -54,6 +54,7 @@ describe('GoalCommandHandler', () => {
         summary: 'Run a faster marathon',
         userId,
         timestamp: Date.now(),
+        knownVersion: 1,
       })
     );
   });
@@ -70,6 +71,7 @@ describe('GoalCommandHandler', () => {
           summary: 'Another summary',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toThrow();
@@ -87,6 +89,7 @@ describe('GoalCommandHandler', () => {
           priority: 'should',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toThrow();
@@ -104,6 +107,7 @@ describe('GoalCommandHandler', () => {
           slice: 'Work',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -120,8 +124,26 @@ describe('GoalCommandHandler', () => {
           targetMonth: '2026-01',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).resolves.toBeDefined();
+  });
+
+  it('throws ConcurrencyError when knownVersion mismatches', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await expect(
+      handler.handleChangeSummary(
+        new ChangeGoalSummary({
+          goalId,
+          summary: 'Run a faster marathon',
+          userId,
+          timestamp: Date.now(),
+          knownVersion: 0,
+        })
+      )
+    ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 });

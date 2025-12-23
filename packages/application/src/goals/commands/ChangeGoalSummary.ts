@@ -5,6 +5,7 @@ export type ChangeGoalSummaryPayload = {
   summary: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ChangeGoalSummary
@@ -16,6 +17,7 @@ export class ChangeGoalSummary
   readonly summary: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ChangeGoalSummaryPayload) {
     super(payload);
@@ -23,5 +25,6 @@ export class ChangeGoalSummary
     this.summary = payload.summary;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

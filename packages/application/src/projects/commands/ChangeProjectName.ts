@@ -5,6 +5,7 @@ export type ChangeProjectNamePayload = {
   name: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ChangeProjectName
@@ -16,6 +17,7 @@ export class ChangeProjectName
   readonly name: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ChangeProjectNamePayload) {
     super(payload);
@@ -23,5 +25,6 @@ export class ChangeProjectName
     this.name = payload.name;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

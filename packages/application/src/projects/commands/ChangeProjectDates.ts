@@ -6,6 +6,7 @@ export type ChangeProjectDatesPayload = {
   targetDate: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ChangeProjectDates
@@ -18,6 +19,7 @@ export class ChangeProjectDates
   readonly targetDate: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ChangeProjectDatesPayload) {
     super(payload);
@@ -26,5 +28,6 @@ export class ChangeProjectDates
     this.targetDate = payload.targetDate;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }

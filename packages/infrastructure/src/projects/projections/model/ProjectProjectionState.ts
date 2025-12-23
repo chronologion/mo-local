@@ -69,6 +69,7 @@ export type ProjectListItem = {
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
+  version: number;
 };
 
 export const applyProjectEventToSnapshot = (
@@ -227,4 +228,5 @@ export const projectSnapshotToListItem = (
   createdAt: snapshot.createdAt,
   updatedAt: snapshot.updatedAt,
   archivedAt: snapshot.archivedAt,
+  version: snapshot.version,
 });

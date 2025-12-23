@@ -65,6 +65,7 @@ describe('Goal command validation inside handler', () => {
           summary: '',
           userId,
           timestamp: now,
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);
@@ -82,6 +83,7 @@ describe('Goal command validation inside handler', () => {
           permission: 'owner' as never,
           userId,
           timestamp: now,
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);

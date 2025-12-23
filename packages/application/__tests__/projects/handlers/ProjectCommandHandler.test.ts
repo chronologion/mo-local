@@ -60,6 +60,7 @@ describe('ProjectCommandHandler', () => {
         status: 'in_progress',
         userId,
         timestamp: Date.now(),
+        knownVersion: 1,
       })
     );
   });
@@ -76,6 +77,7 @@ describe('ProjectCommandHandler', () => {
           name: 'New name',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -93,6 +95,7 @@ describe('ProjectCommandHandler', () => {
           description: 'New desc',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -111,6 +114,7 @@ describe('ProjectCommandHandler', () => {
           targetDate: '2025-03-01',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -126,6 +130,7 @@ describe('ProjectCommandHandler', () => {
           status: 'not-a-status' as never,
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);
@@ -139,10 +144,28 @@ describe('ProjectCommandHandler', () => {
       projectId,
       name: 'Updated name',
       timestamp: Date.now(),
+      knownVersion: 1,
     } as unknown as ChangeProjectName;
 
     await expect(
       handler.handleChangeName(commandWithoutUserId)
     ).resolves.toBeDefined();
+  });
+
+  it('throws ConcurrencyError when knownVersion mismatches', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate());
+
+    await expect(
+      handler.handleChangeStatus(
+        new ChangeProjectStatus({
+          projectId,
+          status: 'in_progress',
+          userId,
+          timestamp: Date.now(),
+          knownVersion: 0,
+        })
+      )
+    ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 });

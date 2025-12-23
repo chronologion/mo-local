@@ -5,6 +5,7 @@ export type ArchiveProjectMilestonePayload = {
   milestoneId: string;
   userId: string;
   timestamp: number;
+  knownVersion: number;
 };
 
 export class ArchiveProjectMilestone
@@ -16,6 +17,7 @@ export class ArchiveProjectMilestone
   readonly milestoneId: string;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
 
   constructor(payload: ArchiveProjectMilestonePayload) {
     super(payload);
@@ -23,5 +25,6 @@ export class ArchiveProjectMilestone
     this.milestoneId = payload.milestoneId;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
   }
 }
