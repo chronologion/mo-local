@@ -9,6 +9,7 @@ type DebugInfo = {
   eventCount?: number;
   aggregateCount?: number;
   onRebuild?: () => void;
+  onResetSyncHead?: () => Promise<void> | void;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -59,6 +60,23 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
           onClick={info.onRebuild}
         >
           Rebuild Projections
+        </button>
+      ) : null}
+      {info.onResetSyncHead ? (
+        <button
+          style={{
+            marginTop: 6,
+            padding: '4px 8px',
+            borderRadius: 4,
+            border: '1px solid #6b7280',
+            background: '#111827',
+            color: '#e5e7eb',
+            cursor: 'pointer',
+            display: 'block',
+          }}
+          onClick={() => info.onResetSyncHead?.()}
+        >
+          Reset Sync Head (reseed)
         </button>
       ) : null}
     </div>

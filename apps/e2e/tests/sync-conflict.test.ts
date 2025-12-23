@@ -11,9 +11,12 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
   const password = `Pass-${randomUUID()}-${Date.now()}`;
   const storeId = `store-${Date.now()}-${randomUUID()}`;
 
-  await page.addInitScript(([sid]) => {
-    localStorage.setItem('mo-local-store-id', sid);
-  }, [storeId]);
+  await page.addInitScript(
+    ([sid]) => {
+      localStorage.setItem('mo-local-store-id', sid);
+    },
+    [storeId]
+  );
   await page.goto('/');
 
   await page.getByText('Set up your local identity').waitFor();
@@ -46,7 +49,11 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
 
   await page.getByText('Connected').waitFor({ timeout: 15_000 });
 
-  return { storeId };
+  const resolvedStoreId = await page.evaluate(() => {
+    return localStorage.getItem('mo-local-store-id') ?? '';
+  });
+
+  return { storeId: resolvedStoreId || storeId };
 }
 
 async function pushEvents(
@@ -134,8 +141,15 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
       ],
     });
     expect(conflict.status).toBe(409);
-    expect(conflict.body?.minimumExpectedSeqNum).toBeDefined();
-    expect(conflict.body?.providedSeqNum).toBeDefined();
+    const conflictBody =
+      typeof conflict.body === 'object' && conflict.body !== null
+        ? (conflict.body as {
+            minimumExpectedSeqNum?: number;
+            providedSeqNum?: number;
+          })
+        : {};
+    expect(conflictBody.minimumExpectedSeqNum).toBeDefined();
+    expect(conflictBody.providedSeqNum).toBeDefined();
 
     // Push next seqNum to ensure sync still works
     const nextSeq = firstSeq + 1;
