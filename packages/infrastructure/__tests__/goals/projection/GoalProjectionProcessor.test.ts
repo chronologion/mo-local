@@ -1,8 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { GoalProjectionProcessor } from '../../../src/goals/projection/GoalProjectionProcessor';
+import { GoalProjectionProcessor } from '../../../src/goals/projections/runtime/GoalProjectionProcessor';
 import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
+import { decodeGoalSnapshotState } from '../../../src/goals/snapshots/GoalSnapshotCodec';
+import { buildSnapshotAad } from '../../../src/eventing/aad';
 import {
   GoalCreated,
   GoalArchived,
@@ -17,19 +19,7 @@ import {
 } from '@mo/domain';
 import { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-
-class InMemoryKeyStore {
-  private readonly keys = new Map<string, Uint8Array>();
-  setMasterKey(): void {
-    // noop for tests
-  }
-  async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
-    this.keys.set(id, key);
-  }
-  async getAggregateKey(id: string): Promise<Uint8Array | null> {
-    return this.keys.get(id) ?? null;
-  }
-}
+import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
 
 type SnapshotRow = {
   payload_encrypted: Uint8Array;
@@ -224,12 +214,9 @@ const decodeSnapshot = async (
   version: number,
   key: Uint8Array
 ) => {
-  const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+  const aad = buildSnapshotAad(aggregateId, version);
   const plaintext = await crypto.decrypt(cipher, key, aad);
-  return JSON.parse(new TextDecoder().decode(plaintext)) as {
-    targetMonth: string;
-    slice: string;
-  };
+  return decodeGoalSnapshotState(plaintext, version);
 };
 
 const decodeAnalytics = async (
@@ -300,7 +287,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -370,7 +357,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -407,7 +394,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -458,7 +445,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -494,7 +481,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -558,7 +545,7 @@ describe('GoalProjectionProcessor', () => {
       store as unknown as Store,
       eventStore,
       crypto,
-      keyStore as unknown as InMemoryKeyStore,
+      keyStore,
       new LiveStoreToDomainAdapter(crypto)
     );
 

@@ -1,16 +1,5 @@
-import {
-  Project,
-  ProjectId,
-  ProjectName,
-  ProjectStatus,
-  ProjectDescription,
-  LocalDate,
-  GoalId,
-  Milestone,
-  MilestoneId,
-  UserId,
-  Timestamp,
-} from '@mo/domain';
+import { Project, ProjectId } from '@mo/domain';
+import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
@@ -21,6 +10,11 @@ import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStor
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { MissingKeyError, PersistenceError } from '../errors';
+import {
+  decodeProjectSnapshotDomain,
+  encodeProjectSnapshotPayload,
+} from './snapshots/ProjectSnapshotCodec';
+import { buildSnapshotAad } from '../eventing/aad';
 
 type SnapshotRow = {
   payload_encrypted: Uint8Array;
@@ -137,11 +131,9 @@ export class ProjectRepository implements IProjectRepository {
       archivedAt: project.archivedAt ? project.archivedAt.value : null,
       version: nextVersion,
     };
-    const aad = new TextEncoder().encode(
-      `${project.id.value}:snapshot:${nextVersion}`
-    );
+    const aad = buildSnapshotAad(project.id.value, nextVersion);
     const cipher = await this.crypto.encrypt(
-      new TextEncoder().encode(JSON.stringify(payload)),
+      encodeProjectSnapshotPayload(payload),
       encryptionKey,
       aad
     );
@@ -172,19 +164,19 @@ export class ProjectRepository implements IProjectRepository {
     aggregateId: string,
     key: Uint8Array
   ): Promise<{
-    id: ProjectId;
-    name: ProjectName;
-    status: ProjectStatus;
-    startDate: LocalDate;
-    targetDate: LocalDate;
-    description: ProjectDescription;
-    goalId: GoalId | null;
-    milestones: Milestone[];
-    createdBy: UserId;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-    archivedAt: Timestamp | null;
-    version: number;
+    id: ProjectSnapshot['id'];
+    name: ProjectSnapshot['name'];
+    status: ProjectSnapshot['status'];
+    startDate: ProjectSnapshot['startDate'];
+    targetDate: ProjectSnapshot['targetDate'];
+    description: ProjectSnapshot['description'];
+    goalId: ProjectSnapshot['goalId'];
+    milestones: ProjectSnapshot['milestones'];
+    createdBy: ProjectSnapshot['createdBy'];
+    createdAt: ProjectSnapshot['createdAt'];
+    updatedAt: ProjectSnapshot['updatedAt'];
+    archivedAt: ProjectSnapshot['archivedAt'];
+    version: ProjectSnapshot['version'];
   } | null> {
     const rows = this.store.query<SnapshotRow[]>({
       query:
@@ -193,23 +185,7 @@ export class ProjectRepository implements IProjectRepository {
     });
     if (!rows.length) return null;
     const row = rows[0];
-    type SnapshotPayload = {
-      id: string;
-      name: string;
-      status: 'planned' | 'in_progress' | 'completed' | 'canceled';
-      startDate: string;
-      targetDate: string;
-      description: string;
-      goalId: string | null;
-      milestones?: { id: string; name: string; targetDate: string }[];
-      createdBy?: string;
-      createdAt: number;
-      updatedAt: number;
-      archivedAt: number | null;
-    };
-    const aad = new TextEncoder().encode(
-      `${aggregateId}:snapshot:${row.version}`
-    );
+    const aad = buildSnapshotAad(aggregateId, row.version);
     let plaintext: Uint8Array;
     try {
       plaintext = await this.crypto.decrypt(row.payload_encrypted, key, aad);
@@ -220,41 +196,12 @@ export class ProjectRepository implements IProjectRepository {
       }
       throw error;
     }
-    let parsed: SnapshotPayload;
     try {
-      parsed = JSON.parse(new TextDecoder().decode(plaintext));
+      return decodeProjectSnapshotDomain(plaintext, row.version);
     } catch {
       this.purgeCorruptSnapshot(aggregateId);
       return null;
     }
-    const createdByRaw =
-      typeof parsed.createdBy === 'string' && parsed.createdBy.trim().length > 0
-        ? parsed.createdBy
-        : 'imported';
-    return {
-      id: ProjectId.from(parsed.id),
-      name: ProjectName.from(parsed.name),
-      status: ProjectStatus.from(parsed.status),
-      startDate: LocalDate.fromString(parsed.startDate),
-      targetDate: LocalDate.fromString(parsed.targetDate),
-      description: ProjectDescription.from(parsed.description),
-      goalId: parsed.goalId ? GoalId.from(parsed.goalId) : null,
-      milestones: (parsed.milestones ?? []).map((m) =>
-        Milestone.create({
-          id: MilestoneId.from(m.id),
-          name: m.name,
-          targetDate: LocalDate.fromString(m.targetDate),
-        })
-      ),
-      createdBy: UserId.from(createdByRaw),
-      createdAt: Timestamp.fromMillis(parsed.createdAt),
-      updatedAt: Timestamp.fromMillis(parsed.updatedAt),
-      archivedAt:
-        parsed.archivedAt === null
-          ? null
-          : Timestamp.fromMillis(parsed.archivedAt),
-      version: row.version,
-    };
   }
 
   private isCryptoOperationError(error: unknown): boolean {

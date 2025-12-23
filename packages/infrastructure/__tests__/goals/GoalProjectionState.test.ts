@@ -4,7 +4,7 @@ import {
   buildAnalyticsDeltas,
   GoalSnapshotState,
   snapshotToListItem,
-} from '../../src/goals/GoalProjectionState';
+} from '../../src/goals/projections/model/GoalProjectionState';
 import {
   GoalCreated,
   GoalArchived,

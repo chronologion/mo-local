@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ProjectProjectionProcessor } from '../../../src/projects/projection/ProjectProjectionProcessor';
+import { ProjectProjectionProcessor } from '../../../src/projects/projections/runtime/ProjectProjectionProcessor';
 import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
-import type { IndexedDBKeyStore } from '../../../src/crypto/IndexedDBKeyStore';
 import {
   ProjectCreated,
   ProjectStatusChanged,
@@ -19,19 +18,7 @@ import {
 } from '@mo/domain';
 import type { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-
-class InMemoryKeyStore {
-  private readonly keys = new Map<string, Uint8Array>();
-  setMasterKey(): void {
-    // noop for tests
-  }
-  async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
-    this.keys.set(id, key);
-  }
-  async getAggregateKey(id: string): Promise<Uint8Array | null> {
-    return this.keys.get(id) ?? null;
-  }
-}
+import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
 
 type SnapshotRow = {
   payload_encrypted: Uint8Array;
@@ -218,7 +205,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as unknown as IndexedDBKeyStore,
+      keyStore,
       toDomain
     );
     await processor.start();
@@ -249,7 +236,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as unknown as IndexedDBKeyStore,
+      keyStore,
       toDomain
     );
     await processor.start();
@@ -303,7 +290,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as unknown as IndexedDBKeyStore,
+      keyStore,
       toDomain
     );
     await first.start();
@@ -318,7 +305,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as unknown as IndexedDBKeyStore,
+      keyStore,
       toDomain
     );
     await second.start();
@@ -380,7 +367,7 @@ describe('ProjectProjectionProcessor', () => {
       store,
       eventStore,
       crypto,
-      keyStore as unknown as IndexedDBKeyStore,
+      keyStore,
       toDomain
     );
 

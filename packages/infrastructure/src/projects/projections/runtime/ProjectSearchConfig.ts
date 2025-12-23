@@ -1,4 +1,4 @@
-import type { ProjectListItem } from '../ProjectProjectionState';
+import type { ProjectListItem } from '../model/ProjectProjectionState';
 
 type ProjectSearchConfig = {
   idField: keyof ProjectListItem & string;

@@ -1,4 +1,4 @@
-import type { GoalListItem } from '../GoalProjectionState';
+import type { GoalListItem } from '../model/GoalProjectionState';
 
 type GoalSearchConfig = {
   idField: keyof GoalListItem & string;

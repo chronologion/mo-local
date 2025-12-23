@@ -47,7 +47,9 @@ export class CommittedEventPublisher {
 
   async start(): Promise<void> {
     for (const stream of this.streams) {
-      stream.lastSequence = await this.loadLastSequence(stream.config.metaTable);
+      stream.lastSequence = await this.loadLastSequence(
+        stream.config.metaTable
+      );
       this.unsubscribers.push(
         this.store.subscribe(stream.config.countQuery(), () => {
           void this.processStream(stream);

@@ -16,26 +16,13 @@ import {
   LocalDate,
   ProjectDescription,
 } from '@mo/domain';
-import type {
-  EncryptedEvent,
-  EventFilter,
-  IEventStore,
-} from '@mo/application';
+import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 import type { DomainEvent } from '@mo/domain';
 import { CommittedEventPublisher } from '../../src/eventing/CommittedEventPublisher';
 import { DomainToLiveStoreAdapter } from '../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
-
-class KeyStoreStub {
-  private readonly keys = new Map<string, Uint8Array>();
-  async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
-    this.keys.set(id, key);
-  }
-  async getAggregateKey(id: string): Promise<Uint8Array | null> {
-    return this.keys.get(id) ?? null;
-  }
-}
+import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
 
 class EventStoreStub implements IEventStore {
   constructor(private readonly events: EncryptedEvent[]) {}
@@ -153,7 +140,9 @@ const buildProjectCreated = () =>
   });
 
 const buildEncrypted = async (
-  event: ReturnType<typeof buildGoalCreated> | ReturnType<typeof buildProjectCreated>,
+  event:
+    | ReturnType<typeof buildGoalCreated>
+    | ReturnType<typeof buildProjectCreated>,
   version: number,
   key: Uint8Array
 ): Promise<EncryptedEvent> => {
@@ -165,7 +154,7 @@ describe('CommittedEventPublisher', () => {
   it('publishes events from the stream', async () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
-    const keyStore = new KeyStoreStub();
+    const keyStore = new InMemoryKeyStore();
     const key = new Uint8Array(32).fill(1);
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
@@ -187,7 +176,7 @@ describe('CommittedEventPublisher', () => {
 
   it('persists last sequence and resumes from it', async () => {
     const store = new StoreStub();
-    const keyStore = new KeyStoreStub();
+    const keyStore = new InMemoryKeyStore();
     const key = new Uint8Array(32).fill(2);
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
@@ -220,7 +209,7 @@ describe('CommittedEventPublisher', () => {
   it('skips missing keys and still advances sequence', async () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
-    const keyStore = new KeyStoreStub();
+    const keyStore = new InMemoryKeyStore();
     const key = new Uint8Array(32).fill(3);
     const event = buildGoalCreated();
     const encrypted = await buildEncrypted(event, 5, key);
@@ -247,7 +236,7 @@ describe('CommittedEventPublisher', () => {
   it('no-ops on empty streams', async () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
-    const keyStore = new KeyStoreStub();
+    const keyStore = new InMemoryKeyStore();
     const eventStore = new EventStoreStub([]);
 
     const publisher = new CommittedEventPublisher(
@@ -265,7 +254,7 @@ describe('CommittedEventPublisher', () => {
   it('processes multiple streams independently', async () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
-    const keyStore = new KeyStoreStub();
+    const keyStore = new InMemoryKeyStore();
     const keyA = new Uint8Array(32).fill(4);
     const keyB = new Uint8Array(32).fill(5);
 
@@ -293,8 +282,11 @@ describe('CommittedEventPublisher', () => {
 
     await publisher.start();
 
-    expect(bus.getPublished().map((e) => e.eventType).sort()).toEqual(
-      ['GoalCreated', 'ProjectCreated'].sort()
-    );
+    expect(
+      bus
+        .getPublished()
+        .map((e) => e.eventType)
+        .sort()
+    ).toEqual(['GoalCreated', 'ProjectCreated'].sort());
   });
 });

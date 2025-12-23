@@ -1,14 +1,5 @@
-import {
-  Goal,
-  GoalId,
-  GoalSnapshot,
-  Slice,
-  Priority,
-  Month,
-  Summary,
-  UserId,
-  Timestamp,
-} from '@mo/domain';
+import { Goal, GoalId } from '@mo/domain';
+import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
@@ -19,6 +10,8 @@ import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStor
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { MissingKeyError, PersistenceError } from '../errors';
+import { decodeGoalSnapshotDomain } from './snapshots/GoalSnapshotCodec';
+import { buildSnapshotAad } from '../eventing/aad';
 
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
@@ -109,38 +102,13 @@ export class GoalRepository implements IGoalRepository {
     });
     if (!rows.length) return null;
     const row = rows[0];
-    const aad = new TextEncoder().encode(
-      `${aggregateId}:snapshot:${row.version}`
-    );
+    const aad = buildSnapshotAad(aggregateId, row.version);
     const plaintext = await this.crypto.decrypt(
       row.payload_encrypted,
       kGoal,
       aad
     );
-    const payload = JSON.parse(
-      new TextDecoder().decode(plaintext)
-    ) as SnapshotPayload;
-    return this.toDomainSnapshot(payload, row.version);
-  }
-
-  private toDomainSnapshot(
-    payload: SnapshotPayload,
-    version: number
-  ): GoalSnapshot {
-    return {
-      id: GoalId.from(payload.id),
-      summary: Summary.from(payload.summary),
-      slice: Slice.from(payload.slice),
-      priority: Priority.from(payload.priority),
-      targetMonth: Month.from(payload.targetMonth),
-      createdBy: UserId.from(payload.createdBy),
-      createdAt: Timestamp.fromMillis(payload.createdAt),
-      archivedAt:
-        payload.archivedAt === null
-          ? null
-          : Timestamp.fromMillis(payload.archivedAt),
-      version,
-    };
+    return decodeGoalSnapshotDomain(plaintext, row.version);
   }
 
   async archive(id: GoalId): Promise<void> {
@@ -154,14 +122,3 @@ export class GoalRepository implements IGoalRepository {
     await this.save(goal, kGoal);
   }
 }
-
-type SnapshotPayload = {
-  id: string;
-  summary: string;
-  slice: string;
-  priority: string;
-  targetMonth: string;
-  createdBy: string;
-  createdAt: number;
-  archivedAt: number | null;
-};

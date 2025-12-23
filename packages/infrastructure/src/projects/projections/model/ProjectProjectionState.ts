@@ -12,6 +12,8 @@ import {
   ProjectMilestoneArchived,
   ProjectArchived,
   ProjectStatusValue,
+  projectEventTypes,
+  DomainEvent,
 } from '@mo/domain';
 
 export type SupportedProjectEvent =
@@ -27,6 +29,12 @@ export type SupportedProjectEvent =
   | ProjectMilestoneNameChanged
   | ProjectMilestoneArchived
   | ProjectArchived;
+
+const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
+
+export const isProjectEvent = (
+  event: DomainEvent
+): event is SupportedProjectEvent => projectEventNames.has(event.eventType);
 
 export type ProjectMilestoneState = {
   id: string;

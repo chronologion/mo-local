@@ -4,6 +4,7 @@ import { WebCryptoService } from '../../src/crypto/WebCryptoService';
 import type { IEventStore, EncryptedEvent } from '@mo/application';
 import { ProjectId, ProjectName } from '@mo/domain';
 import type { Store } from '@livestore/livestore';
+import { buildSnapshotAad } from '../../src/eventing/aad';
 
 class SnapshotStoreStub {
   private readonly snapshots = new Map<
@@ -95,7 +96,7 @@ describe('ProjectRepository snapshot compatibility', () => {
     };
 
     const version = 1;
-    const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+    const aad = buildSnapshotAad(aggregateId, version);
     const plaintext = new TextEncoder().encode(
       JSON.stringify(legacySnapshotPayload)
     );

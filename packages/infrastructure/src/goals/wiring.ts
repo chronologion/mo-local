@@ -19,12 +19,12 @@ import {
   CommandResult,
   ValidationException,
   failure,
+  IKeyStore,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { GoalRepository } from './GoalRepository';
-import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
 import { GoalReadModel } from './GoalReadModel';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
@@ -42,7 +42,7 @@ export type GoalBootstrapDeps = {
   store: Store;
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
-  keyStore: IndexedDBKeyStore;
+  keyStore: IKeyStore;
   toDomain: LiveStoreToDomainAdapter;
 };
 
