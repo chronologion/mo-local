@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "husky install",
     "dev": "yarn workspace @mo/web dev",
     "dev:api": "yarn workspace @mo/api dev",
     "dev:stack": "NODE_ENV=development ./scripts/dev-stack.sh start",
@@ -34,6 +35,7 @@
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
     "prettier": "^3.7.3",
     "typescript": "^5.3.3",
     "zod": "^4.1.13"
