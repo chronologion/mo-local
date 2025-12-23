@@ -3,42 +3,38 @@ import { Slice } from '../Slice';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { goalEventTypes } from './eventTypes';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalSliceChangedJSON = ToJSON<GoalSliceChanged['payload']>;
+export interface GoalSliceChangedPayload {
+  goalId: GoalId;
+  slice: Slice;
+  changedAt: Timestamp;
+}
 
-export class GoalSliceChanged implements DomainEvent<GoalId> {
+export class GoalSliceChanged
+  extends DomainEvent<GoalId>
+  implements GoalSliceChangedPayload
+{
   readonly eventType = goalEventTypes.goalSliceChanged;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      slice: Slice;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly slice: Slice;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
-  }
-
-  toJSON(): GoalSliceChangedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      slice: this.payload.slice.value,
-      changedAt: this.payload.changedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalSliceChangedJSON): GoalSliceChanged {
-    return new GoalSliceChanged({
-      goalId: GoalId.from(json.goalId),
-      slice: Slice.from(json.slice),
-      changedAt: Timestamp.fromMillis(json.changedAt),
-    });
+  constructor(payload: GoalSliceChangedPayload) {
+    super(payload.goalId, payload.changedAt);
+    this.goalId = payload.goalId;
+    this.slice = payload.slice;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalSliceChangedSpec = payloadEventSpec<
+  GoalSliceChanged,
+  GoalSliceChangedPayload
+>(goalEventTypes.goalSliceChanged, (p) => new GoalSliceChanged(p), {
+  goalId: voString(GoalId.from),
+  slice: voString(Slice.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

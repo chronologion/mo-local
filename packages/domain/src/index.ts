@@ -2,6 +2,7 @@
 export * from './shared/DomainEvent';
 export * from './shared/Entity';
 export * from './shared/AggregateRoot';
+export * from './shared/eventSpec';
 export * from './shared/vos/Timestamp';
 export * from './shared/vos/LocalDate';
 export * from './shared/vos/ValueObject';

@@ -12,7 +12,7 @@ import { SyncDatabaseService } from './database.service';
 
 type SyncEventArgs = SyncEvent['args'];
 
-const serializeArgs = (value: SyncEventArgs): string => {
+export const serializeArgs = (value: SyncEventArgs): string => {
   // Preserve key order for LiveStore equality (JSONB reorders keys).
   const serialized = JSON.stringify(value);
   if (serialized === undefined) {
@@ -21,7 +21,7 @@ const serializeArgs = (value: SyncEventArgs): string => {
   return serialized;
 };
 
-const parseArgs = (value: unknown): SyncEventArgs => {
+export const parseArgs = (value: unknown): SyncEventArgs => {
   if (typeof value !== 'string') return value;
   try {
     const parsed: unknown = JSON.parse(value);

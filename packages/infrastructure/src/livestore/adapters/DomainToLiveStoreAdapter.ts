@@ -1,15 +1,8 @@
-import {
-  DomainEvent,
-  uuidv7,
-  goalEventTypes,
-  projectEventTypes,
-} from '@mo/domain';
+import { DomainEvent, uuidv7 } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
-import { GoalEventCodec } from '../../goals/GoalEventCodec';
-import { ProjectEventCodec } from '../../projects/ProjectEventCodec';
-
-const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
-const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
+import { encodePayloadEnvelope } from '../../eventing/payloadEnvelope';
+import { encodePersisted } from '../../eventing/registry';
+import { buildEventAad } from '../../eventing/aad';
 
 /**
  * Converts domain events to encrypted LiveStore events.
@@ -34,14 +27,15 @@ export class DomainToLiveStoreAdapter {
     version: number,
     kGoal: Uint8Array
   ): Promise<EncryptedEvent> {
-    const serialized = this.serialize(domainEvent, version);
-    const payloadJson = JSON.stringify({
-      payloadVersion: serialized.payloadVersion,
+    const serialized = encodePersisted(domainEvent);
+    const payloadBytes = encodePayloadEnvelope({
+      payloadVersion: serialized.version,
       data: serialized.payload,
     });
-    const payloadBytes = new TextEncoder().encode(payloadJson);
-    const aad = new TextEncoder().encode(
-      `${serialized.aggregateId}:${serialized.eventType}:${version}`
+    const aad = buildEventAad(
+      domainEvent.aggregateId.value,
+      domainEvent.eventType,
+      version
     );
 
     let encryptedPayload: Uint8Array;
@@ -57,11 +51,11 @@ export class DomainToLiveStoreAdapter {
 
     return {
       id: uuidv7(),
-      aggregateId: serialized.aggregateId,
-      eventType: serialized.eventType,
+      aggregateId: domainEvent.aggregateId.value,
+      eventType: domainEvent.eventType,
       payload: encryptedPayload,
       version,
-      occurredAt: serialized.occurredAt,
+      occurredAt: domainEvent.occurredAt.value,
       // sequence is assigned by the event store during append
     };
   }
@@ -76,15 +70,5 @@ export class DomainToLiveStoreAdapter {
         this.toEncrypted(event, startVersion + idx, kGoal)
       )
     );
-  }
-
-  private serialize(domainEvent: DomainEvent, streamVersion: number) {
-    if (goalEventNames.has(domainEvent.eventType)) {
-      return GoalEventCodec.serialize(domainEvent as never, streamVersion);
-    }
-    if (projectEventNames.has(domainEvent.eventType)) {
-      return ProjectEventCodec.serialize(domainEvent as never, streamVersion);
-    }
-    throw new Error(`Unsupported domain event type: ${domainEvent.eventType}`);
   }
 }

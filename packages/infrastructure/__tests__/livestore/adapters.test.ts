@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DomainToLiveStoreAdapter } from '../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
+import { encodePersisted } from '../../src/eventing/registry';
 import {
   GoalCreated,
   GoalSummaryChanged,
@@ -178,7 +179,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         key
       )
-    ).rejects.toThrow(/Unsupported event type/);
+    ).rejects.toThrow(/Unknown type/);
   });
 
   it('throws on malformed payload', async () => {
@@ -216,7 +217,7 @@ describe('Domain/LiveStore adapters', () => {
       ),
     });
 
-    const legacyPayload = event.toJSON();
+    const legacyPayload = encodePersisted(event).payload;
     const payloadBytes = new TextEncoder().encode(
       JSON.stringify(legacyPayload)
     );

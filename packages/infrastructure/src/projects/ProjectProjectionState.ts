@@ -70,18 +70,17 @@ export const applyProjectEventToSnapshot = (
 ): ProjectSnapshotState | null => {
   switch (event.eventType) {
     case 'ProjectCreated': {
-      const payload = event.payload;
       return {
-        id: payload.projectId.value,
-        name: payload.name.value,
-        status: payload.status.value,
-        startDate: payload.startDate.value,
-        targetDate: payload.targetDate.value,
-        description: payload.description.value,
-        goalId: payload.goalId ? payload.goalId.value : null,
+        id: event.projectId.value,
+        name: event.name.value,
+        status: event.status.value,
+        startDate: event.startDate.value,
+        targetDate: event.targetDate.value,
+        description: event.description.value,
+        goalId: event.goalId ? event.goalId.value : null,
         milestones: [],
-        createdAt: payload.createdAt.value,
-        updatedAt: payload.createdAt.value,
+        createdAt: event.createdAt.value,
+        updatedAt: event.createdAt.value,
         archivedAt: null,
         version,
       };
@@ -90,8 +89,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        status: event.payload.status.value,
-        updatedAt: event.payload.changedAt.value,
+        status: event.status.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -99,9 +98,9 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        startDate: event.payload.startDate.value,
-        targetDate: event.payload.targetDate.value,
-        updatedAt: event.payload.changedAt.value,
+        startDate: event.startDate.value,
+        targetDate: event.targetDate.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -109,8 +108,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        name: event.payload.name.value,
-        updatedAt: event.payload.changedAt.value,
+        name: event.name.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -118,8 +117,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        description: event.payload.description.value,
-        updatedAt: event.payload.changedAt.value,
+        description: event.description.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -127,8 +126,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        goalId: event.payload.goalId.value,
-        updatedAt: event.payload.addedAt.value,
+        goalId: event.goalId.value,
+        updatedAt: event.addedAt.value,
         version,
       };
     }
@@ -137,7 +136,7 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         goalId: null,
-        updatedAt: event.payload.removedAt.value,
+        updatedAt: event.removedAt.value,
         version,
       };
     }
@@ -148,12 +147,12 @@ export const applyProjectEventToSnapshot = (
         milestones: [
           ...snapshot.milestones,
           {
-            id: event.payload.milestoneId.value,
-            name: event.payload.name,
-            targetDate: event.payload.targetDate.value,
+            id: event.milestoneId.value,
+            name: event.name,
+            targetDate: event.targetDate.value,
           },
         ],
-        updatedAt: event.payload.addedAt.value,
+        updatedAt: event.addedAt.value,
         version,
       };
     }
@@ -162,11 +161,11 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.payload.milestoneId.value
-            ? { ...m, targetDate: event.payload.targetDate.value }
+          m.id === event.milestoneId.value
+            ? { ...m, targetDate: event.targetDate.value }
             : m
         ),
-        updatedAt: event.payload.changedAt.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -175,11 +174,9 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.payload.milestoneId.value
-            ? { ...m, name: event.payload.name }
-            : m
+          m.id === event.milestoneId.value ? { ...m, name: event.name } : m
         ),
-        updatedAt: event.payload.changedAt.value,
+        updatedAt: event.changedAt.value,
         version,
       };
     }
@@ -188,9 +185,9 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.filter(
-          (m) => m.id !== event.payload.milestoneId.value
+          (m) => m.id !== event.milestoneId.value
         ),
-        updatedAt: event.payload.archivedAt.value,
+        updatedAt: event.archivedAt.value,
         version,
       };
     }
@@ -198,8 +195,8 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        archivedAt: event.payload.archivedAt.value,
-        updatedAt: event.payload.archivedAt.value,
+        archivedAt: event.archivedAt.value,
+        updatedAt: event.archivedAt.value,
         version,
       };
     }

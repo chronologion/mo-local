@@ -11,6 +11,9 @@ import {
   GoalSnapshotState,
   applyEventToSnapshot,
   buildAnalyticsDeltas,
+  isGoalEvent,
+  snapshotToListItem,
+  type GoalListItem,
 } from '../GoalProjectionState';
 import {
   AnalyticsPayload,
@@ -18,7 +21,6 @@ import {
   applyMonthlyDelta,
   createEmptyAnalytics,
 } from './GoalAnalyticsState';
-import { snapshotToListItem, type GoalListItem } from '../GoalProjectionState';
 import { ProjectionTaskRunner } from '../../projection/ProjectionTaskRunner';
 import { GOAL_SEARCH_CONFIG } from './GoalSearchConfig';
 
@@ -258,6 +260,9 @@ export class GoalProjectionProcessor {
     }
 
     const domainEvent = await this.toDomain.toDomain(event, kGoal);
+    if (!isGoalEvent(domainEvent)) {
+      return false;
+    }
     const previousSnapshot =
       this.snapshots.get(event.aggregateId) ??
       (await this.loadSnapshot(event.aggregateId, kGoal));

@@ -1,5 +1,6 @@
 import { Events, makeSchema, State } from '@livestore/livestore';
 import * as S from 'effect/Schema';
+import { goalEventTypes, projectEventTypes } from '@mo/domain';
 
 // LiveStore schema mirroring encrypted goal event log (ciphertext only).
 const goalEventsTable = State.SQLite.table({
@@ -126,19 +127,8 @@ type GoalEventPayload = {
 };
 
 export const events = {
-  goalEvent: Events.synced({
-    name: 'goal.event.v1',
-    schema: S.Struct({
-      id: S.String,
-      aggregateId: S.String,
-      eventType: S.String,
-      payload: S.Unknown,
-      version: S.Number,
-      occurredAt: S.Number,
-    }),
-  }),
-  projectEvent: Events.synced({
-    name: 'project.event.v1',
+  domainEvent: Events.synced({
+    name: 'event.v1',
     schema: S.Struct({
       id: S.String,
       aggregateId: S.String,
@@ -176,11 +166,14 @@ const asUint8Array = (payload: unknown): Uint8Array => {
     }
     return result;
   }
-  throw new Error('Invalid payload type for goal event');
+  throw new Error('Invalid payload type for domain event');
 };
 
+const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
+const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
+
 const materializers = State.SQLite.materializers(events, {
-  'goal.event.v1': ({
+  'event.v1': ({
     id,
     aggregateId,
     eventType,
@@ -189,64 +182,50 @@ const materializers = State.SQLite.materializers(events, {
     occurredAt,
   }: GoalEventPayload) => {
     try {
-      console.info('[goal.event materializer] inserting event', {
+      const payloadBytes = asUint8Array(payload) as Uint8Array<ArrayBuffer>;
+
+      if (goalEventNames.has(eventType)) {
+        return [
+          tables.goal_events.insert({
+            id,
+            aggregate_id: aggregateId,
+            event_type: eventType,
+            payload_encrypted: payloadBytes,
+            version,
+            occurred_at: occurredAt,
+          }),
+        ];
+      }
+
+      if (projectEventNames.has(eventType)) {
+        return [
+          tables.project_events.insert({
+            id,
+            aggregate_id: aggregateId,
+            event_type: eventType,
+            payload_encrypted: payloadBytes,
+            version,
+            occurred_at: occurredAt,
+          }),
+        ];
+      }
+
+      console.warn('[event.v1 materializer] unknown event type', {
         id,
         aggregateId,
         eventType,
         version,
         occurredAt,
       });
-      return [
-        tables.goal_events.insert({
-          id,
-          aggregate_id: aggregateId,
-          event_type: eventType,
-          payload_encrypted: asUint8Array(payload) as Uint8Array<ArrayBuffer>,
-          version,
-          occurred_at: occurredAt,
-        }),
-      ];
+      return [];
     } catch (error) {
-      console.error('[goal.event materializer] failed to normalize payload', {
+      console.error('[event.v1 materializer] failed to normalize payload', {
         error,
         aggregateId,
         eventType,
         version,
         occurredAt,
       });
-      return [];
-    }
-  },
-  'project.event.v1': ({
-    id,
-    aggregateId,
-    eventType,
-    payload,
-    version,
-    occurredAt,
-  }: GoalEventPayload) => {
-    try {
-      return [
-        tables.project_events.insert({
-          id,
-          aggregate_id: aggregateId,
-          event_type: eventType,
-          payload_encrypted: asUint8Array(payload) as Uint8Array<ArrayBuffer>,
-          version,
-          occurred_at: occurredAt,
-        }),
-      ];
-    } catch (error) {
-      console.error(
-        '[project.event materializer] failed to normalize payload',
-        {
-          error,
-          aggregateId,
-          eventType,
-          version,
-          occurredAt,
-        }
-      );
       return [];
     }
   },

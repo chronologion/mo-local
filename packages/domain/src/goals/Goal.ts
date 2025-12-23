@@ -329,49 +329,49 @@ export class Goal extends AggregateRoot<GoalId> {
   // === Event Handlers ===
 
   protected onGoalCreated(event: GoalCreated): void {
-    this._slice = event.payload.slice;
-    this._summary = event.payload.summary;
-    this._targetMonth = event.payload.targetMonth;
-    this._priority = event.payload.priority;
-    this._createdBy = event.payload.createdBy;
-    this._createdAt = event.payload.createdAt;
+    this._slice = event.slice;
+    this._summary = event.summary;
+    this._targetMonth = event.targetMonth;
+    this._priority = event.priority;
+    this._createdBy = event.createdBy;
+    this._createdAt = event.createdAt;
   }
 
   protected onGoalSummaryChanged(event: GoalSummaryChanged): void {
-    this._summary = event.payload.summary;
+    this._summary = event.summary;
   }
 
   protected onGoalSliceChanged(event: GoalSliceChanged): void {
-    this._slice = event.payload.slice;
+    this._slice = event.slice;
   }
 
   protected onGoalTargetChanged(event: GoalTargetChanged): void {
-    this._targetMonth = event.payload.targetMonth;
+    this._targetMonth = event.targetMonth;
   }
 
   protected onGoalPriorityChanged(event: GoalPriorityChanged): void {
-    this._priority = event.payload.priority;
+    this._priority = event.priority;
   }
 
   protected onGoalArchived(event: GoalArchived): void {
-    this._archivedAt = event.payload.archivedAt;
+    this._archivedAt = event.archivedAt;
   }
 
   protected onGoalAccessGranted(event: GoalAccessGranted): void {
     const entry = AccessEntry.create({
-      userId: event.payload.grantedTo,
-      permission: event.payload.permission,
-      grantedAt: event.payload.grantedAt,
+      userId: event.grantedTo,
+      permission: event.permission,
+      grantedAt: event.grantedAt,
     });
     this._accessList.push(entry);
   }
 
   protected onGoalAccessRevoked(event: GoalAccessRevoked): void {
     const entry = this._accessList.find(
-      (e) => e.userId.equals(event.payload.revokedFrom) && e.isActive
+      (e) => e.userId.equals(event.revokedFrom) && e.isActive
     );
     if (entry) {
-      entry.revoke(event.payload.revokedAt);
+      entry.revoke(event.revokedAt);
     }
   }
 

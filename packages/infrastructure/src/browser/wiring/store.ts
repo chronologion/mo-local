@@ -38,7 +38,7 @@ export const createStoreAndEventStores = async (
 
   const goalEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.goalEvent as (payload: {
+    goalEvents.domainEvent as (payload: {
       id: string;
       aggregateId: string;
       eventType: string;
@@ -50,7 +50,7 @@ export const createStoreAndEventStores = async (
 
   const projectEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.projectEvent as (payload: {
+    goalEvents.domainEvent as (payload: {
       id: string;
       aggregateId: string;
       eventType: string;

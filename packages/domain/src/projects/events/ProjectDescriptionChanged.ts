@@ -3,23 +3,42 @@ import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { ProjectDescription } from '../vos/ProjectDescription';
 import { Timestamp } from '../../shared/vos/Timestamp';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export class ProjectDescriptionChanged implements DomainEvent<ProjectId> {
+export interface ProjectDescriptionChangedPayload {
+  projectId: ProjectId;
+  description: ProjectDescription;
+  changedAt: Timestamp;
+}
+
+export class ProjectDescriptionChanged
+  extends DomainEvent<ProjectId>
+  implements ProjectDescriptionChangedPayload
+{
   readonly eventType = projectEventTypes.projectDescriptionChanged;
 
-  constructor(
-    public readonly payload: {
-      projectId: ProjectId;
-      description: ProjectDescription;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly projectId: ProjectId;
+  readonly description: ProjectDescription;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): ProjectId {
-    return this.payload.projectId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
+  constructor(payload: ProjectDescriptionChangedPayload) {
+    super(payload.projectId, payload.changedAt);
+    this.projectId = payload.projectId;
+    this.description = payload.description;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const ProjectDescriptionChangedSpec = payloadEventSpec<
+  ProjectDescriptionChanged,
+  ProjectDescriptionChangedPayload
+>(
+  projectEventTypes.projectDescriptionChanged,
+  (p) => new ProjectDescriptionChanged(p),
+  {
+    projectId: voString(ProjectId.from),
+    description: voString(ProjectDescription.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

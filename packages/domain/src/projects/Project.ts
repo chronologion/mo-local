@@ -341,84 +341,84 @@ export class Project extends AggregateRoot<ProjectId> {
   // === Event handlers ===
 
   private onProjectCreated(event: ProjectCreated): void {
-    this._name = event.payload.name;
-    this._status = event.payload.status;
-    this._startDate = event.payload.startDate;
-    this._targetDate = event.payload.targetDate;
-    this._description = event.payload.description;
-    this._goalId = event.payload.goalId;
-    this._createdBy = event.payload.createdBy;
-    this._createdAt = event.payload.createdAt;
+    this._name = event.name;
+    this._status = event.status;
+    this._startDate = event.startDate;
+    this._targetDate = event.targetDate;
+    this._description = event.description;
+    this._goalId = event.goalId;
+    this._createdBy = event.createdBy;
+    this._createdAt = event.createdAt;
     this._updatedAt = this._createdAt;
   }
 
   private onProjectStatusChanged(event: ProjectStatusChanged): void {
-    this._status = event.payload.status;
-    this._updatedAt = event.payload.changedAt;
+    this._status = event.status;
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectDateChanged(event: ProjectDateChanged): void {
-    this._startDate = event.payload.startDate;
-    this._targetDate = event.payload.targetDate;
-    this._updatedAt = event.payload.changedAt;
+    this._startDate = event.startDate;
+    this._targetDate = event.targetDate;
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectNameChanged(event: ProjectNameChanged): void {
-    this._name = event.payload.name;
-    this._updatedAt = event.payload.changedAt;
+    this._name = event.name;
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectDescriptionChanged(event: ProjectDescriptionChanged): void {
-    this._description = event.payload.description;
-    this._updatedAt = event.payload.changedAt;
+    this._description = event.description;
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectGoalAdded(event: ProjectGoalAdded): void {
-    this._goalId = event.payload.goalId;
-    this._updatedAt = event.payload.addedAt;
+    this._goalId = event.goalId;
+    this._updatedAt = event.addedAt;
   }
 
   private onProjectGoalRemoved(event: ProjectGoalRemoved): void {
     this._goalId = null;
-    this._updatedAt = event.payload.removedAt;
+    this._updatedAt = event.removedAt;
   }
 
   private onProjectMilestoneAdded(event: ProjectMilestoneAdded): void {
     const milestone = Milestone.create({
-      id: event.payload.milestoneId,
-      name: event.payload.name,
-      targetDate: event.payload.targetDate,
+      id: event.milestoneId,
+      name: event.name,
+      targetDate: event.targetDate,
     });
     this._milestones.push(milestone);
-    this._updatedAt = event.payload.addedAt;
+    this._updatedAt = event.addedAt;
   }
 
   private onProjectMilestoneTargetDateChanged(
     event: ProjectMilestoneTargetDateChanged
   ): void {
-    const milestone = this.findMilestone(event.payload.milestoneId);
-    milestone.changeTargetDate(event.payload.targetDate);
-    this._updatedAt = event.payload.changedAt;
+    const milestone = this.findMilestone(event.milestoneId);
+    milestone.changeTargetDate(event.targetDate);
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectMilestoneNameChanged(
     event: ProjectMilestoneNameChanged
   ): void {
-    const milestone = this.findMilestone(event.payload.milestoneId);
-    milestone.changeName(event.payload.name);
-    this._updatedAt = event.payload.changedAt;
+    const milestone = this.findMilestone(event.milestoneId);
+    milestone.changeName(event.name);
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectMilestoneArchived(event: ProjectMilestoneArchived): void {
     this._milestones = this._milestones.filter(
-      (m) => !m.id.equals(event.payload.milestoneId)
+      (m) => !m.id.equals(event.milestoneId)
     );
-    this._updatedAt = event.payload.archivedAt;
+    this._updatedAt = event.archivedAt;
   }
 
   private onProjectArchived(event: ProjectArchived): void {
-    this._archivedAt = event.payload.archivedAt;
-    this._updatedAt = event.payload.archivedAt;
+    this._archivedAt = event.archivedAt;
+    this._updatedAt = event.archivedAt;
   }
 
   // === Helpers ===

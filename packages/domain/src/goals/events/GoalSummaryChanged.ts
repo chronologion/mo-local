@@ -3,42 +3,38 @@ import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { Summary } from '../vos/Summary';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalSummaryChangedJSON = ToJSON<GoalSummaryChanged['payload']>;
+export interface GoalSummaryChangedPayload {
+  goalId: GoalId;
+  summary: Summary;
+  changedAt: Timestamp;
+}
 
-export class GoalSummaryChanged implements DomainEvent<GoalId> {
+export class GoalSummaryChanged
+  extends DomainEvent<GoalId>
+  implements GoalSummaryChangedPayload
+{
   readonly eventType = goalEventTypes.goalSummaryChanged;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      summary: Summary;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly summary: Summary;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
-  }
-
-  toJSON(): GoalSummaryChangedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      summary: this.payload.summary.value,
-      changedAt: this.payload.changedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalSummaryChangedJSON): GoalSummaryChanged {
-    return new GoalSummaryChanged({
-      goalId: GoalId.from(json.goalId),
-      summary: Summary.from(json.summary),
-      changedAt: Timestamp.fromMillis(json.changedAt),
-    });
+  constructor(payload: GoalSummaryChangedPayload) {
+    super(payload.goalId, payload.changedAt);
+    this.goalId = payload.goalId;
+    this.summary = payload.summary;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalSummaryChangedSpec = payloadEventSpec<
+  GoalSummaryChanged,
+  GoalSummaryChangedPayload
+>(goalEventTypes.goalSummaryChanged, (p) => new GoalSummaryChanged(p), {
+  goalId: voString(GoalId.from),
+  summary: voString(Summary.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

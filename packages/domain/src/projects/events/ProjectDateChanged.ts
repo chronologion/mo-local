@@ -3,24 +3,42 @@ import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { LocalDate } from '../../shared/vos/LocalDate';
 import { Timestamp } from '../../shared/vos/Timestamp';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export class ProjectDateChanged implements DomainEvent<ProjectId> {
+export interface ProjectDateChangedPayload {
+  projectId: ProjectId;
+  startDate: LocalDate;
+  targetDate: LocalDate;
+  changedAt: Timestamp;
+}
+
+export class ProjectDateChanged
+  extends DomainEvent<ProjectId>
+  implements ProjectDateChangedPayload
+{
   readonly eventType = projectEventTypes.projectDateChanged;
 
-  constructor(
-    public readonly payload: {
-      projectId: ProjectId;
-      startDate: LocalDate;
-      targetDate: LocalDate;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly projectId: ProjectId;
+  readonly startDate: LocalDate;
+  readonly targetDate: LocalDate;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): ProjectId {
-    return this.payload.projectId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
+  constructor(payload: ProjectDateChangedPayload) {
+    super(payload.projectId, payload.changedAt);
+    this.projectId = payload.projectId;
+    this.startDate = payload.startDate;
+    this.targetDate = payload.targetDate;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const ProjectDateChangedSpec = payloadEventSpec<
+  ProjectDateChanged,
+  ProjectDateChangedPayload
+>(projectEventTypes.projectDateChanged, (p) => new ProjectDateChanged(p), {
+  projectId: voString(ProjectId.from),
+  startDate: voString(LocalDate.fromString),
+  targetDate: voString(LocalDate.fromString),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

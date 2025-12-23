@@ -4,45 +4,42 @@ import { GoalId } from '../vos/GoalId';
 import { UserId } from '../../identity/UserId';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { Permission } from '../vos/Permission';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalAccessGrantedJSON = ToJSON<GoalAccessGranted['payload']>;
+export interface GoalAccessGrantedPayload {
+  goalId: GoalId;
+  grantedTo: UserId;
+  permission: Permission;
+  grantedAt: Timestamp;
+}
 
-export class GoalAccessGranted implements DomainEvent<GoalId> {
+export class GoalAccessGranted
+  extends DomainEvent<GoalId>
+  implements GoalAccessGrantedPayload
+{
   readonly eventType = goalEventTypes.goalAccessGranted;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      grantedTo: UserId;
-      permission: Permission;
-      grantedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly grantedTo: UserId;
+  readonly permission: Permission;
+  readonly grantedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.grantedAt;
-  }
-
-  toJSON(): GoalAccessGrantedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      grantedTo: this.payload.grantedTo.value,
-      permission: this.payload.permission.value,
-      grantedAt: this.payload.grantedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalAccessGrantedJSON): GoalAccessGranted {
-    return new GoalAccessGranted({
-      goalId: GoalId.from(json.goalId),
-      grantedTo: UserId.from(json.grantedTo),
-      permission: Permission.from(json.permission),
-      grantedAt: Timestamp.fromMillis(json.grantedAt),
-    });
+  constructor(payload: GoalAccessGrantedPayload) {
+    super(payload.goalId, payload.grantedAt);
+    this.goalId = payload.goalId;
+    this.grantedTo = payload.grantedTo;
+    this.permission = payload.permission;
+    this.grantedAt = payload.grantedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalAccessGrantedSpec = payloadEventSpec<
+  GoalAccessGranted,
+  GoalAccessGrantedPayload
+>(goalEventTypes.goalAccessGranted, (p) => new GoalAccessGranted(p), {
+  goalId: voString(GoalId.from),
+  grantedTo: voString(UserId.from),
+  permission: voString(Permission.from),
+  grantedAt: voNumber(Timestamp.fromMillis),
+});

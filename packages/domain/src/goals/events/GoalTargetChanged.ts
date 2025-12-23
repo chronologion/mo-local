@@ -3,42 +3,38 @@ import { goalEventTypes } from './eventTypes';
 import { Month } from '../vos/Month';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalTargetChangedJSON = ToJSON<GoalTargetChanged['payload']>;
+export interface GoalTargetChangedPayload {
+  goalId: GoalId;
+  targetMonth: Month;
+  changedAt: Timestamp;
+}
 
-export class GoalTargetChanged implements DomainEvent<GoalId> {
+export class GoalTargetChanged
+  extends DomainEvent<GoalId>
+  implements GoalTargetChangedPayload
+{
   readonly eventType = goalEventTypes.goalTargetChanged;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      targetMonth: Month;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly targetMonth: Month;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
-  }
-
-  toJSON(): GoalTargetChangedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      targetMonth: this.payload.targetMonth.value,
-      changedAt: this.payload.changedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalTargetChangedJSON): GoalTargetChanged {
-    return new GoalTargetChanged({
-      goalId: GoalId.from(json.goalId),
-      targetMonth: Month.from(json.targetMonth),
-      changedAt: Timestamp.fromMillis(json.changedAt),
-    });
+  constructor(payload: GoalTargetChangedPayload) {
+    super(payload.goalId, payload.changedAt);
+    this.goalId = payload.goalId;
+    this.targetMonth = payload.targetMonth;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalTargetChangedSpec = payloadEventSpec<
+  GoalTargetChanged,
+  GoalTargetChangedPayload
+>(goalEventTypes.goalTargetChanged, (p) => new GoalTargetChanged(p), {
+  goalId: voString(GoalId.from),
+  targetMonth: voString(Month.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

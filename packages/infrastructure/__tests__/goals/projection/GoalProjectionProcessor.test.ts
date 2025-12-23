@@ -175,7 +175,7 @@ class StoreStub {
   }> {
     for (const event of this.eventLog) {
       yield {
-        name: 'goal.event',
+        name: 'event.v1',
         args: {
           id: event.id,
           aggregateId: event.aggregateId,

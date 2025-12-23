@@ -2,14 +2,32 @@ import {
   PriorityLevel,
   SliceValue,
   eventTypes,
-  DomainEvent,
   GoalCreated,
   GoalSummaryChanged,
   GoalSliceChanged,
   GoalTargetChanged,
   GoalPriorityChanged,
   GoalArchived,
+  GoalAccessGranted,
+  GoalAccessRevoked,
+  goalEventTypes,
+  DomainEvent,
 } from '@mo/domain';
+
+export type GoalEvent =
+  | GoalCreated
+  | GoalSummaryChanged
+  | GoalSliceChanged
+  | GoalTargetChanged
+  | GoalPriorityChanged
+  | GoalArchived
+  | GoalAccessGranted
+  | GoalAccessRevoked;
+
+const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
+
+export const isGoalEvent = (event: DomainEvent): event is GoalEvent =>
+  goalEventNames.has(event.eventType);
 
 export type GoalListItem = {
   id: string;
@@ -44,19 +62,19 @@ export type AnalyticsDelta = {
  */
 export const applyEventToSnapshot = (
   current: GoalSnapshotState | null,
-  event: DomainEvent,
+  event: GoalEvent,
   version: number
 ): GoalSnapshotState | null => {
   switch (event.eventType) {
     case eventTypes.goalCreated:
       return {
-        id: (event as GoalCreated).payload.goalId.value,
-        summary: (event as GoalCreated).payload.summary.value,
-        slice: (event as GoalCreated).payload.slice.value,
-        priority: (event as GoalCreated).payload.priority.level,
-        targetMonth: (event as GoalCreated).payload.targetMonth.value,
-        createdBy: (event as GoalCreated).payload.createdBy.value,
-        createdAt: (event as GoalCreated).payload.createdAt.value,
+        id: event.goalId.value,
+        summary: event.summary.value,
+        slice: event.slice.value,
+        priority: event.priority.level,
+        targetMonth: event.targetMonth.value,
+        createdBy: event.createdBy.value,
+        createdAt: event.createdAt.value,
         archivedAt: null,
         version,
       };
@@ -64,35 +82,35 @@ export const applyEventToSnapshot = (
       if (!current) return null;
       return {
         ...current,
-        summary: (event as GoalSummaryChanged).payload.summary.value,
+        summary: event.summary.value,
         version,
       };
     case eventTypes.goalSliceChanged:
       if (!current) return null;
       return {
         ...current,
-        slice: (event as GoalSliceChanged).payload.slice.value,
+        slice: event.slice.value,
         version,
       };
     case eventTypes.goalTargetChanged:
       if (!current) return null;
       return {
         ...current,
-        targetMonth: (event as GoalTargetChanged).payload.targetMonth.value,
+        targetMonth: event.targetMonth.value,
         version,
       };
     case eventTypes.goalPriorityChanged:
       if (!current) return null;
       return {
         ...current,
-        priority: (event as GoalPriorityChanged).payload.priority.level,
+        priority: event.priority.level,
         version,
       };
     case eventTypes.goalArchived:
       if (!current) return null;
       return {
         ...current,
-        archivedAt: (event as GoalArchived).payload.archivedAt.value,
+        archivedAt: event.archivedAt.value,
         version,
       };
     case eventTypes.goalAccessGranted:

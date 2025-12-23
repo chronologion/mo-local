@@ -3,24 +3,51 @@ import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { MilestoneId } from '../vos/MilestoneId';
 import { Timestamp } from '../../shared/vos/Timestamp';
+import {
+  payloadEventSpec,
+  stringField,
+  voNumber,
+  voString,
+} from '../../shared/eventSpec';
 
-export class ProjectMilestoneNameChanged implements DomainEvent<ProjectId> {
+export interface ProjectMilestoneNameChangedPayload {
+  projectId: ProjectId;
+  milestoneId: MilestoneId;
+  name: string;
+  changedAt: Timestamp;
+}
+
+export class ProjectMilestoneNameChanged
+  extends DomainEvent<ProjectId>
+  implements ProjectMilestoneNameChangedPayload
+{
   readonly eventType = projectEventTypes.projectMilestoneNameChanged;
 
-  constructor(
-    public readonly payload: {
-      projectId: ProjectId;
-      milestoneId: MilestoneId;
-      name: string;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly projectId: ProjectId;
+  readonly milestoneId: MilestoneId;
+  readonly name: string;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): ProjectId {
-    return this.payload.projectId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
+  constructor(payload: ProjectMilestoneNameChangedPayload) {
+    super(payload.projectId, payload.changedAt);
+    this.projectId = payload.projectId;
+    this.milestoneId = payload.milestoneId;
+    this.name = payload.name;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const ProjectMilestoneNameChangedSpec = payloadEventSpec<
+  ProjectMilestoneNameChanged,
+  ProjectMilestoneNameChangedPayload
+>(
+  projectEventTypes.projectMilestoneNameChanged,
+  (p) => new ProjectMilestoneNameChanged(p),
+  {
+    projectId: voString(ProjectId.from),
+    milestoneId: voString(MilestoneId.from),
+    name: stringField(),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

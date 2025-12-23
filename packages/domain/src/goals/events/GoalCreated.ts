@@ -7,9 +7,7 @@ import { Summary } from '../vos/Summary';
 import { Month } from '../vos/Month';
 import { UserId } from '../../identity/UserId';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { ToJSON } from '../../shared/serialization';
-
-export type GoalCreatedJSON = ToJSON<GoalCreated['payload']>;
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
 export interface GoalCreatedPayload {
   goalId: GoalId;
@@ -21,7 +19,10 @@ export interface GoalCreatedPayload {
   createdAt: Timestamp;
 }
 
-export class GoalCreated extends DomainEvent<GoalId> {
+export class GoalCreated
+  extends DomainEvent<GoalId>
+  implements GoalCreatedPayload
+{
   readonly eventType = goalEventTypes.goalCreated;
   readonly goalId: GoalId;
   readonly slice: Slice;
@@ -31,7 +32,7 @@ export class GoalCreated extends DomainEvent<GoalId> {
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(public readonly payload: GoalCreatedPayload) {
+  constructor(payload: GoalCreatedPayload) {
     super(payload.goalId, payload.createdAt);
     this.goalId = payload.goalId;
     this.slice = payload.slice;
@@ -42,28 +43,17 @@ export class GoalCreated extends DomainEvent<GoalId> {
     this.createdAt = payload.createdAt;
     Object.freeze(this);
   }
-
-  toJSON(): GoalCreatedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      slice: this.payload.slice.value,
-      summary: this.payload.summary.value,
-      targetMonth: this.payload.targetMonth.value,
-      priority: this.payload.priority.value,
-      createdBy: this.payload.createdBy.value,
-      createdAt: this.payload.createdAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalCreatedJSON): GoalCreated {
-    return new GoalCreated({
-      goalId: GoalId.from(json.goalId),
-      slice: Slice.from(json.slice),
-      summary: Summary.from(json.summary),
-      targetMonth: Month.from(json.targetMonth),
-      priority: Priority.from(json.priority),
-      createdBy: UserId.from(json.createdBy),
-      createdAt: Timestamp.fromMillis(json.createdAt),
-    });
-  }
 }
+
+export const GoalCreatedSpec = payloadEventSpec<
+  GoalCreated,
+  GoalCreatedPayload
+>(goalEventTypes.goalCreated, (p) => new GoalCreated(p), {
+  goalId: voString(GoalId.from),
+  slice: voString(Slice.from),
+  summary: voString(Summary.from),
+  targetMonth: voString(Month.from),
+  priority: voString(Priority.from),
+  createdBy: voString(UserId.from),
+  createdAt: voNumber(Timestamp.fromMillis),
+});

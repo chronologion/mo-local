@@ -3,42 +3,38 @@ import { Priority } from '../vos/Priority';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { goalEventTypes } from './eventTypes';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalPriorityChangedJSON = ToJSON<GoalPriorityChanged['payload']>;
+export interface GoalPriorityChangedPayload {
+  goalId: GoalId;
+  priority: Priority;
+  changedAt: Timestamp;
+}
 
-export class GoalPriorityChanged implements DomainEvent<GoalId> {
+export class GoalPriorityChanged
+  extends DomainEvent<GoalId>
+  implements GoalPriorityChangedPayload
+{
   readonly eventType = goalEventTypes.goalPriorityChanged;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      priority: Priority;
-      changedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly priority: Priority;
+  readonly changedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.changedAt;
-  }
-
-  toJSON(): GoalPriorityChangedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      priority: this.payload.priority.value,
-      changedAt: this.payload.changedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalPriorityChangedJSON): GoalPriorityChanged {
-    return new GoalPriorityChanged({
-      goalId: GoalId.from(json.goalId),
-      priority: Priority.from(json.priority),
-      changedAt: Timestamp.fromMillis(json.changedAt),
-    });
+  constructor(payload: GoalPriorityChangedPayload) {
+    super(payload.goalId, payload.changedAt);
+    this.goalId = payload.goalId;
+    this.priority = payload.priority;
+    this.changedAt = payload.changedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalPriorityChangedSpec = payloadEventSpec<
+  GoalPriorityChanged,
+  GoalPriorityChangedPayload
+>(goalEventTypes.goalPriorityChanged, (p) => new GoalPriorityChanged(p), {
+  goalId: voString(GoalId.from),
+  priority: voString(Priority.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

@@ -3,23 +3,38 @@ import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { GoalId } from '../../goals/vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export class ProjectGoalAdded implements DomainEvent<ProjectId> {
+export interface ProjectGoalAddedPayload {
+  projectId: ProjectId;
+  goalId: GoalId;
+  addedAt: Timestamp;
+}
+
+export class ProjectGoalAdded
+  extends DomainEvent<ProjectId>
+  implements ProjectGoalAddedPayload
+{
   readonly eventType = projectEventTypes.projectGoalAdded;
 
-  constructor(
-    public readonly payload: {
-      projectId: ProjectId;
-      goalId: GoalId;
-      addedAt: Timestamp;
-    }
-  ) {}
+  readonly projectId: ProjectId;
+  readonly goalId: GoalId;
+  readonly addedAt: Timestamp;
 
-  get aggregateId(): ProjectId {
-    return this.payload.projectId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.addedAt;
+  constructor(payload: ProjectGoalAddedPayload) {
+    super(payload.projectId, payload.addedAt);
+    this.projectId = payload.projectId;
+    this.goalId = payload.goalId;
+    this.addedAt = payload.addedAt;
+    Object.freeze(this);
   }
 }
+
+export const ProjectGoalAddedSpec = payloadEventSpec<
+  ProjectGoalAdded,
+  ProjectGoalAddedPayload
+>(projectEventTypes.projectGoalAdded, (p) => new ProjectGoalAdded(p), {
+  projectId: voString(ProjectId.from),
+  goalId: voString(GoalId.from),
+  addedAt: voNumber(Timestamp.fromMillis),
+});

@@ -3,42 +3,38 @@ import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { UserId } from '../../identity/UserId';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalAccessRevokedJSON = ToJSON<GoalAccessRevoked['payload']>;
+export interface GoalAccessRevokedPayload {
+  goalId: GoalId;
+  revokedFrom: UserId;
+  revokedAt: Timestamp;
+}
 
-export class GoalAccessRevoked implements DomainEvent<GoalId> {
+export class GoalAccessRevoked
+  extends DomainEvent<GoalId>
+  implements GoalAccessRevokedPayload
+{
   readonly eventType = goalEventTypes.goalAccessRevoked;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      revokedFrom: UserId;
-      revokedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly revokedFrom: UserId;
+  readonly revokedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.revokedAt;
-  }
-
-  toJSON(): GoalAccessRevokedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      revokedFrom: this.payload.revokedFrom.value,
-      revokedAt: this.payload.revokedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalAccessRevokedJSON): GoalAccessRevoked {
-    return new GoalAccessRevoked({
-      goalId: GoalId.from(json.goalId),
-      revokedFrom: UserId.from(json.revokedFrom),
-      revokedAt: Timestamp.fromMillis(json.revokedAt),
-    });
+  constructor(payload: GoalAccessRevokedPayload) {
+    super(payload.goalId, payload.revokedAt);
+    this.goalId = payload.goalId;
+    this.revokedFrom = payload.revokedFrom;
+    this.revokedAt = payload.revokedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalAccessRevokedSpec = payloadEventSpec<
+  GoalAccessRevoked,
+  GoalAccessRevokedPayload
+>(goalEventTypes.goalAccessRevoked, (p) => new GoalAccessRevoked(p), {
+  goalId: voString(GoalId.from),
+  revokedFrom: voString(UserId.from),
+  revokedAt: voNumber(Timestamp.fromMillis),
+});
