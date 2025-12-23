@@ -14,6 +14,11 @@ import {
   SubscriptionRef,
   Scope,
 } from '@livestore/utils/effect';
+import {
+  getSyncGateChannelName,
+  isSyncGateRequestMessage,
+  isSyncGateUpdateMessage,
+} from './syncGate';
 
 export const SyncPayloadSchema = Schema.Struct({
   apiBaseUrl: Schema.String,
@@ -89,12 +94,19 @@ const safeParseJson = async (response: Response): Promise<unknown> => {
   }
 };
 
-export const makeCloudSyncBackend: SyncBackendConstructor<
-  Schema.JsonValue,
-  Schema.JsonValue
-> = ({ storeId, payload }) =>
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
+  storeId,
+  payload,
+}) =>
   Effect.gen(function* () {
     const isConnected = yield* SubscriptionRef.make<boolean>(false);
+    const syncGate = yield* Effect.makeLatch(false);
+    let syncGateEnabled = false;
     const baseUrl =
       typeof payload === 'object' &&
       payload !== null &&
@@ -102,6 +114,46 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
       typeof payload.apiBaseUrl === 'string'
         ? payload.apiBaseUrl
         : defaultBaseUrl;
+    const unauthorizedBackoffMs = 1_000;
+    const applySyncGate = (enabled: boolean) => {
+      syncGateEnabled = enabled;
+      Effect.runFork(
+        Effect.gen(function* () {
+          if (enabled) {
+            yield* syncGate.open;
+            return;
+          }
+          yield* syncGate.close;
+          yield* SubscriptionRef.set(isConnected, false);
+        })
+      );
+    };
+
+    if (typeof BroadcastChannel === 'function') {
+      const channel = new BroadcastChannel(getSyncGateChannelName());
+      const handleMessage = (event: MessageEvent) => {
+        if (isSyncGateUpdateMessage(event.data)) {
+          applySyncGate(event.data.enabled);
+          return;
+        }
+        if (isSyncGateRequestMessage(event.data)) {
+          channel.postMessage({
+            type: 'sync-gate-update',
+            enabled: syncGateEnabled,
+          });
+        }
+      };
+      channel.addEventListener('message', handleMessage);
+      channel.postMessage({ type: 'sync-gate-request' });
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          channel.removeEventListener('message', handleMessage);
+          channel.close();
+        })
+      );
+    } else {
+      applySyncGate(true);
+    }
 
     const normalizeSeqNum = (
       value:
@@ -159,8 +211,9 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
       };
     };
 
-    const push = (batch: ReadonlyArray<LiveStoreEvent.Global.Encoded>) =>
-      Effect.gen(function* () {
+    const push = (batch: ReadonlyArray<LiveStoreEvent.Global.Encoded>) => {
+      return Effect.gen(function* () {
+        yield* syncGate.await;
         const normalized = batch.map(normalizeEvent);
         yield* Effect.tryPromise({
           try: async () => {
@@ -177,6 +230,14 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
             });
 
             if (!response.ok) {
+              if (response.status === 401) {
+                await delay(unauthorizedBackoffMs);
+                throw new IsOfflineError({
+                  cause: new UnknownError({
+                    cause: new Error('Sync push unauthorized'),
+                  }),
+                });
+              }
               const payloadJson = await safeParseJson(response);
               if (
                 response.status === 409 &&
@@ -215,61 +276,7 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
             if (error instanceof InvalidPushError) {
               return error;
             }
-            return new IsOfflineError({
-              cause: new UnknownError({
-                cause:
-                  error instanceof Error ? error : new Error(String(error)),
-              }),
-            });
-          },
-        });
-        yield* SubscriptionRef.set(isConnected, true);
-      });
-
-    const pull = (
-      cursor: Option.Option<{
-        eventSequenceNumber: EventSequenceNumber.Global.Type;
-        metadata: Option.Option<Schema.JsonValue>;
-      }>,
-      // We currently ignore the `live` flag and always perform a single-page pull.
-      // Live streaming can be added later while keeping this signature.
-      _options?: { live?: boolean }
-    ) => {
-      const since = cursor.pipe(
-        Option.match({
-          onNone: () => 0,
-          onSome: (value) => value.eventSequenceNumber,
-        })
-      );
-
-      const url = new URL(buildUrl(baseUrl, '/sync/pull'));
-      url.searchParams.set('storeId', storeId);
-      url.searchParams.set('since', String(since));
-      url.searchParams.set('limit', String(100));
-
-      const effect = Effect.gen(function* () {
-        const data = yield* Effect.tryPromise({
-          try: async (): Promise<PullResponse> => {
-            const response = await fetch(url.toString(), {
-              method: 'GET',
-              credentials: 'include',
-            });
-            if (!response.ok) {
-              const payloadJson = await safeParseJson(response);
-              const message =
-                typeof payloadJson === 'object' && payloadJson !== null
-                  ? ((payloadJson as { message?: string }).message ??
-                    `Sync pull failed with status ${response.status}`)
-                  : `Sync pull failed with status ${response.status}`;
-              throw new InvalidPullError({
-                cause: new UnknownError({ cause: new Error(message) }),
-              });
-            }
-            const parsed = (await response.json()) as PullResponse;
-            return parsed;
-          },
-          catch: (error) => {
-            if (error instanceof InvalidPullError) {
+            if (error instanceof IsOfflineError) {
               return error;
             }
             return new IsOfflineError({
@@ -281,19 +288,115 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
           },
         });
         yield* SubscriptionRef.set(isConnected, true);
-        return {
-          batch: data.events.map((eventEncoded) => ({
+      });
+    };
+
+    const pull = (
+      cursor: Option.Option<{
+        eventSequenceNumber: EventSequenceNumber.Global.Type;
+        metadata: Option.Option<Schema.JsonValue>;
+      }>,
+      options?: { live?: boolean }
+    ) => {
+      const initialSince = cursor.pipe(
+        Option.match({
+          onNone: () => 0,
+          onSome: (value) => normalizeSeqNum(value.eventSequenceNumber),
+        })
+      );
+
+      const live = options?.live ?? false;
+      const waitMs = live ? 20_000 : 0;
+
+      const fetchPage = (since: number) =>
+        Effect.gen(function* () {
+          yield* syncGate.await;
+          const url = new URL(buildUrl(baseUrl, '/sync/pull'));
+          url.searchParams.set('storeId', storeId);
+          url.searchParams.set('since', String(since));
+          url.searchParams.set('limit', String(100));
+          if (waitMs > 0) {
+            url.searchParams.set('waitMs', String(waitMs));
+          }
+
+          const data = yield* Effect.tryPromise({
+            try: async (): Promise<PullResponse> => {
+              const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'include',
+              });
+              if (!response.ok) {
+                if (response.status === 401) {
+                  await delay(unauthorizedBackoffMs);
+                  throw new IsOfflineError({
+                    cause: new UnknownError({
+                      cause: new Error('Sync pull unauthorized'),
+                    }),
+                  });
+                }
+                const payloadJson = await safeParseJson(response);
+                const message =
+                  typeof payloadJson === 'object' && payloadJson !== null
+                    ? ((payloadJson as { message?: string }).message ??
+                      `Sync pull failed with status ${response.status}`)
+                    : `Sync pull failed with status ${response.status}`;
+                throw new InvalidPullError({
+                  cause: new UnknownError({ cause: new Error(message) }),
+                });
+              }
+              const parsed = (await response.json()) as PullResponse;
+              return parsed;
+            },
+            catch: (error) => {
+              if (error instanceof InvalidPullError) {
+                return error;
+              }
+              if (error instanceof IsOfflineError) {
+                return error;
+              }
+              return new IsOfflineError({
+                cause: new UnknownError({
+                  cause:
+                    error instanceof Error ? error : new Error(String(error)),
+                }),
+              });
+            },
+          });
+          yield* SubscriptionRef.set(isConnected, true);
+
+          const batch = data.events.map((eventEncoded) => ({
             eventEncoded,
             metadata: Option.none<Schema.JsonValue>(),
-          })),
-          pageInfo: data.hasMore ? pageInfoMoreKnown(1) : pageInfoNoMore,
-        };
-      });
+          }));
+          const hasMore = data.hasMore && data.events.length > 0;
+          const pageInfo = hasMore ? pageInfoMoreKnown(1) : pageInfoNoMore;
+          const headSeqNum = Number(
+            Number.isFinite(Number(data.headSeqNum)) ? data.headSeqNum : since
+          );
+          const lastEventSeq = data.events.length
+            ? normalizeSeqNum(data.events[data.events.length - 1]?.seqNum ?? 0)
+            : since;
+          return {
+            item: { batch, pageInfo },
+            nextSince: Math.max(since, headSeqNum, lastEventSeq),
+          };
+        });
 
-      return Stream.fromEffect(effect);
+      if (!live) {
+        return Stream.fromEffect(
+          fetchPage(initialSince).pipe(Effect.map((res) => res.item))
+        );
+      }
+
+      return Stream.unfoldEffect(initialSince, (since) =>
+        fetchPage(since).pipe(
+          Effect.map((res) => Option.some([res.item, res.nextSince]))
+        )
+      );
     };
 
     const ping = Effect.gen(function* () {
+      yield* syncGate.await;
       const url = new URL(buildUrl(baseUrl, '/sync/pull'));
       url.searchParams.set('storeId', storeId);
       url.searchParams.set('since', '0');
@@ -341,7 +444,7 @@ export const makeCloudSyncBackend: SyncBackendConstructor<
       },
       supports: {
         pullPageInfoKnown: true,
-        pullLive: false,
+        pullLive: true,
       },
     };
 

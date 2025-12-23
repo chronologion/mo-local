@@ -20,7 +20,8 @@
     "./browser/schema": "./src/goals/schema.ts",
     "./goals/schema": "./src/goals/schema.ts",
     "./browser/worker": "./src/browser/worker.ts",
-    "./crypto/deriveSalt": "./src/crypto/deriveSalt.ts"
+    "./crypto/deriveSalt": "./src/crypto/deriveSalt.ts",
+    "./livestore/sync/syncGate": "./src/livestore/sync/syncGate.ts"
   },
   "scripts": {
     "test": "vitest --no-watch",
