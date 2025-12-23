@@ -13,7 +13,10 @@ export const resetSyncHeadInOpfs = async (
 
     const onError = (event: ErrorEvent) => {
       teardown();
-      console.error('[reseed] resetSyncHeadInOpfs:worker-error', event.error ?? event.message);
+      console.error(
+        '[reseed] resetSyncHeadInOpfs:worker-error',
+        event.error ?? event.message
+      );
       reject(event.error ?? new Error(event.message));
     };
 
