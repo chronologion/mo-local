@@ -99,25 +99,27 @@ describe('Project aggregate', () => {
   });
 
   it('prevents changing project dates to exclude existing milestones', () => {
+    const startDay = Math.min(today.day, 20);
+    const startDate = LocalDate.from(today.year, today.month, startDay);
     const project = Project.create({
       id: ProjectId.create(),
       name: ProjectName.from('Project with milestones'),
       status: ProjectStatus.InProgress,
-      startDate: today,
-      targetDate: LocalDate.from(today.year, today.month, today.day + 10),
+      startDate,
+      targetDate: LocalDate.from(today.year, today.month, startDay + 10),
       description: ProjectDescription.empty(),
       createdBy: UserId.from('user-4'),
     });
     project.addMilestone({
       id: MilestoneId.create(),
       name: 'Inside range',
-      targetDate: LocalDate.from(today.year, today.month, today.day + 5),
+      targetDate: LocalDate.from(today.year, today.month, startDay + 5),
     });
 
     expect(() =>
       project.changeDates({
-        startDate: today,
-        targetDate: LocalDate.from(today.year, today.month, today.day + 2),
+        startDate,
+        targetDate: LocalDate.from(today.year, today.month, startDay + 2),
       })
     ).toThrow(/Existing milestones must remain within the new date range/);
   });

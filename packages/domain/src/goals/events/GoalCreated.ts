@@ -11,27 +11,36 @@ import { ToJSON } from '../../shared/serialization';
 
 export type GoalCreatedJSON = ToJSON<GoalCreated['payload']>;
 
-export class GoalCreated implements DomainEvent<GoalId> {
+export interface GoalCreatedPayload {
+  goalId: GoalId;
+  slice: Slice;
+  summary: Summary;
+  targetMonth: Month;
+  priority: Priority;
+  createdBy: UserId;
+  createdAt: Timestamp;
+}
+
+export class GoalCreated extends DomainEvent<GoalId> {
   readonly eventType = goalEventTypes.goalCreated;
+  readonly goalId: GoalId;
+  readonly slice: Slice;
+  readonly summary: Summary;
+  readonly targetMonth: Month;
+  readonly priority: Priority;
+  readonly createdBy: UserId;
+  readonly createdAt: Timestamp;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      slice: Slice;
-      summary: Summary;
-      targetMonth: Month;
-      priority: Priority;
-      createdBy: UserId;
-      createdAt: Timestamp;
-    }
-  ) {}
-
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.createdAt;
+  constructor(public readonly payload: GoalCreatedPayload) {
+    super(payload.goalId, payload.createdAt);
+    this.goalId = payload.goalId;
+    this.slice = payload.slice;
+    this.summary = payload.summary;
+    this.targetMonth = payload.targetMonth;
+    this.priority = payload.priority;
+    this.createdBy = payload.createdBy;
+    this.createdAt = payload.createdAt;
+    Object.freeze(this);
   }
 
   toJSON(): GoalCreatedJSON {
@@ -40,7 +49,7 @@ export class GoalCreated implements DomainEvent<GoalId> {
       slice: this.payload.slice.value,
       summary: this.payload.summary.value,
       targetMonth: this.payload.targetMonth.value,
-      priority: this.payload.priority.level,
+      priority: this.payload.priority.value,
       createdBy: this.payload.createdBy.value,
       createdAt: this.payload.createdAt.value,
     };
