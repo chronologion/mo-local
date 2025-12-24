@@ -3,6 +3,7 @@ export * from './vos/ProjectName';
 export * from './vos/ProjectStatus';
 export * from './vos/ProjectDescription';
 export * from './vos/MilestoneId';
+export * from './vos/MilestoneName';
 export * from './Milestone';
 export * from './Project';
 export * from './events/eventTypes';

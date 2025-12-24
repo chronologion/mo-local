@@ -125,7 +125,7 @@ export class ProjectRepository implements IProjectRepository {
       goalId: project.goalId ? project.goalId.value : null,
       milestones: project.milestones.map((m) => ({
         id: m.id.value,
-        name: m.name,
+        name: m.name.value,
         targetDate: m.targetDate.value,
       })),
       createdBy: project.createdBy.value,

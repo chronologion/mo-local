@@ -3,6 +3,7 @@ import {
   LocalDate,
   Milestone,
   MilestoneId,
+  MilestoneName,
   ProjectDescription,
   ProjectId,
   ProjectName,
@@ -214,7 +215,7 @@ export const decodeProjectSnapshotDomain = (
     milestones: (parsed.milestones ?? []).map((m) =>
       Milestone.create({
         id: MilestoneId.from(m.id),
-        name: m.name,
+        name: MilestoneName.from(m.name),
         targetDate: LocalDate.fromString(m.targetDate),
       })
     ),

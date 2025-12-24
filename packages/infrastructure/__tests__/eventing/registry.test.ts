@@ -26,6 +26,7 @@ import {
   ProjectMilestoneArchived,
   ProjectMilestoneRenamed,
   ProjectMilestoneRescheduled,
+  MilestoneName,
   ProjectName,
   ProjectRenamed,
   ProjectStatus,
@@ -189,7 +190,7 @@ describe('eventing registry + runtime', () => {
         {
           projectId,
           milestoneId,
-          name: 'Milestone A',
+          name: MilestoneName.from('Milestone A'),
           targetDate: LocalDate.fromString('2025-03-01'),
           addedAt: ts('2025-01-16T00:00:00Z'),
         },
@@ -208,7 +209,7 @@ describe('eventing registry + runtime', () => {
         {
           projectId,
           milestoneId,
-          name: 'Milestone B',
+          name: MilestoneName.from('Milestone B'),
           changedAt: ts('2025-01-18T00:00:00Z'),
         },
         meta()

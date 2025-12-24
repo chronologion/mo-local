@@ -7,6 +7,7 @@ import {
   LocalDate,
   GoalId,
   MilestoneId,
+  MilestoneName,
   UserId,
   Timestamp,
 } from '@mo/domain';
@@ -390,7 +391,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      name: (c) => c.name,
+      name: (c) => MilestoneName.from(c.name),
       targetDate: (c) => LocalDate.fromString(c.targetDate),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
@@ -492,7 +493,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      name: (c) => c.name,
+      name: (c) => MilestoneName.from(c.name),
       userId: (c) => UserId.from(c.userId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       knownVersion: (c) => this.parseKnownVersion(c.knownVersion),

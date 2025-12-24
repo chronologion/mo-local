@@ -2,12 +2,17 @@ import { Assert } from '../shared/Assert';
 import { Entity } from '../shared/Entity';
 import { LocalDate } from '../shared/vos/LocalDate';
 import { MilestoneId } from './vos/MilestoneId';
+import { MilestoneName } from './vos/MilestoneName';
 
 export class Milestone extends Entity<MilestoneId> {
-  private _name: string;
+  private _name: MilestoneName;
   private _targetDate: LocalDate;
 
-  private constructor(id: MilestoneId, name: string, targetDate: LocalDate) {
+  private constructor(
+    id: MilestoneId,
+    name: MilestoneName,
+    targetDate: LocalDate
+  ) {
     super(id);
     this._name = name;
     this._targetDate = targetDate;
@@ -15,14 +20,14 @@ export class Milestone extends Entity<MilestoneId> {
 
   static create(params: {
     id: MilestoneId;
-    name: string;
+    name: MilestoneName;
     targetDate: LocalDate;
   }): Milestone {
-    Assert.that(params.name.trim(), 'Milestone name').isNonEmpty();
+    Assert.that(params.name, 'Milestone name').isDefined();
     return new Milestone(params.id, params.name, params.targetDate);
   }
 
-  get name(): string {
+  get name(): MilestoneName {
     return this._name;
   }
 
@@ -30,8 +35,8 @@ export class Milestone extends Entity<MilestoneId> {
     return this._targetDate;
   }
 
-  changeName(name: string): void {
-    Assert.that(name.trim(), 'Milestone name').isNonEmpty();
+  changeName(name: MilestoneName): void {
+    Assert.that(name, 'Milestone name').isDefined();
     this._name = name;
   }
 

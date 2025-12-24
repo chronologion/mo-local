@@ -157,7 +157,7 @@ export const applyProjectEventToSnapshot = (
           ...snapshot.milestones,
           {
             id: event.milestoneId.value,
-            name: event.name,
+            name: event.name.value,
             targetDate: event.targetDate.value,
           },
         ],
@@ -183,7 +183,9 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.milestoneId.value ? { ...m, name: event.name } : m
+          m.id === event.milestoneId.value
+            ? { ...m, name: event.name.value }
+            : m
         ),
         updatedAt: event.changedAt.value,
         version,

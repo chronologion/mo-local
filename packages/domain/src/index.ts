@@ -56,5 +56,6 @@ export * from './projects/vos/ProjectName';
 export * from './projects/vos/ProjectStatus';
 export * from './projects/vos/ProjectDescription';
 export * from './projects/vos/MilestoneId';
+export * from './projects/vos/MilestoneName';
 export * from './projects/Milestone';
 export * from './utils/uuid';

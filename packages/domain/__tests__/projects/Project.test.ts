@@ -5,6 +5,7 @@ import { ProjectName } from '../../src/projects/vos/ProjectName';
 import { ProjectStatus } from '../../src/projects/vos/ProjectStatus';
 import { ProjectDescription } from '../../src/projects/vos/ProjectDescription';
 import { MilestoneId } from '../../src/projects/vos/MilestoneId';
+import { MilestoneName } from '../../src/projects/vos/MilestoneName';
 import { LocalDate } from '../../src/shared/vos/LocalDate';
 import { GoalId } from '../../src/goals/vos/GoalId';
 import { UserId } from '../../src/identity/UserId';
@@ -77,7 +78,7 @@ describe('Project aggregate', () => {
     const milestoneId = MilestoneId.create();
     project.addMilestone({
       id: milestoneId,
-      name: 'First milestone',
+      name: MilestoneName.from('First milestone'),
       targetDate: today,
       addedAt: changedAt,
       actorId: UserId.from('user-2'),
@@ -102,7 +103,7 @@ describe('Project aggregate', () => {
     expect(() =>
       project.addMilestone({
         id: MilestoneId.create(),
-        name: 'Bad milestone',
+        name: MilestoneName.from('Bad milestone'),
         targetDate: LocalDate.from(today.year + 1, today.month, today.day),
         addedAt: changedAt,
         actorId: UserId.from('user-3'),
@@ -125,7 +126,7 @@ describe('Project aggregate', () => {
     });
     project.addMilestone({
       id: MilestoneId.create(),
-      name: 'Inside range',
+      name: MilestoneName.from('Inside range'),
       targetDate: LocalDate.from(today.year, today.month, startDay + 5),
       addedAt: changedAt,
       actorId: UserId.from('user-4'),
@@ -197,7 +198,7 @@ describe('Project aggregate', () => {
     expect(() =>
       project.addMilestone({
         id: MilestoneId.create(),
-        name: 'Should fail',
+        name: MilestoneName.from('Should fail'),
         targetDate: today,
         addedAt: laterAt,
         actorId: UserId.from('user-6'),

@@ -2,18 +2,14 @@ import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { MilestoneId } from '../vos/MilestoneId';
+import { MilestoneName } from '../vos/MilestoneName';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import {
-  payloadEventSpec,
-  stringField,
-  voNumber,
-  voString,
-} from '../../shared/eventSpec';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
 export interface ProjectMilestoneRenamedPayload {
   projectId: ProjectId;
   milestoneId: MilestoneId;
-  name: string;
+  name: MilestoneName;
   changedAt: Timestamp;
 }
 
@@ -25,7 +21,7 @@ export class ProjectMilestoneRenamed
 
   readonly projectId: ProjectId;
   readonly milestoneId: MilestoneId;
-  readonly name: string;
+  readonly name: MilestoneName;
   readonly changedAt: Timestamp;
 
   constructor(payload: ProjectMilestoneRenamedPayload, meta: EventMetadata) {
@@ -54,7 +50,7 @@ export const ProjectMilestoneRenamedSpec = payloadEventSpec<
   {
     projectId: voString(ProjectId.from),
     milestoneId: voString(MilestoneId.from),
-    name: stringField(),
+    name: voString(MilestoneName.from),
     changedAt: voNumber(Timestamp.fromMillis),
   }
 );

@@ -8,6 +8,7 @@ import { ProjectStatus } from './vos/ProjectStatus';
 import { ProjectDescription } from './vos/ProjectDescription';
 import { Milestone } from './Milestone';
 import { MilestoneId } from './vos/MilestoneId';
+import { MilestoneName } from './vos/MilestoneName';
 import { GoalId } from '../goals/vos/GoalId';
 import { UserId } from '../identity/UserId';
 import { ProjectCreated } from './events/ProjectCreated';
@@ -307,7 +308,7 @@ export class Project extends AggregateRoot<ProjectId> {
 
   addMilestone(params: {
     id: MilestoneId;
-    name: string;
+    name: MilestoneName;
     targetDate: LocalDate;
     addedAt: Timestamp;
     actorId: UserId;
@@ -334,15 +335,15 @@ export class Project extends AggregateRoot<ProjectId> {
 
   changeMilestoneName(params: {
     milestoneId: MilestoneId;
-    name: string;
+    name: MilestoneName;
     changedAt: Timestamp;
     actorId: UserId;
   }): void {
     this.assertNotArchived();
     const milestone = this.findMilestone(params.milestoneId);
-    Assert.that(params.name.trim(), 'Milestone name').isNonEmpty();
+    Assert.that(params.name, 'Milestone name').isDefined();
     Assert.that(
-      milestone.name === params.name,
+      milestone.name.equals(params.name),
       'Milestone name unchanged'
     ).isFalse();
     this.apply(
