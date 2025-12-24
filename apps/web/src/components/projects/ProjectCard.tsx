@@ -45,15 +45,12 @@ type ProjectCardProps = {
   onArchiveMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 };
 
-const allowedTransitions: Record<
-  ProjectListItemDto['status'],
-  ProjectListItemDto['status'][]
-> = {
-  planned: ['in_progress', 'canceled'],
-  in_progress: ['completed', 'canceled'],
-  completed: [],
-  canceled: [],
-};
+const statusOptions: ProjectListItemDto['status'][] = [
+  'planned',
+  'in_progress',
+  'completed',
+  'canceled',
+];
 const statusLabels: Record<ProjectListItemDto['status'], string> = {
   planned: 'Planned',
   in_progress: 'In progress',
@@ -77,7 +74,7 @@ export function ProjectCard({
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
   const toast = useToast();
   const nextStatuses = useMemo(
-    () => allowedTransitions[project.status],
+    () => statusOptions.filter((status) => status !== project.status),
     [project.status]
   );
 
