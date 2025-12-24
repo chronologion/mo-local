@@ -1,5 +1,6 @@
 import type { IEventBus } from '../shared/ports/IEventBus';
 import type { IGoalReadModel } from '../goals/ports/IGoalReadModel';
+import type { IProjectReadModel } from '../projects/ports/IProjectReadModel';
 import { AchieveGoal } from '../goals/commands';
 import {
   GoalAchieved,
@@ -30,8 +31,42 @@ export class GoalAchievementSaga {
   constructor(
     private readonly store: IGoalAchievementStore,
     private readonly goalReadModel: IGoalReadModel,
+    private readonly projectReadModel: IProjectReadModel,
     private readonly dispatchAchieveGoal: DispatchAchieveGoal
   ) {}
+
+  async bootstrap(): Promise<void> {
+    const projects = await this.projectReadModel.list();
+    const goalStates = new Map<string, GoalAchievementState>();
+
+    for (const project of projects) {
+      if (project.archivedAt !== null) continue;
+      const goalId = project.goalId;
+      const projectState: ProjectAchievementState = {
+        projectId: project.id,
+        goalId,
+        status: project.status,
+      };
+      await this.store.saveProjectState(projectState);
+      if (!goalId) continue;
+
+      const goalState =
+        goalStates.get(goalId) ?? (await this.ensureGoalState(goalId));
+      this.addLinkedProject(goalState, project.id);
+      if (project.status === 'completed') {
+        this.addCompletedProject(goalState, project.id);
+      }
+      goalStates.set(goalId, goalState);
+    }
+
+    for (const [, state] of goalStates.entries()) {
+      await this.store.saveGoalState(state);
+      await this.maybeAchieveGoal(state, {
+        actorId: { value: 'system' },
+        occurredAt: { value: Date.now() },
+      });
+    }
+  }
 
   subscribe(eventBus: IEventBus): void {
     eventBus.subscribe(projectEventTypes.projectGoalAdded, (event) =>
@@ -55,6 +90,10 @@ export class GoalAchievementSaga {
       (await this.store.getProjectState(projectId)) ??
       this.emptyProjectState(projectId);
     projectState.goalId = goalId;
+    if (!projectState.status) {
+      const project = await this.projectReadModel.getById(projectId);
+      projectState.status = project?.status ?? null;
+    }
     await this.store.saveProjectState(projectState);
 
     const goalState = await this.ensureGoalState(goalId);
@@ -74,6 +113,10 @@ export class GoalAchievementSaga {
       (await this.store.getProjectState(projectId)) ??
       this.emptyProjectState(projectId);
     const goalId = projectState.goalId;
+    if (!goalId) {
+      await this.store.removeProjectState(projectId);
+      return;
+    }
     projectState.goalId = null;
     await this.store.saveProjectState(projectState);
 

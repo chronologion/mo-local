@@ -89,6 +89,7 @@ export const createAppServices = async ({
     const saga = new GoalAchievementSaga(
       sagaStore,
       ctx.goals.goalReadModel,
+      ctx.projects.projectReadModel,
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
         if (!result.ok) {
@@ -101,6 +102,7 @@ export const createAppServices = async ({
       }
     );
     saga.subscribe(eventBus);
+    await saga.bootstrap();
   }
 
   const publisher = new CommittedEventPublisher(
