@@ -13,6 +13,7 @@ import {
   GoalRefined,
   GoalRescheduled,
   GoalPrioritized,
+  GoalAchieved,
   GoalAccessGranted,
   GoalId,
   Slice,
@@ -56,6 +57,7 @@ describe('GoalProjectionState', () => {
       summary: 'Run a marathon',
       targetMonth: '2025-12',
       priority: 'must',
+      achievedAt: null,
       archivedAt: null,
       version: 1,
     });
@@ -120,13 +122,20 @@ describe('GoalProjectionState', () => {
     expect(reprioritized?.priority).toBe('should');
     expect(reprioritized?.version).toBe(5);
 
-    const archived = applyEventToSnapshot(
+    const achieved = applyEventToSnapshot(
       reprioritized,
-      new GoalArchived({ goalId: aggregateId, archivedAt: baseDate }, meta()),
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
       6
     );
+    expect(achieved?.achievedAt).toBe(baseDate.value);
+
+    const archived = applyEventToSnapshot(
+      achieved,
+      new GoalArchived({ goalId: aggregateId, archivedAt: baseDate }, meta()),
+      7
+    );
     expect(archived?.archivedAt).toBe(baseDate.value);
-    expect(archived?.version).toBe(6);
+    expect(archived?.version).toBe(7);
   });
 
   it('ignores access events for snapshot payload but advances version', () => {
@@ -185,7 +194,22 @@ describe('GoalProjectionState', () => {
       priority: 'must',
       targetMonth: '2025-12',
       createdAt: created.createdAt,
+      achievedAt: null,
       archivedAt: null,
     });
+  });
+
+  it('sets achievedAt when goal is achieved', () => {
+    const created = applyEventToSnapshot(
+      null,
+      createdEvent,
+      1
+    ) as GoalSnapshotState;
+    const achieved = applyEventToSnapshot(
+      created,
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
+      2
+    );
+    expect(achieved?.achievedAt).toBe(baseDate.value);
   });
 });

@@ -4,6 +4,7 @@ export const goalEventTypes = {
   goalRecategorized: 'GoalRecategorized',
   goalRescheduled: 'GoalRescheduled',
   goalPrioritized: 'GoalPrioritized',
+  goalAchieved: 'GoalAchieved',
   goalArchived: 'GoalArchived',
   goalAccessGranted: 'GoalAccessGranted',
   goalAccessRevoked: 'GoalAccessRevoked',

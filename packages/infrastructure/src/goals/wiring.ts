@@ -5,6 +5,7 @@ import {
   ChangeGoalSummary,
   ChangeGoalTargetMonth,
   CreateGoal,
+  AchieveGoal,
   GetGoalByIdQuery,
   GoalCommand,
   GoalCommandHandler,
@@ -133,6 +134,9 @@ const buildGoalCommandBus = (
   );
   goalCommandBus.register('ArchiveGoal', (command: ArchiveGoal) =>
     wrapGoal(handler.handleArchive.bind(handler), command)
+  );
+  goalCommandBus.register('AchieveGoal', (command: AchieveGoal) =>
+    wrapGoal(handler.handleAchieve.bind(handler), command)
   );
   goalCommandBus.register('GrantGoalAccess', (command: GrantGoalAccess) =>
     wrapGoal(handler.handleGrantAccess.bind(handler), command)

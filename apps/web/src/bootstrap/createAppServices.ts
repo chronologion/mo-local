@@ -1,6 +1,7 @@
 import { type Adapter } from '@livestore/livestore';
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
+import { GoalAchievementSaga } from '@mo/application';
 import { IndexedDBKeyStore } from '@mo/infrastructure/crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '@mo/infrastructure/crypto/WebCryptoService';
 import { LiveStoreToDomainAdapter } from '@mo/infrastructure/livestore/adapters/LiveStoreToDomainAdapter';
@@ -13,6 +14,7 @@ import {
   bootstrapProjectBoundedContext,
   type ProjectBoundedContextServices,
 } from '@mo/infrastructure/projects/wiring';
+import { GoalAchievementSagaStore } from '@mo/infrastructure/sagas/GoalAchievementSagaStore';
 
 export type AppBoundedContext = 'goals' | 'projects';
 
@@ -80,6 +82,25 @@ export const createAppServices = async ({
       keyStore,
       toDomain,
     });
+  }
+
+  if (ctx.goals && ctx.projects) {
+    const sagaStore = new GoalAchievementSagaStore(storeBundle.store);
+    const saga = new GoalAchievementSaga(
+      sagaStore,
+      ctx.goals.goalReadModel,
+      async (command) => {
+        const result = await ctx.goals!.goalCommandBus.dispatch(command);
+        if (!result.ok) {
+          throw new Error(
+            `Goal achievement saga failed: ${result.errors
+              .map((e) => `${e.field}:${e.message}`)
+              .join(', ')}`
+          );
+        }
+      }
+    );
+    saga.subscribe(eventBus);
   }
 
   const publisher = new CommittedEventPublisher(

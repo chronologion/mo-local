@@ -31,6 +31,7 @@ export const GOAL_SEARCH_CONFIG: GoalSearchConfig = {
     'priority',
     'targetMonth',
     'createdAt',
+    'achievedAt',
     'archivedAt',
   ],
   searchOptions: {

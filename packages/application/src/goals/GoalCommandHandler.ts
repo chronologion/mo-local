@@ -16,6 +16,7 @@ import {
   ChangeGoalTargetMonth,
   ChangeGoalPriority,
   ArchiveGoal,
+  AchieveGoal,
   GrantGoalAccess,
   RevokeGoalAccess,
 } from './commands';
@@ -301,6 +302,40 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.archive({ archivedAt: timestamp, actorId: userId });
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
+  }
+
+  async handleAchieve(command: AchieveGoal): Promise<GoalCommandResult> {
+    const { goalId, userId, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
+        goalId: (c) => GoalId.from(c.goalId),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
+    const goal = await this.loadGoal(goalId);
+    this.assertKnownVersion({
+      actual: goal.version,
+      expected: knownVersion,
+      aggregateType: 'Goal',
+      aggregateId: goal.id.value,
+    });
+    goal.achieve({ achievedAt: timestamp, actorId: userId });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,

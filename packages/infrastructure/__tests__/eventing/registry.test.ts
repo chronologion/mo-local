@@ -10,6 +10,7 @@ import {
   GoalRecategorized,
   GoalRefined,
   GoalRescheduled,
+  GoalAchieved,
   LocalDate,
   Month,
   Permission,
@@ -100,10 +101,17 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
+      new GoalAchieved(
+        {
+          goalId,
+          achievedAt: ts('2025-01-06T00:00:00Z'),
+        },
+        meta()
+      ),
       new GoalArchived(
         {
           goalId,
-          archivedAt: ts('2025-01-06T00:00:00Z'),
+          archivedAt: ts('2025-01-07T00:00:00Z'),
         },
         meta()
       ),
@@ -112,7 +120,7 @@ describe('eventing registry + runtime', () => {
           goalId,
           grantedTo: UserId.from('user-2'),
           permission: Permission.from('edit'),
-          grantedAt: ts('2025-01-07T00:00:00Z'),
+          grantedAt: ts('2025-01-08T00:00:00Z'),
         },
         meta()
       ),
@@ -120,7 +128,7 @@ describe('eventing registry + runtime', () => {
         {
           goalId,
           revokedFrom: UserId.from('user-2'),
-          revokedAt: ts('2025-01-08T00:00:00Z'),
+          revokedAt: ts('2025-01-09T00:00:00Z'),
         },
         meta()
       ),

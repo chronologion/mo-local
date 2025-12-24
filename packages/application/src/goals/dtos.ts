@@ -7,6 +7,7 @@ export type GoalListItemDto = {
   priority: PriorityLevel;
   targetMonth: string;
   createdAt: number;
+  achievedAt: number | null;
   archivedAt: number | null;
   version: number;
 };

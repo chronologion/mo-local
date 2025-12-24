@@ -3,6 +3,7 @@ import type { RuntimeEventSpec } from './types';
 import {
   GoalAccessGrantedSpec,
   GoalAccessRevokedSpec,
+  GoalAchievedSpec,
   GoalArchivedSpec,
   GoalCreatedSpec,
   GoalPrioritizedSpec,
@@ -35,6 +36,7 @@ export const allSpecs = [
   toRuntimeSpec(GoalRecategorizedSpec),
   toRuntimeSpec(GoalRescheduledSpec),
   toRuntimeSpec(GoalPrioritizedSpec),
+  toRuntimeSpec(GoalAchievedSpec),
   toRuntimeSpec(GoalArchivedSpec),
   toRuntimeSpec(GoalAccessGrantedSpec),
   toRuntimeSpec(GoalAccessRevokedSpec),

@@ -203,6 +203,46 @@ describe('Goal Aggregate', () => {
     });
   });
 
+  describe('achieve', () => {
+    it('marks goal as achieved', () => {
+      const goal = Goal.create({
+        id: GoalId.create(),
+        slice: Slice.Health,
+        summary: Summary.from('Finish 10k'),
+        targetMonth: Month.now(),
+        priority: Priority.Should,
+        createdBy: UserId.from('user-acc'),
+        createdAt,
+      });
+
+      goal.achieve({ achievedAt: changedAt, actorId: UserId.from('user-acc') });
+
+      expect(goal.isAchieved).toBe(true);
+      expect(goal.achievedAt).not.toBeNull();
+    });
+
+    it('prevents achieving twice', () => {
+      const goal = Goal.create({
+        id: GoalId.create(),
+        slice: Slice.Health,
+        summary: Summary.from('Finish 10k'),
+        targetMonth: Month.now(),
+        priority: Priority.Should,
+        createdBy: UserId.from('user-acc'),
+        createdAt,
+      });
+
+      goal.achieve({ achievedAt: changedAt, actorId: UserId.from('user-acc') });
+
+      expect(() =>
+        goal.achieve({
+          achievedAt: laterAt,
+          actorId: UserId.from('user-acc'),
+        })
+      ).toThrow(/Goal already achieved/);
+    });
+  });
+
   describe('access control', () => {
     it('should grant access with UserId value object', () => {
       const goal = Goal.create({

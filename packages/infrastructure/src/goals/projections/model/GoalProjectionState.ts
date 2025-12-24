@@ -7,6 +7,7 @@ import {
   GoalRecategorized,
   GoalRescheduled,
   GoalPrioritized,
+  GoalAchieved,
   GoalArchived,
   GoalAccessGranted,
   GoalAccessRevoked,
@@ -20,6 +21,7 @@ export type GoalEvent =
   | GoalRecategorized
   | GoalRescheduled
   | GoalPrioritized
+  | GoalAchieved
   | GoalArchived
   | GoalAccessGranted
   | GoalAccessRevoked;
@@ -36,6 +38,7 @@ export type GoalListItem = {
   priority: PriorityLevel;
   targetMonth: string;
   createdAt: number;
+  achievedAt: number | null;
   archivedAt: number | null;
   version: number;
 };
@@ -48,6 +51,7 @@ export type GoalSnapshotState = {
   targetMonth: string;
   createdBy: string;
   createdAt: number;
+  achievedAt: number | null;
   archivedAt: number | null;
   version: number;
 };
@@ -76,6 +80,7 @@ export const applyEventToSnapshot = (
         targetMonth: event.targetMonth.value,
         createdBy: event.createdBy.value,
         createdAt: event.createdAt.value,
+        achievedAt: null,
         archivedAt: null,
         version,
       };
@@ -105,6 +110,13 @@ export const applyEventToSnapshot = (
       return {
         ...current,
         priority: event.priority.level,
+        version,
+      };
+    case eventTypes.goalAchieved:
+      if (!current) return null;
+      return {
+        ...current,
+        achievedAt: event.achievedAt.value,
         version,
       };
     case eventTypes.goalArchived:
@@ -179,6 +191,7 @@ export const snapshotToListItem = (
   priority: snapshot.priority,
   targetMonth: snapshot.targetMonth,
   createdAt: snapshot.createdAt,
+  achievedAt: snapshot.achievedAt,
   archivedAt: snapshot.archivedAt,
   version: snapshot.version,
 });

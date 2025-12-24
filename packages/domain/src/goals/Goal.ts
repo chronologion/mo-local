@@ -13,6 +13,7 @@ import { GoalRefined } from './events/GoalRefined';
 import { GoalRecategorized } from './events/GoalRecategorized';
 import { GoalRescheduled } from './events/GoalRescheduled';
 import { GoalPrioritized } from './events/GoalPrioritized';
+import { GoalAchieved } from './events/GoalAchieved';
 import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
@@ -28,6 +29,7 @@ export type GoalSnapshot = {
   targetMonth: Month;
   createdBy: UserId;
   createdAt: Timestamp;
+  achievedAt: Timestamp | null;
   archivedAt: Timestamp | null;
   version: number;
 };
@@ -74,6 +76,7 @@ export class Goal extends AggregateRoot<GoalId> {
   private _priority: Priority | undefined;
   private _createdBy: UserId | undefined;
   private _createdAt: Timestamp | undefined;
+  private _achievedAt: Timestamp | null = null;
   private _archivedAt: Timestamp | null = null;
   private _accessList: AccessEntry[] = [];
 
@@ -172,6 +175,14 @@ export class Goal extends AggregateRoot<GoalId> {
 
   get archivedAt(): Timestamp | null {
     return this._archivedAt;
+  }
+
+  get achievedAt(): Timestamp | null {
+    return this._achievedAt;
+  }
+
+  get isAchieved(): boolean {
+    return this._achievedAt !== null;
   }
 
   get isArchived(): boolean {
@@ -294,6 +305,25 @@ export class Goal extends AggregateRoot<GoalId> {
   }
 
   /**
+   * Mark the goal as achieved.
+   *
+   * @throws {Error} if goal is archived or already achieved
+   */
+  achieve(params: { achievedAt: Timestamp; actorId: UserId }): void {
+    this.assertNotArchived();
+    Assert.that(this.isAchieved, 'Goal already achieved').isFalse();
+    this.apply(
+      new GoalAchieved(
+        {
+          goalId: this.id,
+          achievedAt: params.achievedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
+    );
+  }
+
+  /**
    * Archive the goal (soft delete).
    *
    * @throws {Error} if goal is already archived
@@ -384,6 +414,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this._priority = snapshot.priority;
     this._createdBy = snapshot.createdBy;
     this._createdAt = snapshot.createdAt;
+    this._achievedAt = snapshot.achievedAt;
     this._archivedAt = snapshot.archivedAt;
     this._accessList = [];
     this.restoreVersion(snapshot.version);
@@ -414,6 +445,10 @@ export class Goal extends AggregateRoot<GoalId> {
 
   protected onGoalPrioritized(event: GoalPrioritized): void {
     this._priority = event.priority;
+  }
+
+  protected onGoalAchieved(event: GoalAchieved): void {
+    this._achievedAt = event.achievedAt;
   }
 
   protected onGoalArchived(event: GoalArchived): void {

@@ -13,6 +13,7 @@ import {
   ChangeGoalSummary,
   ChangeGoalTargetMonth,
   CreateGoal,
+  AchieveGoal,
 } from '../../../src/goals/commands';
 
 class CountingCryptoService extends MockCryptoService {
@@ -119,6 +120,21 @@ describe('GoalCommandHandler', () => {
         timestamp: Date.now(),
         knownVersion: 1,
         idempotencyKey: 'idem-summary',
+      })
+    );
+  });
+
+  it('marks a goal as achieved', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await handler.handleAchieve(
+      new AchieveGoal({
+        goalId,
+        userId,
+        timestamp: Date.now(),
+        knownVersion: 1,
+        idempotencyKey: 'idem-achieve',
       })
     );
   });

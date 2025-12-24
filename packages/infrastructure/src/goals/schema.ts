@@ -111,6 +111,26 @@ const projectSearchIndexTable = State.SQLite.table({
   },
 });
 
+const goalAchievementStateTable = State.SQLite.table({
+  name: 'goal_achievement_state',
+  columns: {
+    goal_id: State.SQLite.text({ nullable: false, primaryKey: true }),
+    linked_project_ids: State.SQLite.text({ nullable: false }),
+    completed_project_ids: State.SQLite.text({ nullable: false }),
+    achieved: State.SQLite.integer({ nullable: false }),
+    achievement_requested: State.SQLite.integer({ nullable: false }),
+  },
+});
+
+const goalAchievementProjectsTable = State.SQLite.table({
+  name: 'goal_achievement_projects',
+  columns: {
+    project_id: State.SQLite.text({ nullable: false, primaryKey: true }),
+    goal_id: State.SQLite.text({ nullable: true }),
+    status: State.SQLite.text({ nullable: true }),
+  },
+});
+
 const idempotencyKeysTable = State.SQLite.table({
   name: 'idempotency_keys',
   columns: {
@@ -131,6 +151,8 @@ export const tables = {
   project_snapshots: projectSnapshotsTable,
   project_projection_meta: projectProjectionMetaTable,
   project_search_index: projectSearchIndexTable,
+  goal_achievement_state: goalAchievementStateTable,
+  goal_achievement_projects: goalAchievementProjectsTable,
   idempotency_keys: idempotencyKeysTable,
 };
 

@@ -17,7 +17,7 @@ import {
   encodeSnapshotEnvelope,
 } from '../../snapshots/snapshotEnvelope';
 
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 
 type GoalSnapshotPayloadV1 = {
   id: string;
@@ -29,6 +29,10 @@ type GoalSnapshotPayloadV1 = {
   createdAt: number;
   archivedAt: number | null;
   version: number;
+};
+
+type GoalSnapshotPayloadV2 = GoalSnapshotPayloadV1 & {
+  achievedAt: number | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -98,17 +102,34 @@ const parsePayloadV1 = (data: unknown): GoalSnapshotPayloadV1 => {
   };
 };
 
+const parsePayloadV2 = (data: unknown): GoalSnapshotPayloadV2 => {
+  if (!isRecord(data)) {
+    throw new Error('Goal snapshot payload must be an object');
+  }
+  return {
+    ...parsePayloadV1(data),
+    achievedAt: requireNullableNumber(data.achievedAt, 'achievedAt'),
+  };
+};
+
 const upcastGoalSnapshot = (
   snapshotVersion: number,
   data: unknown
-): GoalSnapshotPayloadV1 => {
+): GoalSnapshotPayloadV2 => {
   if (snapshotVersion === 1) {
-    return parsePayloadV1(data);
+    const v1 = parsePayloadV1(data);
+    return {
+      ...v1,
+      achievedAt: null,
+    };
+  }
+  if (snapshotVersion === 2) {
+    return parsePayloadV2(data);
   }
   throw new Error(`Unsupported goal snapshot version ${snapshotVersion}`);
 };
 
-const toPayloadV1 = (snapshot: GoalSnapshotState): GoalSnapshotPayloadV1 => ({
+const toPayloadV1 = (snapshot: GoalSnapshotState): GoalSnapshotPayloadV2 => ({
   id: snapshot.id,
   summary: snapshot.summary,
   slice: snapshot.slice,
@@ -116,6 +137,7 @@ const toPayloadV1 = (snapshot: GoalSnapshotState): GoalSnapshotPayloadV1 => ({
   targetMonth: snapshot.targetMonth,
   createdBy: snapshot.createdBy,
   createdAt: snapshot.createdAt,
+  achievedAt: snapshot.achievedAt,
   archivedAt: snapshot.archivedAt,
   version: snapshot.version,
 });
@@ -142,6 +164,7 @@ export const decodeGoalSnapshotState = (
     targetMonth: parsed.targetMonth,
     createdBy: parsed.createdBy,
     createdAt: parsed.createdAt,
+    achievedAt: parsed.achievedAt,
     archivedAt: parsed.archivedAt,
     version: aggregateVersion,
   };
@@ -160,6 +183,10 @@ export const decodeGoalSnapshotDomain = (
     targetMonth: Month.from(snapshot.targetMonth),
     createdBy: UserId.from(snapshot.createdBy),
     createdAt: Timestamp.fromMillis(snapshot.createdAt),
+    achievedAt:
+      snapshot.achievedAt === null
+        ? null
+        : Timestamp.fromMillis(snapshot.achievedAt),
     archivedAt:
       snapshot.archivedAt === null
         ? null

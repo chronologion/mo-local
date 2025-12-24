@@ -13,6 +13,7 @@ export const migrations: Readonly<Record<string, MigrationPlan>> = {
   [goalEventTypes.goalRecategorized]: { latestVersion: 1, steps: {} },
   [goalEventTypes.goalRescheduled]: { latestVersion: 1, steps: {} },
   [goalEventTypes.goalPrioritized]: { latestVersion: 1, steps: {} },
+  [goalEventTypes.goalAchieved]: { latestVersion: 1, steps: {} },
   [goalEventTypes.goalArchived]: { latestVersion: 1, steps: {} },
   [goalEventTypes.goalAccessGranted]: { latestVersion: 1, steps: {} },
   [goalEventTypes.goalAccessRevoked]: { latestVersion: 1, steps: {} },
