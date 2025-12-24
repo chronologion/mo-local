@@ -5,23 +5,23 @@ import { Timestamp } from '../../shared/vos/Timestamp';
 import { goalEventTypes } from './eventTypes';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface GoalSliceChangedPayload {
+export interface GoalRecategorizedPayload {
   goalId: GoalId;
   slice: Slice;
   changedAt: Timestamp;
 }
 
-export class GoalSliceChanged
+export class GoalRecategorized
   extends DomainEvent<GoalId>
-  implements GoalSliceChangedPayload
+  implements GoalRecategorizedPayload
 {
-  readonly eventType = goalEventTypes.goalSliceChanged;
+  readonly eventType = goalEventTypes.goalRecategorized;
 
   readonly goalId: GoalId;
   readonly slice: Slice;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalSliceChangedPayload, meta: EventMetadata) {
+  constructor(payload: GoalRecategorizedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.changedAt,
@@ -37,11 +37,15 @@ export class GoalSliceChanged
   }
 }
 
-export const GoalSliceChangedSpec = payloadEventSpec<
-  GoalSliceChanged,
-  GoalSliceChangedPayload
->(goalEventTypes.goalSliceChanged, (p, meta) => new GoalSliceChanged(p, meta), {
-  goalId: voString(GoalId.from),
-  slice: voString(Slice.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalRecategorizedSpec = payloadEventSpec<
+  GoalRecategorized,
+  GoalRecategorizedPayload
+>(
+  goalEventTypes.goalRecategorized,
+  (p, meta) => new GoalRecategorized(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    slice: voString(Slice.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

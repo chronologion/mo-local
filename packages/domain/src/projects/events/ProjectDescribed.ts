@@ -5,23 +5,23 @@ import { ProjectDescription } from '../vos/ProjectDescription';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface ProjectDescriptionChangedPayload {
+export interface ProjectDescribedPayload {
   projectId: ProjectId;
   description: ProjectDescription;
   changedAt: Timestamp;
 }
 
-export class ProjectDescriptionChanged
+export class ProjectDescribed
   extends DomainEvent<ProjectId>
-  implements ProjectDescriptionChangedPayload
+  implements ProjectDescribedPayload
 {
-  readonly eventType = projectEventTypes.projectDescriptionChanged;
+  readonly eventType = projectEventTypes.projectDescribed;
 
   readonly projectId: ProjectId;
   readonly description: ProjectDescription;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectDescriptionChangedPayload, meta: EventMetadata) {
+  constructor(payload: ProjectDescribedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
@@ -37,12 +37,12 @@ export class ProjectDescriptionChanged
   }
 }
 
-export const ProjectDescriptionChangedSpec = payloadEventSpec<
-  ProjectDescriptionChanged,
-  ProjectDescriptionChangedPayload
+export const ProjectDescribedSpec = payloadEventSpec<
+  ProjectDescribed,
+  ProjectDescribedPayload
 >(
-  projectEventTypes.projectDescriptionChanged,
-  (p, meta) => new ProjectDescriptionChanged(p, meta),
+  projectEventTypes.projectDescribed,
+  (p, meta) => new ProjectDescribed(p, meta),
   {
     projectId: voString(ProjectId.from),
     description: voString(ProjectDescription.from),

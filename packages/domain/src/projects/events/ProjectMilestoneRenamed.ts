@@ -2,32 +2,33 @@ import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { MilestoneId } from '../vos/MilestoneId';
-import { LocalDate } from '../../shared/vos/LocalDate';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
+import {
+  payloadEventSpec,
+  stringField,
+  voNumber,
+  voString,
+} from '../../shared/eventSpec';
 
-export interface ProjectMilestoneTargetDateChangedPayload {
+export interface ProjectMilestoneRenamedPayload {
   projectId: ProjectId;
   milestoneId: MilestoneId;
-  targetDate: LocalDate;
+  name: string;
   changedAt: Timestamp;
 }
 
-export class ProjectMilestoneTargetDateChanged
+export class ProjectMilestoneRenamed
   extends DomainEvent<ProjectId>
-  implements ProjectMilestoneTargetDateChangedPayload
+  implements ProjectMilestoneRenamedPayload
 {
-  readonly eventType = projectEventTypes.projectMilestoneTargetDateChanged;
+  readonly eventType = projectEventTypes.projectMilestoneRenamed;
 
   readonly projectId: ProjectId;
   readonly milestoneId: MilestoneId;
-  readonly targetDate: LocalDate;
+  readonly name: string;
   readonly changedAt: Timestamp;
 
-  constructor(
-    payload: ProjectMilestoneTargetDateChangedPayload,
-    meta: EventMetadata
-  ) {
+  constructor(payload: ProjectMilestoneRenamedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
@@ -38,22 +39,22 @@ export class ProjectMilestoneTargetDateChanged
     });
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
-    this.targetDate = payload.targetDate;
+    this.name = payload.name;
     this.changedAt = payload.changedAt;
     Object.freeze(this);
   }
 }
 
-export const ProjectMilestoneTargetDateChangedSpec = payloadEventSpec<
-  ProjectMilestoneTargetDateChanged,
-  ProjectMilestoneTargetDateChangedPayload
+export const ProjectMilestoneRenamedSpec = payloadEventSpec<
+  ProjectMilestoneRenamed,
+  ProjectMilestoneRenamedPayload
 >(
-  projectEventTypes.projectMilestoneTargetDateChanged,
-  (p, meta) => new ProjectMilestoneTargetDateChanged(p, meta),
+  projectEventTypes.projectMilestoneRenamed,
+  (p, meta) => new ProjectMilestoneRenamed(p, meta),
   {
     projectId: voString(ProjectId.from),
     milestoneId: voString(MilestoneId.from),
-    targetDate: voString(LocalDate.fromString),
+    name: stringField(),
     changedAt: voNumber(Timestamp.fromMillis),
   }
 );

@@ -9,7 +9,7 @@ import {
   ActorId,
   GoalCreated,
   GoalArchived,
-  GoalTargetChanged,
+  GoalRescheduled,
   GoalId,
   Slice,
   Summary,
@@ -276,7 +276,7 @@ describe('GoalProjectionProcessor', () => {
       kGoal
     );
     const targetChanged = await toEncrypted.toEncrypted(
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId: aggregateId,
           targetMonth: Month.from('2026-01'),
@@ -449,7 +449,7 @@ describe('GoalProjectionProcessor', () => {
       kGoal
     );
     const targetChanged = await toEncrypted.toEncrypted(
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId: aggregateId,
           targetMonth: Month.from('2026-01'),

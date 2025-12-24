@@ -1,27 +1,29 @@
 import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
-import { ProjectStatus } from '../vos/ProjectStatus';
-import { ProjectId } from '../vos/ProjectId';
-import { Timestamp } from '../../shared/vos/Timestamp';
 import { projectEventTypes } from './eventTypes';
+import { ProjectId } from '../vos/ProjectId';
+import { LocalDate } from '../../shared/vos/LocalDate';
+import { Timestamp } from '../../shared/vos/Timestamp';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface ProjectStatusChangedPayload {
+export interface ProjectRescheduledPayload {
   projectId: ProjectId;
-  status: ProjectStatus;
+  startDate: LocalDate;
+  targetDate: LocalDate;
   changedAt: Timestamp;
 }
 
-export class ProjectStatusChanged
+export class ProjectRescheduled
   extends DomainEvent<ProjectId>
-  implements ProjectStatusChangedPayload
+  implements ProjectRescheduledPayload
 {
-  readonly eventType = projectEventTypes.projectStatusChanged;
+  readonly eventType = projectEventTypes.projectRescheduled;
 
   readonly projectId: ProjectId;
-  readonly status: ProjectStatus;
+  readonly startDate: LocalDate;
+  readonly targetDate: LocalDate;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectStatusChangedPayload, meta: EventMetadata) {
+  constructor(payload: ProjectRescheduledPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
@@ -31,21 +33,23 @@ export class ProjectStatusChanged
       correlationId: meta?.correlationId,
     });
     this.projectId = payload.projectId;
-    this.status = payload.status;
+    this.startDate = payload.startDate;
+    this.targetDate = payload.targetDate;
     this.changedAt = payload.changedAt;
     Object.freeze(this);
   }
 }
 
-export const ProjectStatusChangedSpec = payloadEventSpec<
-  ProjectStatusChanged,
-  ProjectStatusChangedPayload
+export const ProjectRescheduledSpec = payloadEventSpec<
+  ProjectRescheduled,
+  ProjectRescheduledPayload
 >(
-  projectEventTypes.projectStatusChanged,
-  (p, meta) => new ProjectStatusChanged(p, meta),
+  projectEventTypes.projectRescheduled,
+  (p, meta) => new ProjectRescheduled(p, meta),
   {
     projectId: voString(ProjectId.from),
-    status: voString(ProjectStatus.from),
+    startDate: voString(LocalDate.fromString),
+    targetDate: voString(LocalDate.fromString),
     changedAt: voNumber(Timestamp.fromMillis),
   }
 );

@@ -9,10 +9,10 @@ import { Summary } from './vos/Summary';
 import { AccessEntry } from './vos/AccessEntry';
 import { UserId } from '../identity/UserId';
 import { GoalCreated } from './events/GoalCreated';
-import { GoalSummaryChanged } from './events/GoalSummaryChanged';
-import { GoalSliceChanged } from './events/GoalSliceChanged';
-import { GoalTargetChanged } from './events/GoalTargetChanged';
-import { GoalPriorityChanged } from './events/GoalPriorityChanged';
+import { GoalRefined } from './events/GoalRefined';
+import { GoalRecategorized } from './events/GoalRecategorized';
+import { GoalRescheduled } from './events/GoalRescheduled';
+import { GoalPrioritized } from './events/GoalPrioritized';
 import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
@@ -201,7 +201,7 @@ export class Goal extends AggregateRoot<GoalId> {
     ).isFalse();
 
     this.apply(
-      new GoalSummaryChanged(
+      new GoalRefined(
         {
           goalId: this.id,
           summary: params.summary,
@@ -226,7 +226,7 @@ export class Goal extends AggregateRoot<GoalId> {
     Assert.that(params.slice.equals(this.slice), 'Slice unchanged').isFalse();
 
     this.apply(
-      new GoalSliceChanged(
+      new GoalRecategorized(
         {
           goalId: this.id,
           slice: params.slice,
@@ -254,7 +254,7 @@ export class Goal extends AggregateRoot<GoalId> {
     ).isFalse();
 
     this.apply(
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId: this.id,
           targetMonth: params.targetMonth,
@@ -282,7 +282,7 @@ export class Goal extends AggregateRoot<GoalId> {
     ).isFalse();
 
     this.apply(
-      new GoalPriorityChanged(
+      new GoalPrioritized(
         {
           goalId: this.id,
           priority: params.priority,
@@ -400,19 +400,19 @@ export class Goal extends AggregateRoot<GoalId> {
     this._createdAt = event.createdAt;
   }
 
-  protected onGoalSummaryChanged(event: GoalSummaryChanged): void {
+  protected onGoalRefined(event: GoalRefined): void {
     this._summary = event.summary;
   }
 
-  protected onGoalSliceChanged(event: GoalSliceChanged): void {
+  protected onGoalRecategorized(event: GoalRecategorized): void {
     this._slice = event.slice;
   }
 
-  protected onGoalTargetChanged(event: GoalTargetChanged): void {
+  protected onGoalRescheduled(event: GoalRescheduled): void {
     this._targetMonth = event.targetMonth;
   }
 
-  protected onGoalPriorityChanged(event: GoalPriorityChanged): void {
+  protected onGoalPrioritized(event: GoalPrioritized): void {
     this._priority = event.priority;
   }
 

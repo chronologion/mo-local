@@ -312,8 +312,8 @@ describe('Goal Aggregate', () => {
       const events = goal.getUncommittedEvents();
       expect(events).toHaveLength(3); // Created + SummaryChanged + PriorityChanged
       expect(events[0].eventType).toBe('GoalCreated');
-      expect(events[1].eventType).toBe('GoalSummaryChanged');
-      expect(events[2].eventType).toBe('GoalPriorityChanged');
+      expect(events[1].eventType).toBe('GoalRefined');
+      expect(events[2].eventType).toBe('GoalPrioritized');
     });
 
     it('should increment version with each event', () => {

@@ -3,10 +3,10 @@ import {
   SliceValue,
   eventTypes,
   GoalCreated,
-  GoalSummaryChanged,
-  GoalSliceChanged,
-  GoalTargetChanged,
-  GoalPriorityChanged,
+  GoalRefined,
+  GoalRecategorized,
+  GoalRescheduled,
+  GoalPrioritized,
   GoalArchived,
   GoalAccessGranted,
   GoalAccessRevoked,
@@ -16,10 +16,10 @@ import {
 
 export type GoalEvent =
   | GoalCreated
-  | GoalSummaryChanged
-  | GoalSliceChanged
-  | GoalTargetChanged
-  | GoalPriorityChanged
+  | GoalRefined
+  | GoalRecategorized
+  | GoalRescheduled
+  | GoalPrioritized
   | GoalArchived
   | GoalAccessGranted
   | GoalAccessRevoked;
@@ -79,28 +79,28 @@ export const applyEventToSnapshot = (
         archivedAt: null,
         version,
       };
-    case eventTypes.goalSummaryChanged:
+    case eventTypes.goalRefined:
       if (!current) return null;
       return {
         ...current,
         summary: event.summary.value,
         version,
       };
-    case eventTypes.goalSliceChanged:
+    case eventTypes.goalRecategorized:
       if (!current) return null;
       return {
         ...current,
         slice: event.slice.value,
         version,
       };
-    case eventTypes.goalTargetChanged:
+    case eventTypes.goalRescheduled:
       if (!current) return null;
       return {
         ...current,
         targetMonth: event.targetMonth.value,
         version,
       };
-    case eventTypes.goalPriorityChanged:
+    case eventTypes.goalPrioritized:
       if (!current) return null;
       return {
         ...current,

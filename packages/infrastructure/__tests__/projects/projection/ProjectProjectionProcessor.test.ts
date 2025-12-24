@@ -6,7 +6,7 @@ import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
 import {
   ActorId,
   ProjectCreated,
-  ProjectStatusChanged,
+  ProjectStatusTransitioned,
   ProjectArchived,
   ProjectStatus,
   DomainEvent,
@@ -190,7 +190,7 @@ describe('ProjectProjectionProcessor', () => {
       },
       meta()
     );
-    const status = new ProjectStatusChanged(
+    const status = new ProjectStatusTransitioned(
       {
         projectId: ProjectId.from(projectId),
         status: ProjectStatus.from('in_progress'),

@@ -11,15 +11,15 @@ import { MilestoneId } from './vos/MilestoneId';
 import { GoalId } from '../goals/vos/GoalId';
 import { UserId } from '../identity/UserId';
 import { ProjectCreated } from './events/ProjectCreated';
-import { ProjectStatusChanged } from './events/ProjectStatusChanged';
-import { ProjectDateChanged } from './events/ProjectDateChanged';
-import { ProjectNameChanged } from './events/ProjectNameChanged';
-import { ProjectDescriptionChanged } from './events/ProjectDescriptionChanged';
+import { ProjectStatusTransitioned } from './events/ProjectStatusTransitioned';
+import { ProjectRescheduled } from './events/ProjectRescheduled';
+import { ProjectRenamed } from './events/ProjectRenamed';
+import { ProjectDescribed } from './events/ProjectDescribed';
 import { ProjectGoalAdded } from './events/ProjectGoalAdded';
 import { ProjectGoalRemoved } from './events/ProjectGoalRemoved';
 import { ProjectMilestoneAdded } from './events/ProjectMilestoneAdded';
-import { ProjectMilestoneTargetDateChanged } from './events/ProjectMilestoneTargetDateChanged';
-import { ProjectMilestoneNameChanged } from './events/ProjectMilestoneNameChanged';
+import { ProjectMilestoneRescheduled } from './events/ProjectMilestoneRescheduled';
+import { ProjectMilestoneRenamed } from './events/ProjectMilestoneRenamed';
 import { ProjectMilestoneArchived } from './events/ProjectMilestoneArchived';
 import { ProjectArchived } from './events/ProjectArchived';
 import { DomainEvent } from '../shared/DomainEvent';
@@ -178,7 +178,7 @@ export class Project extends AggregateRoot<ProjectId> {
       'ProjectName unchanged'
     ).isFalse();
     this.apply(
-      new ProjectNameChanged(
+      new ProjectRenamed(
         {
           projectId: this.id,
           name: params.name,
@@ -200,7 +200,7 @@ export class Project extends AggregateRoot<ProjectId> {
       'ProjectDescription unchanged'
     ).isFalse();
     this.apply(
-      new ProjectDescriptionChanged(
+      new ProjectDescribed(
         {
           projectId: this.id,
           description: params.description,
@@ -223,7 +223,7 @@ export class Project extends AggregateRoot<ProjectId> {
     ).isFalse();
     this.assertAllowedStatusTransition(params.status);
     this.apply(
-      new ProjectStatusChanged(
+      new ProjectStatusTransitioned(
         {
           projectId: this.id,
           status: params.status,
@@ -255,7 +255,7 @@ export class Project extends AggregateRoot<ProjectId> {
     ).isTrue();
 
     this.apply(
-      new ProjectDateChanged(
+      new ProjectRescheduled(
         {
           projectId: this.id,
           startDate: params.startDate,
@@ -346,7 +346,7 @@ export class Project extends AggregateRoot<ProjectId> {
       'Milestone name unchanged'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneNameChanged(
+      new ProjectMilestoneRenamed(
         {
           projectId: this.id,
           milestoneId: params.milestoneId,
@@ -372,7 +372,7 @@ export class Project extends AggregateRoot<ProjectId> {
       'Milestone target unchanged'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneTargetDateChanged(
+      new ProjectMilestoneRescheduled(
         {
           projectId: this.id,
           milestoneId: params.milestoneId,
@@ -430,23 +430,23 @@ export class Project extends AggregateRoot<ProjectId> {
     this._updatedAt = this._createdAt;
   }
 
-  private onProjectStatusChanged(event: ProjectStatusChanged): void {
+  private onProjectStatusTransitioned(event: ProjectStatusTransitioned): void {
     this._status = event.status;
     this._updatedAt = event.changedAt;
   }
 
-  private onProjectDateChanged(event: ProjectDateChanged): void {
+  private onProjectRescheduled(event: ProjectRescheduled): void {
     this._startDate = event.startDate;
     this._targetDate = event.targetDate;
     this._updatedAt = event.changedAt;
   }
 
-  private onProjectNameChanged(event: ProjectNameChanged): void {
+  private onProjectRenamed(event: ProjectRenamed): void {
     this._name = event.name;
     this._updatedAt = event.changedAt;
   }
 
-  private onProjectDescriptionChanged(event: ProjectDescriptionChanged): void {
+  private onProjectDescribed(event: ProjectDescribed): void {
     this._description = event.description;
     this._updatedAt = event.changedAt;
   }
@@ -471,17 +471,15 @@ export class Project extends AggregateRoot<ProjectId> {
     this._updatedAt = event.addedAt;
   }
 
-  private onProjectMilestoneTargetDateChanged(
-    event: ProjectMilestoneTargetDateChanged
+  private onProjectMilestoneRescheduled(
+    event: ProjectMilestoneRescheduled
   ): void {
     const milestone = this.findMilestone(event.milestoneId);
     milestone.changeTargetDate(event.targetDate);
     this._updatedAt = event.changedAt;
   }
 
-  private onProjectMilestoneNameChanged(
-    event: ProjectMilestoneNameChanged
-  ): void {
+  private onProjectMilestoneRenamed(event: ProjectMilestoneRenamed): void {
     const milestone = this.findMilestone(event.milestoneId);
     milestone.changeName(event.name);
     this._updatedAt = event.changedAt;

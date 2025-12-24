@@ -1,29 +1,33 @@
 import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
+import { MilestoneId } from '../vos/MilestoneId';
 import { LocalDate } from '../../shared/vos/LocalDate';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface ProjectDateChangedPayload {
+export interface ProjectMilestoneRescheduledPayload {
   projectId: ProjectId;
-  startDate: LocalDate;
+  milestoneId: MilestoneId;
   targetDate: LocalDate;
   changedAt: Timestamp;
 }
 
-export class ProjectDateChanged
+export class ProjectMilestoneRescheduled
   extends DomainEvent<ProjectId>
-  implements ProjectDateChangedPayload
+  implements ProjectMilestoneRescheduledPayload
 {
-  readonly eventType = projectEventTypes.projectDateChanged;
+  readonly eventType = projectEventTypes.projectMilestoneRescheduled;
 
   readonly projectId: ProjectId;
-  readonly startDate: LocalDate;
+  readonly milestoneId: MilestoneId;
   readonly targetDate: LocalDate;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectDateChangedPayload, meta: EventMetadata) {
+  constructor(
+    payload: ProjectMilestoneRescheduledPayload,
+    meta: EventMetadata
+  ) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
@@ -33,22 +37,22 @@ export class ProjectDateChanged
       correlationId: meta?.correlationId,
     });
     this.projectId = payload.projectId;
-    this.startDate = payload.startDate;
+    this.milestoneId = payload.milestoneId;
     this.targetDate = payload.targetDate;
     this.changedAt = payload.changedAt;
     Object.freeze(this);
   }
 }
 
-export const ProjectDateChangedSpec = payloadEventSpec<
-  ProjectDateChanged,
-  ProjectDateChangedPayload
+export const ProjectMilestoneRescheduledSpec = payloadEventSpec<
+  ProjectMilestoneRescheduled,
+  ProjectMilestoneRescheduledPayload
 >(
-  projectEventTypes.projectDateChanged,
-  (p, meta) => new ProjectDateChanged(p, meta),
+  projectEventTypes.projectMilestoneRescheduled,
+  (p, meta) => new ProjectMilestoneRescheduled(p, meta),
   {
     projectId: voString(ProjectId.from),
-    startDate: voString(LocalDate.fromString),
+    milestoneId: voString(MilestoneId.from),
     targetDate: voString(LocalDate.fromString),
     changedAt: voNumber(Timestamp.fromMillis),
   }

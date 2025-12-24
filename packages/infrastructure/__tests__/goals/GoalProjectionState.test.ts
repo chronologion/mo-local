@@ -9,10 +9,10 @@ import {
   ActorId,
   GoalCreated,
   GoalArchived,
-  GoalSliceChanged,
-  GoalSummaryChanged,
-  GoalTargetChanged,
-  GoalPriorityChanged,
+  GoalRecategorized,
+  GoalRefined,
+  GoalRescheduled,
+  GoalPrioritized,
   GoalAccessGranted,
   GoalId,
   Slice,
@@ -62,7 +62,7 @@ describe('GoalProjectionState', () => {
 
     const updated = applyEventToSnapshot(
       created,
-      new GoalSummaryChanged(
+      new GoalRefined(
         {
           goalId: aggregateId,
           summary: Summary.from('Run a half-marathon first'),
@@ -77,7 +77,7 @@ describe('GoalProjectionState', () => {
 
     const movedSlice = applyEventToSnapshot(
       updated,
-      new GoalSliceChanged(
+      new GoalRecategorized(
         {
           goalId: aggregateId,
           slice: Slice.from('Leisure'),
@@ -92,7 +92,7 @@ describe('GoalProjectionState', () => {
 
     const retargeted = applyEventToSnapshot(
       movedSlice,
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId: aggregateId,
           targetMonth: Month.from('2026-01'),
@@ -107,7 +107,7 @@ describe('GoalProjectionState', () => {
 
     const reprioritized = applyEventToSnapshot(
       retargeted,
-      new GoalPriorityChanged(
+      new GoalPrioritized(
         {
           goalId: aggregateId,
           priority: Priority.from('should'),

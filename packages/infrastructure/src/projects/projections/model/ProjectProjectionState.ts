@@ -1,14 +1,14 @@
 import {
   ProjectCreated,
-  ProjectStatusChanged,
-  ProjectDateChanged,
-  ProjectNameChanged,
-  ProjectDescriptionChanged,
+  ProjectStatusTransitioned,
+  ProjectRescheduled,
+  ProjectRenamed,
+  ProjectDescribed,
   ProjectGoalAdded,
   ProjectGoalRemoved,
   ProjectMilestoneAdded,
-  ProjectMilestoneTargetDateChanged,
-  ProjectMilestoneNameChanged,
+  ProjectMilestoneRescheduled,
+  ProjectMilestoneRenamed,
   ProjectMilestoneArchived,
   ProjectArchived,
   ProjectStatusValue,
@@ -18,15 +18,15 @@ import {
 
 export type SupportedProjectEvent =
   | ProjectCreated
-  | ProjectStatusChanged
-  | ProjectDateChanged
-  | ProjectNameChanged
-  | ProjectDescriptionChanged
+  | ProjectStatusTransitioned
+  | ProjectRescheduled
+  | ProjectRenamed
+  | ProjectDescribed
   | ProjectGoalAdded
   | ProjectGoalRemoved
   | ProjectMilestoneAdded
-  | ProjectMilestoneTargetDateChanged
-  | ProjectMilestoneNameChanged
+  | ProjectMilestoneRescheduled
+  | ProjectMilestoneRenamed
   | ProjectMilestoneArchived
   | ProjectArchived;
 
@@ -94,7 +94,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectStatusChanged': {
+    case 'ProjectStatusTransitioned': {
       if (!snapshot) return null;
       return {
         ...snapshot,
@@ -103,7 +103,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectDateChanged': {
+    case 'ProjectRescheduled': {
       if (!snapshot) return null;
       return {
         ...snapshot,
@@ -113,7 +113,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectNameChanged': {
+    case 'ProjectRenamed': {
       if (!snapshot) return null;
       return {
         ...snapshot,
@@ -122,7 +122,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectDescriptionChanged': {
+    case 'ProjectDescribed': {
       if (!snapshot) return null;
       return {
         ...snapshot,
@@ -165,7 +165,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectMilestoneTargetDateChanged': {
+    case 'ProjectMilestoneRescheduled': {
       if (!snapshot) return null;
       return {
         ...snapshot,
@@ -178,7 +178,7 @@ export const applyProjectEventToSnapshot = (
         version,
       };
     }
-    case 'ProjectMilestoneNameChanged': {
+    case 'ProjectMilestoneRenamed': {
       if (!snapshot) return null;
       return {
         ...snapshot,

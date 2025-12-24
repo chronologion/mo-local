@@ -1,27 +1,27 @@
 import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
-import { Month } from '../vos/Month';
 import { GoalId } from '../vos/GoalId';
+import { Summary } from '../vos/Summary';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface GoalTargetChangedPayload {
+export interface GoalRefinedPayload {
   goalId: GoalId;
-  targetMonth: Month;
+  summary: Summary;
   changedAt: Timestamp;
 }
 
-export class GoalTargetChanged
+export class GoalRefined
   extends DomainEvent<GoalId>
-  implements GoalTargetChangedPayload
+  implements GoalRefinedPayload
 {
-  readonly eventType = goalEventTypes.goalTargetChanged;
+  readonly eventType = goalEventTypes.goalRefined;
 
   readonly goalId: GoalId;
-  readonly targetMonth: Month;
+  readonly summary: Summary;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalTargetChangedPayload, meta: EventMetadata) {
+  constructor(payload: GoalRefinedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.changedAt,
@@ -31,21 +31,17 @@ export class GoalTargetChanged
       correlationId: meta?.correlationId,
     });
     this.goalId = payload.goalId;
-    this.targetMonth = payload.targetMonth;
+    this.summary = payload.summary;
     this.changedAt = payload.changedAt;
     Object.freeze(this);
   }
 }
 
-export const GoalTargetChangedSpec = payloadEventSpec<
-  GoalTargetChanged,
-  GoalTargetChangedPayload
->(
-  goalEventTypes.goalTargetChanged,
-  (p, meta) => new GoalTargetChanged(p, meta),
-  {
-    goalId: voString(GoalId.from),
-    targetMonth: voString(Month.from),
-    changedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+export const GoalRefinedSpec = payloadEventSpec<
+  GoalRefined,
+  GoalRefinedPayload
+>(goalEventTypes.goalRefined, (p, meta) => new GoalRefined(p, meta), {
+  goalId: voString(GoalId.from),
+  summary: voString(Summary.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

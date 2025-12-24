@@ -6,30 +6,30 @@ import {
   GoalArchived,
   GoalCreated,
   GoalId,
-  GoalPriorityChanged,
-  GoalSliceChanged,
-  GoalSummaryChanged,
-  GoalTargetChanged,
+  GoalPrioritized,
+  GoalRecategorized,
+  GoalRefined,
+  GoalRescheduled,
   LocalDate,
   Month,
   Permission,
   Priority,
   ProjectArchived,
   ProjectCreated,
-  ProjectDateChanged,
+  ProjectRescheduled,
   ProjectDescription,
-  ProjectDescriptionChanged,
+  ProjectDescribed,
   ProjectGoalAdded,
   ProjectGoalRemoved,
   ProjectId,
   ProjectMilestoneAdded,
   ProjectMilestoneArchived,
-  ProjectMilestoneNameChanged,
-  ProjectMilestoneTargetDateChanged,
+  ProjectMilestoneRenamed,
+  ProjectMilestoneRescheduled,
   ProjectName,
-  ProjectNameChanged,
+  ProjectRenamed,
   ProjectStatus,
-  ProjectStatusChanged,
+  ProjectStatusTransitioned,
   Slice,
   Summary,
   Timestamp,
@@ -67,7 +67,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new GoalSummaryChanged(
+      new GoalRefined(
         {
           goalId,
           summary: Summary.from('Updated summary'),
@@ -75,7 +75,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new GoalSliceChanged(
+      new GoalRecategorized(
         {
           goalId,
           slice: Slice.from('Work'),
@@ -83,7 +83,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId,
           targetMonth: Month.from('2026-01'),
@@ -91,7 +91,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new GoalPriorityChanged(
+      new GoalPrioritized(
         {
           goalId,
           priority: Priority.from('should'),
@@ -137,7 +137,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectStatusChanged(
+      new ProjectStatusTransitioned(
         {
           projectId,
           status: ProjectStatus.from('in_progress'),
@@ -145,7 +145,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectDateChanged(
+      new ProjectRescheduled(
         {
           projectId,
           startDate: LocalDate.fromString('2025-02-01'),
@@ -154,7 +154,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectNameChanged(
+      new ProjectRenamed(
         {
           projectId,
           name: ProjectName.from('Project Helios'),
@@ -162,7 +162,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectDescriptionChanged(
+      new ProjectDescribed(
         {
           projectId,
           description: ProjectDescription.from('New description'),
@@ -195,7 +195,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectMilestoneTargetDateChanged(
+      new ProjectMilestoneRescheduled(
         {
           projectId,
           milestoneId,
@@ -204,7 +204,7 @@ describe('eventing registry + runtime', () => {
         },
         meta()
       ),
-      new ProjectMilestoneNameChanged(
+      new ProjectMilestoneRenamed(
         {
           projectId,
           milestoneId,

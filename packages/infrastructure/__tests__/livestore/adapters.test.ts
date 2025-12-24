@@ -6,10 +6,10 @@ import { encodePersisted } from '../../src/eventing/registry';
 import {
   ActorId,
   GoalCreated,
-  GoalSummaryChanged,
-  GoalSliceChanged,
-  GoalTargetChanged,
-  GoalPriorityChanged,
+  GoalRefined,
+  GoalRecategorized,
+  GoalRescheduled,
+  GoalPrioritized,
   GoalArchived,
   GoalAccessGranted,
   GoalAccessRevoked,
@@ -22,7 +22,7 @@ import {
   Timestamp,
   Permission,
   ProjectCreated,
-  ProjectNameChanged,
+  ProjectRenamed,
   ProjectArchived,
   ProjectId,
   ProjectName,
@@ -57,7 +57,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         meta()
       ),
-      new GoalSummaryChanged(
+      new GoalRefined(
         {
           goalId: GoalId.from('00000000-0000-0000-0000-000000000101'),
           summary: Summary.from('Updated'),
@@ -67,7 +67,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         meta()
       ),
-      new GoalSliceChanged(
+      new GoalRecategorized(
         {
           goalId: GoalId.from('00000000-0000-0000-0000-000000000101'),
           slice: Slice.from('Work'),
@@ -77,7 +77,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         meta()
       ),
-      new GoalTargetChanged(
+      new GoalRescheduled(
         {
           goalId: GoalId.from('00000000-0000-0000-0000-000000000101'),
           targetMonth: Month.from('2026-01'),
@@ -87,7 +87,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         meta()
       ),
-      new GoalPriorityChanged(
+      new GoalPrioritized(
         {
           goalId: GoalId.from('00000000-0000-0000-0000-000000000101'),
           priority: Priority.from('should'),
@@ -134,10 +134,10 @@ describe('Domain/LiveStore adapters', () => {
 
     expect(roundTripped.map((e) => e.eventType)).toEqual([
       'GoalCreated',
-      'GoalSummaryChanged',
-      'GoalSliceChanged',
-      'GoalTargetChanged',
-      'GoalPriorityChanged',
+      'GoalRefined',
+      'GoalRecategorized',
+      'GoalRescheduled',
+      'GoalPrioritized',
       'GoalArchived',
       'GoalAccessGranted',
       'GoalAccessRevoked',
@@ -168,7 +168,7 @@ describe('Domain/LiveStore adapters', () => {
         },
         meta()
       ),
-      new ProjectNameChanged(
+      new ProjectRenamed(
         {
           projectId: ProjectId.from('00000000-0000-0000-0000-000000000201'),
           name: ProjectName.from('Project Helios'),
@@ -194,7 +194,7 @@ describe('Domain/LiveStore adapters', () => {
 
     expect(decoded.map((e) => e.eventType)).toEqual([
       'ProjectCreated',
-      'ProjectNameChanged',
+      'ProjectRenamed',
       'ProjectArchived',
     ]);
   });

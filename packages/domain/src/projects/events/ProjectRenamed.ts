@@ -5,23 +5,23 @@ import { ProjectName } from '../vos/ProjectName';
 import { Timestamp } from '../../shared/vos/Timestamp';
 import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export interface ProjectNameChangedPayload {
+export interface ProjectRenamedPayload {
   projectId: ProjectId;
   name: ProjectName;
   changedAt: Timestamp;
 }
 
-export class ProjectNameChanged
+export class ProjectRenamed
   extends DomainEvent<ProjectId>
-  implements ProjectNameChangedPayload
+  implements ProjectRenamedPayload
 {
-  readonly eventType = projectEventTypes.projectNameChanged;
+  readonly eventType = projectEventTypes.projectRenamed;
 
   readonly projectId: ProjectId;
   readonly name: ProjectName;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectNameChangedPayload, meta: EventMetadata) {
+  constructor(payload: ProjectRenamedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
@@ -37,15 +37,11 @@ export class ProjectNameChanged
   }
 }
 
-export const ProjectNameChangedSpec = payloadEventSpec<
-  ProjectNameChanged,
-  ProjectNameChangedPayload
->(
-  projectEventTypes.projectNameChanged,
-  (p, meta) => new ProjectNameChanged(p, meta),
-  {
-    projectId: voString(ProjectId.from),
-    name: voString(ProjectName.from),
-    changedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+export const ProjectRenamedSpec = payloadEventSpec<
+  ProjectRenamed,
+  ProjectRenamedPayload
+>(projectEventTypes.projectRenamed, (p, meta) => new ProjectRenamed(p, meta), {
+  projectId: voString(ProjectId.from),
+  name: voString(ProjectName.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});
