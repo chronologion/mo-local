@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { Timestamp } from '../../shared/vos/Timestamp';
@@ -18,8 +18,15 @@ export class ProjectGoalRemoved
   readonly projectId: ProjectId;
   readonly removedAt: Timestamp;
 
-  constructor(payload: ProjectGoalRemovedPayload) {
-    super(payload.projectId, payload.removedAt);
+  constructor(payload: ProjectGoalRemovedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.removedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.removedAt = payload.removedAt;
     Object.freeze(this);
@@ -29,7 +36,11 @@ export class ProjectGoalRemoved
 export const ProjectGoalRemovedSpec = payloadEventSpec<
   ProjectGoalRemoved,
   ProjectGoalRemovedPayload
->(projectEventTypes.projectGoalRemoved, (p) => new ProjectGoalRemoved(p), {
-  projectId: voString(ProjectId.from),
-  removedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  projectEventTypes.projectGoalRemoved,
+  (p, meta) => new ProjectGoalRemoved(p, meta),
+  {
+    projectId: voString(ProjectId.from),
+    removedAt: voNumber(Timestamp.fromMillis),
+  }
+);

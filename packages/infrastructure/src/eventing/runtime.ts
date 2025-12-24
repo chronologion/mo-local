@@ -1,4 +1,4 @@
-import type { DomainEvent } from '@mo/domain';
+import type { DomainEvent, EventMetadata } from '@mo/domain';
 import type { PersistedEvent, RuntimeEventSpec } from './types';
 import { latestVersionOf } from './migrations';
 import { upcastPayload } from './upcast';
@@ -16,7 +16,8 @@ export function encodeLatest(
 
 export function decode(
   spec: RuntimeEventSpec,
-  rec: PersistedEvent
+  rec: PersistedEvent,
+  meta?: EventMetadata
 ): DomainEvent {
   const latestPayload = upcastPayload(rec.type, rec.version, rec.payload);
   if (typeof latestPayload !== 'object' || latestPayload === null) {
@@ -28,5 +29,5 @@ export function decode(
   for (const k in spec.fields) {
     p[k] = spec.fields[k].decode(obj[k]);
   }
-  return spec.ctor(p);
+  return spec.ctor(p, meta);
 }

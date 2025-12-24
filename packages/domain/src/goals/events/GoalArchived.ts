@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
@@ -18,8 +18,15 @@ export class GoalArchived
   readonly goalId: GoalId;
   readonly archivedAt: Timestamp;
 
-  constructor(payload: GoalArchivedPayload) {
-    super(payload.goalId, payload.archivedAt);
+  constructor(payload: GoalArchivedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.archivedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.archivedAt = payload.archivedAt;
     Object.freeze(this);
@@ -29,7 +36,7 @@ export class GoalArchived
 export const GoalArchivedSpec = payloadEventSpec<
   GoalArchived,
   GoalArchivedPayload
->(goalEventTypes.goalArchived, (p) => new GoalArchived(p), {
+>(goalEventTypes.goalArchived, (p, meta) => new GoalArchived(p, meta), {
   goalId: voString(GoalId.from),
   archivedAt: voNumber(Timestamp.fromMillis),
 });

@@ -3,7 +3,7 @@ import {
   ValidatedImportUserKeysCommand,
 } from './commands';
 import { IKeyStore, IEventBus } from '../ports';
-import { DomainEvent, Timestamp } from '@mo/domain';
+import { Timestamp, UserRegistered } from '@mo/domain';
 
 /**
  * Handles user onboarding and key import flows.
@@ -17,15 +17,13 @@ export class UserCommandHandler {
   async handleRegister(
     command: ValidatedRegisterUserCommand
   ): Promise<{ userId: string }> {
-    const registrationEvent: DomainEvent = {
-      eventType: 'UserRegistered',
-      get aggregateId() {
-        return command.userId;
+    const registrationEvent = new UserRegistered(
+      {
+        userId: command.userId,
+        registeredAt: Timestamp.fromMillis(command.timestamp),
       },
-      get occurredAt() {
-        return Timestamp.fromMillis(command.timestamp);
-      },
-    };
+      { actorId: command.userId }
+    );
     await this.eventBus.publish([registrationEvent]);
     return { userId: command.userId.value };
   }

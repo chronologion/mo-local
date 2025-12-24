@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { MilestoneId } from '../vos/MilestoneId';
@@ -28,8 +28,18 @@ export class ProjectMilestoneNameChanged
   readonly name: string;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneNameChangedPayload) {
-    super(payload.projectId, payload.changedAt);
+  constructor(
+    payload: ProjectMilestoneNameChangedPayload,
+    meta?: EventMetadata
+  ) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.changedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
     this.name = payload.name;
@@ -43,7 +53,7 @@ export const ProjectMilestoneNameChangedSpec = payloadEventSpec<
   ProjectMilestoneNameChangedPayload
 >(
   projectEventTypes.projectMilestoneNameChanged,
-  (p) => new ProjectMilestoneNameChanged(p),
+  (p, meta) => new ProjectMilestoneNameChanged(p, meta),
   {
     projectId: voString(ProjectId.from),
     milestoneId: voString(MilestoneId.from),

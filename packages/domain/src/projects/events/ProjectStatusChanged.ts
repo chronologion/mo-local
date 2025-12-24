@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { ProjectStatus } from '../vos/ProjectStatus';
 import { ProjectId } from '../vos/ProjectId';
 import { Timestamp } from '../../shared/vos/Timestamp';
@@ -21,8 +21,15 @@ export class ProjectStatusChanged
   readonly status: ProjectStatus;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectStatusChangedPayload) {
-    super(payload.projectId, payload.changedAt);
+  constructor(payload: ProjectStatusChangedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.changedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.status = payload.status;
     this.changedAt = payload.changedAt;
@@ -33,8 +40,12 @@ export class ProjectStatusChanged
 export const ProjectStatusChangedSpec = payloadEventSpec<
   ProjectStatusChanged,
   ProjectStatusChangedPayload
->(projectEventTypes.projectStatusChanged, (p) => new ProjectStatusChanged(p), {
-  projectId: voString(ProjectId.from),
-  status: voString(ProjectStatus.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  projectEventTypes.projectStatusChanged,
+  (p, meta) => new ProjectStatusChanged(p, meta),
+  {
+    projectId: voString(ProjectId.from),
+    status: voString(ProjectStatus.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

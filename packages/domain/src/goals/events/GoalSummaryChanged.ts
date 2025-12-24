@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { Summary } from '../vos/Summary';
@@ -21,8 +21,15 @@ export class GoalSummaryChanged
   readonly summary: Summary;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalSummaryChangedPayload) {
-    super(payload.goalId, payload.changedAt);
+  constructor(payload: GoalSummaryChangedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.changedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.summary = payload.summary;
     this.changedAt = payload.changedAt;
@@ -33,8 +40,12 @@ export class GoalSummaryChanged
 export const GoalSummaryChangedSpec = payloadEventSpec<
   GoalSummaryChanged,
   GoalSummaryChangedPayload
->(goalEventTypes.goalSummaryChanged, (p) => new GoalSummaryChanged(p), {
-  goalId: voString(GoalId.from),
-  summary: voString(Summary.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  goalEventTypes.goalSummaryChanged,
+  (p, meta) => new GoalSummaryChanged(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    summary: voString(Summary.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

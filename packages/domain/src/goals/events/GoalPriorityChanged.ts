@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { Priority } from '../vos/Priority';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
@@ -21,8 +21,15 @@ export class GoalPriorityChanged
   readonly priority: Priority;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalPriorityChangedPayload) {
-    super(payload.goalId, payload.changedAt);
+  constructor(payload: GoalPriorityChangedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.changedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.priority = payload.priority;
     this.changedAt = payload.changedAt;
@@ -33,8 +40,12 @@ export class GoalPriorityChanged
 export const GoalPriorityChangedSpec = payloadEventSpec<
   GoalPriorityChanged,
   GoalPriorityChangedPayload
->(goalEventTypes.goalPriorityChanged, (p) => new GoalPriorityChanged(p), {
-  goalId: voString(GoalId.from),
-  priority: voString(Priority.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  goalEventTypes.goalPriorityChanged,
+  (p, meta) => new GoalPriorityChanged(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    priority: voString(Priority.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

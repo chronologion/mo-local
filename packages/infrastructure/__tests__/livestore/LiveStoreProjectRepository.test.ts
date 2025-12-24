@@ -15,6 +15,7 @@ import {
   UserId,
   Timestamp,
 } from '@mo/domain';
+import { isSome } from '@mo/application';
 import { PersistenceError } from '../../src/errors';
 
 const cachedEvents = new Map<string, DomainEvent>();
@@ -71,8 +72,8 @@ describe('LiveStoreProjectRepository', () => {
     await repo.save(project, kProject);
     const loaded = await repo.load(project.id);
 
-    expect(loaded).not.toBeNull();
-    expect(loaded?.name.value).toBe('Alpha');
+    expect(isSome(loaded)).toBe(true);
+    expect(isSome(loaded) ? loaded.value.name.value : null).toBe('Alpha');
   });
 
   it('wraps non-concurrency errors as PersistenceError', async () => {

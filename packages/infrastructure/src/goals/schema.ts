@@ -17,6 +17,9 @@ const goalEventsTable = State.SQLite.table({
     payload_encrypted: State.SQLite.blob({ nullable: false }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
+    actor_id: State.SQLite.text({ nullable: true }),
+    causation_id: State.SQLite.text({ nullable: true }),
+    correlation_id: State.SQLite.text({ nullable: true }),
   },
 });
 
@@ -73,6 +76,9 @@ const projectEventsTable = State.SQLite.table({
     payload_encrypted: State.SQLite.blob({ nullable: false }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
+    actor_id: State.SQLite.text({ nullable: true }),
+    causation_id: State.SQLite.text({ nullable: true }),
+    correlation_id: State.SQLite.text({ nullable: true }),
   },
 });
 
@@ -135,6 +141,9 @@ type GoalEventPayload = {
   payload: unknown;
   version: number;
   occurredAt: number;
+  actorId: string | null;
+  causationId: string | null;
+  correlationId: string | null;
 };
 
 export const events = {
@@ -147,6 +156,9 @@ export const events = {
       payload: S.Unknown,
       version: S.Number,
       occurredAt: S.Number,
+      actorId: S.NullOr(S.String),
+      causationId: S.NullOr(S.String),
+      correlationId: S.NullOr(S.String),
     }),
   }),
 };
@@ -191,6 +203,9 @@ const materializers = State.SQLite.materializers(events, {
     payload,
     version,
     occurredAt,
+    actorId,
+    causationId,
+    correlationId,
   }: GoalEventPayload) => {
     try {
       const payloadBytes = asUint8Array(payload) as Uint8Array<ArrayBuffer>;
@@ -204,6 +219,9 @@ const materializers = State.SQLite.materializers(events, {
             payload_encrypted: payloadBytes,
             version,
             occurred_at: occurredAt,
+            actor_id: actorId,
+            causation_id: causationId,
+            correlation_id: correlationId,
           }),
         ];
       }
@@ -217,6 +235,9 @@ const materializers = State.SQLite.materializers(events, {
             payload_encrypted: payloadBytes,
             version,
             occurred_at: occurredAt,
+            actor_id: actorId,
+            causation_id: causationId,
+            correlation_id: correlationId,
           }),
         ];
       }

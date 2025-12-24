@@ -1,4 +1,4 @@
-import { DomainEvent } from '@mo/domain';
+import { ActorId, CorrelationId, DomainEvent, EventId } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
 import { buildEventAad } from '../../eventing/aad';
 import { decodePayloadEnvelope } from '../../eventing/payloadEnvelope';
@@ -32,11 +32,23 @@ export class LiveStoreToDomainAdapter {
     }
 
     const { payloadVersion, data } = decodePayloadEnvelope(payloadBytes);
-    return decodePersisted({
-      type: lsEvent.eventType,
-      version: payloadVersion,
-      payload: data,
-    });
+    return decodePersisted(
+      {
+        type: lsEvent.eventType,
+        version: payloadVersion,
+        payload: data,
+      },
+      {
+        eventId: EventId.from(lsEvent.id),
+        actorId: lsEvent.actorId ? ActorId.from(lsEvent.actorId) : undefined,
+        causationId: lsEvent.causationId
+          ? EventId.from(lsEvent.causationId)
+          : undefined,
+        correlationId: lsEvent.correlationId
+          ? CorrelationId.from(lsEvent.correlationId)
+          : undefined,
+      }
+    );
   }
 
   async toDomainBatch(

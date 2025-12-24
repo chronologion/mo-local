@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { GoalId } from '../../goals/vos/GoalId';
@@ -21,8 +21,15 @@ export class ProjectGoalAdded
   readonly goalId: GoalId;
   readonly addedAt: Timestamp;
 
-  constructor(payload: ProjectGoalAddedPayload) {
-    super(payload.projectId, payload.addedAt);
+  constructor(payload: ProjectGoalAddedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.addedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.goalId = payload.goalId;
     this.addedAt = payload.addedAt;
@@ -33,8 +40,12 @@ export class ProjectGoalAdded
 export const ProjectGoalAddedSpec = payloadEventSpec<
   ProjectGoalAdded,
   ProjectGoalAddedPayload
->(projectEventTypes.projectGoalAdded, (p) => new ProjectGoalAdded(p), {
-  projectId: voString(ProjectId.from),
-  goalId: voString(GoalId.from),
-  addedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  projectEventTypes.projectGoalAdded,
+  (p, meta) => new ProjectGoalAdded(p, meta),
+  {
+    projectId: voString(ProjectId.from),
+    goalId: voString(GoalId.from),
+    addedAt: voNumber(Timestamp.fromMillis),
+  }
+);

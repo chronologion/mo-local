@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { MilestoneId } from '../vos/MilestoneId';
@@ -31,8 +31,15 @@ export class ProjectMilestoneAdded
   readonly targetDate: LocalDate;
   readonly addedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneAddedPayload) {
-    super(payload.projectId, payload.addedAt);
+  constructor(payload: ProjectMilestoneAddedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.addedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
     this.name = payload.name;
@@ -47,7 +54,7 @@ export const ProjectMilestoneAddedSpec = payloadEventSpec<
   ProjectMilestoneAddedPayload
 >(
   projectEventTypes.projectMilestoneAdded,
-  (p) => new ProjectMilestoneAdded(p),
+  (p, meta) => new ProjectMilestoneAdded(p, meta),
   {
     projectId: voString(ProjectId.from),
     milestoneId: voString(MilestoneId.from),

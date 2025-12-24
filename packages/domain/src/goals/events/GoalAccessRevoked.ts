@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { UserId } from '../../identity/UserId';
@@ -21,8 +21,15 @@ export class GoalAccessRevoked
   readonly revokedFrom: UserId;
   readonly revokedAt: Timestamp;
 
-  constructor(payload: GoalAccessRevokedPayload) {
-    super(payload.goalId, payload.revokedAt);
+  constructor(payload: GoalAccessRevokedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.revokedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.revokedFrom = payload.revokedFrom;
     this.revokedAt = payload.revokedAt;
@@ -33,8 +40,12 @@ export class GoalAccessRevoked
 export const GoalAccessRevokedSpec = payloadEventSpec<
   GoalAccessRevoked,
   GoalAccessRevokedPayload
->(goalEventTypes.goalAccessRevoked, (p) => new GoalAccessRevoked(p), {
-  goalId: voString(GoalId.from),
-  revokedFrom: voString(UserId.from),
-  revokedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  goalEventTypes.goalAccessRevoked,
+  (p, meta) => new GoalAccessRevoked(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    revokedFrom: voString(UserId.from),
+    revokedAt: voNumber(Timestamp.fromMillis),
+  }
+);

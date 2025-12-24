@@ -1,5 +1,6 @@
-import { Goal, GoalId, Timestamp } from '@mo/domain';
+import { Goal, GoalId, Timestamp, UserId } from '@mo/domain';
 import { IGoalRepository } from '../../../src/goals/ports/IGoalRepository';
+import { none, Option, some } from '../../../src/shared/ports/Option';
 
 type StoredGoal = {
   goal: Goal;
@@ -14,8 +15,9 @@ export class InMemoryGoalRepository implements IGoalRepository {
   private failSave = false;
   private errorToThrow: Error | null = null;
 
-  async load(id: GoalId): Promise<Goal | null> {
-    return this.store.get(id.value)?.goal ?? null;
+  async load(id: GoalId): Promise<Option<Goal>> {
+    const goal = this.store.get(id.value)?.goal;
+    return goal ? some(goal) : none();
   }
 
   async save(goal: Goal, encryptionKey: Uint8Array): Promise<void> {
@@ -31,10 +33,14 @@ export class InMemoryGoalRepository implements IGoalRepository {
     this.store.set(goal.id.value, { goal, encryptionKey });
   }
 
-  async archive(id: GoalId, archivedAt: Timestamp): Promise<void> {
+  async archive(
+    id: GoalId,
+    archivedAt: Timestamp,
+    actorId: UserId
+  ): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
-    stored.goal.archive(archivedAt);
+    stored.goal.archive({ archivedAt, actorId });
     await this.save(stored.goal, stored.encryptionKey);
   }
 

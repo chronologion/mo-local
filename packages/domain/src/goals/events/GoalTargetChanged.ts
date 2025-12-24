@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { Month } from '../vos/Month';
 import { GoalId } from '../vos/GoalId';
@@ -21,8 +21,15 @@ export class GoalTargetChanged
   readonly targetMonth: Month;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalTargetChangedPayload) {
-    super(payload.goalId, payload.changedAt);
+  constructor(payload: GoalTargetChangedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.changedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.targetMonth = payload.targetMonth;
     this.changedAt = payload.changedAt;
@@ -33,8 +40,12 @@ export class GoalTargetChanged
 export const GoalTargetChangedSpec = payloadEventSpec<
   GoalTargetChanged,
   GoalTargetChangedPayload
->(goalEventTypes.goalTargetChanged, (p) => new GoalTargetChanged(p), {
-  goalId: voString(GoalId.from),
-  targetMonth: voString(Month.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  goalEventTypes.goalTargetChanged,
+  (p, meta) => new GoalTargetChanged(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    targetMonth: voString(Month.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

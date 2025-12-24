@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ProjectRepository } from '../../src/projects/ProjectRepository';
 import { WebCryptoService } from '../../src/crypto/WebCryptoService';
 import type { IEventStore, EncryptedEvent } from '@mo/application';
+import { isSome } from '@mo/application';
 import { ProjectId, ProjectName } from '@mo/domain';
 import type { Store } from '@livestore/livestore';
 import { buildSnapshotAad } from '../../src/eventing/aad';
@@ -113,9 +114,11 @@ describe('ProjectRepository snapshot compatibility', () => {
 
     const loaded = await repo.load(projectId);
 
-    expect(loaded).not.toBeNull();
-    expect(loaded?.id.value).toBe(aggregateId);
-    expect(loaded?.createdBy.value).toBe('imported');
+    expect(isSome(loaded)).toBe(true);
+    expect(isSome(loaded) ? loaded.value.id.value : null).toBe(aggregateId);
+    expect(isSome(loaded) ? loaded.value.createdBy.value : null).toBe(
+      'imported'
+    );
   });
 
   it('purges corrupt snapshots and returns null instead of throwing', async () => {
@@ -140,7 +143,7 @@ describe('ProjectRepository snapshot compatibility', () => {
 
     const loaded = await repo.load(projectId);
 
-    expect(loaded).toBeNull();
+    expect(loaded.kind).toBe('none');
     expect(storeStub.deleted).toContain(aggregateId);
   });
 });

@@ -74,17 +74,20 @@ export class Project extends AggregateRoot<ProjectId> {
 
     const project = new Project(params.id);
     project.apply(
-      new ProjectCreated({
-        projectId: params.id,
-        name: params.name,
-        status: params.status,
-        startDate: params.startDate,
-        targetDate: params.targetDate,
-        description: params.description,
-        goalId: params.goalId ?? null,
-        createdBy: params.createdBy,
-        createdAt: params.createdAt,
-      })
+      new ProjectCreated(
+        {
+          projectId: params.id,
+          name: params.name,
+          status: params.status,
+          startDate: params.startDate,
+          targetDate: params.targetDate,
+          description: params.description,
+          goalId: params.goalId ?? null,
+          createdBy: params.createdBy,
+          createdAt: params.createdAt,
+        },
+        { actorId: params.createdBy }
+      )
     );
     return project;
   }
@@ -163,56 +166,79 @@ export class Project extends AggregateRoot<ProjectId> {
     return this._archivedAt !== null;
   }
 
-  changeName(name: ProjectName, changedAt: Timestamp): void {
+  changeName(params: {
+    name: ProjectName;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    Assert.that(name.equals(this.name), 'ProjectName unchanged').isFalse();
+    Assert.that(
+      params.name.equals(this.name),
+      'ProjectName unchanged'
+    ).isFalse();
     this.apply(
-      new ProjectNameChanged({
-        projectId: this.id,
-        name,
-        changedAt,
-      })
+      new ProjectNameChanged(
+        {
+          projectId: this.id,
+          name: params.name,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  changeDescription(
-    description: ProjectDescription,
-    changedAt: Timestamp
-  ): void {
+  changeDescription(params: {
+    description: ProjectDescription;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      description.equals(this.description),
+      params.description.equals(this.description),
       'ProjectDescription unchanged'
     ).isFalse();
     this.apply(
-      new ProjectDescriptionChanged({
-        projectId: this.id,
-        description,
-        changedAt,
-      })
+      new ProjectDescriptionChanged(
+        {
+          projectId: this.id,
+          description: params.description,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  changeStatus(status: ProjectStatus, changedAt: Timestamp): void {
+  changeStatus(params: {
+    status: ProjectStatus;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      status.equals(this.status),
+      params.status.equals(this.status),
       'ProjectStatus unchanged'
     ).isFalse();
-    this.assertAllowedStatusTransition(status);
+    this.assertAllowedStatusTransition(params.status);
     this.apply(
-      new ProjectStatusChanged({
-        projectId: this.id,
-        status,
-        changedAt,
-      })
+      new ProjectStatusChanged(
+        {
+          projectId: this.id,
+          status: params.status,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  changeDates(
-    params: { startDate: LocalDate; targetDate: LocalDate },
-    changedAt: Timestamp
-  ): void {
+  changeDates(params: {
+    startDate: LocalDate;
+    targetDate: LocalDate;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     if (!params.startDate.isSameOrBefore(params.targetDate)) {
       throw new Error('Start date must be on or before target date');
@@ -228,51 +254,63 @@ export class Project extends AggregateRoot<ProjectId> {
     ).isTrue();
 
     this.apply(
-      new ProjectDateChanged({
-        projectId: this.id,
-        startDate: params.startDate,
-        targetDate: params.targetDate,
-        changedAt,
-      })
+      new ProjectDateChanged(
+        {
+          projectId: this.id,
+          startDate: params.startDate,
+          targetDate: params.targetDate,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  addGoal(goalId: GoalId, addedAt: Timestamp): void {
+  addGoal(params: {
+    goalId: GoalId;
+    addedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
       this._goalId === null,
       'Project already linked to a goal'
     ).isTrue();
     this.apply(
-      new ProjectGoalAdded({
-        projectId: this.id,
-        goalId,
-        addedAt,
-      })
+      new ProjectGoalAdded(
+        {
+          projectId: this.id,
+          goalId: params.goalId,
+          addedAt: params.addedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  removeGoal(removedAt: Timestamp): void {
+  removeGoal(params: { removedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     if (this._goalId === null) {
       return;
     }
     this.apply(
-      new ProjectGoalRemoved({
-        projectId: this.id,
-        removedAt,
-      })
+      new ProjectGoalRemoved(
+        {
+          projectId: this.id,
+          removedAt: params.removedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  addMilestone(
-    params: {
-      id: MilestoneId;
-      name: string;
-      targetDate: LocalDate;
-    },
-    addedAt: Timestamp
-  ): void {
+  addMilestone(params: {
+    id: MilestoneId;
+    name: string;
+    targetDate: LocalDate;
+    addedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     this.assertDateWithinRange(params.targetDate);
     Assert.that(
@@ -280,76 +318,100 @@ export class Project extends AggregateRoot<ProjectId> {
       'Duplicate milestone id'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneAdded({
-        projectId: this.id,
-        milestoneId: params.id,
-        name: params.name,
-        targetDate: params.targetDate,
-        addedAt,
-      })
+      new ProjectMilestoneAdded(
+        {
+          projectId: this.id,
+          milestoneId: params.id,
+          name: params.name,
+          targetDate: params.targetDate,
+          addedAt: params.addedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  changeMilestoneName(
-    milestoneId: MilestoneId,
-    name: string,
-    changedAt: Timestamp
-  ): void {
+  changeMilestoneName(params: {
+    milestoneId: MilestoneId;
+    name: string;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    const milestone = this.findMilestone(milestoneId);
-    Assert.that(name.trim(), 'Milestone name').isNonEmpty();
-    Assert.that(milestone.name === name, 'Milestone name unchanged').isFalse();
-    this.apply(
-      new ProjectMilestoneNameChanged({
-        projectId: this.id,
-        milestoneId,
-        name,
-        changedAt,
-      })
-    );
-  }
-
-  changeMilestoneTargetDate(
-    milestoneId: MilestoneId,
-    targetDate: LocalDate,
-    changedAt: Timestamp
-  ): void {
-    this.assertNotArchived();
-    this.assertDateWithinRange(targetDate);
-    const milestone = this.findMilestone(milestoneId);
+    const milestone = this.findMilestone(params.milestoneId);
+    Assert.that(params.name.trim(), 'Milestone name').isNonEmpty();
     Assert.that(
-      milestone.targetDate.equals(targetDate),
+      milestone.name === params.name,
+      'Milestone name unchanged'
+    ).isFalse();
+    this.apply(
+      new ProjectMilestoneNameChanged(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          name: params.name,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
+    );
+  }
+
+  changeMilestoneTargetDate(params: {
+    milestoneId: MilestoneId;
+    targetDate: LocalDate;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
+    this.assertNotArchived();
+    this.assertDateWithinRange(params.targetDate);
+    const milestone = this.findMilestone(params.milestoneId);
+    Assert.that(
+      milestone.targetDate.equals(params.targetDate),
       'Milestone target unchanged'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneTargetDateChanged({
-        projectId: this.id,
-        milestoneId,
-        targetDate,
-        changedAt,
-      })
+      new ProjectMilestoneTargetDateChanged(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          targetDate: params.targetDate,
+          changedAt: params.changedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  archiveMilestone(milestoneId: MilestoneId, archivedAt: Timestamp): void {
+  archiveMilestone(params: {
+    milestoneId: MilestoneId;
+    archivedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    this.findMilestone(milestoneId);
+    this.findMilestone(params.milestoneId);
     this.apply(
-      new ProjectMilestoneArchived({
-        projectId: this.id,
-        milestoneId,
-        archivedAt,
-      })
+      new ProjectMilestoneArchived(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          archivedAt: params.archivedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 
-  archive(archivedAt: Timestamp): void {
+  archive(params: { archivedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     this.apply(
-      new ProjectArchived({
-        projectId: this.id,
-        archivedAt,
-      })
+      new ProjectArchived(
+        {
+          projectId: this.id,
+          archivedAt: params.archivedAt,
+        },
+        { actorId: params.actorId }
+      )
     );
   }
 

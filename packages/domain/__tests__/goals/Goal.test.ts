@@ -62,7 +62,11 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.changeSummary(Summary.from('Master TypeScript and DDD'), changedAt);
+      goal.changeSummary({
+        summary: Summary.from('Master TypeScript and DDD'),
+        changedAt,
+        actorId: UserId.from('user-789'),
+      });
 
       expect(goal.summary.value).toBe('Master TypeScript and DDD');
       expect(goal.getUncommittedEvents()).toHaveLength(2); // Created + SummaryChanged
@@ -80,7 +84,11 @@ describe('Goal Aggregate', () => {
       });
 
       expect(() => {
-        goal.changeSummary(Summary.from('Learn React'), changedAt);
+        goal.changeSummary({
+          summary: Summary.from('Learn React'),
+          changedAt,
+          actorId: UserId.from('user-999'),
+        });
       }).toThrow();
     });
   });
@@ -97,7 +105,11 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.changeSlice(Slice.Learning, changedAt);
+      goal.changeSlice({
+        slice: Slice.Learning,
+        changedAt,
+        actorId: UserId.from('user-abc'),
+      });
 
       expect(goal.slice.equals(Slice.Learning)).toBe(true);
     });
@@ -115,7 +127,11 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.changePriority(Priority.Must, changedAt);
+      goal.changePriority({
+        priority: Priority.Must,
+        changedAt,
+        actorId: UserId.from('user-def'),
+      });
 
       expect(goal.priority.isMust()).toBe(true);
       expect(goal.priority.isHigherThan(Priority.Should)).toBe(true);
@@ -135,7 +151,11 @@ describe('Goal Aggregate', () => {
       });
 
       const newTarget = Month.from('2024-06').addMonths(3);
-      goal.changeTargetMonth(newTarget, changedAt);
+      goal.changeTargetMonth({
+        targetMonth: newTarget,
+        changedAt,
+        actorId: UserId.from('user-ghi'),
+      });
 
       expect(goal.targetMonth.year).toBe(2024);
       expect(goal.targetMonth.month).toBe(9);
@@ -154,7 +174,7 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.archive(changedAt);
+      goal.archive({ archivedAt: changedAt, actorId: UserId.from('user-jkl') });
 
       expect(goal.isArchived).toBe(true);
       expect(goal.archivedAt).not.toBeNull();
@@ -171,10 +191,14 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.archive(changedAt);
+      goal.archive({ archivedAt: changedAt, actorId: UserId.from('user-mno') });
 
       expect(() => {
-        goal.changeSummary(Summary.from('Save $20k'), laterAt);
+        goal.changeSummary({
+          summary: Summary.from('Save $20k'),
+          changedAt: laterAt,
+          actorId: UserId.from('user-mno'),
+        });
       }).toThrow();
     });
   });
@@ -191,11 +215,12 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.grantAccess(
-        UserId.from('collaborator-456'),
-        Permission.from('edit'),
-        changedAt
-      );
+      goal.grantAccess({
+        userId: UserId.from('collaborator-456'),
+        permission: Permission.from('edit'),
+        grantedAt: changedAt,
+        actorId: UserId.from('owner-123'),
+      });
 
       expect(goal.accessList).toHaveLength(1);
       expect(goal.accessList[0].userId.value).toBe('collaborator-456');
@@ -215,8 +240,17 @@ describe('Goal Aggregate', () => {
       });
 
       const collaboratorId = UserId.from('collaborator-999');
-      goal.grantAccess(collaboratorId, Permission.from('view'), changedAt);
-      goal.revokeAccess(collaboratorId, laterAt);
+      goal.grantAccess({
+        userId: collaboratorId,
+        permission: Permission.from('view'),
+        grantedAt: changedAt,
+        actorId: UserId.from('owner-789'),
+      });
+      goal.revokeAccess({
+        userId: collaboratorId,
+        revokedAt: laterAt,
+        actorId: UserId.from('owner-789'),
+      });
 
       expect(goal.accessList[0].isActive).toBe(false);
       expect(goal.accessList[0].revokedAt).not.toBeNull();
@@ -234,10 +268,20 @@ describe('Goal Aggregate', () => {
       });
 
       const userId = UserId.from('collaborator-bbb');
-      goal.grantAccess(userId, Permission.from('view'), changedAt);
+      goal.grantAccess({
+        userId,
+        permission: Permission.from('view'),
+        grantedAt: changedAt,
+        actorId: UserId.from('owner-aaa'),
+      });
 
       expect(() => {
-        goal.grantAccess(userId, Permission.from('edit'), laterAt);
+        goal.grantAccess({
+          userId,
+          permission: Permission.from('edit'),
+          grantedAt: laterAt,
+          actorId: UserId.from('owner-aaa'),
+        });
       }).toThrow();
     });
   });
@@ -254,8 +298,16 @@ describe('Goal Aggregate', () => {
         createdAt,
       });
 
-      goal.changeSummary(Summary.from('Ultimate fitness journey'), changedAt);
-      goal.changePriority(Priority.Must, laterAt);
+      goal.changeSummary({
+        summary: Summary.from('Ultimate fitness journey'),
+        changedAt,
+        actorId: UserId.from('user-ccc'),
+      });
+      goal.changePriority({
+        priority: Priority.Must,
+        changedAt: laterAt,
+        actorId: UserId.from('user-ccc'),
+      });
 
       const events = goal.getUncommittedEvents();
       expect(events).toHaveLength(3); // Created + SummaryChanged + PriorityChanged
@@ -276,7 +328,11 @@ describe('Goal Aggregate', () => {
       });
 
       const initialVersion = goal.version;
-      goal.changeSummary(Summary.from('Bi-weekly date nights'), changedAt);
+      goal.changeSummary({
+        summary: Summary.from('Bi-weekly date nights'),
+        changedAt,
+        actorId: UserId.from('user-ddd'),
+      });
 
       expect(goal.version).toBe(initialVersion + 1);
     });

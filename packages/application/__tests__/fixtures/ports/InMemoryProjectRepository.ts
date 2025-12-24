@@ -1,5 +1,6 @@
-import { Project, ProjectId, Timestamp } from '@mo/domain';
+import { Project, ProjectId, Timestamp, UserId } from '@mo/domain';
 import { IProjectRepository } from '../../../src/projects/ports/IProjectRepository';
+import { none, Option, some } from '../../../src/shared/ports/Option';
 
 type StoredProject = {
   project: Project;
@@ -11,8 +12,9 @@ export class InMemoryProjectRepository implements IProjectRepository {
   private failSave = false;
   private errorToThrow: Error | null = null;
 
-  async load(id: ProjectId): Promise<Project | null> {
-    return this.store.get(id.value)?.project ?? null;
+  async load(id: ProjectId): Promise<Option<Project>> {
+    const project = this.store.get(id.value)?.project;
+    return project ? some(project) : none();
   }
 
   async save(project: Project, encryptionKey: Uint8Array): Promise<void> {
@@ -28,10 +30,14 @@ export class InMemoryProjectRepository implements IProjectRepository {
     this.store.set(project.id.value, { project, encryptionKey });
   }
 
-  async archive(id: ProjectId, archivedAt: Timestamp): Promise<void> {
+  async archive(
+    id: ProjectId,
+    archivedAt: Timestamp,
+    actorId: UserId
+  ): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
-    stored.project.archive(archivedAt);
+    stored.project.archive({ archivedAt, actorId });
     await this.save(stored.project, stored.encryptionKey);
   }
 

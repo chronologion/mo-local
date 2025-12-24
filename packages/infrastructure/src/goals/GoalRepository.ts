@@ -1,9 +1,12 @@
-import { Goal, GoalId, Timestamp } from '@mo/domain';
+import { Goal, GoalId, Timestamp, UserId } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
   IGoalRepository,
+  none,
+  Option,
+  some,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
@@ -32,7 +35,7 @@ export class GoalRepository implements IGoalRepository {
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
-  async load(id: GoalId): Promise<Goal | null> {
+  async load(id: GoalId): Promise<Option<Goal>> {
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
@@ -41,16 +44,16 @@ export class GoalRepository implements IGoalRepository {
     const snapshot = await this.loadSnapshot(id.value, kGoal);
     const fromVersion = snapshot ? snapshot.version + 1 : 1;
     const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
-    if (!snapshot && tailEvents.length === 0) return null;
+    if (!snapshot && tailEvents.length === 0) return none();
 
     const domainTail = await Promise.all(
       tailEvents.map((event) => this.toDomain.toDomain(event, kGoal))
     );
 
     if (snapshot) {
-      return Goal.reconstituteFromSnapshot(snapshot, domainTail);
+      return some(Goal.reconstituteFromSnapshot(snapshot, domainTail));
     }
-    return Goal.reconstitute(id, domainTail);
+    return some(Goal.reconstitute(id, domainTail));
   }
 
   async save(goal: Goal, encryptionKey: Uint8Array): Promise<void> {
@@ -107,14 +110,18 @@ export class GoalRepository implements IGoalRepository {
     return decodeGoalSnapshotDomain(plaintext, row.version);
   }
 
-  async archive(id: GoalId, archivedAt: Timestamp): Promise<void> {
+  async archive(
+    id: GoalId,
+    archivedAt: Timestamp,
+    actorId: UserId
+  ): Promise<void> {
     const goal = await this.load(id);
-    if (!goal) return;
-    goal.archive(archivedAt);
+    if (goal.kind === 'none') return;
+    goal.value.archive({ archivedAt, actorId });
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
-    await this.save(goal, kGoal);
+    await this.save(goal.value, kGoal);
   }
 }

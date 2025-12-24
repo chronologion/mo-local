@@ -4,6 +4,9 @@ import {
   EncryptedEvent,
   IEventStore,
   NotFoundError,
+  none,
+  Option,
+  some,
 } from '@mo/application';
 import { PersistenceError } from '../../../src/errors';
 
@@ -30,9 +33,9 @@ export class LiveStoreGoalRepository {
     ) => Promise<Uint8Array | null>
   ) {}
 
-  async load(id: GoalId): Promise<Goal | null> {
+  async load(id: GoalId): Promise<Option<Goal>> {
     const encryptedEvents = await this.eventStore.getEvents(id.value);
-    if (encryptedEvents.length === 0) return null;
+    if (encryptedEvents.length === 0) return none();
 
     const kGoal = await this.keyProvider(id.value);
     if (!kGoal) {
@@ -44,7 +47,7 @@ export class LiveStoreGoalRepository {
     const domainEvents = encryptedEvents.map((e) =>
       this.adapter.toDomain(e, kGoal)
     );
-    return Goal.reconstitute(id, domainEvents);
+    return some(Goal.reconstitute(id, domainEvents));
   }
 
   async save(goal: Goal, encryptionKey: Uint8Array): Promise<void> {

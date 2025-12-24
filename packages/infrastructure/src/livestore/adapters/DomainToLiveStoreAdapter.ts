@@ -1,4 +1,4 @@
-import { DomainEvent, uuidv7 } from '@mo/domain';
+import { DomainEvent } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
 import { encodePayloadEnvelope } from '../../eventing/payloadEnvelope';
 import { encodePersisted } from '../../eventing/registry';
@@ -50,12 +50,15 @@ export class DomainToLiveStoreAdapter {
     }
 
     return {
-      id: uuidv7(),
+      id: domainEvent.eventId.value,
       aggregateId: domainEvent.aggregateId.value,
       eventType: domainEvent.eventType,
       payload: encryptedPayload,
       version,
       occurredAt: domainEvent.occurredAt.value,
+      actorId: domainEvent.actorId?.value ?? null,
+      causationId: domainEvent.causationId?.value ?? null,
+      correlationId: domainEvent.correlationId?.value ?? null,
       // sequence is assigned by the event store during append
     };
   }

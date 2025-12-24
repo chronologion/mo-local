@@ -6,9 +6,13 @@ export * from './shared/eventSpec';
 export * from './shared/vos/Timestamp';
 export * from './shared/vos/LocalDate';
 export * from './shared/vos/ValueObject';
+export * from './shared/vos/ActorId';
+export * from './shared/vos/EventId';
+export * from './shared/vos/CorrelationId';
 
 // Identity Value Objects
 export * from './identity/UserId';
+export * from './identity/events/UserRegistered';
 
 // Goal Value Objects
 export * from './goals/vos/GoalId';

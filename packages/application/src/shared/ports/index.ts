@@ -7,6 +7,7 @@ export * from './IIdempotencyStore';
 export * from './ISyncProvider';
 export * from './Bus';
 export * from './CommandResult';
+export * from './Option';
 export * from './cqrsTypes';
 export * from './BaseCommand';
 export * from './BaseCommandHandler';

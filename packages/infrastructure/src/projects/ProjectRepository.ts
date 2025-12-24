@@ -1,9 +1,12 @@
-import { Project, ProjectId, Timestamp } from '@mo/domain';
+import { Project, ProjectId, Timestamp, UserId } from '@mo/domain';
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
   IProjectRepository,
+  none,
+  Option,
+  some,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
@@ -42,7 +45,7 @@ export class ProjectRepository implements IProjectRepository {
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
-  async load(id: ProjectId): Promise<Project | null> {
+  async load(id: ProjectId): Promise<Option<Project>> {
     const kProject = await this.keyProvider(id.value);
     if (!kProject) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
@@ -51,16 +54,16 @@ export class ProjectRepository implements IProjectRepository {
     const snapshot = await this.loadSnapshot(id.value, kProject);
     const fromVersion = snapshot ? snapshot.version + 1 : 1;
     const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
-    if (!snapshot && tailEvents.length === 0) return null;
+    if (!snapshot && tailEvents.length === 0) return none();
 
     const domainTail = await Promise.all(
       tailEvents.map((event) => this.toDomain.toDomain(event, kProject))
     );
 
     if (snapshot) {
-      return Project.reconstituteFromSnapshot(snapshot, domainTail);
+      return some(Project.reconstituteFromSnapshot(snapshot, domainTail));
     }
-    return Project.reconstitute(id, domainTail);
+    return some(Project.reconstitute(id, domainTail));
   }
 
   async save(project: Project, encryptionKey: Uint8Array): Promise<void> {
@@ -97,7 +100,11 @@ export class ProjectRepository implements IProjectRepository {
     }
   }
 
-  async archive(_id: ProjectId, _archivedAt: Timestamp): Promise<void> {
+  async archive(
+    _id: ProjectId,
+    _archivedAt: Timestamp,
+    _actorId: UserId
+  ): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
   }
 

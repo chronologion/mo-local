@@ -75,14 +75,13 @@ describe('Project aggregate', () => {
     });
 
     const milestoneId = MilestoneId.create();
-    project.addMilestone(
-      {
-        id: milestoneId,
-        name: 'First milestone',
-        targetDate: today,
-      },
-      changedAt
-    );
+    project.addMilestone({
+      id: milestoneId,
+      name: 'First milestone',
+      targetDate: today,
+      addedAt: changedAt,
+      actorId: UserId.from('user-2'),
+    });
 
     expect(project.milestones).toHaveLength(1);
     expect(project.milestones[0].id.equals(milestoneId)).toBe(true);
@@ -101,14 +100,13 @@ describe('Project aggregate', () => {
     });
 
     expect(() =>
-      project.addMilestone(
-        {
-          id: MilestoneId.create(),
-          name: 'Bad milestone',
-          targetDate: LocalDate.from(today.year + 1, today.month, today.day),
-        },
-        changedAt
-      )
+      project.addMilestone({
+        id: MilestoneId.create(),
+        name: 'Bad milestone',
+        targetDate: LocalDate.from(today.year + 1, today.month, today.day),
+        addedAt: changedAt,
+        actorId: UserId.from('user-3'),
+      })
     ).toThrow(/Milestone target date must be within project dates/);
   });
 
@@ -125,23 +123,21 @@ describe('Project aggregate', () => {
       createdBy: UserId.from('user-4'),
       createdAt,
     });
-    project.addMilestone(
-      {
-        id: MilestoneId.create(),
-        name: 'Inside range',
-        targetDate: LocalDate.from(today.year, today.month, startDay + 5),
-      },
-      changedAt
-    );
+    project.addMilestone({
+      id: MilestoneId.create(),
+      name: 'Inside range',
+      targetDate: LocalDate.from(today.year, today.month, startDay + 5),
+      addedAt: changedAt,
+      actorId: UserId.from('user-4'),
+    });
 
     expect(() =>
-      project.changeDates(
-        {
-          startDate,
-          targetDate: LocalDate.from(today.year, today.month, startDay + 2),
-        },
-        laterAt
-      )
+      project.changeDates({
+        startDate,
+        targetDate: LocalDate.from(today.year, today.month, startDay + 2),
+        changedAt: laterAt,
+        actorId: UserId.from('user-4'),
+      })
     ).toThrow(/Existing milestones must remain within the new date range/);
   });
 
@@ -158,14 +154,22 @@ describe('Project aggregate', () => {
     });
 
     const goalId = GoalId.create();
-    project.addGoal(goalId, changedAt);
+    project.addGoal({
+      goalId,
+      addedAt: changedAt,
+      actorId: UserId.from('user-5'),
+    });
     expect(project.goalId?.equals(goalId)).toBe(true);
 
-    expect(() => project.addGoal(GoalId.create(), laterAt)).toThrow(
-      /Project already linked to a goal/
-    );
+    expect(() =>
+      project.addGoal({
+        goalId: GoalId.create(),
+        addedAt: laterAt,
+        actorId: UserId.from('user-5'),
+      })
+    ).toThrow(/Project already linked to a goal/);
 
-    project.removeGoal(laterAt);
+    project.removeGoal({ removedAt: laterAt, actorId: UserId.from('user-5') });
     expect(project.goalId).toBeNull();
   });
 
@@ -180,21 +184,24 @@ describe('Project aggregate', () => {
       createdBy: UserId.from('user-6'),
       createdAt,
     });
-    project.archive(changedAt);
+    project.archive({ archivedAt: changedAt, actorId: UserId.from('user-6') });
 
     expect(project.isArchived).toBe(true);
     expect(() =>
-      project.changeName(ProjectName.from('New name after archive'), laterAt)
+      project.changeName({
+        name: ProjectName.from('New name after archive'),
+        changedAt: laterAt,
+        actorId: UserId.from('user-6'),
+      })
     ).toThrow();
     expect(() =>
-      project.addMilestone(
-        {
-          id: MilestoneId.create(),
-          name: 'Should fail',
-          targetDate: today,
-        },
-        laterAt
-      )
+      project.addMilestone({
+        id: MilestoneId.create(),
+        name: 'Should fail',
+        targetDate: today,
+        addedAt: laterAt,
+        actorId: UserId.from('user-6'),
+      })
     ).toThrow();
   });
 
@@ -211,21 +218,37 @@ describe('Project aggregate', () => {
     });
     const initialUpdated = project.updatedAt;
 
-    project.changeStatus(ProjectStatus.InProgress, changedAt);
+    project.changeStatus({
+      status: ProjectStatus.InProgress,
+      changedAt,
+      actorId: UserId.from('user-7'),
+    });
     expect(project.status.equals(ProjectStatus.InProgress)).toBe(true);
     expect(
       project.updatedAt.isAfter(initialUpdated) ||
         project.updatedAt.equals(initialUpdated)
     ).toBe(true);
 
-    expect(() => project.changeStatus(ProjectStatus.Planned, laterAt)).toThrow(
-      /Invalid status transition/
-    );
     expect(() =>
-      project.changeStatus(ProjectStatus.InProgress, laterAt)
+      project.changeStatus({
+        status: ProjectStatus.Planned,
+        changedAt: laterAt,
+        actorId: UserId.from('user-7'),
+      })
+    ).toThrow(/Invalid status transition/);
+    expect(() =>
+      project.changeStatus({
+        status: ProjectStatus.InProgress,
+        changedAt: laterAt,
+        actorId: UserId.from('user-7'),
+      })
     ).toThrow(/ProjectStatus unchanged/);
 
-    project.changeStatus(ProjectStatus.Canceled, laterAt);
+    project.changeStatus({
+      status: ProjectStatus.Canceled,
+      changedAt: laterAt,
+      actorId: UserId.from('user-7'),
+    });
     expect(project.status.equals(ProjectStatus.Canceled)).toBe(true);
   });
 
@@ -240,7 +263,7 @@ describe('Project aggregate', () => {
       createdBy: UserId.from('user-8'),
       createdAt,
     });
-    project.archive(changedAt);
+    project.archive({ archivedAt: changedAt, actorId: UserId.from('user-8') });
     expect(project.archivedAt).not.toBeNull();
     expect(project.updatedAt.toISOString()).toBe(
       project.archivedAt?.toISOString()

@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { UserId } from '../../identity/UserId';
@@ -24,8 +24,15 @@ export class GoalAccessGranted
   readonly permission: Permission;
   readonly grantedAt: Timestamp;
 
-  constructor(payload: GoalAccessGrantedPayload) {
-    super(payload.goalId, payload.grantedAt);
+  constructor(payload: GoalAccessGrantedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.grantedAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.grantedTo = payload.grantedTo;
     this.permission = payload.permission;
@@ -37,9 +44,13 @@ export class GoalAccessGranted
 export const GoalAccessGrantedSpec = payloadEventSpec<
   GoalAccessGranted,
   GoalAccessGrantedPayload
->(goalEventTypes.goalAccessGranted, (p) => new GoalAccessGranted(p), {
-  goalId: voString(GoalId.from),
-  grantedTo: voString(UserId.from),
-  permission: voString(Permission.from),
-  grantedAt: voNumber(Timestamp.fromMillis),
-});
+>(
+  goalEventTypes.goalAccessGranted,
+  (p, meta) => new GoalAccessGranted(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    grantedTo: voString(UserId.from),
+    permission: voString(Permission.from),
+    grantedAt: voNumber(Timestamp.fromMillis),
+  }
+);

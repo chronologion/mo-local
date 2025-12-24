@@ -12,6 +12,7 @@ import {
 import { InMemoryGoalRepository } from '../../fixtures/ports/InMemoryGoalRepository';
 import { InMemoryEventBus } from '../../fixtures/ports/InMemoryEventBus';
 import { MockCryptoService } from '../../fixtures/ports/MockCryptoService';
+import { isSome } from '../../../src/shared/ports/Option';
 
 describe('InMemoryGoalRepository', () => {
   it('saves, loads, and deletes goals', async () => {
@@ -28,11 +29,13 @@ describe('InMemoryGoalRepository', () => {
     const key = Uint8Array.from([1, 2, 3, 4]);
 
     await repo.save(goal, key);
-    expect(await repo.load(goal.id)).toBe(goal);
+    const loaded = await repo.load(goal.id);
+    expect(isSome(loaded) ? loaded.value : null).toBe(goal);
     expect(repo.getStoredKey(goal.id)).toEqual(key);
 
     await repo.delete(goal.id);
-    expect(await repo.load(goal.id)).toBeNull();
+    const deleted = await repo.load(goal.id);
+    expect(deleted.kind).toBe('none');
   });
 });
 

@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { Slice } from '../Slice';
 import { Priority } from '../vos/Priority';
 import { goalEventTypes } from './eventTypes';
@@ -32,8 +32,15 @@ export class GoalCreated
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(payload: GoalCreatedPayload) {
-    super(payload.goalId, payload.createdAt);
+  constructor(payload: GoalCreatedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.createdAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.goalId = payload.goalId;
     this.slice = payload.slice;
     this.summary = payload.summary;
@@ -48,7 +55,7 @@ export class GoalCreated
 export const GoalCreatedSpec = payloadEventSpec<
   GoalCreated,
   GoalCreatedPayload
->(goalEventTypes.goalCreated, (p) => new GoalCreated(p), {
+>(goalEventTypes.goalCreated, (p, meta) => new GoalCreated(p, meta), {
   goalId: voString(GoalId.from),
   slice: voString(Slice.from),
   summary: voString(Summary.from),

@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { projectEventTypes } from './eventTypes';
 import { ProjectId } from '../vos/ProjectId';
 import { ProjectName } from '../vos/ProjectName';
@@ -43,8 +43,15 @@ export class ProjectCreated
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(payload: ProjectCreatedPayload) {
-    super(payload.projectId, payload.createdAt);
+  constructor(payload: ProjectCreatedPayload, meta?: EventMetadata) {
+    super({
+      aggregateId: payload.projectId,
+      occurredAt: payload.createdAt,
+      eventId: meta?.eventId,
+      actorId: meta?.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
+    });
     this.projectId = payload.projectId;
     this.name = payload.name;
     this.status = payload.status;
@@ -61,7 +68,7 @@ export class ProjectCreated
 export const ProjectCreatedSpec = payloadEventSpec<
   ProjectCreated,
   ProjectCreatedPayload
->(projectEventTypes.projectCreated, (p) => new ProjectCreated(p), {
+>(projectEventTypes.projectCreated, (p, meta) => new ProjectCreated(p, meta), {
   projectId: voString(ProjectId.from),
   name: voString(ProjectName.from),
   status: voString(ProjectStatus.from),

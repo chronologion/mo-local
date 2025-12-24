@@ -13,6 +13,9 @@ type DomainEventFactory<TSchema extends LiveStoreSchema> = (payload: {
   payload: Uint8Array;
   version: number;
   occurredAt: number;
+  actorId: string | null;
+  causationId: string | null;
+  correlationId: string | null;
 }) => LiveStoreEvent.Input.ForSchema<TSchema>;
 type GoalEventFactory = DomainEventFactory<LiveStoreSchema.Any>;
 
@@ -70,6 +73,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
               payload: event.payload,
               version: event.version,
               occurredAt: event.occurredAt,
+              actorId: event.actorId ?? null,
+              causationId: event.causationId ?? null,
+              correlationId: event.correlationId ?? null,
             })
           )
         );
@@ -95,11 +101,14 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         payload_encrypted: Uint8Array;
         version: number;
         occurred_at: number;
+        actor_id: string | null;
+        causation_id: string | null;
+        correlation_id: string | null;
         sequence: number;
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         WHERE aggregate_id = ? AND version >= ?
         ORDER BY version ASC
@@ -141,11 +150,14 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         payload_encrypted: Uint8Array;
         version: number;
         occurred_at: number;
+        actor_id: string | null;
+        causation_id: string | null;
+        correlation_id: string | null;
         sequence: number;
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         ${whereClause}
         ORDER BY sequence ASC
@@ -177,6 +189,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     payload_encrypted: Uint8Array;
     version: number;
     occurred_at: number;
+    actor_id: string | null;
+    causation_id: string | null;
+    correlation_id: string | null;
     sequence: number;
   }): EncryptedEvent {
     return {
@@ -186,6 +201,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       payload: row.payload_encrypted,
       version: Number(row.version),
       occurredAt: Number(row.occurred_at),
+      actorId: row.actor_id,
+      causationId: row.causation_id,
+      correlationId: row.correlation_id,
       sequence: Number(row.sequence),
     };
   }
