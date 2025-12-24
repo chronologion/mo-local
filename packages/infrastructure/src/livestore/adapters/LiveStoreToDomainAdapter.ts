@@ -32,6 +32,9 @@ export class LiveStoreToDomainAdapter {
     }
 
     const { payloadVersion, data } = decodePayloadEnvelope(payloadBytes);
+    if (!lsEvent.actorId) {
+      throw new Error(`Missing actorId for ${lsEvent.eventType} ${lsEvent.id}`);
+    }
     return decodePersisted(
       {
         type: lsEvent.eventType,
@@ -40,7 +43,7 @@ export class LiveStoreToDomainAdapter {
       },
       {
         eventId: EventId.from(lsEvent.id),
-        actorId: lsEvent.actorId ? ActorId.from(lsEvent.actorId) : undefined,
+        actorId: ActorId.from(lsEvent.actorId),
         causationId: lsEvent.causationId
           ? EventId.from(lsEvent.causationId)
           : undefined,

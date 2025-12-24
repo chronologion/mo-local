@@ -21,12 +21,12 @@ export class GoalPriorityChanged
   readonly priority: Priority;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalPriorityChangedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalPriorityChangedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.changedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

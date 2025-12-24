@@ -15,12 +15,12 @@ export class UserRegistered
   readonly userId: UserId;
   readonly registeredAt: Timestamp;
 
-  constructor(payload: UserRegisteredPayload, meta?: EventMetadata) {
+  constructor(payload: UserRegisteredPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.userId,
       occurredAt: payload.registeredAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

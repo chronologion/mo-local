@@ -53,16 +53,22 @@ describe('InMemoryEventBus', () => {
         eventType: 'TestEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-1' } as never,
+        eventId: { value: 'e-1' } as never,
+        actorId: { value: 'user-1' } as never,
       },
       {
         eventType: 'OtherEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-2' } as never,
+        eventId: { value: 'e-2' } as never,
+        actorId: { value: 'user-2' } as never,
       },
       {
         eventType: 'TestEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-3' } as never,
+        eventId: { value: 'e-3' } as never,
+        actorId: { value: 'user-3' } as never,
       },
     ];
 

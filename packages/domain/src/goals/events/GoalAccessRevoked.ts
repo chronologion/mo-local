@@ -21,12 +21,12 @@ export class GoalAccessRevoked
   readonly revokedFrom: UserId;
   readonly revokedAt: Timestamp;
 
-  constructor(payload: GoalAccessRevokedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalAccessRevokedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.revokedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

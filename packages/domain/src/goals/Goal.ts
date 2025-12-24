@@ -17,6 +17,7 @@ import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
+import { EventId } from '../shared/vos/EventId';
 import { Permission } from './vos/Permission';
 
 export type GoalSnapshot = {
@@ -131,7 +132,7 @@ export class Goal extends AggregateRoot<GoalId> {
           createdBy: params.createdBy,
           createdAt: params.createdAt,
         },
-        { actorId: params.createdBy }
+        { eventId: EventId.create(), actorId: params.createdBy }
       )
     );
     return goal;
@@ -206,7 +207,7 @@ export class Goal extends AggregateRoot<GoalId> {
           summary: params.summary,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -231,7 +232,7 @@ export class Goal extends AggregateRoot<GoalId> {
           slice: params.slice,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -259,7 +260,7 @@ export class Goal extends AggregateRoot<GoalId> {
           targetMonth: params.targetMonth,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -287,7 +288,7 @@ export class Goal extends AggregateRoot<GoalId> {
           priority: params.priority,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -308,7 +309,7 @@ export class Goal extends AggregateRoot<GoalId> {
           goalId: this.id,
           archivedAt: params.archivedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -342,7 +343,7 @@ export class Goal extends AggregateRoot<GoalId> {
           permission: params.permission,
           grantedAt: params.grantedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -371,7 +372,7 @@ export class Goal extends AggregateRoot<GoalId> {
           revokedFrom: params.userId,
           revokedAt: params.revokedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }

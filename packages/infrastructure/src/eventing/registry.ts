@@ -11,7 +11,7 @@ const asRecord = (event: DomainEvent): Record<string, unknown> =>
 
 export function decodePersisted(
   rec: PersistedEvent,
-  meta?: EventMetadata
+  meta: EventMetadata
 ): DomainEvent {
   const spec = byType.get(rec.type);
   if (!spec) {

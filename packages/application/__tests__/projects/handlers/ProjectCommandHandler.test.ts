@@ -200,23 +200,6 @@ describe('ProjectCommandHandler', () => {
     ).rejects.toBeInstanceOf(ValidationException);
   });
 
-  it('does not depend on userId for project updates', async () => {
-    const { handler } = setup();
-    await handler.handleCreate(baseCreate());
-
-    const commandWithoutUserId = {
-      projectId,
-      name: 'Updated name',
-      timestamp: Date.now(),
-      knownVersion: 1,
-      idempotencyKey: 'idem-name-no-user',
-    } as unknown as ChangeProjectName;
-
-    await expect(
-      handler.handleChangeName(commandWithoutUserId)
-    ).resolves.toBeDefined();
-  });
-
   it('throws ConcurrencyError when knownVersion mismatches', async () => {
     const { handler } = setup();
     await handler.handleCreate(baseCreate());

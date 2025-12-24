@@ -4,6 +4,7 @@ import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveSt
 import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
 import {
+  ActorId,
   ProjectCreated,
   ProjectStatusChanged,
   ProjectArchived,
@@ -15,6 +16,7 @@ import {
   LocalDate,
   Timestamp,
   UserId,
+  EventId,
 } from '@mo/domain';
 import type { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
@@ -26,6 +28,11 @@ type SnapshotRow = {
   last_sequence: number;
   updated_at: number;
 };
+
+const meta = () => ({
+  eventId: EventId.create(),
+  actorId: ActorId.from('user-1'),
+});
 
 class StoreStub {
   snapshots = new Map<string, SnapshotRow>();
@@ -167,32 +174,41 @@ describe('ProjectProjectionProcessor', () => {
 
   it('projects events into list and respects archive', async () => {
     const kProject = (await keyStore.getAggregateKey(projectId))!;
-    const created = new ProjectCreated({
-      projectId: ProjectId.from(projectId),
-      name: ProjectName.from('Alpha'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-01-01'),
-      targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.from('desc'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-01-01T00:00:00Z').getTime()
-      ),
-    });
-    const status = new ProjectStatusChanged({
-      projectId: ProjectId.from(projectId),
-      status: ProjectStatus.from('in_progress'),
-      changedAt: Timestamp.fromMillis(
-        new Date('2025-01-02T00:00:00Z').getTime()
-      ),
-    });
-    const archived = new ProjectArchived({
-      projectId: ProjectId.from(projectId),
-      archivedAt: Timestamp.fromMillis(
-        new Date('2025-01-03T00:00:00Z').getTime()
-      ),
-    });
+    const created = new ProjectCreated(
+      {
+        projectId: ProjectId.from(projectId),
+        name: ProjectName.from('Alpha'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.from('desc'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
+    const status = new ProjectStatusChanged(
+      {
+        projectId: ProjectId.from(projectId),
+        status: ProjectStatus.from('in_progress'),
+        changedAt: Timestamp.fromMillis(
+          new Date('2025-01-02T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
+    const archived = new ProjectArchived(
+      {
+        projectId: ProjectId.from(projectId),
+        archivedAt: Timestamp.fromMillis(
+          new Date('2025-01-03T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
     const events: DomainEvent[] = [created, status, archived];
     const encryptedBatch = await Promise.all(
       events.map((event, idx) =>
@@ -216,19 +232,22 @@ describe('ProjectProjectionProcessor', () => {
 
   it('indexes projects for search', async () => {
     const kProject = (await keyStore.getAggregateKey(projectId))!;
-    const created = new ProjectCreated({
-      projectId: ProjectId.from(projectId),
-      name: ProjectName.from('Build UI'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-03-01'),
-      targetDate: LocalDate.fromString('2025-04-01'),
-      description: ProjectDescription.from('Ship MVP'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-03-01T00:00:00Z').getTime()
-      ),
-    });
+    const created = new ProjectCreated(
+      {
+        projectId: ProjectId.from(projectId),
+        name: ProjectName.from('Build UI'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-03-01'),
+        targetDate: LocalDate.fromString('2025-04-01'),
+        description: ProjectDescription.from('Ship MVP'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-03-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
     const encrypted = await toEncrypted.toEncrypted(created, 1, kProject);
     await eventStore.append(projectId, [encrypted]);
 
@@ -252,32 +271,38 @@ describe('ProjectProjectionProcessor', () => {
     await keyStore.saveAggregateKey(projectA, kProjectA);
     await keyStore.saveAggregateKey(projectB, kProjectB);
 
-    const createdA = new ProjectCreated({
-      projectId: ProjectId.from(projectA),
-      name: ProjectName.from('Alpha'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-01-01'),
-      targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.from('desc'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-01-01T00:00:00Z').getTime()
-      ),
-    });
-    const createdB = new ProjectCreated({
-      projectId: ProjectId.from(projectB),
-      name: ProjectName.from('Beta'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-01-01'),
-      targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.from('desc'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-01-01T00:00:00Z').getTime()
-      ),
-    });
+    const createdA = new ProjectCreated(
+      {
+        projectId: ProjectId.from(projectA),
+        name: ProjectName.from('Alpha'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.from('desc'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
+    const createdB = new ProjectCreated(
+      {
+        projectId: ProjectId.from(projectB),
+        name: ProjectName.from('Beta'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.from('desc'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
 
     await eventStore.append(projectA, [
       await toEncrypted.toEncrypted(createdA, 1, kProjectA),
@@ -322,32 +347,38 @@ describe('ProjectProjectionProcessor', () => {
     const kMissing = await crypto.generateKey();
     const kPresent = (await keyStore.getAggregateKey(projectId))!;
 
-    const missingCreated = new ProjectCreated({
-      projectId: ProjectId.from(missingProjectId),
-      name: ProjectName.from('Missing'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-01-01'),
-      targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.from('desc'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-01-01T00:00:00Z').getTime()
-      ),
-    });
-    const presentCreated = new ProjectCreated({
-      projectId: ProjectId.from(projectId),
-      name: ProjectName.from('Present'),
-      status: ProjectStatus.from('planned'),
-      startDate: LocalDate.fromString('2025-01-01'),
-      targetDate: LocalDate.fromString('2025-02-01'),
-      description: ProjectDescription.from('desc'),
-      goalId: null,
-      createdBy: UserId.from('user-1'),
-      createdAt: Timestamp.fromMillis(
-        new Date('2025-01-01T00:00:00Z').getTime()
-      ),
-    });
+    const missingCreated = new ProjectCreated(
+      {
+        projectId: ProjectId.from(missingProjectId),
+        name: ProjectName.from('Missing'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.from('desc'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
+    const presentCreated = new ProjectCreated(
+      {
+        projectId: ProjectId.from(projectId),
+        name: ProjectName.from('Present'),
+        status: ProjectStatus.from('planned'),
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.from('desc'),
+        goalId: null,
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(
+          new Date('2025-01-01T00:00:00Z').getTime()
+        ),
+      },
+      meta()
+    );
 
     const missingEncrypted = await toEncrypted.toEncrypted(
       missingCreated,

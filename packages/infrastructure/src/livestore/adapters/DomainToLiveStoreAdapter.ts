@@ -56,7 +56,7 @@ export class DomainToLiveStoreAdapter {
       payload: encryptedPayload,
       version,
       occurredAt: domainEvent.occurredAt.value,
-      actorId: domainEvent.actorId?.value ?? null,
+      actorId: domainEvent.actorId.value,
       causationId: domainEvent.causationId?.value ?? null,
       correlationId: domainEvent.correlationId?.value ?? null,
       // sequence is assigned by the event store during append

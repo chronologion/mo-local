@@ -21,12 +21,12 @@ export class ProjectStatusChanged
   readonly status: ProjectStatus;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectStatusChangedPayload, meta?: EventMetadata) {
+  constructor(payload: ProjectStatusChangedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

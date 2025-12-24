@@ -3,7 +3,7 @@ import {
   ValidatedImportUserKeysCommand,
 } from './commands';
 import { IKeyStore, IEventBus } from '../ports';
-import { Timestamp, UserRegistered } from '@mo/domain';
+import { EventId, Timestamp, UserRegistered } from '@mo/domain';
 
 /**
  * Handles user onboarding and key import flows.
@@ -22,7 +22,7 @@ export class UserCommandHandler {
         userId: command.userId,
         registeredAt: Timestamp.fromMillis(command.timestamp),
       },
-      { actorId: command.userId }
+      { eventId: EventId.create(), actorId: command.userId }
     );
     await this.eventBus.publish([registrationEvent]);
     return { userId: command.userId.value };

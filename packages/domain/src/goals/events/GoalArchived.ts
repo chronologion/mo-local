@@ -18,12 +18,12 @@ export class GoalArchived
   readonly goalId: GoalId;
   readonly archivedAt: Timestamp;
 
-  constructor(payload: GoalArchivedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalArchivedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.archivedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

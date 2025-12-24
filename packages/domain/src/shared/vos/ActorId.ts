@@ -17,6 +17,10 @@ export class ActorId extends ValueObject<string> {
     return new ActorId(value);
   }
 
+  static system(): ActorId {
+    return new ActorId('system');
+  }
+
   get value(): string {
     return this._value;
   }

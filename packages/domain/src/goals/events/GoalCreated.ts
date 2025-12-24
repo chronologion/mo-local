@@ -32,12 +32,12 @@ export class GoalCreated
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(payload: GoalCreatedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalCreatedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.createdAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

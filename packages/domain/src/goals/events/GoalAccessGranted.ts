@@ -24,12 +24,12 @@ export class GoalAccessGranted
   readonly permission: Permission;
   readonly grantedAt: Timestamp;
 
-  constructor(payload: GoalAccessGrantedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalAccessGrantedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.grantedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

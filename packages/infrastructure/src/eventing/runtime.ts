@@ -17,7 +17,7 @@ export function encodeLatest(
 export function decode(
   spec: RuntimeEventSpec,
   rec: PersistedEvent,
-  meta?: EventMetadata
+  meta: EventMetadata
 ): DomainEvent {
   const latestPayload = upcastPayload(rec.type, rec.version, rec.payload);
   if (typeof latestPayload !== 'object' || latestPayload === null) {

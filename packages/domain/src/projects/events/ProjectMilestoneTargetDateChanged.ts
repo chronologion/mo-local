@@ -26,13 +26,13 @@ export class ProjectMilestoneTargetDateChanged
 
   constructor(
     payload: ProjectMilestoneTargetDateChangedPayload,
-    meta?: EventMetadata
+    meta: EventMetadata
   ) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.changedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

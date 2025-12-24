@@ -23,6 +23,7 @@ import { ProjectMilestoneNameChanged } from './events/ProjectMilestoneNameChange
 import { ProjectMilestoneArchived } from './events/ProjectMilestoneArchived';
 import { ProjectArchived } from './events/ProjectArchived';
 import { DomainEvent } from '../shared/DomainEvent';
+import { EventId } from '../shared/vos/EventId';
 
 export type ProjectSnapshot = {
   id: ProjectId;
@@ -86,7 +87,7 @@ export class Project extends AggregateRoot<ProjectId> {
           createdBy: params.createdBy,
           createdAt: params.createdAt,
         },
-        { actorId: params.createdBy }
+        { eventId: EventId.create(), actorId: params.createdBy }
       )
     );
     return project;
@@ -183,7 +184,7 @@ export class Project extends AggregateRoot<ProjectId> {
           name: params.name,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -205,7 +206,7 @@ export class Project extends AggregateRoot<ProjectId> {
           description: params.description,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -228,7 +229,7 @@ export class Project extends AggregateRoot<ProjectId> {
           status: params.status,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -261,7 +262,7 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -283,7 +284,7 @@ export class Project extends AggregateRoot<ProjectId> {
           goalId: params.goalId,
           addedAt: params.addedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -299,7 +300,7 @@ export class Project extends AggregateRoot<ProjectId> {
           projectId: this.id,
           removedAt: params.removedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -326,7 +327,7 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           addedAt: params.addedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -352,7 +353,7 @@ export class Project extends AggregateRoot<ProjectId> {
           name: params.name,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -378,7 +379,7 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           changedAt: params.changedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -397,7 +398,7 @@ export class Project extends AggregateRoot<ProjectId> {
           milestoneId: params.milestoneId,
           archivedAt: params.archivedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }
@@ -410,7 +411,7 @@ export class Project extends AggregateRoot<ProjectId> {
           projectId: this.id,
           archivedAt: params.archivedAt,
         },
-        { actorId: params.actorId }
+        { eventId: EventId.create(), actorId: params.actorId }
       )
     );
   }

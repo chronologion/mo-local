@@ -6,6 +6,7 @@ import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
 import { decodeGoalSnapshotState } from '../../../src/goals/snapshots/GoalSnapshotCodec';
 import { buildSnapshotAad } from '../../../src/eventing/aad';
 import {
+  ActorId,
   GoalCreated,
   GoalArchived,
   GoalTargetChanged,
@@ -16,6 +17,7 @@ import {
   Priority,
   UserId,
   Timestamp,
+  EventId,
 } from '@mo/domain';
 import { EncryptedEvent, IEventStore } from '@mo/application';
 import type { Store } from '@livestore/livestore';
@@ -30,6 +32,10 @@ type SnapshotRow = {
 
 const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000002');
 const aggregateIdValue = aggregateId.value;
+const meta = () => ({
+  eventId: EventId.create(),
+  actorId: ActorId.from('user-1'),
+});
 
 type AnalyticsRow = {
   payload_encrypted: Uint8Array;
@@ -252,28 +258,34 @@ describe('GoalProjectionProcessor', () => {
     await keyStore.saveAggregateKey(goalId, kGoal);
     const toEncrypted = new DomainToLiveStoreAdapter(crypto);
     const created = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Health'),
-        summary: Summary.from('Run'),
-        targetMonth: Month.from('2025-12'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kGoal
     );
     const targetChanged = await toEncrypted.toEncrypted(
-      new GoalTargetChanged({
-        goalId: aggregateId,
-        targetMonth: Month.from('2026-01'),
-        changedAt: Timestamp.fromMillis(
-          new Date('2025-02-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalTargetChanged(
+        {
+          goalId: aggregateId,
+          targetMonth: Month.from('2026-01'),
+          changedAt: Timestamp.fromMillis(
+            new Date('2025-02-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       2,
       kGoal
     );
@@ -323,27 +335,33 @@ describe('GoalProjectionProcessor', () => {
     await keyStore.saveAggregateKey(goalId, kGoal);
     const toEncrypted = new DomainToLiveStoreAdapter(crypto);
     const created = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Health'),
-        summary: Summary.from('Run'),
-        targetMonth: Month.from('2025-12'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kGoal
     );
     const archived = await toEncrypted.toEncrypted(
-      new GoalArchived({
-        goalId: aggregateId,
-        archivedAt: Timestamp.fromMillis(
-          new Date('2025-03-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalArchived(
+        {
+          goalId: aggregateId,
+          archivedAt: Timestamp.fromMillis(
+            new Date('2025-03-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       2,
       kGoal
     );
@@ -373,17 +391,20 @@ describe('GoalProjectionProcessor', () => {
     await keyStore.saveAggregateKey(goalId, kGoal);
     const toEncrypted = new DomainToLiveStoreAdapter(crypto);
     const created = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Health'),
-        summary: Summary.from('Run'),
-        targetMonth: Month.from('2025-12'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kGoal
     );
@@ -410,28 +431,34 @@ describe('GoalProjectionProcessor', () => {
     await keyStore.saveAggregateKey(goalId, kGoal);
     const toEncrypted = new DomainToLiveStoreAdapter(crypto);
     const created = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Health'),
-        summary: Summary.from('Run'),
-        targetMonth: Month.from('2025-12'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kGoal
     );
     const targetChanged = await toEncrypted.toEncrypted(
-      new GoalTargetChanged({
-        goalId: aggregateId,
-        targetMonth: Month.from('2026-01'),
-        changedAt: Timestamp.fromMillis(
-          new Date('2025-02-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalTargetChanged(
+        {
+          goalId: aggregateId,
+          targetMonth: Month.from('2026-01'),
+          changedAt: Timestamp.fromMillis(
+            new Date('2025-02-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       2,
       kGoal
     );
@@ -460,17 +487,20 @@ describe('GoalProjectionProcessor', () => {
     await keyStore.saveAggregateKey(goalId, kGoal);
     const toEncrypted = new DomainToLiveStoreAdapter(crypto);
     const created = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Work'),
-        summary: Summary.from('Build a todo app'),
-        targetMonth: Month.from('2025-10'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Work'),
+          summary: Summary.from('Build a todo app'),
+          targetMonth: Month.from('2025-10'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kGoal
     );
@@ -501,17 +531,20 @@ describe('GoalProjectionProcessor', () => {
 
     // Event for aggregate without a stored key.
     const missingCreated = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: GoalId.from(otherGoalId),
-        slice: Slice.from('Health'),
-        summary: Summary.from('Run'),
-        targetMonth: Month.from('2025-12'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-01-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: GoalId.from(otherGoalId),
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       1,
       kMissing
     );
@@ -519,17 +552,20 @@ describe('GoalProjectionProcessor', () => {
     // Event for aggregate with a stored key.
     await keyStore.saveAggregateKey(goalId, kPresent);
     const presentCreated = await toEncrypted.toEncrypted(
-      new GoalCreated({
-        goalId: aggregateId,
-        slice: Slice.from('Work'),
-        summary: Summary.from('Build'),
-        targetMonth: Month.from('2025-10'),
-        priority: Priority.from('must'),
-        createdBy: UserId.from('user-1'),
-        createdAt: Timestamp.fromMillis(
-          new Date('2025-02-01T00:00:00Z').getTime()
-        ),
-      }),
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Work'),
+          summary: Summary.from('Build'),
+          targetMonth: Month.from('2025-10'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-02-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
       2,
       kPresent
     );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Store } from '@livestore/livestore';
 import {
+  ActorId,
   GoalCreated,
   GoalId,
   Month,
@@ -15,6 +16,7 @@ import {
   ProjectStatus,
   LocalDate,
   ProjectDescription,
+  EventId,
 } from '@mo/domain';
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
 import type { DomainEvent } from '@mo/domain';
@@ -115,29 +117,40 @@ const crypto = new NodeCryptoService();
 const toEncrypted = new DomainToLiveStoreAdapter(crypto);
 const toDomain = new LiveStoreToDomainAdapter(crypto);
 
+const meta = () => ({
+  eventId: EventId.create(),
+  actorId: ActorId.from('user-1'),
+});
+
 const buildGoalCreated = () =>
-  new GoalCreated({
-    goalId: GoalId.from('00000000-0000-0000-0000-000000000501'),
-    slice: Slice.from('Health'),
-    summary: Summary.from('Commit publisher'),
-    targetMonth: Month.from('2026-01'),
-    priority: Priority.from('must'),
-    createdBy: UserId.from('user-1'),
-    createdAt: Timestamp.fromMillis(Date.now()),
-  });
+  new GoalCreated(
+    {
+      goalId: GoalId.from('00000000-0000-0000-0000-000000000501'),
+      slice: Slice.from('Health'),
+      summary: Summary.from('Commit publisher'),
+      targetMonth: Month.from('2026-01'),
+      priority: Priority.from('must'),
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(Date.now()),
+    },
+    meta()
+  );
 
 const buildProjectCreated = () =>
-  new ProjectCreated({
-    projectId: ProjectId.from('00000000-0000-0000-0000-000000000601'),
-    name: ProjectName.from('Publisher'),
-    status: ProjectStatus.from('planned'),
-    startDate: LocalDate.fromString('2025-01-01'),
-    targetDate: LocalDate.fromString('2025-02-01'),
-    description: ProjectDescription.from('Test'),
-    goalId: null,
-    createdBy: UserId.from('user-1'),
-    createdAt: Timestamp.fromMillis(Date.now()),
-  });
+  new ProjectCreated(
+    {
+      projectId: ProjectId.from('00000000-0000-0000-0000-000000000601'),
+      name: ProjectName.from('Publisher'),
+      status: ProjectStatus.from('planned'),
+      startDate: LocalDate.fromString('2025-01-01'),
+      targetDate: LocalDate.fromString('2025-02-01'),
+      description: ProjectDescription.from('Test'),
+      goalId: null,
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(Date.now()),
+    },
+    meta()
+  );
 
 const buildEncrypted = async (
   event:

@@ -16,12 +16,12 @@ import type { EventMetadata } from './DomainEvent';
 export type PayloadEventSpec<E, P extends object> = Readonly<{
   type: string;
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> };
-  ctor: (p: P, meta?: EventMetadata) => E;
+  ctor: (p: P, meta: EventMetadata) => E;
 }>;
 
 export function payloadEventSpec<E extends P, P extends object>(
   type: string,
-  ctor: (p: P, meta?: EventMetadata) => E,
+  ctor: (p: P, meta: EventMetadata) => E,
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> }
 ): PayloadEventSpec<E, P> {
   return { type, ctor, fields };

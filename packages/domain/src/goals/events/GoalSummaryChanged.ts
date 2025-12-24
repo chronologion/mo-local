@@ -21,12 +21,12 @@ export class GoalSummaryChanged
   readonly summary: Summary;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalSummaryChangedPayload, meta?: EventMetadata) {
+  constructor(payload: GoalSummaryChangedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.goalId,
       occurredAt: payload.changedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

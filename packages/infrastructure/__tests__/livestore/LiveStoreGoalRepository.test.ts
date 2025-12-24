@@ -32,6 +32,7 @@ const adapter: GoalEventAdapter = {
       payload: new Uint8Array(encryptionKey), // dummy payload to satisfy contract
       version,
       occurredAt: event.occurredAt.value,
+      actorId: event.actorId.value,
     };
   },
   toDomain(event) {

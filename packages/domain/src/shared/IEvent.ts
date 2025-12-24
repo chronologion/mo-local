@@ -25,7 +25,7 @@ export interface IEvent<TId extends AggregateId = AggregateId> {
   occurredAt: Timestamp;
 
   /** Actor responsible for this event */
-  actorId?: ActorId;
+  actorId: ActorId;
 
   /** What event caused this event, if any */
   causationId?: EventId;

@@ -32,6 +32,7 @@ const adapter: ProjectEventAdapter = {
       payload: new Uint8Array(encryptionKey),
       version,
       occurredAt: event.occurredAt.value,
+      actorId: event.actorId.value,
     };
   },
   toDomain(event) {

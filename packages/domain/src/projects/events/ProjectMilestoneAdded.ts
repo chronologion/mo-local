@@ -31,12 +31,12 @@ export class ProjectMilestoneAdded
   readonly targetDate: LocalDate;
   readonly addedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneAddedPayload, meta?: EventMetadata) {
+  constructor(payload: ProjectMilestoneAddedPayload, meta: EventMetadata) {
     super({
       aggregateId: payload.projectId,
       occurredAt: payload.addedAt,
-      eventId: meta?.eventId,
-      actorId: meta?.actorId,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
       causationId: meta?.causationId,
       correlationId: meta?.correlationId,
     });

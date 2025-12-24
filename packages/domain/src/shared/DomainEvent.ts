@@ -23,21 +23,21 @@ export abstract class DomainEvent<
   readonly aggregateId: TId;
   readonly occurredAt: Timestamp;
   readonly eventId: EventId;
-  readonly actorId?: ActorId;
+  readonly actorId: ActorId;
   readonly causationId?: EventId;
   readonly correlationId?: CorrelationId;
 
   constructor(params: {
     aggregateId: TId;
     occurredAt: Timestamp;
-    eventId?: EventId;
-    actorId?: ActorId;
+    eventId: EventId;
+    actorId: ActorId;
     causationId?: EventId;
     correlationId?: CorrelationId;
   }) {
     this.aggregateId = params.aggregateId;
     this.occurredAt = params.occurredAt;
-    this.eventId = params.eventId ?? EventId.create();
+    this.eventId = params.eventId;
     this.actorId = params.actorId;
     this.causationId = params.causationId;
     this.correlationId = params.correlationId;
@@ -45,8 +45,8 @@ export abstract class DomainEvent<
 }
 
 export type EventMetadata = Readonly<{
-  eventId?: EventId;
-  actorId?: ActorId;
+  eventId: EventId;
+  actorId: ActorId;
   causationId?: EventId;
   correlationId?: CorrelationId;
 }>;

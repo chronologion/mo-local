@@ -9,6 +9,7 @@ const baseEvent = (aggregateId: string, version: number) => ({
   payload: new Uint8Array([version]),
   version,
   occurredAt: Date.now(),
+  actorId: 'user-1',
 });
 
 describe('LiveStoreEventStore', () => {
