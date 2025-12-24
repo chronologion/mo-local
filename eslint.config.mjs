@@ -38,6 +38,27 @@ export default [
     },
   },
   {
+    files: ['apps/**/src/**/*.{ts,tsx}', 'packages/**/src/**/*.{ts,tsx}'],
+    ignores: [
+      '**/__tests__/**',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword']",
+          message:
+            'Avoid double type assertions (`as unknown as X`). Prefer proper typing; if unavoidable at a boundary, add an eslint-disable with justification.',
+        },
+      ],
+    },
+  },
+  {
     ignores: ['**/node_modules/**', '**/dist/**', '**/build/**'],
   },
 ];

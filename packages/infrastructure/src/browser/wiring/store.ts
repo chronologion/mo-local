@@ -28,36 +28,23 @@ export const createStoreAndEventStores = async (
   storeId: string,
   options?: StoreAndEventStoresOptions
 ): Promise<StoreAndEventStores> => {
+  // eslint-disable-next-line no-restricted-syntax -- LiveStore's Store<TSchema> is invariant; erase schema typing at the wiring boundary.
   const store = (await createStorePromise({
     schema: defaultSchema,
     adapter,
     storeId,
     syncPayloadSchema: SyncPayloadSchema,
     syncPayload: options?.syncPayload,
-  })) as unknown as Store; // LiveStore provides Store type via default export path
+  })) as unknown as Store;
 
   const goalEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.domainEvent as (payload: {
-      id: string;
-      aggregateId: string;
-      eventType: string;
-      payload: Uint8Array;
-      version: number;
-      occurredAt: number;
-    }) => unknown
+    goalEvents.domainEvent
   );
 
   const projectEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.domainEvent as (payload: {
-      id: string;
-      aggregateId: string;
-      eventType: string;
-      payload: Uint8Array;
-      version: number;
-      occurredAt: number;
-    }) => unknown,
+    goalEvents.domainEvent,
     { events: 'project_events', snapshots: 'project_snapshots' }
   );
 

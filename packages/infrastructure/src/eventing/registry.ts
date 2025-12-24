@@ -6,6 +6,7 @@ import { allSpecs } from './specs.generated';
 const byType = new Map(allSpecs.map((spec) => [spec.type, spec] as const));
 
 const asRecord = (event: DomainEvent): Record<string, unknown> =>
+  // eslint-disable-next-line no-restricted-syntax -- Domain events are classes; encode uses field names as a structural record at the persistence boundary.
   event as unknown as Record<string, unknown>;
 
 export function decodePersisted(rec: PersistedEvent): DomainEvent {

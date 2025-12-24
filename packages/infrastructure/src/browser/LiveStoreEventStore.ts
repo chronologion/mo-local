@@ -1,15 +1,20 @@
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
-import type { Store } from '@livestore/livestore';
+import type {
+  LiveStoreEvent,
+  LiveStoreSchema,
+  Store,
+} from '@livestore/livestore';
 import { sleep } from './sleep';
 
-type GoalEventFactory = (payload: {
+type DomainEventFactory<TSchema extends LiveStoreSchema> = (payload: {
   id: string;
   aggregateId: string;
   eventType: string;
   payload: Uint8Array;
   version: number;
   occurredAt: number;
-}) => unknown;
+}) => LiveStoreEvent.Input.ForSchema<TSchema>;
+type GoalEventFactory = DomainEventFactory<LiveStoreSchema.Any>;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 50;
@@ -57,16 +62,15 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         this.store.commit(
-          ...sorted.map(
-            (event) =>
-              this.goalEvent({
-                id: event.id,
-                aggregateId,
-                eventType: event.eventType,
-                payload: event.payload,
-                version: event.version,
-                occurredAt: event.occurredAt,
-              }) as never
+          ...sorted.map((event) =>
+            this.goalEvent({
+              id: event.id,
+              aggregateId,
+              eventType: event.eventType,
+              payload: event.payload,
+              version: event.version,
+              occurredAt: event.occurredAt,
+            })
           )
         );
         return;

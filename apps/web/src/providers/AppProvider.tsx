@@ -46,6 +46,15 @@ type SessionState =
 
 type Services = Awaited<ReturnType<typeof createAppServices>>;
 
+const getStoreShutdownPromise = (
+  store: Services['store']
+): (() => Promise<void>) | null => {
+  const candidate = store as { shutdownPromise?: unknown };
+  return typeof candidate.shutdownPromise === 'function'
+    ? (candidate.shutdownPromise as () => Promise<void>)
+    : null;
+};
+
 type AppContextValue = {
   services: Services;
   userMeta: UserMeta | null;
@@ -228,11 +237,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                   try {
                     svc.contexts.goals?.goalProjection.stop();
                     svc.contexts.projects?.projectProjection.stop();
-                    const maybeShutdown = (
-                      svc.store as unknown as {
-                        shutdownPromise?: () => Promise<void>;
-                      }
-                    ).shutdownPromise;
+                    const maybeShutdown = getStoreShutdownPromise(svc.store);
                     if (maybeShutdown) {
                       await maybeShutdown();
                     }
@@ -309,11 +314,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         createdServices?.contexts.goals?.goalProjection.stop();
         createdServices?.contexts.projects?.projectProjection.stop();
-        void (
-          createdServices?.store as unknown as {
-            shutdownPromise?: () => Promise<void>;
-          }
-        ).shutdownPromise?.();
+        const maybeShutdown = createdServices
+          ? getStoreShutdownPromise(createdServices.store)
+          : null;
+        void maybeShutdown?.();
       } catch (error) {
         console.warn('Failed to shutdown LiveStore cleanly', error);
       }
@@ -474,9 +478,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const projectCtx = services.contexts.projects;
       goalCtx?.goalProjection.stop();
       projectCtx?.projectProjection.stop();
-      await (
-        services.store as unknown as { shutdownPromise?: () => Promise<void> }
-      ).shutdownPromise?.();
+      const maybeShutdown = getStoreShutdownPromise(services.store);
+      await maybeShutdown?.();
     } catch (error) {
       console.warn('LiveStore shutdown failed', error);
     }

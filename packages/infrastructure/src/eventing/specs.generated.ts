@@ -25,7 +25,9 @@ import {
 
 const toRuntimeSpec = <E extends DomainEvent, P extends object>(
   spec: PayloadEventSpec<E, P>
-): RuntimeEventSpec => spec as unknown as RuntimeEventSpec;
+): RuntimeEventSpec =>
+  // eslint-disable-next-line no-restricted-syntax -- Generated registry erases per-event field typing into the runtime spec union.
+  spec as unknown as RuntimeEventSpec;
 
 export const allSpecs = [
   toRuntimeSpec(GoalCreatedSpec),

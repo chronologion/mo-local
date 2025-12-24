@@ -19,6 +19,7 @@ interface IDBObjectStoreLike {
 
 interface IDBTransactionLike {
   objectStore(name: string): IDBObjectStoreLike;
+  onerror: ((ev: unknown) => unknown) | null;
 }
 
 interface IDBDatabaseLike {
@@ -55,10 +56,7 @@ const requestToPromise = <T>(request: IDBRequestLike<T>): Promise<T> =>
 
 const openDb = (): Promise<IDBDatabaseLike> =>
   new Promise((resolve, reject) => {
-    const req = (indexedDB as unknown as IDBFactoryLike).open(
-      DB_NAME,
-      DB_VERSION
-    ) as unknown as IDBOpenDBRequestLike;
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -109,9 +107,8 @@ export class IndexedDBKeyStore implements IKeyStore {
       requestToPromise<T>(request),
       new Promise<never>((_, reject) => {
         // best-effort transaction error handling
-        (tx as unknown as { onerror: ((ev: unknown) => void) | null }).onerror =
-          (ev) =>
-            reject((ev as { target?: { error?: unknown } }).target?.error);
+        tx.onerror = (ev) =>
+          reject((ev as { target?: { error?: unknown } }).target?.error);
       }),
     ]);
   }

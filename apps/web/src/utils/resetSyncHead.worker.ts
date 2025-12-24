@@ -33,11 +33,13 @@ const listEntries = async (
   dir: FileSystemDirectoryHandle
 ): Promise<Array<[string, FileSystemHandle]>> => {
   const results: Array<[string, FileSystemHandle]> = [];
-  const entries = (
-    dir as unknown as {
-      entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
-    }
-  ).entries();
+  const candidate = dir as { entries?: unknown };
+  if (typeof candidate.entries !== 'function') {
+    throw new Error('FileSystemDirectoryHandle.entries() is not available');
+  }
+  const entries = candidate.entries.call(dir) as AsyncIterableIterator<
+    [string, FileSystemHandle]
+  >;
   for await (const entry of entries) {
     results.push(entry);
   }

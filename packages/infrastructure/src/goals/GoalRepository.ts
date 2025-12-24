@@ -70,11 +70,7 @@ export class GoalRepository implements IGoalRepository {
     try {
       const encrypted = await Promise.all(
         pending.map((event, idx) =>
-          this.toEncrypted.toEncrypted(
-            event as never,
-            startVersion + idx,
-            encryptionKey
-          )
+          this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey)
         )
       );
       await this.eventStore.append(goal.id.value, encrypted);
