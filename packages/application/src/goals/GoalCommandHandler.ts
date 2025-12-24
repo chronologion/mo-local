@@ -20,7 +20,7 @@ import {
   RevokeGoalAccess,
 } from './commands';
 import { IGoalRepository } from './ports/IGoalRepository';
-import { ICryptoService, IKeyStore } from '../shared/ports';
+import { ICryptoService, IIdempotencyStore, IKeyStore } from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
@@ -35,24 +35,55 @@ export class GoalCommandHandler extends BaseCommandHandler {
   constructor(
     private readonly goalRepo: IGoalRepository,
     private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService
+    private readonly crypto: ICryptoService,
+    private readonly idempotencyStore: IIdempotencyStore
   ) {
     super();
   }
 
   async handleCreate(command: CreateGoal): Promise<GoalCommandResult> {
-    const { goalId, slice, summary, targetMonth, priority, userId, timestamp } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        slice: (c) => Slice.from(c.slice),
-        summary: (c) => Summary.from(c.summary),
-        targetMonth: (c) => Month.from(c.targetMonth),
-        priority: (c) => Priority.from(c.priority),
-        userId: (c) => UserId.from(c.userId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-      });
+    const {
+      goalId,
+      slice,
+      summary,
+      targetMonth,
+      priority,
+      userId,
+      timestamp,
+      idempotencyKey,
+    } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      slice: (c) => Slice.from(c.slice),
+      summary: (c) => Summary.from(c.summary),
+      targetMonth: (c) => Month.from(c.targetMonth),
+      priority: (c) => Priority.from(c.priority),
+      userId: (c) => UserId.from(c.userId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
-    const kGoal = await this.crypto.generateKey();
+    const isDuplicate = await this.isDuplicateCommand({
+      idempotencyKey,
+      commandType: command.type,
+      aggregateId: goalId.value,
+    });
+    if (isDuplicate) {
+      const existingKey = await this.keyStore.getAggregateKey(goalId.value);
+      if (!existingKey) {
+        throw new NotFoundError(`Aggregate key for ${goalId.value} not found`);
+      }
+      return { goalId: goalId.value, encryptionKey: existingKey };
+    }
+
+    const existingKey = await this.keyStore.getAggregateKey(goalId.value);
+    if (existingKey) {
+      const existingGoal = await this.goalRepo.load(goalId);
+      if (existingGoal) {
+        return { goalId: goalId.value, encryptionKey: existingKey };
+      }
+    }
+
+    const kGoal = existingKey ?? (await this.crypto.generateKey());
     const goal = Goal.create({
       id: goalId,
       slice,
@@ -63,9 +94,18 @@ export class GoalCommandHandler extends BaseCommandHandler {
       createdAt: timestamp,
     });
 
-    await this.keyStore.saveAggregateKey(goal.id.value, kGoal);
+    if (!existingKey) {
+      await this.keyStore.saveAggregateKey(goal.id.value, kGoal);
+    }
     await this.goalRepo.save(goal, kGoal);
     goal.markEventsAsCommitted();
+
+    await this.idempotencyStore.record({
+      key: idempotencyKey,
+      commandType: command.type,
+      aggregateId: goalId.value,
+      createdAt: timestamp.value,
+    });
 
     return { goalId: goal.id.value, encryptionKey: kGoal };
   }
@@ -73,16 +113,25 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSummary(
     command: ChangeGoalSummary
   ): Promise<GoalCommandResult> {
-    const { goalId, summary, timestamp, knownVersion } = this.parseCommand(
-      command,
-      {
+    const { goalId, summary, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         summary: (c) => Summary.from(c.summary),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      }
-    );
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -91,22 +140,35 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.changeSummary(summary, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleChangeSlice(
     command: ChangeGoalSlice
   ): Promise<GoalCommandResult> {
-    const { goalId, slice, timestamp, knownVersion } = this.parseCommand(
-      command,
-      {
+    const { goalId, slice, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         slice: (c) => Slice.from(c.slice),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      }
-    );
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -115,22 +177,35 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.changeSlice(slice, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleChangeTargetMonth(
     command: ChangeGoalTargetMonth
   ): Promise<GoalCommandResult> {
-    const { goalId, targetMonth, timestamp, knownVersion } = this.parseCommand(
-      command,
-      {
+    const { goalId, targetMonth, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         targetMonth: (c) => Month.from(c.targetMonth),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      }
-    );
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -139,22 +214,35 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.changeTargetMonth(targetMonth, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleChangePriority(
     command: ChangeGoalPriority
   ): Promise<GoalCommandResult> {
-    const { goalId, priority, timestamp, knownVersion } = this.parseCommand(
-      command,
-      {
+    const { goalId, priority, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         priority: (c) => Priority.from(c.priority),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      }
-    );
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -163,16 +251,32 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.changePriority(priority, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleArchive(command: ArchiveGoal): Promise<GoalCommandResult> {
-    const { goalId, timestamp, knownVersion } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      userId: (c) => UserId.from(c.userId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-    });
+    const { goalId, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
+        goalId: (c) => GoalId.from(c.goalId),
+        userId: (c) => UserId.from(c.userId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -181,21 +285,42 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.archive(timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleGrantAccess(
     command: GrantGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, grantToUserId, permission, timestamp, knownVersion } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        grantToUserId: (c) => UserId.from(c.grantToUserId),
-        permission: (c) => Permission.from(c.permission),
-        userId: (c) => UserId.from(c.userId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      });
+    const {
+      goalId,
+      grantToUserId,
+      permission,
+      timestamp,
+      knownVersion,
+      idempotencyKey,
+    } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      grantToUserId: (c) => UserId.from(c.grantToUserId),
+      permission: (c) => Permission.from(c.permission),
+      userId: (c) => UserId.from(c.userId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -204,22 +329,35 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.grantAccess(grantToUserId, permission, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   async handleRevokeAccess(
     command: RevokeGoalAccess
   ): Promise<GoalCommandResult> {
-    const { goalId, revokeUserId, timestamp, knownVersion } = this.parseCommand(
-      command,
-      {
+    const { goalId, revokeUserId, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         revokeUserId: (c) => UserId.from(c.revokeUserId),
         userId: (c) => UserId.from(c.userId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      }
-    );
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
+
+    if (
+      await this.isDuplicateCommand({
+        idempotencyKey,
+        commandType: command.type,
+        aggregateId: goalId.value,
+      })
+    ) {
+      return { goalId: goalId.value };
+    }
     const goal = await this.loadGoal(goalId);
     this.assertKnownVersion({
       actual: goal.version,
@@ -228,7 +366,11 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateId: goal.id.value,
     });
     goal.revokeAccess(revokeUserId, timestamp);
-    return this.persist(goal);
+    return this.persist(goal, {
+      idempotencyKey,
+      commandType: command.type,
+      createdAt: timestamp.value,
+    });
   }
 
   private parseTimestamp(timestamp: number): Timestamp {
@@ -246,7 +388,29 @@ export class GoalCommandHandler extends BaseCommandHandler {
     return goal;
   }
 
-  private async persist(goal: Goal): Promise<GoalCommandResult> {
+  private async isDuplicateCommand(params: {
+    idempotencyKey: string;
+    commandType: string;
+    aggregateId: string;
+  }): Promise<boolean> {
+    const existing = await this.idempotencyStore.get(params.idempotencyKey);
+    if (!existing) return false;
+    this.assertIdempotencyRecord({
+      existing,
+      expectedCommandType: params.commandType,
+      expectedAggregateId: params.aggregateId,
+    });
+    return true;
+  }
+
+  private async persist(
+    goal: Goal,
+    idempotency: {
+      idempotencyKey: string;
+      commandType: string;
+      createdAt: number;
+    }
+  ): Promise<GoalCommandResult> {
     const kGoal = await this.keyStore.getAggregateKey(goal.id.value);
     if (!kGoal) {
       throw new NotFoundError(`Aggregate key for ${goal.id.value} not found`);
@@ -254,6 +418,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
 
     await this.goalRepo.save(goal, kGoal);
     goal.markEventsAsCommitted();
+    await this.idempotencyStore.record({
+      key: idempotency.idempotencyKey,
+      commandType: idempotency.commandType,
+      aggregateId: goal.id.value,
+      createdAt: idempotency.createdAt,
+    });
     return { goalId: goal.id.value };
   }
 }

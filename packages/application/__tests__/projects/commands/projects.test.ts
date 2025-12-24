@@ -7,6 +7,7 @@ import {
 } from '../../../src/projects/commands';
 import { ProjectCommandHandler } from '../../../src/projects/ProjectCommandHandler';
 import {
+  InMemoryIdempotencyStore,
   InMemoryKeyStore,
   InMemoryProjectRepository,
   MockCryptoService,
@@ -21,7 +22,8 @@ const makeHandler = () =>
   new ProjectCommandHandler(
     new InMemoryProjectRepository(),
     new InMemoryKeyStore(),
-    new MockCryptoService()
+    new MockCryptoService(),
+    new InMemoryIdempotencyStore()
   );
 
 const createProject = () =>
@@ -35,6 +37,7 @@ const createProject = () =>
     goalId: null,
     userId,
     timestamp: now,
+    idempotencyKey: 'idem-create',
   });
 
 describe('Project commands', () => {
@@ -56,6 +59,7 @@ describe('Project commands', () => {
           userId,
           timestamp: now,
           knownVersion: 1,
+          idempotencyKey: 'idem-invalid-status',
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -75,6 +79,7 @@ describe('Project commands', () => {
           userId,
           timestamp: now,
           knownVersion: 1,
+          idempotencyKey: 'idem-milestone',
         })
       )
     ).rejects.toBeInstanceOf(Error);
@@ -90,6 +95,7 @@ describe('Project commands', () => {
           userId,
           timestamp: now,
           knownVersion: 1,
+          idempotencyKey: 'idem-archive-bad-id',
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);

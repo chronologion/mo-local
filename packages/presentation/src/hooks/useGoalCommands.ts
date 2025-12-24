@@ -45,6 +45,7 @@ export const useGoalCommands = () => {
         priority: params.priority,
         userId,
         timestamp: Date.now(),
+        idempotencyKey: uuidv7(),
       });
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
@@ -89,6 +90,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -108,6 +110,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -130,6 +133,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -152,6 +156,7 @@ export const useGoalCommands = () => {
           timestamp,
           userId,
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -195,6 +200,7 @@ export const useGoalCommands = () => {
         timestamp: Date.now(),
         userId,
         knownVersion: current.version,
+        idempotencyKey: uuidv7(),
       });
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {

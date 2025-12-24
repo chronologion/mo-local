@@ -6,6 +6,7 @@ export type RevokeGoalAccessPayload = {
   userId: string;
   timestamp: number;
   knownVersion: number;
+  idempotencyKey: string;
 };
 
 export class RevokeGoalAccess
@@ -18,6 +19,7 @@ export class RevokeGoalAccess
   readonly userId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: RevokeGoalAccessPayload) {
     super(payload);
@@ -26,5 +28,6 @@ export class RevokeGoalAccess
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }

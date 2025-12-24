@@ -1,6 +1,7 @@
 import { ValidationError } from './CommandResult';
 import { ValidationException } from '../../errors/ValidationError';
 import { ConcurrencyError } from '../../errors/ConcurrencyError';
+import type { IdempotencyRecord } from './IIdempotencyStore';
 
 type FieldParser<TCommand, TResult> = (command: TCommand) => TResult;
 
@@ -62,6 +63,32 @@ export abstract class BaseCommandHandler {
       throw new Error('knownVersion must be a non-negative integer');
     }
     return version;
+  }
+
+  protected parseIdempotencyKey(key: string): string {
+    if (typeof key !== 'string' || key.trim().length === 0) {
+      throw new Error('idempotencyKey must be a non-empty string');
+    }
+    if (key.length > 200) {
+      throw new Error('idempotencyKey must be at most 200 characters');
+    }
+    return key;
+  }
+
+  protected assertIdempotencyRecord(params: {
+    existing: IdempotencyRecord;
+    expectedCommandType: string;
+    expectedAggregateId: string;
+  }): void {
+    const { existing, expectedCommandType, expectedAggregateId } = params;
+    if (
+      existing.commandType !== expectedCommandType ||
+      existing.aggregateId !== expectedAggregateId
+    ) {
+      throw new Error(
+        `Idempotency key reuse detected for ${existing.key} (existing ${existing.commandType}/${existing.aggregateId}, new ${expectedCommandType}/${expectedAggregateId})`
+      );
+    }
   }
 
   protected assertKnownVersion(params: {

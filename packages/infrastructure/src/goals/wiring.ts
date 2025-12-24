@@ -29,6 +29,7 @@ import { GoalReadModel } from './GoalReadModel';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
+import { LiveStoreIdempotencyStore } from '../idempotency';
 
 export type GoalBoundedContextServices = {
   goalRepo: GoalRepository;
@@ -67,7 +68,13 @@ export const bootstrapGoalBoundedContext = ({
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
-  const goalHandler = new GoalCommandHandler(goalRepo, keyStore, crypto);
+  const idempotencyStore = new LiveStoreIdempotencyStore(store);
+  const goalHandler = new GoalCommandHandler(
+    goalRepo,
+    keyStore,
+    crypto,
+    idempotencyStore
+  );
   const goalProjection = new GoalProjectionProcessor(
     store,
     eventStore,

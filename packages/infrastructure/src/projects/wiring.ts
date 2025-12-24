@@ -33,6 +33,7 @@ import { ProjectReadModel } from './ProjectReadModel';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
+import { LiveStoreIdempotencyStore } from '../idempotency';
 
 export type ProjectBoundedContextServices = {
   projectRepo: ProjectRepository;
@@ -76,10 +77,12 @@ export const bootstrapProjectBoundedContext = ({
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
+  const idempotencyStore = new LiveStoreIdempotencyStore(store);
   const projectHandler = new ProjectCommandHandler(
     projectRepo,
     keyStore,
-    crypto
+    crypto,
+    idempotencyStore
   );
   const projectProjection = new ProjectProjectionProcessor(
     store,

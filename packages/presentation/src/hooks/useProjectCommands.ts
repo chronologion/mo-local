@@ -90,6 +90,7 @@ export const useProjectCommands = () => {
         goalId: params.goalId ?? null,
         userId,
         timestamp: Date.now(),
+        idempotencyKey: uuidv7(),
       });
     },
     [dispatch, ensureUserId]
@@ -107,6 +108,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -118,6 +120,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -129,6 +132,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -146,6 +150,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -158,6 +163,7 @@ export const useProjectCommands = () => {
             userId,
             timestamp: Date.now(),
             knownVersion,
+            idempotencyKey: uuidv7(),
           });
         } else {
           await dispatch({
@@ -166,6 +172,7 @@ export const useProjectCommands = () => {
             userId,
             timestamp: Date.now(),
             knownVersion,
+            idempotencyKey: uuidv7(),
           });
         }
         knownVersion += 1;
@@ -184,6 +191,7 @@ export const useProjectCommands = () => {
         userId,
         timestamp: Date.now(),
         knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
     [dispatch, ensureUserId, loadKnownVersion]
@@ -205,6 +213,7 @@ export const useProjectCommands = () => {
         userId,
         timestamp: Date.now(),
         knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
     [dispatch, ensureUserId, loadKnownVersion]
@@ -227,6 +236,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -239,6 +249,7 @@ export const useProjectCommands = () => {
           userId,
           timestamp: Date.now(),
           knownVersion,
+          idempotencyKey: uuidv7(),
         });
         knownVersion += 1;
       }
@@ -257,6 +268,7 @@ export const useProjectCommands = () => {
         userId,
         timestamp: Date.now(),
         knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
     [dispatch, ensureUserId, loadKnownVersion]

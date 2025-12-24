@@ -7,6 +7,7 @@ export type ChangeGoalSlicePayload = {
   userId: string;
   timestamp: number;
   knownVersion: number;
+  idempotencyKey: string;
 };
 
 export class ChangeGoalSlice
@@ -19,6 +20,7 @@ export class ChangeGoalSlice
   readonly userId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: ChangeGoalSlicePayload) {
     super(payload);
@@ -27,5 +29,6 @@ export class ChangeGoalSlice
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }

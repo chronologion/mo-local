@@ -105,6 +105,16 @@ const projectSearchIndexTable = State.SQLite.table({
   },
 });
 
+const idempotencyKeysTable = State.SQLite.table({
+  name: 'idempotency_keys',
+  columns: {
+    idempotency_key: State.SQLite.text({ nullable: false, primaryKey: true }),
+    command_type: State.SQLite.text({ nullable: false }),
+    aggregate_id: State.SQLite.text({ nullable: false }),
+    created_at: State.SQLite.integer({ nullable: false }),
+  },
+});
+
 export const tables = {
   goal_events: goalEventsTable,
   goal_snapshots: goalSnapshotsTable,
@@ -115,6 +125,7 @@ export const tables = {
   project_snapshots: projectSnapshotsTable,
   project_projection_meta: projectProjectionMetaTable,
   project_search_index: projectSearchIndexTable,
+  idempotency_keys: idempotencyKeysTable,
 };
 
 type GoalEventPayload = {

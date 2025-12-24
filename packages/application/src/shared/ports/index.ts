@@ -3,6 +3,7 @@ export * from './IEventBus';
 export * from './ICryptoService';
 export * from './IKeyStore';
 export * from './IEventStore';
+export * from './IIdempotencyStore';
 export * from './ISyncProvider';
 export * from './Bus';
 export * from './CommandResult';

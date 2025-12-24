@@ -6,6 +6,7 @@ export type ChangeProjectNamePayload = {
   userId: string;
   timestamp: number;
   knownVersion: number;
+  idempotencyKey: string;
 };
 
 export class ChangeProjectName
@@ -18,6 +19,7 @@ export class ChangeProjectName
   readonly userId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: ChangeProjectNamePayload) {
     super(payload);
@@ -26,5 +28,6 @@ export class ChangeProjectName
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }

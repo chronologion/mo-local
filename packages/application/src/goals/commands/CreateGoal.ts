@@ -9,6 +9,7 @@ export type CreateGoalPayload = {
   priority: PriorityLevel;
   userId: string;
   timestamp: number;
+  idempotencyKey: string;
 };
 
 export class CreateGoal
@@ -23,6 +24,7 @@ export class CreateGoal
   readonly priority: PriorityLevel;
   readonly userId: string;
   readonly timestamp: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: CreateGoalPayload) {
     super(payload);
@@ -33,5 +35,6 @@ export class CreateGoal
     this.priority = payload.priority;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }

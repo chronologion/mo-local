@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
   InMemoryGoalRepository,
+  InMemoryIdempotencyStore,
   InMemoryKeyStore,
   MockCryptoService,
 } from '../../fixtures/ports';
@@ -14,6 +15,15 @@ import {
   CreateGoal,
 } from '../../../src/goals/commands';
 
+class CountingCryptoService extends MockCryptoService {
+  generateKeyCalls = 0;
+
+  override async generateKey(): Promise<Uint8Array> {
+    this.generateKeyCalls += 1;
+    return super.generateKey();
+  }
+}
+
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
 const userId = 'user-1';
 const baseCreate = new CreateGoal({
@@ -24,17 +34,70 @@ const baseCreate = new CreateGoal({
   priority: 'must' as const,
   userId,
   timestamp: Date.now(),
+  idempotencyKey: 'idem-create',
 });
 
 const setup = () => {
   const repo = new InMemoryGoalRepository();
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
-  const handler = new GoalCommandHandler(repo, keyStore, crypto);
-  return { repo, keyStore, crypto, handler };
+  const idempotencyStore = new InMemoryIdempotencyStore();
+  const handler = new GoalCommandHandler(
+    repo,
+    keyStore,
+    crypto,
+    idempotencyStore
+  );
+  return { repo, keyStore, crypto, idempotencyStore, handler };
 };
 
 describe('GoalCommandHandler', () => {
+  it('is idempotent for duplicate CreateGoal idempotencyKey', async () => {
+    const repo = new InMemoryGoalRepository();
+    const keyStore = new InMemoryKeyStore();
+    const crypto = new CountingCryptoService();
+    const idempotencyStore = new InMemoryIdempotencyStore();
+    const handler = new GoalCommandHandler(
+      repo,
+      keyStore,
+      crypto,
+      idempotencyStore
+    );
+
+    const first = await handler.handleCreate(baseCreate);
+    const second = await handler.handleCreate(
+      new CreateGoal({
+        ...baseCreate,
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(first.goalId).toBe(goalId);
+    expect(second.goalId).toBe(goalId);
+    if (!('encryptionKey' in first) || !('encryptionKey' in second)) {
+      throw new Error('Expected create result to include encryptionKey');
+    }
+    expect(Array.from(second.encryptionKey)).toEqual(
+      Array.from(first.encryptionKey)
+    );
+    expect(crypto.generateKeyCalls).toBe(1);
+  });
+
+  it('throws when idempotencyKey is reused for a different goal', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await expect(
+      handler.handleCreate(
+        new CreateGoal({
+          ...baseCreate,
+          goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f999',
+          idempotencyKey: baseCreate.idempotencyKey,
+        })
+      )
+    ).rejects.toThrow(/Idempotency key reuse detected/);
+  });
+
   it('creates a goal and stores aggregate key', async () => {
     const { handler, keyStore } = setup();
 
@@ -55,6 +118,7 @@ describe('GoalCommandHandler', () => {
         userId,
         timestamp: Date.now(),
         knownVersion: 1,
+        idempotencyKey: 'idem-summary',
       })
     );
   });
@@ -72,6 +136,7 @@ describe('GoalCommandHandler', () => {
           userId,
           timestamp: Date.now(),
           knownVersion: 1,
+          idempotencyKey: 'idem-summary-missing-key',
         })
       )
     ).rejects.toThrow();
@@ -90,6 +155,7 @@ describe('GoalCommandHandler', () => {
           userId,
           timestamp: Date.now(),
           knownVersion: 1,
+          idempotencyKey: 'idem-priority-fail',
         })
       )
     ).rejects.toThrow();
@@ -108,6 +174,7 @@ describe('GoalCommandHandler', () => {
           userId,
           timestamp: Date.now(),
           knownVersion: 1,
+          idempotencyKey: 'idem-slice-concurrency',
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -125,6 +192,7 @@ describe('GoalCommandHandler', () => {
           userId,
           timestamp: Date.now(),
           knownVersion: 1,
+          idempotencyKey: 'idem-target-month',
         })
       )
     ).resolves.toBeDefined();
@@ -142,6 +210,7 @@ describe('GoalCommandHandler', () => {
           userId,
           timestamp: Date.now(),
           knownVersion: 0,
+          idempotencyKey: 'idem-summary-mismatch',
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
