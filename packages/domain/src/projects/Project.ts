@@ -222,7 +222,6 @@ export class Project extends AggregateRoot<ProjectId> {
       params.status.equals(this.status),
       'ProjectStatus unchanged'
     ).isFalse();
-    this.assertAllowedStatusTransition(params.status);
     this.apply(
       new ProjectStatusTransitioned(
         {
@@ -525,21 +524,6 @@ export class Project extends AggregateRoot<ProjectId> {
         this.targetDate.isSameOrAfter(date),
       'Milestone target date must be within project dates'
     ).isTrue();
-  }
-
-  private assertAllowedStatusTransition(next: ProjectStatus): void {
-    const current = this.status;
-    const allowed: Record<ProjectStatus['value'], ProjectStatus['value'][]> = {
-      planned: ['in_progress', 'canceled'],
-      in_progress: ['completed', 'canceled'],
-      completed: [],
-      canceled: [],
-    };
-    if (!allowed[current.value].includes(next.value)) {
-      throw new Error(
-        `Invalid status transition from ${current.value} to ${next.value}`
-      );
-    }
   }
 
   private findMilestone(id: MilestoneId): Milestone {

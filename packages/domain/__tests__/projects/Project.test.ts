@@ -206,7 +206,7 @@ describe('Project aggregate', () => {
     ).toThrow();
   });
 
-  it('enforces allowed status transitions and updates updatedAt', () => {
+  it('allows status changes back and forth and updates updatedAt', () => {
     const project = Project.create({
       id: ProjectId.create(),
       name: ProjectName.from('Lifecycle'),
@@ -230,16 +230,14 @@ describe('Project aggregate', () => {
         project.updatedAt.equals(initialUpdated)
     ).toBe(true);
 
+    project.changeStatus({
+      status: ProjectStatus.Planned,
+      changedAt: laterAt,
+      actorId: UserId.from('user-7'),
+    });
     expect(() =>
       project.changeStatus({
         status: ProjectStatus.Planned,
-        changedAt: laterAt,
-        actorId: UserId.from('user-7'),
-      })
-    ).toThrow(/Invalid status transition/);
-    expect(() =>
-      project.changeStatus({
-        status: ProjectStatus.InProgress,
         changedAt: laterAt,
         actorId: UserId.from('user-7'),
       })

@@ -3,7 +3,7 @@ import type { GoalListItemDto } from '@mo/application';
 import { useProjects } from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Archive, Pencil, RefreshCw } from 'lucide-react';
+import { Archive, CheckCircle2, Pencil, RefreshCw } from 'lucide-react';
 
 type GoalCardProps = {
   goal: GoalListItemDto;
@@ -32,6 +32,12 @@ export function GoalCard({
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{goal.slice}</Badge>
           <Badge>{goal.priority}</Badge>
+          {goal.achievedAt !== null && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              Achieved
+            </Badge>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">
           {goal.targetMonth}
