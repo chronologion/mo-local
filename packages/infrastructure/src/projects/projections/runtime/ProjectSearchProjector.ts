@@ -58,7 +58,7 @@ export class ProjectSearchProjector {
     previousItem: ProjectListItem | null,
     nextItem: ProjectListItem | null
   ): void {
-    if (previousItem) {
+    if (previousItem && this.searchIndex.has(previousItem.id)) {
       this.searchIndex.remove(previousItem);
     }
     if (nextItem && nextItem.archivedAt === null) {
