@@ -1,9 +1,12 @@
-import { randomBytes, webcrypto } from 'node:crypto';
-
 const KEY_LENGTH = 32;
 const WRAPPED_LENGTH = KEY_LENGTH + 8; // AES-KW adds 64-bit integrity block
 
-const subtle = webcrypto.subtle;
+const getWebCrypto = (): Crypto => {
+  if (typeof globalThis.crypto === 'undefined') {
+    throw new Error('WebCrypto is not available in this environment');
+  }
+  return globalThis.crypto;
+};
 
 const toArrayBuffer = (input: Uint8Array): ArrayBuffer => {
   const buffer = new ArrayBuffer(input.byteLength);
@@ -29,6 +32,7 @@ export class KeyWrapping {
     ensureKeyLength(keyToWrap);
     ensureKeyLength(wrappingKey);
 
+    const subtle = getWebCrypto().subtle;
     const keyMaterial = await subtle.importKey(
       'raw',
       toArrayBuffer(keyToWrap),
@@ -57,6 +61,7 @@ export class KeyWrapping {
       throw new Error(`Invalid wrapped key length: expected ${WRAPPED_LENGTH}`);
     }
 
+    const subtle = getWebCrypto().subtle;
     const unwrapKey = await subtle.importKey(
       'raw',
       toArrayBuffer(unwrappingKey),
@@ -81,6 +86,8 @@ export class KeyWrapping {
   }
 
   static generateWrappingKey(): Uint8Array {
-    return randomBytes(KEY_LENGTH);
+    const bytes = new Uint8Array(KEY_LENGTH);
+    getWebCrypto().getRandomValues(bytes);
+    return bytes;
   }
 }
