@@ -82,7 +82,18 @@ export class CommittedEventPublisher {
       if (!event.sequence) {
         throw new Error(`Event ${event.id} missing sequence`);
       }
-      const kAggregate = await this.keyStore.getAggregateKey(event.aggregateId);
+      let kAggregate: Uint8Array | null;
+      try {
+        kAggregate = await this.keyStore.getAggregateKey(event.aggregateId);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Master key not set') {
+          console.warn(
+            '[CommittedEventPublisher] Master key not set; deferring publish'
+          );
+          return;
+        }
+        throw err;
+      }
       if (!kAggregate) {
         console.warn(
           '[CommittedEventPublisher] Missing key, skipping event for aggregate',
