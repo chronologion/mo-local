@@ -26,8 +26,11 @@ describe('GoalForm', () => {
 
     await waitFor(() => {
       expect(
-        (screen.getByPlaceholderText('Define a concrete goal') as HTMLInputElement)
-          .value
+        (
+          screen.getByPlaceholderText(
+            'Define a concrete goal'
+          ) as HTMLInputElement
+        ).value
       ).toBe('');
     });
   });
@@ -60,8 +63,11 @@ describe('GoalForm', () => {
       targetMonth: '2025-12',
     });
     expect(
-      (screen.getByPlaceholderText('Define a concrete goal') as HTMLInputElement)
-        .value
+      (
+        screen.getByPlaceholderText(
+          'Define a concrete goal'
+        ) as HTMLInputElement
+      ).value
     ).toBe('Existing goal');
   });
 });

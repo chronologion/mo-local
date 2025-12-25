@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ProjectsPage } from '../../src/features/projects/ProjectsPage';
 import { ToastProvider } from '../../src/components/ui/toast';
-import { useGoals, useProjects, useProjectCommands } from '@mo/presentation/react';
+import {
+  useGoals,
+  useProjects,
+  useProjectCommands,
+} from '@mo/presentation/react';
 import type { ProjectListItemDto, GoalListItemDto } from '@mo/application';
 
 vi.mock('@mo/presentation/react', () => ({
@@ -12,7 +16,11 @@ vi.mock('@mo/presentation/react', () => ({
 }));
 
 vi.mock('../../src/components/projects/ProjectForm', () => ({
-  ProjectForm: ({ onSubmit }: { onSubmit: (values: unknown) => Promise<void> }) => (
+  ProjectForm: ({
+    onSubmit,
+  }: {
+    onSubmit: (values: unknown) => Promise<void>;
+  }) => (
     <button
       type="button"
       onClick={() =>
@@ -94,7 +102,12 @@ const projects: ProjectListItemDto[] = [
 
 describe('ProjectsPage', () => {
   it('renders empty state when no projects', () => {
-    mockedUseGoals.mockReturnValue({ goals });
+    mockedUseGoals.mockReturnValue({
+      goals,
+      loading: false,
+      error: null,
+      refresh: vi.fn(async () => {}),
+    });
     mockedUseProjects.mockReturnValue({
       projects: [],
       loading: false,
@@ -102,23 +115,31 @@ describe('ProjectsPage', () => {
       refresh: vi.fn(async () => {}),
     });
     mockedUseProjectCommands.mockReturnValue({
-      createProject: vi.fn(async () => {}),
+      createProject: vi.fn(async () => ({ projectId: 'p1' })),
       updateProject: vi.fn(async () => {}),
-      archiveProject: vi.fn(async () => {}),
-      addMilestone: vi.fn(async () => {}),
+      archiveProject: vi.fn(async () => ({ projectId: 'p1' })),
+      addMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       updateMilestone: vi.fn(async () => {}),
-      archiveMilestone: vi.fn(async () => {}),
+      archiveMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       loading: false,
+      error: null,
     });
 
     renderPage();
     expect(
-      screen.getByText('No projects yet. Create one to link goals and milestones.')
+      screen.getByText(
+        'No projects yet. Create one to link goals and milestones.'
+      )
     ).not.toBeNull();
   });
 
   it('filters projects by search term', () => {
-    mockedUseGoals.mockReturnValue({ goals });
+    mockedUseGoals.mockReturnValue({
+      goals,
+      loading: false,
+      error: null,
+      refresh: vi.fn(async () => {}),
+    });
     mockedUseProjects.mockReturnValue({
       projects,
       loading: false,
@@ -126,13 +147,14 @@ describe('ProjectsPage', () => {
       refresh: vi.fn(async () => {}),
     });
     mockedUseProjectCommands.mockReturnValue({
-      createProject: vi.fn(async () => {}),
+      createProject: vi.fn(async () => ({ projectId: 'p1' })),
       updateProject: vi.fn(async () => {}),
-      archiveProject: vi.fn(async () => {}),
-      addMilestone: vi.fn(async () => {}),
+      archiveProject: vi.fn(async () => ({ projectId: 'p1' })),
+      addMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       updateMilestone: vi.fn(async () => {}),
-      archiveMilestone: vi.fn(async () => {}),
+      archiveMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       loading: false,
+      error: null,
     });
 
     renderPage();
@@ -150,7 +172,12 @@ describe('ProjectsPage', () => {
     const createProject = vi.fn(async () => {
       throw new Error('boom');
     });
-    mockedUseGoals.mockReturnValue({ goals });
+    mockedUseGoals.mockReturnValue({
+      goals,
+      loading: false,
+      error: null,
+      refresh: vi.fn(async () => {}),
+    });
     mockedUseProjects.mockReturnValue({
       projects: [],
       loading: false,
@@ -160,11 +187,12 @@ describe('ProjectsPage', () => {
     mockedUseProjectCommands.mockReturnValue({
       createProject,
       updateProject: vi.fn(async () => {}),
-      archiveProject: vi.fn(async () => {}),
-      addMilestone: vi.fn(async () => {}),
+      archiveProject: vi.fn(async () => ({ projectId: 'p1' })),
+      addMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       updateMilestone: vi.fn(async () => {}),
-      archiveMilestone: vi.fn(async () => {}),
+      archiveMilestone: vi.fn(async () => ({ projectId: 'p1' })),
       loading: false,
+      error: null,
     });
 
     renderPage();

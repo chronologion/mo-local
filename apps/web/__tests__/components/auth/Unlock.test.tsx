@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Unlock } from '../../../src/components/auth/Unlock';
 import { useApp } from '../../../src/providers/AppProvider';
+import { makeAppContext } from '../../testUtils';
 
 vi.mock('../../../src/providers/AppProvider', () => ({
   useApp: vi.fn(),
@@ -20,12 +21,13 @@ describe('Unlock', () => {
 
   it('calls unlock with password', async () => {
     const unlock = vi.fn(async () => {});
-    mockedUseApp.mockReturnValue({
-      session: { status: 'locked', userId: 'user-1' },
-      unlock,
-      resetLocalState: vi.fn(async () => {}),
-      // Minimal context for component; other fields are unused in this test.
-    } as ReturnType<typeof useApp>);
+    mockedUseApp.mockReturnValue(
+      makeAppContext({
+        session: { status: 'locked', userId: 'user-1' },
+        unlock,
+        resetLocalState: vi.fn(async () => {}),
+      })
+    );
 
     render(<Unlock />);
 
@@ -45,12 +47,13 @@ describe('Unlock', () => {
   it('resets local state when confirmed', async () => {
     const resetLocalState = vi.fn(async () => {});
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    mockedUseApp.mockReturnValue({
-      session: { status: 'locked', userId: 'user-1' },
-      unlock: vi.fn(async () => {}),
-      resetLocalState,
-      // Minimal context for component; other fields are unused in this test.
-    } as ReturnType<typeof useApp>);
+    mockedUseApp.mockReturnValue(
+      makeAppContext({
+        session: { status: 'locked', userId: 'user-1' },
+        unlock: vi.fn(async () => {}),
+        resetLocalState,
+      })
+    );
 
     render(<Unlock />);
 

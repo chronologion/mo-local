@@ -38,7 +38,9 @@ describe('ProjectMilestoneInput', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /add milestone/i }));
-    expect(screen.getByText('Name and target date are required')).not.toBeNull();
+    expect(
+      screen.getByText('Name and target date are required')
+    ).not.toBeNull();
     expect(onAdd).not.toHaveBeenCalled();
   });
 

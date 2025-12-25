@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GoalDashboard } from '../../../src/components/goals/GoalDashboard';
-import { useGoalCommands, useGoalSearch, useGoals, useProjects } from '@mo/presentation/react';
+import {
+  useGoalCommands,
+  useGoalSearch,
+  useGoals,
+  useProjects,
+} from '@mo/presentation/react';
 import type { GoalListItemDto } from '@mo/application';
 
 vi.mock('@mo/presentation/react', () => ({
@@ -50,6 +55,7 @@ describe('GoalDashboard', () => {
     mockedUseGoalSearch.mockReturnValue({
       results: [],
       loading: false,
+      error: null,
     });
     mockedUseProjects.mockReturnValue({
       projects: [],
@@ -60,7 +66,9 @@ describe('GoalDashboard', () => {
 
     render(<GoalDashboard />);
 
-    expect(screen.getByText('No goals yet. Start by creating one.')).not.toBeNull();
+    expect(
+      screen.getByText('No goals yet. Start by creating one.')
+    ).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /new goal/i }));
     fireEvent.change(screen.getByPlaceholderText('Define a concrete goal'), {
@@ -94,6 +102,7 @@ describe('GoalDashboard', () => {
     mockedUseGoalSearch.mockImplementation((term: string) => ({
       results: term ? [baseGoal] : [],
       loading: false,
+      error: null,
     }));
     mockedUseProjects.mockReturnValue({
       projects: [],

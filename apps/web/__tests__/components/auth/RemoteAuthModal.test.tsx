@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RemoteAuthModal } from '../../../src/components/auth/RemoteAuthModal';
 import { useRemoteAuth } from '../../../src/providers/RemoteAuthProvider';
+import { makeRemoteAuthContext } from '../../testUtils';
 
 vi.mock('../../../src/providers/RemoteAuthProvider', () => ({
   useRemoteAuth: vi.fn(),
@@ -12,15 +13,11 @@ const mockedUseRemoteAuth = vi.mocked(useRemoteAuth);
 describe('RemoteAuthModal', () => {
   it('submits signup with email and password', async () => {
     const signUp = vi.fn(async () => {});
-    mockedUseRemoteAuth.mockReturnValue({
-      signUp,
-      logIn: vi.fn(async () => {}),
-      state: { status: 'disconnected' },
-      logOut: vi.fn(async () => {}),
-      clearError: vi.fn(),
-      error: null,
-      // Minimal context for component; other fields are unused in this test.
-    } as ReturnType<typeof useRemoteAuth>);
+    mockedUseRemoteAuth.mockReturnValue(
+      makeRemoteAuthContext({
+        signUp,
+      })
+    );
 
     render(<RemoteAuthModal open={true} onClose={vi.fn()} mode="signup" />);
 
@@ -44,15 +41,11 @@ describe('RemoteAuthModal', () => {
     const logIn = vi.fn(async () => {
       throw new Error('boom');
     });
-    mockedUseRemoteAuth.mockReturnValue({
-      signUp: vi.fn(async () => {}),
-      logIn,
-      state: { status: 'disconnected' },
-      logOut: vi.fn(async () => {}),
-      clearError: vi.fn(),
-      error: null,
-      // Minimal context for component; other fields are unused in this test.
-    } as ReturnType<typeof useRemoteAuth>);
+    mockedUseRemoteAuth.mockReturnValue(
+      makeRemoteAuthContext({
+        logIn,
+      })
+    );
 
     render(<RemoteAuthModal open={true} onClose={vi.fn()} mode="login" />);
 
@@ -71,15 +64,11 @@ describe('RemoteAuthModal', () => {
 
   it('closes when connected', async () => {
     const onClose = vi.fn();
-    mockedUseRemoteAuth.mockReturnValue({
-      signUp: vi.fn(async () => {}),
-      logIn: vi.fn(async () => {}),
-      state: { status: 'connected', identityId: 'id-1', email: 'a@b.com' },
-      logOut: vi.fn(async () => {}),
-      clearError: vi.fn(),
-      error: null,
-      // Minimal context for component; other fields are unused in this test.
-    } as ReturnType<typeof useRemoteAuth>);
+    mockedUseRemoteAuth.mockReturnValue(
+      makeRemoteAuthContext({
+        state: { status: 'connected', identityId: 'id-1', email: 'a@b.com' },
+      })
+    );
 
     render(<RemoteAuthModal open={true} onClose={onClose} mode="signup" />);
 
