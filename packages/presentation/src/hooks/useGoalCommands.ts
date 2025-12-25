@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SliceValue, uuidv7 } from '@mo/domain';
 import {
+  AchieveGoal,
   ArchiveGoal,
   ChangeGoalPriority,
   ChangeGoalSlice,
@@ -8,6 +9,7 @@ import {
   ChangeGoalTargetMonth,
   CreateGoal,
   GetGoalByIdQuery,
+  UnachieveGoal,
 } from '@mo/application';
 import { useInterface } from '../context';
 
@@ -220,5 +222,91 @@ export const useGoalCommands = () => {
     }
   };
 
-  return { createGoal, updateGoal, archiveGoal, loading, error };
+  const achieveGoal = async (goalId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = ensureUser();
+      const current = await services.goalQueryBus.dispatch(
+        new GetGoalByIdQuery(goalId)
+      );
+      if (Array.isArray(current)) {
+        throw new Error('Invalid query result');
+      }
+      if (!current) {
+        throw new Error('Goal not found');
+      }
+      const cmd = new AchieveGoal({
+        goalId,
+        timestamp: Date.now(),
+        userId,
+        knownVersion: current.version,
+        idempotencyKey: uuidv7(),
+      });
+      const result = await services.goalCommandBus.dispatch(cmd);
+      if (!result.ok) {
+        throw new Error(
+          result.errors
+            .map((err: { message: string }) => err.message)
+            .join(', ')
+        );
+      }
+      await services.goalProjection.whenReady();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unachieveGoal = async (goalId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = ensureUser();
+      const current = await services.goalQueryBus.dispatch(
+        new GetGoalByIdQuery(goalId)
+      );
+      if (Array.isArray(current)) {
+        throw new Error('Invalid query result');
+      }
+      if (!current) {
+        throw new Error('Goal not found');
+      }
+      const cmd = new UnachieveGoal({
+        goalId,
+        timestamp: Date.now(),
+        userId,
+        knownVersion: current.version,
+        idempotencyKey: uuidv7(),
+      });
+      const result = await services.goalCommandBus.dispatch(cmd);
+      if (!result.ok) {
+        throw new Error(
+          result.errors
+            .map((err: { message: string }) => err.message)
+            .join(', ')
+        );
+      }
+      await services.goalProjection.whenReady();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    createGoal,
+    updateGoal,
+    archiveGoal,
+    achieveGoal,
+    unachieveGoal,
+    loading,
+    error,
+  };
 };
