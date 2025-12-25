@@ -9,9 +9,9 @@ MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS do
 - **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`), and identity commands.
 - **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
 - **packages/presentation** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
-- **apps/api** – NestJS backend bootstrap (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, and an Access bounded context with migrations for `access.identities` and `access.invites`; sync/events table is handled in a separate issue).
+- **apps/api** – NestJS backend (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, Access BC migrations, and a LiveStore sync backend with `/sync/push` + `/sync/pull` persisting into `sync.events` / `sync.stores`).
 
-Everything runs locally today; sync + sharing + backend APIs are tracked as follow-up work.
+Everything runs locally today; cloud auth + sync are implemented and optional, while sharing/invites are follow-up work.
 
 ## Getting Started
 
@@ -67,10 +67,11 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 ## Key Concepts
 
 - **LiveStore store**: `packages/infrastructure/src/goals/schema.ts` defines the SQLite schema shared by Goals and Projects (`goal_events`, `project_events`, `*_snapshots`, projection meta, analytics, search). `apps/web` mounts it via an OPFS-backed adapter and a shared worker.
-- **Goal domain**: `Goal` aggregate emits events (`GoalCreated`, `GoalSummaryChanged`, etc.). Value objects (Slice, Priority, Month, Summary) enforce invariants via `Assert`.
+- **Goal domain**: `Goal` aggregate emits immutable events (`GoalCreated`, `GoalRefined`, `GoalRecategorized`, `GoalRescheduled`, `GoalPrioritized`, …). Value objects (Slice, Priority, Month, Summary) enforce invariants via `Assert`.
 - **Project domain**: `Project` aggregate models day-precision timelines with milestones and optional goal linkage; value objects capture name/status/date/description/goal/milestone semantics.
 - **Application layer**: per-BC command handlers (`GoalCommandHandler`, `ProjectCommandHandler`, `UserCommandHandler`) operate on simple command DTOs, materialize value objects, and persist encrypted events through repositories implementing shared `Repository` ports.
 - **Encryption**: Each goal gets its own symmetric key (`K_goal`). Keys are stored in `IndexedDBKeyStore`, wrapped with a passphrase-derived KEK (PBKDF2 600k iterations). WebCrypto handles encryption, signing, and ECIES wrapping utilities for future sharing flows.
+- **Serialization + sync contract**: domain payloads are encrypted, but LiveStore sync events are `event.v1` and must be byte-preserved server-side (`sync.events.args` is stored as TEXT JSON, not `jsonb`).
 - **React wiring**:
   - `createAppServices` (`apps/web/src/bootstrap/createAppServices.ts`) is the app-level composition root: it wires LiveStore, per-BC event stores, crypto, key store, event bus, and BC bootstraps (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`).
   - `AppProvider` bootstraps `createAppServices`, drives onboarding/unlock state, and wraps the interface layer.
@@ -113,5 +114,5 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 
 ## Documentation
 
-- `goals-poc-prd-v2.md` – up-to-date PRD with architecture, flows, and open risks.
-- Projection/runtime notes live in `goals-poc-prd-v2.md` (worker-based projections, snapshots, analytics).
+- `docs/architecture.md` – long-lived architecture reference (layers + key decisions/ADRs).
+- `goals-poc-prd-v2.md` – product/workflow PRD (temporary; will be retired as the architecture doc becomes the source of truth).
