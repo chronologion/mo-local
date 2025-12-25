@@ -2,7 +2,9 @@
 
 **Version**: 2.1  
 **Status**: In progress  
-**Last Updated**: 2025-12-23
+**Last Updated**: 2025-12-25
+
+> Architecture note: the long-lived architecture reference (layers + key ADRs) is `docs/architecture.md`. This PRD remains a product/workflow WIP doc and will be retired once the architecture doc is complete.
 
 ## 1. Objective
 
@@ -120,10 +122,12 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
 
 - **Aggregate**: `Goal` (`packages/domain/src/goals/Goal.ts`). Emits:
   - `GoalCreated`
-  - `GoalSummaryChanged`
-  - `GoalSliceChanged`
-  - `GoalTargetChanged`
-  - `GoalPriorityChanged`
+  - `GoalRefined`
+  - `GoalRecategorized`
+  - `GoalRescheduled`
+  - `GoalPrioritized`
+  - `GoalAchieved`
+  - `GoalUnachieved`
   - `GoalArchived`
   - `GoalAccessGranted`
   - `GoalAccessRevoked`
@@ -142,7 +146,7 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
   - `BaseCommand`, `BaseCommandHandler`, `IBus`, `CommandResult`, `Repository<TAggregate, TId>`, and `ReadModel<TDto, TFilter, TSearchFilter>`.
   - Cross-cutting ports: `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
 - **Goal BC** (`packages/application/src/goals`):
-  - Commands (`.../goals/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`.
+  - Commands (`.../goals/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `AchieveGoal`, `UnachieveGoal`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`.
   - `GoalCommandHandler` (extends `BaseCommandHandler`) orchestrates loading, domain mutations, persistence, and key lookups; publication is treated as a post-commit concern driven from LiveStore (see commit boundary rules below).
   - `GoalQueryHandler` depends only on the `IGoalReadModel` port, which is implemented in infrastructure.
 - **Project BC** (`packages/application/src/projects`):
@@ -162,7 +166,7 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
   - Domain events are encrypted at rest; LiveStore stores only ciphertext (`payload_encrypted`) in the per-BC tables.
   - `DomainToLiveStoreAdapter` encrypts payload envelopes and writes them to the event store.
   - `LiveStoreToDomainAdapter` decrypts payload envelopes and hydrates domain events.
-  - Serialization/versioning/upcasting rules are being standardized into a single `packages/infrastructure/src/eventing/` runtime + registry (replacing per-BC codecs).
+  - Serialization/versioning/upcasting rules are standardized into a single `packages/infrastructure/src/eventing/` runtime + registry (replacing per-BC codecs).
 - **Event stores**:
   - `BrowserLiveStoreEventStore` is a LiveStore-backed implementation of `IEventStore` with optimistic concurrency checks and retry logic; it is instantiated twice in browser wiring: once for `goal_events` / `goal_snapshots` and once for `project_events` / `project_snapshots`.
 - **Crypto**:
@@ -198,11 +202,13 @@ At runtime, the web app integrates LiveStore as follows:
 ### 6.2 Event serialization, versioning & migrations (contract)
 
 **Goals**
+
 - One unified, type-safe event serialization path for both Goals and Projects.
 - Domain stays version-agnostic (no upcasters in domain).
 - Infrastructure owns payload versions and migrations.
 
 **Rules**
+
 1. **Domain events**
    - immutable facts, VO-based members, stable `eventType` discriminator.
    - no `toJSON`/`fromJSON` methods on events.
@@ -223,7 +229,8 @@ This contract is implemented by (target) `packages/infrastructure/src/eventing/`
 
 **Contract versioning (POC-friendly)**
 Because the POC does not require backward compatibility, we treat the event contract as versioned:
-- LiveStore synced event name is versioned (`event.vN`). Today it is still split (`goal.event.v1` / `project.event.v1` in `packages/infrastructure/src/goals/schema.ts`), but the target is a single `event.v1` to reduce metadata leakage.
+
+- LiveStore synced event name is versioned (`event.vN`). The current contract uses a single synced event name **`event.v1`** for both Goals and Projects (`packages/infrastructure/src/goals/schema.ts`), reducing metadata leakage compared to per-BC event names.
 - When we make a breaking change (event set, `eventType` strings, or payload shapes), we bump `vN` (and/or bump `storeId`) so we never mix histories across contracts, and we reset any existing local/server data for the old contract.
 
 ### 6.3 Sync byte-preservation contract (server)
@@ -231,26 +238,30 @@ Because the POC does not require backward compatibility, we treat the event cont
 LiveStore sync compares encoded events strictly. The server must not change the byte-level representation of event args for already-synced sequence numbers.
 
 **Rule**
-- Persist `sync.events.args` as **TEXT containing JSON** (not `jsonb`), and treat it as order-sensitive/opaque.
+
+- Persist `sync.events.args` as **TEXT containing JSON** (not `jsonb`) and treat it as order-sensitive/opaque.
+- “Byte-preservation” here is defined as: `serializeArgs(args) === JSON.stringify(args)` at push time, and the same string is derivable after pull (`JSON.stringify(pulled.args) === storedText`), not that we store raw HTTP request bytes.
 
 **Implementation grounding**
+
 - Migration: `apps/api/src/sync/infrastructure/migrations/sync/0003_sync_args_text.ts`
-- Repository persists `JSON.stringify(args)` verbatim to avoid key-order changes.
+- Repository persists `serializeArgs(args)` (currently `JSON.stringify(args)`) and rehydrates via `parseArgs` to avoid key-order changes.
 
 **Tests**
+
 - Ensure `args` round-trips with identical bytes (`storedText === JSON.stringify(incomingArgs)`).
 
 ### 6.4 Conflict model (local OCC vs sync LWW)
 
 We have two distinct “conflict” layers:
 
-1. **Local optimistic concurrency control (OCC)** (planned):
+1. **Local optimistic concurrency control (OCC)** (implemented):
    - commands carry `knownVersion` (aggregate version the UI believes it edited).
-   - handlers reject if aggregate version changed (prevents silent overwrites on the same device).
+   - handlers reject with `ConcurrencyError` if the aggregate version changed (prevents silent overwrites on the same device / between tabs).
 2. **Cross-device sync resolution** (LiveStore default):
    - server assigns global sequence numbers (total ordering).
-   - clients rebase local events when the server is ahead.
-   - resulting convergence behaves like last-write-wins by global ordering.
+   - server-ahead is detected on push (HTTP 409 with `minimumExpectedSeqNum`/`providedSeqNum`), and the client rebases by pulling missing events then replaying local commits.
+   - convergence behaves like last-write-wins by global ordering: if two devices emit conflicting domain events, whichever is later in the global order is what projections reflect.
 
 User-facing implication: OCC conflicts are surfaced immediately at command time; sync “conflicts” resolve by ordering/rebase and may overwrite an older offline edit.
 
@@ -258,9 +269,10 @@ User-facing implication: OCC conflicts are surfaced immediately at command time;
 
 LiveStore `commit()` is the durable boundary on-device. Anything else (event bus publication, projections) must be derivable from committed data and be replayable after reloads/crashes.
 
-Target rule:
+Implemented rule:
+
 - Do not publish “pending events” from command handlers as an external side effect of persistence.
-- Publish from a post-commit stream (LiveStore tables / changeset) with dedupe.
+- Publish from a post-commit stream (materialized event tables ordered by `sequence`) with dedupe via persisted cursor (`CommittedEventPublisher`).
 
 ## 7. Interface Layer (apps/web)
 
@@ -334,8 +346,8 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 3. **Sharing + wrapped key distribution**: Sync APIs (`/sync/push`, `/sync/pull`) and server-side persistence (`sync.events`, `sync.stores`) are implemented and exercised by integration + Playwright tests, but cross-user sharing and wrapped key distribution are not. `AggregateKeyManager`, `SharingCrypto`, and the application-level `ISyncProvider` port are defined for future flows but not yet wired into the UI or backend.
 4. **Store identity vs. user identity**: `storeId` is now derived from `userId` (local-first root of trust) on onboarding/unlock/restore, so the same user syncs to the same logical store across devices. Existing per-device stores created before this change are not auto-migrated; restoring a key backup on a fresh device will bind sync to the `userId`-based `storeId`.
 5. **Projection runtime still runs on the main thread**: `GoalProjectionProcessor` / `ProjectProjectionProcessor` are main-thread consumers triggered by LiveStore subscriptions. Worker-based execution and cross-tab coordination are future work.
-6. **Docker documentation is aspirational**: A Docker Compose stack for full-stack + E2E is still planned but not present in the repo.
-7. **ZK is payload-only (metadata leakage)**: while domain payloads are encrypted, LiveStore sync necessarily transmits event names and args in plaintext; today that includes `aggregateId`, `eventType`, `version`, and `occurredAt` (see `packages/infrastructure/src/goals/schema.ts`). We will reduce one leakage vector by using a single synced event name (`event.v1`), but args-based leakage remains; accepted for the POC and tracked as future hardening.
+6. **Docker stack docs need consolidation**: the Docker Compose dev stack exists (`docker-compose.yml`, `yarn dev:stack`), but documentation still lives across README/scripts and should be consolidated as the stack grows.
+7. **ZK is payload-only (metadata leakage)**: while domain payloads are encrypted, LiveStore sync necessarily transmits event name and args in plaintext; today that includes `aggregateId`, `eventType`, `version`, and `occurredAt` (see `packages/infrastructure/src/goals/schema.ts`). We already reduce one leakage vector by using a single synced event name (`event.v1`), but args-based leakage remains; accepted for the POC and tracked as future hardening.
 
 ## 10. Next Steps
 
@@ -363,6 +375,7 @@ flowchart TB
     QryBus["Query Bus (IBus&lt;GoalQuery&gt;)"]
     CmdHandler["GoalCommandHandler"]
     QryHandler["GoalQueryHandler"]
+    Saga["GoalAchievementSaga<br>(cross-BC)"]
     RepoPort["IGoalRepository (port)"]
     ReadModelPort["IGoalReadModel (port)"]
     EventBus["IEventBus (port)"]
@@ -370,13 +383,15 @@ flowchart TB
 
   subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]
     GoalAgg["Goal<br>(Aggregate Root)"]
-    GoalEvents["Domain Events:<br>GoalCreated GoalSummaryChanged GoalSliceChanged GoalTargetChanged GoalPriorityChanged GoalArchived GoalAccessGranted GoalAccessRevoked"]
+    GoalEvents["Domain Events:<br>GoalEventType (eventType strings)"]
   end
 
   subgraph Infra["Infrastructure Layer (Goals BC)"]
 
     subgraph Eventing["Event Store & Crypto (browser, custom)"]
       EventStoreAdapter["DomainToLiveStoreAdapter"]
+      ToDomainAdapter["LiveStoreToDomainAdapter"]
+      CommittedPublisher["CommittedEventPublisher"]
       LiveStoreEventStore["BrowserLiveStoreEventStore"]
       CryptoService["WebCryptoService"]
       KeyStore["IndexedDBKeyStore"]
@@ -394,6 +409,8 @@ flowchart TB
       LSChangeset[(__livestore_session_changeset)]
       LSEvents[(goal_events)]
       LSSnapshots[(goal_snapshots)]
+      LSGoalAchState[(goal_achievement_state)]
+      LSGoalAchProjects[(goal_achievement_projects)]
       LSProjectionMeta[(goal_projection_meta)]
       LSAnalytics[(goal_analytics)]
       LSSearch[(goal_search_index)]
@@ -404,7 +421,7 @@ flowchart TB
       CloudSyncBackend["CloudSyncBackend"]
     end
 
-    Subscribers["Other EventBus Subscribers<br>(analytics, other BCs)"]
+    Subscribers["Other EventBus Subscribers<br>(sagas, analytics, other BCs)"]
   end
 
   subgraph SyncServer["Sync Backend (NestJS + Postgres)"]
@@ -437,21 +454,24 @@ flowchart TB
   %% Command handler → domain + ports
   CmdHandler --> GoalAgg
   CmdHandler --> RepoPort
-  CmdHandler --> EventBus
 
   %% Query handler → read model port
   QryHandler --> ReadModelPort
 
+  %% Saga subscribes post-commit and dispatches commands
+  EventBus --> Saga
+  Saga -- "dispatch AchieveGoal" --> CmdBus
+  Saga -- "persist saga state" --> LSGoalAchState
+  Saga -- "persist saga state" --> LSGoalAchProjects
+
   %% Domain events
   GoalAgg --> GoalEvents
-  GoalEvents --> EventBus
 
-  %% EventBus fan-out into infra
-  EventBus --> EventStoreAdapter
-  EventBus --> ProjectionProcessor
+  %% EventBus fan-out into subscribers (post-commit publication)
   EventBus --> Subscribers
 
   %% Event store & crypto wiring
+  GoalRepoImpl --> EventStoreAdapter
   EventStoreAdapter --> LiveStoreEventStore
   EventStoreAdapter --> CryptoService
   EventStoreAdapter --> KeyStore
@@ -460,11 +480,19 @@ flowchart TB
   LiveStoreEventStore --> LSSnapshots
 
   %% Projections → browser DB + in-memory read model
-  ProjectionProcessor --> LSChangeset
+  ProjectionProcessor --> LiveStoreEventStore
+  ProjectionProcessor --> ToDomainAdapter
+  ProjectionProcessor --> KeyStore
   ProjectionProcessor --> LSProjectionMeta
   ProjectionProcessor --> LSAnalytics
   ProjectionProcessor --> LSSearch
   ProjectionProcessor --> ReadModelImpl
+
+  %% Post-commit publication → EventBus
+  CommittedPublisher --> LiveStoreEventStore
+  CommittedPublisher --> ToDomainAdapter
+  CommittedPublisher --> KeyStore
+  CommittedPublisher --> EventBus
 
   %% Ports implemented in Infra (dashed)
   RepoPort -. "implemented by" .-> GoalRepoImpl

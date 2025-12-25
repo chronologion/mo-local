@@ -1,5 +1,8 @@
 import { IEvent } from './IEvent';
-import type { AggregateId } from './vos/AggregateId';
+import { ActorId } from './vos/ActorId';
+import { AggregateId } from './vos/AggregateId';
+import { CorrelationId } from './vos/CorrelationId';
+import { EventId } from './vos/EventId';
 import type { Timestamp } from './vos/Timestamp';
 
 /**
@@ -17,8 +20,33 @@ export abstract class DomainEvent<
 > implements IEvent<TId> {
   abstract readonly eventType: string;
 
-  constructor(
-    readonly aggregateId: TId,
-    readonly occurredAt: Timestamp
-  ) {}
+  readonly aggregateId: TId;
+  readonly occurredAt: Timestamp;
+  readonly eventId: EventId;
+  readonly actorId: ActorId;
+  readonly causationId?: EventId;
+  readonly correlationId?: CorrelationId;
+
+  constructor(params: {
+    aggregateId: TId;
+    occurredAt: Timestamp;
+    eventId: EventId;
+    actorId: ActorId;
+    causationId?: EventId;
+    correlationId?: CorrelationId;
+  }) {
+    this.aggregateId = params.aggregateId;
+    this.occurredAt = params.occurredAt;
+    this.eventId = params.eventId;
+    this.actorId = params.actorId;
+    this.causationId = params.causationId;
+    this.correlationId = params.correlationId;
+  }
 }
+
+export type EventMetadata = Readonly<{
+  eventId: EventId;
+  actorId: ActorId;
+  causationId?: EventId;
+  correlationId?: CorrelationId;
+}>;

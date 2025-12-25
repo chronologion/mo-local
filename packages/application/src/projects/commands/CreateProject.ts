@@ -11,6 +11,7 @@ export type CreateProjectPayload = {
   goalId?: string | null;
   userId: string;
   timestamp: number;
+  idempotencyKey: string;
 };
 
 export class CreateProject
@@ -27,6 +28,7 @@ export class CreateProject
   readonly goalId?: string | null;
   readonly userId: string;
   readonly timestamp: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: CreateProjectPayload) {
     super(payload);
@@ -39,5 +41,6 @@ export class CreateProject
     this.goalId = payload.goalId;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }

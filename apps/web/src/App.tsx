@@ -29,7 +29,7 @@ export default function App() {
         <header className="border-b border-border/70 bg-background shadow-sm">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 text-foreground">
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg from-accent to-accent2 bg-gradient-to-br font-bold text-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg from-accent to-accent2 bg-linear-to-br font-bold text-foreground">
                 <Sparkles className="h-4 w-4 text-black" />
               </div>
               <div>

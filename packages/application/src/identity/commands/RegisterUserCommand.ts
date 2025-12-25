@@ -19,7 +19,7 @@ export interface ValidatedRegisterUserCommand {
   readonly userId: UserId;
   readonly signingPublicKey: Uint8Array;
   readonly encryptionPublicKey: Uint8Array;
-  readonly timestamp: Date;
+  readonly timestamp: number;
 }
 
 export function validateRegisterUserCommand(

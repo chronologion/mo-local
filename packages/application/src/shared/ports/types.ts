@@ -27,6 +27,9 @@ export interface EncryptedEvent {
   payload: Uint8Array;
   version: number;
   occurredAt: number;
+  actorId?: string | null;
+  causationId?: string | null;
+  correlationId?: string | null;
   sequence?: number;
 }
 

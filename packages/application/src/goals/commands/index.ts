@@ -3,6 +3,8 @@ export * from './ChangeGoalSummary';
 export * from './ChangeGoalSlice';
 export * from './ChangeGoalTargetMonth';
 export * from './ChangeGoalPriority';
+export * from './AchieveGoal';
+export * from './UnachieveGoal';
 export * from './ArchiveGoal';
 export * from './GrantGoalAccess';
 export * from './RevokeGoalAccess';
@@ -12,6 +14,8 @@ import type { ChangeGoalSummary } from './ChangeGoalSummary';
 import type { ChangeGoalSlice } from './ChangeGoalSlice';
 import type { ChangeGoalTargetMonth } from './ChangeGoalTargetMonth';
 import type { ChangeGoalPriority } from './ChangeGoalPriority';
+import type { AchieveGoal } from './AchieveGoal';
+import type { UnachieveGoal } from './UnachieveGoal';
 import type { ArchiveGoal } from './ArchiveGoal';
 import type { GrantGoalAccess } from './GrantGoalAccess';
 import type { RevokeGoalAccess } from './RevokeGoalAccess';
@@ -22,6 +26,8 @@ export type GoalCommand =
   | ChangeGoalSlice
   | ChangeGoalTargetMonth
   | ChangeGoalPriority
+  | AchieveGoal
+  | UnachieveGoal
   | ArchiveGoal
   | GrantGoalAccess
   | RevokeGoalAccess;

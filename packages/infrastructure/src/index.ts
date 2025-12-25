@@ -1,7 +1,7 @@
 export * from './livestore/adapters/DomainToLiveStoreAdapter';
 export * from './livestore/adapters/LiveStoreToDomainAdapter';
 export * from './events/InMemoryEventBus';
-export * from './crypto/NodeCryptoService';
+export * from './eventing/CommittedEventPublisher';
 export * from './crypto/SharingCrypto';
 export * from './crypto/deriveSalt';
 export * from './crypto/AggregateKeyManager';
@@ -11,6 +11,7 @@ export * from './crypto/WebCryptoService';
 export * from './browser/LiveStoreEventStore';
 export * from './browser/sleep';
 export * from './livestore/sync/syncGate';
+export * from './idempotency';
 export * from './goals';
 export * from './projects';
 export * from './cloud';

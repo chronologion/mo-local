@@ -18,17 +18,11 @@ export const validateTimestamp = (
   timestamp: number,
   field: string,
   errors: ValidationError[]
-): Date | null => {
+): number | null => {
   if (!Number.isFinite(timestamp)) {
     errors.push({ field, message: 'Timestamp must be a finite number' });
     return null;
   }
 
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    errors.push({ field, message: 'Timestamp is not a valid date' });
-    return null;
-  }
-
-  return date;
+  return timestamp;
 };

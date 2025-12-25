@@ -1,18 +1,28 @@
 import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
-import type { Store } from '@livestore/livestore';
+import type {
+  LiveStoreEvent,
+  LiveStoreSchema,
+  Store,
+} from '@livestore/livestore';
 import { sleep } from './sleep';
 
-type GoalEventFactory = (payload: {
+type DomainEventFactory<TSchema extends LiveStoreSchema> = (payload: {
   id: string;
   aggregateId: string;
   eventType: string;
   payload: Uint8Array;
   version: number;
   occurredAt: number;
-}) => unknown;
+  actorId: string | null;
+  causationId: string | null;
+  correlationId: string | null;
+}) => LiveStoreEvent.Input.ForSchema<TSchema>;
+type GoalEventFactory = DomainEventFactory<LiveStoreSchema.Any>;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 50;
+const MATERIALIZE_RETRIES = 50;
+const MATERIALIZE_DELAY_MS = 5;
 
 /**
  * LiveStore-backed event store for browser, with version checks and retries.
@@ -54,21 +64,27 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       }
     }
 
+    const expectedFinalVersion =
+      expectedStartVersion + Math.max(0, sorted.length - 1);
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         this.store.commit(
-          ...sorted.map(
-            (event) =>
-              this.goalEvent({
-                id: event.id,
-                aggregateId,
-                eventType: event.eventType,
-                payload: event.payload,
-                version: event.version,
-                occurredAt: event.occurredAt,
-              }) as never
+          ...sorted.map((event) =>
+            this.goalEvent({
+              id: event.id,
+              aggregateId,
+              eventType: event.eventType,
+              payload: event.payload,
+              version: event.version,
+              occurredAt: event.occurredAt,
+              actorId: event.actorId ?? null,
+              causationId: event.causationId ?? null,
+              correlationId: event.correlationId ?? null,
+            })
           )
         );
+        await this.waitForMaterialized(aggregateId, expectedFinalVersion);
         return;
       } catch (error) {
         if (attempt === MAX_RETRIES) {
@@ -91,11 +107,14 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         payload_encrypted: Uint8Array;
         version: number;
         occurred_at: number;
+        actor_id: string | null;
+        causation_id: string | null;
+        correlation_id: string | null;
         sequence: number;
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         WHERE aggregate_id = ? AND version >= ?
         ORDER BY version ASC
@@ -137,11 +156,14 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         payload_encrypted: Uint8Array;
         version: number;
         occurred_at: number;
+        actor_id: string | null;
+        causation_id: string | null;
+        correlation_id: string | null;
         sequence: number;
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         ${whereClause}
         ORDER BY sequence ASC
@@ -166,6 +188,20 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     return Math.max(maxEventVersion, maxSnapshotVersion);
   }
 
+  private async waitForMaterialized(
+    aggregateId: string,
+    expectedVersion: number
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= MATERIALIZE_RETRIES; attempt += 1) {
+      const current = this.getCurrentVersion(aggregateId);
+      if (current >= expectedVersion) return;
+      await sleep(MATERIALIZE_DELAY_MS);
+    }
+    throw new Error(
+      `Timed out waiting for event materialization for ${aggregateId} (expected version ${expectedVersion})`
+    );
+  }
+
   private toEncryptedEvent(row: {
     id: string;
     aggregate_id: string;
@@ -173,6 +209,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     payload_encrypted: Uint8Array;
     version: number;
     occurred_at: number;
+    actor_id: string | null;
+    causation_id: string | null;
+    correlation_id: string | null;
     sequence: number;
   }): EncryptedEvent {
     return {
@@ -182,6 +221,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       payload: row.payload_encrypted,
       version: Number(row.version),
       occurredAt: Number(row.occurred_at),
+      actorId: row.actor_id,
+      causationId: row.causation_id,
+      correlationId: row.correlation_id,
       sequence: Number(row.sequence),
     };
   }

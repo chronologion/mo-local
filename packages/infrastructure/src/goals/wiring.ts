@@ -5,6 +5,8 @@ import {
   ChangeGoalSummary,
   ChangeGoalTargetMonth,
   CreateGoal,
+  AchieveGoal,
+  UnachieveGoal,
   GetGoalByIdQuery,
   GoalCommand,
   GoalCommandHandler,
@@ -19,17 +21,17 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IEventBus,
+  IKeyStore,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { GoalRepository } from './GoalRepository';
-import { GoalProjectionProcessor } from './projection/GoalProjectionProcessor';
+import { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
 import { GoalReadModel } from './GoalReadModel';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
+import { LiveStoreIdempotencyStore } from '../idempotency';
 
 export type GoalBoundedContextServices = {
   goalRepo: GoalRepository;
@@ -43,8 +45,7 @@ export type GoalBootstrapDeps = {
   store: Store;
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
-  keyStore: IndexedDBKeyStore;
-  eventBus: IEventBus;
+  keyStore: IKeyStore;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -61,7 +62,6 @@ export const bootstrapGoalBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
-  eventBus,
   toDomain,
 }: GoalBootstrapDeps): GoalBoundedContextServices => {
   const goalRepo = new GoalRepository(
@@ -70,11 +70,12 @@ export const bootstrapGoalBoundedContext = ({
     crypto,
     async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
   );
+  const idempotencyStore = new LiveStoreIdempotencyStore(store);
   const goalHandler = new GoalCommandHandler(
     goalRepo,
     keyStore,
     crypto,
-    eventBus
+    idempotencyStore
   );
   const goalProjection = new GoalProjectionProcessor(
     store,
@@ -134,6 +135,12 @@ const buildGoalCommandBus = (
   );
   goalCommandBus.register('ArchiveGoal', (command: ArchiveGoal) =>
     wrapGoal(handler.handleArchive.bind(handler), command)
+  );
+  goalCommandBus.register('AchieveGoal', (command: AchieveGoal) =>
+    wrapGoal(handler.handleAchieve.bind(handler), command)
+  );
+  goalCommandBus.register('UnachieveGoal', (command: UnachieveGoal) =>
+    wrapGoal(handler.handleUnachieve.bind(handler), command)
   );
   goalCommandBus.register('GrantGoalAccess', (command: GrantGoalAccess) =>
     wrapGoal(handler.handleGrantAccess.bind(handler), command)

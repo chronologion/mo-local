@@ -24,6 +24,12 @@ const CURVE = 'P-256';
 const toBuffer = (input: Uint8Array): Buffer =>
   Buffer.isBuffer(input) ? input : Buffer.from(input);
 
+const toArrayBuffer = (input: Uint8Array): ArrayBuffer => {
+  const buffer = new ArrayBuffer(input.byteLength);
+  new Uint8Array(buffer).set(input);
+  return buffer;
+};
+
 const assertKeyLength = (key: Uint8Array): void => {
   if (key.length !== DERIVE_LENGTH) {
     throw new Error(`Invalid key length: expected ${DERIVE_LENGTH} bytes`);
@@ -141,7 +147,7 @@ export class NodeCryptoService implements ICryptoService {
     }
     const publicKey = await webcrypto.subtle.importKey(
       'raw',
-      recipientPublicKey,
+      toArrayBuffer(recipientPublicKey),
       { name: 'ECDH', namedCurve: CURVE },
       false,
       []
@@ -164,7 +170,7 @@ export class NodeCryptoService implements ICryptoService {
     const ciphertext = await webcrypto.subtle.encrypt(
       { name: 'AES-GCM', iv, tagLength: 128 },
       aesKey,
-      keyToWrap
+      toArrayBuffer(keyToWrap)
     );
     const ephemeralRaw = await webcrypto.subtle.exportKey(
       'raw',
@@ -186,14 +192,14 @@ export class NodeCryptoService implements ICryptoService {
 
     const privateKey = await webcrypto.subtle.importKey(
       'pkcs8',
-      recipientPrivateKey,
+      toArrayBuffer(recipientPrivateKey),
       { name: 'ECDH', namedCurve: CURVE },
       false,
       ['deriveKey']
     );
     const publicKey = await webcrypto.subtle.importKey(
       'raw',
-      ephemeralRaw,
+      toArrayBuffer(ephemeralRaw),
       { name: 'ECDH', namedCurve: CURVE },
       false,
       []
@@ -208,9 +214,9 @@ export class NodeCryptoService implements ICryptoService {
     );
 
     const plaintext = await webcrypto.subtle.decrypt(
-      { name: 'AES-GCM', iv, tagLength: 128 },
+      { name: 'AES-GCM', iv: toArrayBuffer(iv), tagLength: 128 },
       aesKey,
-      payload
+      toArrayBuffer(payload)
     );
     const result = new Uint8Array(plaintext);
     assertKeyLength(result);
@@ -256,7 +262,7 @@ export class NodeCryptoService implements ICryptoService {
   async sign(data: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> {
     const key = await webcrypto.subtle.importKey(
       'pkcs8',
-      privateKey,
+      toArrayBuffer(privateKey),
       { name: 'ECDSA', namedCurve: CURVE },
       false,
       ['sign']
@@ -264,7 +270,7 @@ export class NodeCryptoService implements ICryptoService {
     const signature = await webcrypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       key,
-      data
+      toArrayBuffer(data)
     );
     return new Uint8Array(signature);
   }
@@ -276,7 +282,7 @@ export class NodeCryptoService implements ICryptoService {
   ): Promise<boolean> {
     const key = await webcrypto.subtle.importKey(
       'spki',
-      publicKey,
+      toArrayBuffer(publicKey),
       { name: 'ECDSA', namedCurve: CURVE },
       false,
       ['verify']
@@ -284,8 +290,8 @@ export class NodeCryptoService implements ICryptoService {
     return webcrypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-256' },
       key,
-      signature,
-      data
+      toArrayBuffer(signature),
+      toArrayBuffer(data)
     );
   }
 }

@@ -22,10 +22,7 @@ export class GoalQueryHandler implements IQueryHandler<
       case 'SearchGoals':
         return this.readModel.search(query.term, query.filter);
       default: {
-        const _exhaustive: never = query;
-        return Promise.reject(
-          new Error(`Unsupported goal query type: ${(query as GoalQuery).type}`)
-        );
+        return Promise.reject(new Error(`Unsupported goal query type`));
       }
     }
   }

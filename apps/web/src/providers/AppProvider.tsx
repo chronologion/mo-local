@@ -46,6 +46,15 @@ type SessionState =
 
 type Services = Awaited<ReturnType<typeof createAppServices>>;
 
+const getStoreShutdownPromise = (
+  store: Services['store']
+): (() => Promise<void>) | null => {
+  const candidate = store as { shutdownPromise?: unknown };
+  return typeof candidate.shutdownPromise === 'function'
+    ? (candidate.shutdownPromise as () => Promise<void>)
+    : null;
+};
+
 type AppContextValue = {
   services: Services;
   userMeta: UserMeta | null;
@@ -114,6 +123,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
+  const sagaBootstrappedRef = useRef<Set<string>>(new Set());
+  const publisherStartedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const enabled =
@@ -228,11 +239,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                   try {
                     svc.contexts.goals?.goalProjection.stop();
                     svc.contexts.projects?.projectProjection.stop();
-                    const maybeShutdown = (
-                      svc.store as unknown as {
-                        shutdownPromise?: () => Promise<void>;
-                      }
-                    ).shutdownPromise;
+                    const maybeShutdown = getStoreShutdownPromise(svc.store);
                     if (maybeShutdown) {
                       await maybeShutdown();
                     }
@@ -309,11 +316,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         createdServices?.contexts.goals?.goalProjection.stop();
         createdServices?.contexts.projects?.projectProjection.stop();
-        void (
-          createdServices?.store as unknown as {
-            shutdownPromise?: () => Promise<void>;
-          }
-        ).shutdownPromise?.();
+        createdServices?.publisher.stop();
+        const maybeShutdown = createdServices
+          ? getStoreShutdownPromise(createdServices.store)
+          : null;
+        void maybeShutdown?.();
       } catch (error) {
         console.warn('Failed to shutdown LiveStore cleanly', error);
       }
@@ -354,8 +361,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     void (async () => {
       try {
         if (servicesRef.current !== currentServices) return;
+        if (!publisherStartedRef.current.has(currentServices.storeId)) {
+          await currentServices.publisher.start();
+          publisherStartedRef.current.add(currentServices.storeId);
+        }
         await goalCtx.goalProjection.start();
         await projectCtx.projectProjection.start();
+        const saga = currentServices.sagas?.goalAchievement;
+        if (saga && !sagaBootstrappedRef.current.has(currentServices.storeId)) {
+          saga.subscribe(currentServices.eventBus);
+          await saga.bootstrap();
+          sagaBootstrappedRef.current.add(currentServices.storeId);
+        }
       } catch (error) {
         if (cancelled) return;
         if (servicesRef.current !== currentServices) return;
@@ -474,9 +491,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const projectCtx = services.contexts.projects;
       goalCtx?.goalProjection.stop();
       projectCtx?.projectProjection.stop();
-      await (
-        services.store as unknown as { shutdownPromise?: () => Promise<void> }
-      ).shutdownPromise?.();
+      const maybeShutdown = getStoreShutdownPromise(services.store);
+      await maybeShutdown?.();
     } catch (error) {
       console.warn('LiveStore shutdown failed', error);
     }

@@ -2,6 +2,7 @@ export * from './goals';
 export * from './projects';
 export * from './identity';
 export * from './cloud';
+export * from './sagas';
 export * from './errors/ApplicationError';
 export * from './errors/ValidationError';
 export * from './errors/ConcurrencyError';

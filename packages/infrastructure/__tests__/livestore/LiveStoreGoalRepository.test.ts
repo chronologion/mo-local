@@ -13,10 +13,13 @@ import {
   Priority,
   UserId,
   DomainEvent,
+  Timestamp,
 } from '@mo/domain';
+import { isSome } from '@mo/application';
 import { PersistenceError } from '../../src/errors';
 
 const cachedEvents = new Map<string, DomainEvent>();
+const createdAt = Timestamp.fromMillis(1_700_000_000_000);
 
 const adapter: GoalEventAdapter = {
   toEncrypted(event: DomainEvent, version: number, encryptionKey: Uint8Array) {
@@ -29,6 +32,7 @@ const adapter: GoalEventAdapter = {
       payload: new Uint8Array(encryptionKey), // dummy payload to satisfy contract
       version,
       occurredAt: event.occurredAt.value,
+      actorId: event.actorId.value,
     };
   },
   toDomain(event) {
@@ -57,13 +61,14 @@ describe('LiveStoreGoalRepository', () => {
       targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     await repo.save(goal, key);
 
     const loaded = await repo.load(goal.id);
-    expect(loaded).not.toBeNull();
-    expect(loaded?.summary.value).toBe('Test');
+    expect(isSome(loaded)).toBe(true);
+    expect(isSome(loaded) ? loaded.value.summary.value : null).toBe('Test');
   });
 
   it('wraps persistence errors', async () => {
@@ -75,6 +80,7 @@ describe('LiveStoreGoalRepository', () => {
       targetMonth: Month.from('2025-12'),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt,
     });
 
     const adapterThrowing: GoalEventAdapter = {

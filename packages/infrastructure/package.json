@@ -19,6 +19,7 @@
     "./projects/wiring": "./src/projects/wiring.ts",
     "./browser/schema": "./src/goals/schema.ts",
     "./goals/schema": "./src/goals/schema.ts",
+    "./sagas/GoalAchievementSagaStore": "./src/sagas/GoalAchievementSagaStore.ts",
     "./browser/worker": "./src/browser/worker.ts",
     "./crypto/deriveSalt": "./src/crypto/deriveSalt.ts",
     "./livestore/sync/syncGate": "./src/livestore/sync/syncGate.ts"

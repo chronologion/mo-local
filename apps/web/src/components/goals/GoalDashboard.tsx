@@ -19,6 +19,8 @@ export function GoalDashboard() {
     createGoal,
     archiveGoal,
     updateGoal,
+    achieveGoal,
+    unachieveGoal,
     loading: mutating,
     error: mutationError,
   } = useGoalCommands();
@@ -27,7 +29,7 @@ export function GoalDashboard() {
   const [editingGoal, setEditingGoal] = useState<GoalListItemDto | null>(null);
   const [pending, setPending] = useState<{
     id: string;
-    action: 'archive' | 'update';
+    action: 'archive' | 'update' | 'achieve' | 'unachieve';
   } | null>(null);
   const { results: searchResults, loading: searching } = useGoalSearch(search);
 
@@ -61,6 +63,23 @@ export function GoalDashboard() {
     setPending({ id: goalId, action: 'update' });
     try {
       await updateGoal({ goalId, ...changes });
+      await refresh();
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const handleToggleAchieved = async (goal: GoalListItemDto) => {
+    setPending({
+      id: goal.id,
+      action: goal.achievedAt ? 'unachieve' : 'achieve',
+    });
+    try {
+      if (goal.achievedAt) {
+        await unachieveGoal(goal.id);
+      } else {
+        await achieveGoal(goal.id);
+      }
       await refresh();
     } finally {
       setPending(null);
@@ -117,6 +136,7 @@ export function GoalDashboard() {
             goal={goal}
             onEdit={(g) => setEditingGoal(g)}
             onArchive={() => handleArchiveGoal(goal.id)}
+            onToggleAchieved={handleToggleAchieved}
             isUpdating={
               mutating &&
               !!pending &&
@@ -128,6 +148,12 @@ export function GoalDashboard() {
               !!pending &&
               pending.id === goal.id &&
               pending.action === 'archive'
+            }
+            isTogglingAchieved={
+              mutating &&
+              !!pending &&
+              pending.id === goal.id &&
+              (pending.action === 'achieve' || pending.action === 'unachieve')
             }
           />
         ))}

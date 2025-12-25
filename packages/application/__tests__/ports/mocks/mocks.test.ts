@@ -7,10 +7,12 @@ import {
   Slice,
   Summary,
   UserId,
+  Timestamp,
 } from '@mo/domain';
 import { InMemoryGoalRepository } from '../../fixtures/ports/InMemoryGoalRepository';
 import { InMemoryEventBus } from '../../fixtures/ports/InMemoryEventBus';
 import { MockCryptoService } from '../../fixtures/ports/MockCryptoService';
+import { isSome } from '../../../src/shared/ports/Option';
 
 describe('InMemoryGoalRepository', () => {
   it('saves, loads, and deletes goals', async () => {
@@ -22,15 +24,18 @@ describe('InMemoryGoalRepository', () => {
       targetMonth: Month.now(),
       priority: Priority.Must,
       createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(1_700_000_000_000),
     });
     const key = Uint8Array.from([1, 2, 3, 4]);
 
     await repo.save(goal, key);
-    expect(await repo.load(goal.id)).toBe(goal);
+    const loaded = await repo.load(goal.id);
+    expect(isSome(loaded) ? loaded.value : null).toBe(goal);
     expect(repo.getStoredKey(goal.id)).toEqual(key);
 
     await repo.delete(goal.id);
-    expect(await repo.load(goal.id)).toBeNull();
+    const deleted = await repo.load(goal.id);
+    expect(deleted.kind).toBe('none');
   });
 });
 
@@ -48,16 +53,22 @@ describe('InMemoryEventBus', () => {
         eventType: 'TestEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-1' } as never,
+        eventId: { value: 'e-1' } as never,
+        actorId: { value: 'user-1' } as never,
       },
       {
         eventType: 'OtherEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-2' } as never,
+        eventId: { value: 'e-2' } as never,
+        actorId: { value: 'user-2' } as never,
       },
       {
         eventType: 'TestEvent',
         occurredAt: { value: Date.now() } as never,
         aggregateId: { value: 'a-3' } as never,
+        eventId: { value: 'e-3' } as never,
+        actorId: { value: 'user-3' } as never,
       },
     ];
 

@@ -8,6 +8,8 @@ export type GrantGoalAccessPayload = {
   permission: AccessPermission;
   userId: string;
   timestamp: number;
+  knownVersion: number;
+  idempotencyKey: string;
 };
 
 export class GrantGoalAccess
@@ -20,6 +22,8 @@ export class GrantGoalAccess
   readonly permission: AccessPermission;
   readonly userId: string;
   readonly timestamp: number;
+  readonly knownVersion: number;
+  readonly idempotencyKey: string;
 
   constructor(payload: GrantGoalAccessPayload) {
     super(payload);
@@ -28,5 +32,7 @@ export class GrantGoalAccess
     this.permission = payload.permission;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;
+    this.knownVersion = payload.knownVersion;
+    this.idempotencyKey = payload.idempotencyKey;
   }
 }
