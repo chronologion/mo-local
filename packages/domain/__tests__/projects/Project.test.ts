@@ -142,6 +142,86 @@ describe('Project aggregate', () => {
     ).toThrow(/Existing milestones must remain within the new date range/);
   });
 
+  it('changes dates within range and updates updatedAt', () => {
+    const project = Project.create({
+      id: ProjectId.create(),
+      name: ProjectName.from('Reschedulable project'),
+      status: ProjectStatus.Planned,
+      startDate: today,
+      targetDate: nextMonth,
+      description: ProjectDescription.empty(),
+      createdBy: UserId.from('user-4b'),
+      createdAt,
+    });
+
+    const newTargetDate = LocalDate.from(
+      today.year,
+      today.month,
+      Math.min(today.day + 2, 28)
+    );
+    project.changeDates({
+      startDate: today,
+      targetDate: newTargetDate,
+      changedAt,
+      actorId: UserId.from('user-4b'),
+    });
+
+    expect(project.targetDate.equals(newTargetDate)).toBe(true);
+    expect(project.updatedAt.equals(changedAt)).toBe(true);
+  });
+
+  it('renames, reschedules, and archives milestones', () => {
+    const project = Project.create({
+      id: ProjectId.create(),
+      name: ProjectName.from('Milestone ops'),
+      status: ProjectStatus.Planned,
+      startDate: today,
+      targetDate: nextMonth,
+      description: ProjectDescription.empty(),
+      createdBy: UserId.from('user-4c'),
+      createdAt,
+    });
+
+    const milestoneId = MilestoneId.create();
+    project.addMilestone({
+      id: milestoneId,
+      name: MilestoneName.from('Initial'),
+      targetDate: today,
+      addedAt: changedAt,
+      actorId: UserId.from('user-4c'),
+    });
+
+    project.changeMilestoneName({
+      milestoneId,
+      name: MilestoneName.from('Renamed'),
+      changedAt: laterAt,
+      actorId: UserId.from('user-4c'),
+    });
+    expect(project.milestones[0]?.name.value).toBe('Renamed');
+
+    const rescheduledDate = LocalDate.from(
+      today.year,
+      today.month,
+      Math.min(today.day + 1, 28)
+    );
+    project.changeMilestoneTargetDate({
+      milestoneId,
+      targetDate: rescheduledDate,
+      changedAt: laterAt,
+      actorId: UserId.from('user-4c'),
+    });
+    expect(project.milestones[0]?.targetDate.equals(rescheduledDate)).toBe(
+      true
+    );
+
+    project.archiveMilestone({
+      milestoneId,
+      archivedAt: laterAt,
+      actorId: UserId.from('user-4c'),
+    });
+    expect(project.milestones).toHaveLength(0);
+  });
+
   it('links and unlinks a goal (max one goal)', () => {
     const project = Project.create({
       id: ProjectId.create(),
