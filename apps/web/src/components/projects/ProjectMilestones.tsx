@@ -57,7 +57,7 @@ export function MilestonesList({
                 <span className="min-w-0 flex-1 truncate font-medium">
                   {m.name}
                 </span>
-                <div className="flex flex-shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Badge variant="secondary">{m.targetDate}</Badge>
                   <Button
                     size="icon"
