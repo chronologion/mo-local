@@ -21,6 +21,8 @@ type GoalEventFactory = DomainEventFactory<LiveStoreSchema.Any>;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 50;
+const MATERIALIZE_RETRIES = 50;
+const MATERIALIZE_DELAY_MS = 5;
 
 /**
  * LiveStore-backed event store for browser, with version checks and retries.
@@ -62,6 +64,9 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       }
     }
 
+    const expectedFinalVersion =
+      expectedStartVersion + Math.max(0, sorted.length - 1);
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         this.store.commit(
@@ -79,6 +84,7 @@ export class BrowserLiveStoreEventStore implements IEventStore {
             })
           )
         );
+        await this.waitForMaterialized(aggregateId, expectedFinalVersion);
         return;
       } catch (error) {
         if (attempt === MAX_RETRIES) {
@@ -180,6 +186,20 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     const maxEventVersion = Number(eventVersion[0]?.version ?? 0);
     const maxSnapshotVersion = Number(snapshotVersion[0]?.version ?? 0);
     return Math.max(maxEventVersion, maxSnapshotVersion);
+  }
+
+  private async waitForMaterialized(
+    aggregateId: string,
+    expectedVersion: number
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= MATERIALIZE_RETRIES; attempt += 1) {
+      const current = this.getCurrentVersion(aggregateId);
+      if (current >= expectedVersion) return;
+      await sleep(MATERIALIZE_DELAY_MS);
+    }
+    throw new Error(
+      `Timed out waiting for event materialization for ${aggregateId} (expected version ${expectedVersion})`
+    );
   }
 
   private toEncryptedEvent(row: {

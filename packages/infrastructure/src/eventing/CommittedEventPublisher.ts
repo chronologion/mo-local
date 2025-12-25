@@ -27,6 +27,7 @@ const META_LAST_PUBLISHED_KEY = 'last_published_sequence';
 export class CommittedEventPublisher {
   private readonly streams: StreamState[];
   private readonly unsubscribers: Array<() => void> = [];
+  private started = false;
 
   constructor(
     private readonly store: Store,
@@ -46,6 +47,8 @@ export class CommittedEventPublisher {
   }
 
   async start(): Promise<void> {
+    if (this.started) return;
+    this.started = true;
     for (const stream of this.streams) {
       stream.lastSequence = await this.loadLastSequence(
         stream.config.metaTable
@@ -60,6 +63,8 @@ export class CommittedEventPublisher {
   }
 
   stop(): void {
+    if (!this.started) return;
+    this.started = false;
     for (const unsubscribe of this.unsubscribers) {
       unsubscribe();
     }

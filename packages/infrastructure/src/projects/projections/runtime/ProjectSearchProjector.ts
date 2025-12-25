@@ -59,7 +59,19 @@ export class ProjectSearchProjector {
     nextItem: ProjectListItem | null
   ): void {
     if (previousItem && this.searchIndex.has(previousItem.id)) {
-      this.searchIndex.remove(previousItem);
+      try {
+        this.searchIndex.remove(previousItem);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes('cannot remove document')
+        ) {
+          // The index can be reset or rebuilt while projections are processing.
+          // Treat missing documents as a no-op.
+        } else {
+          throw error;
+        }
+      }
     }
     if (nextItem && nextItem.archivedAt === null) {
       this.searchIndex.add(nextItem);

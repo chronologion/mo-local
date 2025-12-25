@@ -123,6 +123,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
+  const sagaBootstrappedRef = useRef<Set<string>>(new Set());
+  const publisherStartedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const enabled =
@@ -314,6 +316,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         createdServices?.contexts.goals?.goalProjection.stop();
         createdServices?.contexts.projects?.projectProjection.stop();
+        createdServices?.publisher.stop();
         const maybeShutdown = createdServices
           ? getStoreShutdownPromise(createdServices.store)
           : null;
@@ -358,8 +361,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     void (async () => {
       try {
         if (servicesRef.current !== currentServices) return;
+        if (!publisherStartedRef.current.has(currentServices.storeId)) {
+          await currentServices.publisher.start();
+          publisherStartedRef.current.add(currentServices.storeId);
+        }
         await goalCtx.goalProjection.start();
         await projectCtx.projectProjection.start();
+        const saga = currentServices.sagas?.goalAchievement;
+        if (saga && !sagaBootstrappedRef.current.has(currentServices.storeId)) {
+          saga.subscribe(currentServices.eventBus);
+          await saga.bootstrap();
+          sagaBootstrappedRef.current.add(currentServices.storeId);
+        }
       } catch (error) {
         if (cancelled) return;
         if (servicesRef.current !== currentServices) return;

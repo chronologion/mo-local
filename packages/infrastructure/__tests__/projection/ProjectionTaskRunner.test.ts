@@ -2,23 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { ProjectionTaskRunner } from '../../src/projection/ProjectionTaskRunner';
 
 describe('ProjectionTaskRunner', () => {
-  it('serializes concurrent processing calls', async () => {
+  it('serializes concurrent processing calls and reruns when requested', async () => {
     const runner = new ProjectionTaskRunner('TestRunner', 100);
     const order: string[] = [];
 
-    const first = runner.run(async () => {
-      order.push('start-1');
+    const task = async () => {
+      order.push('start');
       await new Promise((resolve) => setTimeout(resolve, 10));
-      order.push('end-1');
-    });
+      order.push('end');
+    };
 
-    const second = runner.run(async () => {
-      order.push('start-2');
-      order.push('end-2');
-    });
+    const first = runner.run(task);
+    const second = runner.run(task);
 
     await Promise.all([first, second]);
 
-    expect(order).toEqual(['start-1', 'end-1']);
+    expect(order).toEqual(['start', 'end', 'start', 'end']);
   });
 });

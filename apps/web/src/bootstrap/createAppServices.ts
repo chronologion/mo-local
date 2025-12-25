@@ -22,6 +22,7 @@ export type AppServices = {
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
   eventBus: InMemoryEventBus;
+  publisher: CommittedEventPublisher;
   storeId: string;
   store: Awaited<ReturnType<typeof createStoreAndEventStores>>['store'];
   goalEventStore?: Awaited<
@@ -33,6 +34,9 @@ export type AppServices = {
   contexts: {
     goals?: GoalBoundedContextServices;
     projects?: ProjectBoundedContextServices;
+  };
+  sagas?: {
+    goalAchievement?: GoalAchievementSaga;
   };
 };
 
@@ -84,11 +88,12 @@ export const createAppServices = async ({
     });
   }
 
+  const sagas: AppServices['sagas'] = {};
   if (ctx.goals && ctx.projects) {
     const sagaStore = new GoalAchievementSagaStore(storeBundle.store);
     const saga = new GoalAchievementSaga(
       sagaStore,
-      ctx.goals.goalReadModel,
+      ctx.goals.goalRepo,
       ctx.projects.projectReadModel,
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
@@ -101,8 +106,7 @@ export const createAppServices = async ({
         }
       }
     );
-    saga.subscribe(eventBus);
-    await saga.bootstrap();
+    sagas.goalAchievement = saga;
   }
 
   const publisher = new CommittedEventPublisher(
@@ -119,16 +123,17 @@ export const createAppServices = async ({
         : undefined,
     })
   );
-  await publisher.start();
 
   return {
     crypto,
     keyStore,
     eventBus,
+    publisher,
     storeId,
     store: storeBundle.store,
     goalEventStore: storeBundle.goalEventStore,
     projectEventStore: storeBundle.projectEventStore,
     contexts: ctx,
+    sagas,
   };
 };

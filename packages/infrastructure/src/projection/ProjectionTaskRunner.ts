@@ -10,6 +10,7 @@ const safeNow = (): number | null => {
 
 export class ProjectionTaskRunner {
   private processingPromise: Promise<void> | null = null;
+  private pending = false;
 
   constructor(
     private readonly label: string,
@@ -18,32 +19,36 @@ export class ProjectionTaskRunner {
 
   async run(task: () => Promise<void>): Promise<void> {
     if (this.processingPromise) {
+      this.pending = true;
       await this.processingPromise;
       return;
     }
 
-    const start = safeNow();
-    this.processingPromise = task();
+    do {
+      this.pending = false;
+      const start = safeNow();
+      this.processingPromise = task();
 
-    try {
-      await this.processingPromise;
-      if (start !== null) {
-        const end = safeNow();
-        if (end !== null) {
-          const durationMs = end - start;
-          if (durationMs > this.warnThresholdMs) {
-            console.warn(
-              `[${this.label}] Projection processing exceeded budget`,
-              {
-                durationMs,
-                budgetMs: this.warnThresholdMs,
-              }
-            );
+      try {
+        await this.processingPromise;
+        if (start !== null) {
+          const end = safeNow();
+          if (end !== null) {
+            const durationMs = end - start;
+            if (durationMs > this.warnThresholdMs) {
+              console.warn(
+                `[${this.label}] Projection processing exceeded budget`,
+                {
+                  durationMs,
+                  budgetMs: this.warnThresholdMs,
+                }
+              );
+            }
           }
         }
+      } finally {
+        this.processingPromise = null;
       }
-    } finally {
-      this.processingPromise = null;
-    }
+    } while (this.pending);
   }
 }
