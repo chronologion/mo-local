@@ -14,6 +14,7 @@ import {
   GoalRescheduled,
   GoalPrioritized,
   GoalAchieved,
+  GoalUnachieved,
   GoalAccessGranted,
   GoalId,
   Slice,
@@ -211,5 +212,27 @@ describe('GoalProjectionState', () => {
       2
     );
     expect(achieved?.achievedAt).toBe(baseDate.value);
+  });
+
+  it('clears achievedAt when goal is unachieved', () => {
+    const created = applyEventToSnapshot(
+      null,
+      createdEvent,
+      1
+    ) as GoalSnapshotState;
+    const achieved = applyEventToSnapshot(
+      created,
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
+      2
+    );
+    const unachieved = applyEventToSnapshot(
+      achieved,
+      new GoalUnachieved(
+        { goalId: aggregateId, unachievedAt: baseDate },
+        meta()
+      ),
+      3
+    );
+    expect(unachieved?.achievedAt).toBeNull();
   });
 });

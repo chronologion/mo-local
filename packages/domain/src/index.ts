@@ -37,6 +37,7 @@ export * from './goals/events/GoalRecategorized';
 export * from './goals/events/GoalRescheduled';
 export * from './goals/events/GoalPrioritized';
 export * from './goals/events/GoalAchieved';
+export * from './goals/events/GoalUnachieved';
 export * from './goals/events/GoalArchived';
 export * from './goals/events/GoalAccessGranted';
 export * from './goals/events/GoalAccessRevoked';

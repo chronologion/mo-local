@@ -11,6 +11,7 @@ import {
   GoalRefined,
   GoalRescheduled,
   GoalAchieved,
+  GoalUnachieved,
   LocalDate,
   Month,
   Permission,
@@ -105,6 +106,13 @@ describe('eventing registry + runtime', () => {
         {
           goalId,
           achievedAt: ts('2025-01-06T00:00:00Z'),
+        },
+        meta()
+      ),
+      new GoalUnachieved(
+        {
+          goalId,
+          unachievedAt: ts('2025-01-06T12:00:00Z'),
         },
         meta()
       ),

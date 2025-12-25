@@ -243,6 +243,48 @@ describe('Goal Aggregate', () => {
     });
   });
 
+  describe('unachieve', () => {
+    it('marks goal as not achieved', () => {
+      const goal = Goal.create({
+        id: GoalId.create(),
+        slice: Slice.Health,
+        summary: Summary.from('Finish 10k'),
+        targetMonth: Month.now(),
+        priority: Priority.Should,
+        createdBy: UserId.from('user-acc'),
+        createdAt,
+      });
+
+      goal.achieve({ achievedAt: changedAt, actorId: UserId.from('user-acc') });
+      goal.unachieve({
+        unachievedAt: laterAt,
+        actorId: UserId.from('user-acc'),
+      });
+
+      expect(goal.isAchieved).toBe(false);
+      expect(goal.achievedAt).toBeNull();
+    });
+
+    it('prevents unachieving when not achieved', () => {
+      const goal = Goal.create({
+        id: GoalId.create(),
+        slice: Slice.Health,
+        summary: Summary.from('Finish 10k'),
+        targetMonth: Month.now(),
+        priority: Priority.Should,
+        createdBy: UserId.from('user-acc'),
+        createdAt,
+      });
+
+      expect(() =>
+        goal.unachieve({
+          unachievedAt: laterAt,
+          actorId: UserId.from('user-acc'),
+        })
+      ).toThrow(/Goal not achieved/);
+    });
+  });
+
   describe('access control', () => {
     it('should grant access with UserId value object', () => {
       const goal = Goal.create({

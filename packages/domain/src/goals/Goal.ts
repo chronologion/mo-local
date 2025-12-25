@@ -14,6 +14,7 @@ import { GoalRecategorized } from './events/GoalRecategorized';
 import { GoalRescheduled } from './events/GoalRescheduled';
 import { GoalPrioritized } from './events/GoalPrioritized';
 import { GoalAchieved } from './events/GoalAchieved';
+import { GoalUnachieved } from './events/GoalUnachieved';
 import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
@@ -324,6 +325,25 @@ export class Goal extends AggregateRoot<GoalId> {
   }
 
   /**
+   * Mark the goal as not achieved.
+   *
+   * @throws {Error} if goal is archived or not achieved
+   */
+  unachieve(params: { unachievedAt: Timestamp; actorId: UserId }): void {
+    this.assertNotArchived();
+    Assert.that(this.isAchieved, 'Goal not achieved').isTrue();
+    this.apply(
+      new GoalUnachieved(
+        {
+          goalId: this.id,
+          unachievedAt: params.unachievedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
+    );
+  }
+
+  /**
    * Archive the goal (soft delete).
    *
    * @throws {Error} if goal is already archived
@@ -449,6 +469,10 @@ export class Goal extends AggregateRoot<GoalId> {
 
   protected onGoalAchieved(event: GoalAchieved): void {
     this._achievedAt = event.achievedAt;
+  }
+
+  protected onGoalUnachieved(_: GoalUnachieved): void {
+    this._achievedAt = null;
   }
 
   protected onGoalArchived(event: GoalArchived): void {

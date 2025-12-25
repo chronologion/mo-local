@@ -8,6 +8,7 @@ import {
   GoalRescheduled,
   GoalPrioritized,
   GoalAchieved,
+  GoalUnachieved,
   GoalArchived,
   GoalAccessGranted,
   GoalAccessRevoked,
@@ -22,6 +23,7 @@ export type GoalEvent =
   | GoalRescheduled
   | GoalPrioritized
   | GoalAchieved
+  | GoalUnachieved
   | GoalArchived
   | GoalAccessGranted
   | GoalAccessRevoked;
@@ -117,6 +119,13 @@ export const applyEventToSnapshot = (
       return {
         ...current,
         achievedAt: event.achievedAt.value,
+        version,
+      };
+    case eventTypes.goalUnachieved:
+      if (!current) return null;
+      return {
+        ...current,
+        achievedAt: null,
         version,
       };
     case eventTypes.goalArchived:
