@@ -4,8 +4,13 @@ import { IdentityKeys, KeyBackup } from '../../../src/shared/ports/types';
 export class InMemoryKeyStore implements IKeyStore {
   private identityKeys = new Map<string, IdentityKeys>();
   private aggregateKeys = new Map<string, Uint8Array>();
-  setMasterKey(): void {
-    // no-op for in-memory store
+  private masterKey: Uint8Array | null = null;
+  setMasterKey(key: Uint8Array): void {
+    this.masterKey = new Uint8Array(key);
+  }
+
+  getMasterKey(): Uint8Array | null {
+    return this.masterKey ? new Uint8Array(this.masterKey) : null;
   }
 
   async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {

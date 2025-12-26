@@ -152,7 +152,7 @@ const makeEvent = (
   parentSeqNum: number,
   args: Record<string, unknown>
 ): LiveStoreEvent.Global.Encoded => ({
-  name: 'test.event',
+  name: 'event.v1',
   args,
   seqNum: EventSequenceNumber.Global.make(seqNum),
   parentSeqNum: EventSequenceNumber.Global.make(parentSeqNum),

@@ -4,10 +4,7 @@ import {
   type Store,
 } from '@livestore/livestore';
 import { BrowserLiveStoreEventStore } from '../LiveStoreEventStore';
-import {
-  schema as defaultSchema,
-  events as goalEvents,
-} from '../../goals/schema';
+import { events, schema as defaultSchema } from '../../livestore/schema';
 import {
   SyncPayload,
   SyncPayloadSchema,
@@ -39,12 +36,12 @@ export const createStoreAndEventStores = async (
 
   const goalEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.domainEvent
+    events.domainEvent
   );
 
   const projectEventStore = new BrowserLiveStoreEventStore(
     store,
-    goalEvents.domainEvent,
+    events.domainEvent,
     { events: 'project_events', snapshots: 'project_snapshots' }
   );
 

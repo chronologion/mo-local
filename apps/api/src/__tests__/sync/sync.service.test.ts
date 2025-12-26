@@ -94,7 +94,6 @@ class InMemorySyncStoreRepository extends SyncStoreRepository {
   ): Promise<void> {
     const storeIdValue = storeId.unwrap();
     const ownerValue = ownerId.unwrap();
-    const isLegacyStoreId = (value: string) => value.startsWith('mo-local-v2');
     const existing = this.owners.get(storeIdValue);
     if (existing) {
       if (existing !== ownerValue) {
@@ -102,29 +101,7 @@ class InMemorySyncStoreRepository extends SyncStoreRepository {
       }
       return;
     }
-
-    const ownedStores = [...this.owners.entries()].filter(
-      ([, owner]) => owner === ownerValue
-    );
-
-    if (ownedStores.length === 0) {
-      this.owners.set(storeIdValue, ownerValue);
-      return;
-    }
-
-    if (ownedStores.length === 1) {
-      const [priorStoreId] = ownedStores[0] ?? [];
-      if (!priorStoreId) return;
-      if (priorStoreId === storeIdValue) return;
-      if (!isLegacyStoreId(priorStoreId) || isLegacyStoreId(storeIdValue)) {
-        throw new Error('Store already bound to this identity');
-      }
-      this.owners.delete(priorStoreId);
-      this.owners.set(storeIdValue, ownerValue);
-      return;
-    }
-
-    throw new Error('Multiple stores exist for identity');
+    this.owners.set(storeIdValue, ownerValue);
   }
 }
 
@@ -132,7 +109,7 @@ const makeEvent = (
   seqNum: number,
   parentSeqNum: number
 ): LiveStoreEvent.Global.Encoded => ({
-  name: 'test.event',
+  name: 'event.v1',
   args: { payload: seqNum },
   seqNum: EventSequenceNumber.Global.make(seqNum),
   parentSeqNum: EventSequenceNumber.Global.make(parentSeqNum),

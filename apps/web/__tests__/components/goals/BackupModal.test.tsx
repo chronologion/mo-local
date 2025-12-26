@@ -5,11 +5,6 @@ import { useApp } from '../../../src/providers/AppProvider';
 import { makeAppContext, makeServices } from '../../testUtils';
 import type { AppServices } from '../../../src/bootstrap/createAppServices';
 
-vi.mock('@mo/infrastructure/crypto/deriveSalt', () => ({
-  deriveLegacySaltForUser: vi.fn(async () => new Uint8Array([1, 2, 3])),
-  encodeSalt: vi.fn(() => 'salt-b64'),
-}));
-
 vi.mock('../../../src/providers/AppProvider', () => ({
   useApp: vi.fn(),
 }));

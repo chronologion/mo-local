@@ -32,12 +32,21 @@ export function decodeSnapshotEnvelope(bytes: Uint8Array): EnvelopeParseResult {
   }
 
   if (!isEnvelopeObject(parsed)) {
-    return { snapshotVersion: 1, data: parsed };
+    throw new Error('Malformed snapshot envelope: expected envelope object');
   }
 
-  const snapshotVersion =
-    typeof parsed.snapshotVersion === 'number' ? parsed.snapshotVersion : 1;
-  const data = parsed.data !== undefined ? parsed.data : parsed;
+  const snapshotVersion = parsed.snapshotVersion;
+  if (
+    typeof snapshotVersion !== 'number' ||
+    !Number.isInteger(snapshotVersion) ||
+    snapshotVersion < 1
+  ) {
+    throw new Error('Malformed snapshot envelope: invalid snapshotVersion');
+  }
 
-  return { snapshotVersion, data };
+  if (!('data' in parsed)) {
+    throw new Error('Malformed snapshot envelope: missing data');
+  }
+
+  return { snapshotVersion, data: parsed.data };
 }

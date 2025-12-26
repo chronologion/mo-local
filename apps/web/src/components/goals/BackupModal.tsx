@@ -9,10 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import {
-  deriveLegacySaltForUser,
-  encodeSalt,
-} from '@mo/infrastructure/crypto/deriveSalt';
 
 const toBase64 = (data: Uint8Array): string =>
   btoa(String.fromCharCode(...Array.from(data)));
@@ -69,14 +65,17 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               ),
             }
           : null;
-        const aggregateEncoded = Object.fromEntries(
-          Object.entries(backup.aggregateKeys).map(([id, key]) => [
-            id,
-            toBase64(key as Uint8Array),
-          ])
-        );
+        const aggregateEncoded: Record<string, string> = {};
+        for (const [aggregateId, wrappedKey] of Object.entries(
+          backup.aggregateKeys
+        )) {
+          if (!(wrappedKey instanceof Uint8Array)) {
+            throw new Error('Unexpected aggregate key format in keystore');
+          }
+          aggregateEncoded[aggregateId] = toBase64(wrappedKey);
+        }
         const payload = {
-          userId: backup.userId ?? userId ?? 'user',
+          userId,
           identityKeys: identityEncoded,
           aggregateKeys: aggregateEncoded,
           exportedAt: new Date().toISOString(),
@@ -84,9 +83,12 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         const plaintext = new TextEncoder().encode(JSON.stringify(payload));
         const encrypted = await services.crypto.encrypt(plaintext, masterKey);
         const b64 = toBase64(encrypted);
-        const saltB64 =
-          userMeta?.pwdSalt ??
-          encodeSalt(await deriveLegacySaltForUser(payload.userId));
+        const saltB64 = userMeta?.pwdSalt;
+        if (!saltB64) {
+          throw new Error(
+            'Password salt missing; please reset local state and re-onboard before exporting a backup.'
+          );
+        }
         setBackupCipher(
           JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2)
         );

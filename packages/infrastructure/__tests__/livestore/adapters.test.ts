@@ -3,6 +3,7 @@ import { DomainToLiveStoreAdapter } from '../../src/livestore/adapters/DomainToL
 import { LiveStoreToDomainAdapter } from '../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
 import { encodePersisted } from '../../src/eventing/registry';
+import { encodePayloadEnvelope } from '../../src/eventing/payloadEnvelope';
 import {
   ActorId,
   GoalCreated,
@@ -202,7 +203,7 @@ describe('Domain/LiveStore adapters', () => {
   it('throws on unsupported event type', async () => {
     const crypto = new NodeCryptoService();
     const toDomain = new LiveStoreToDomainAdapter(crypto);
-    const payload = new TextEncoder().encode('{}');
+    const payload = encodePayloadEnvelope({ payloadVersion: 1, data: {} });
     const aad = new TextEncoder().encode('g-1:UnknownEvent:1');
     const encrypted = await crypto.encrypt(payload, key, aad);
     await expect(
@@ -242,7 +243,7 @@ describe('Domain/LiveStore adapters', () => {
     ).rejects.toThrow();
   });
 
-  it('handles legacy payloads without payloadVersion wrapper', async () => {
+  it('rejects legacy payloads without payload envelope', async () => {
     const crypto = new NodeCryptoService();
     const toDomain = new LiveStoreToDomainAdapter(crypto);
 
@@ -270,20 +271,20 @@ describe('Domain/LiveStore adapters', () => {
     );
     const encrypted = await crypto.encrypt(payloadBytes, key, aad);
 
-    const decoded = await toDomain.toDomain(
-      {
-        id: 'e-legacy',
-        aggregateId: event.aggregateId.value,
-        eventType: event.eventType,
-        payload: encrypted,
-        version: 1,
-        occurredAt: event.occurredAt.value,
-        actorId: event.actorId.value,
-        sequence: 1,
-      },
-      key
-    );
-
-    expect(decoded.eventType).toBe('GoalCreated');
+    await expect(
+      toDomain.toDomain(
+        {
+          id: 'e-legacy',
+          aggregateId: event.aggregateId.value,
+          eventType: event.eventType,
+          payload: encrypted,
+          version: 1,
+          occurredAt: event.occurredAt.value,
+          actorId: event.actorId.value,
+          sequence: 1,
+        },
+        key
+      )
+    ).rejects.toThrow(/payload envelope/i);
   });
 });

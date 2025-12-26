@@ -63,6 +63,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
       description: 'Initial',
       goalId: null,
       milestones: [],
+      createdBy: 'user-1',
       createdAt: 1000,
       updatedAt: 1000,
       archivedAt: null,

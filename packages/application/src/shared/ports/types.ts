@@ -20,6 +20,24 @@ export interface KeyBackup {
   aggregateKeys: Record<string, Uint8Array>;
 }
 
+export type KeyringRecipientEnvelope = {
+  recipientId: string;
+  wrappedKey: Uint8Array;
+};
+
+export type KeyringEpoch = {
+  epochId: number;
+  createdAt: number;
+  ownerEnvelope: Uint8Array;
+  recipientEnvelopes: KeyringRecipientEnvelope[];
+};
+
+export interface KeyringState {
+  aggregateId: string;
+  currentEpoch: number;
+  epochs: KeyringEpoch[];
+}
+
 export interface EncryptedEvent {
   id: string;
   aggregateId: string;
@@ -31,6 +49,8 @@ export interface EncryptedEvent {
   causationId?: string | null;
   correlationId?: string | null;
   sequence?: number;
+  epoch?: number;
+  keyringUpdate?: Uint8Array;
 }
 
 export interface EventFilter {

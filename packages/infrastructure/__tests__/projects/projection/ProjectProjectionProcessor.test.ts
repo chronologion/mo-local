@@ -3,6 +3,8 @@ import { ProjectProjectionProcessor } from '../../../src/projects/projections/ru
 import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
+import { InMemoryKeyringStore } from '../../../src/crypto/InMemoryKeyringStore';
+import { KeyringManager } from '../../../src/crypto/KeyringManager';
 import {
   ActorId,
   ProjectCreated,
@@ -160,6 +162,7 @@ describe('ProjectProjectionProcessor', () => {
   const toDomain = new LiveStoreToDomainAdapter(crypto);
   const store = new StoreStub() as unknown as Store;
   const keyStore = new InMemoryKeyStore();
+  let keyringManager: KeyringManager;
   const eventStore = new EventStoreStub();
   const projectId = '00000000-0000-0000-0000-000000000301';
 
@@ -169,6 +172,11 @@ describe('ProjectProjectionProcessor', () => {
     store.meta.clear();
     store.searchIndex = null;
     store.snapshots.clear();
+    keyringManager = new KeyringManager(
+      crypto,
+      keyStore,
+      new InMemoryKeyringStore()
+    );
     await keyStore.saveAggregateKey(projectId, await crypto.generateKey());
   });
 
@@ -222,6 +230,7 @@ describe('ProjectProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
     await processor.start();
@@ -256,6 +265,7 @@ describe('ProjectProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
     await processor.start();
@@ -316,6 +326,7 @@ describe('ProjectProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
     await first.start();
@@ -331,6 +342,7 @@ describe('ProjectProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
     await second.start();
@@ -399,6 +411,7 @@ describe('ProjectProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
 

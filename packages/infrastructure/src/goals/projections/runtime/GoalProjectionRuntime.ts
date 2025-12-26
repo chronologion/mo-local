@@ -1,12 +1,13 @@
 import type { Store } from '@livestore/livestore';
 import type { IEventStore, IKeyStore } from '@mo/application';
-import { tables } from '../../schema';
+import { goalTables } from '../../schema';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
 import { MissingKeyError } from '../../../errors';
 import { isGoalEvent, type GoalListItem } from '../model/GoalProjectionState';
 import type { EncryptedEvent } from '@mo/application';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
+import { KeyringManager } from '../../../crypto/KeyringManager';
 import { GoalAnalyticsProjector } from './GoalAnalyticsProjector';
 import { GoalSnapshotProjector } from './GoalSnapshotProjector';
 import { GoalSearchProjector } from './GoalSearchProjector';
@@ -37,6 +38,7 @@ export class GoalProjectionRuntime {
     private readonly eventStore: IEventStore,
     crypto: WebCryptoService,
     keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager,
     private readonly toDomain: LiveStoreToDomainAdapter
   ) {
     this.snapshotProjector = new GoalSnapshotProjector(store, crypto, keyStore);
@@ -70,9 +72,12 @@ export class GoalProjectionRuntime {
       this.lastSequence
     );
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
-      void this.processNewEvents();
-    });
+    this.unsubscribe = this.store.subscribe(
+      goalTables.goal_events.count(),
+      () => {
+        void this.processNewEvents();
+      }
+    );
     this.resolveReady?.();
   }
 
@@ -143,9 +148,12 @@ export class GoalProjectionRuntime {
     await this.saveLastSequence(0);
     await this.snapshotProjector.bootstrapFromSnapshots();
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
-      void this.processNewEvents();
-    });
+    this.unsubscribe = this.store.subscribe(
+      goalTables.goal_events.count(),
+      () => {
+        void this.processNewEvents();
+      }
+    );
     this.emitProjectionChanged();
   }
 
@@ -200,9 +208,7 @@ export class GoalProjectionRuntime {
       throw new Error(`Event ${event.id} missing sequence`);
     }
 
-    const kGoal = await this.snapshotProjector.requireAggregateKey(
-      event.aggregateId
-    );
+    const kGoal = await this.keyringManager.resolveKeyForEvent(event);
     const domainEvent = await this.toDomain.toDomain(event, kGoal);
     if (!isGoalEvent(domainEvent)) {
       return false;

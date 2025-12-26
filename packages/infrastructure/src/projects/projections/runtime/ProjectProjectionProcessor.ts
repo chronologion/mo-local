@@ -4,6 +4,7 @@ import type { WebCryptoService } from '../../../crypto/WebCryptoService';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectProjectionRuntime } from './ProjectProjectionRuntime';
 import type { ProjectListItem } from '../model/ProjectProjectionState';
+import { KeyringManager } from '../../../crypto/KeyringManager';
 
 export class ProjectProjectionProcessor {
   private readonly runtime: ProjectProjectionRuntime;
@@ -13,6 +14,7 @@ export class ProjectProjectionProcessor {
     eventStore: IEventStore,
     crypto: WebCryptoService,
     keyStore: IKeyStore,
+    keyringManager: KeyringManager,
     toDomain: LiveStoreToDomainAdapter
   ) {
     this.runtime = new ProjectProjectionRuntime(
@@ -20,6 +22,7 @@ export class ProjectProjectionProcessor {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain
     );
   }

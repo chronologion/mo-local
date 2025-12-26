@@ -108,11 +108,127 @@ Hard rules:
 
 ### 6.1 Core patterns
 
-- **Value Objects (VOs)**: domain state is expressed through VOs. The canonical primitive representation is the VO’s `value`; reconstitution uses `from(...)`.
+- **Value Objects (VOs)**: domain state is expressed through VOs. The canonical primitive representation is the VO's `value`; reconstitution uses `from(...)`.
 - **Domain events**: immutable facts (`DomainEvent`) with stable `eventType` and VO-based members.
 - **Aggregate roots**: `AggregateRoot` applies events, increments `version`, and collects uncommitted events until persisted.
 
-### 6.2 Bounded contexts (implemented)
+### 6.2 Value Object conventions
+
+**When to create a VO:**
+
+- Domain concept with validation rules (e.g., `GoalId`, `GoalTitle`, `Timestamp`)
+- Identity that needs type safety (prevents mixing `goalId` with `projectId`)
+- Value with equality semantics (two `GoalTitle`s with same string are equal)
+
+**When to use primitives:**
+
+- Pure pass-through with no validation (rare)
+- Internal intermediate values not exposed in events or aggregates
+
+**VO structure:**
+
+```typescript
+export class GoalTitle {
+  private constructor(public readonly value: string) {}
+
+  static from(value: string): GoalTitle {
+    if (!value || value.trim().length === 0) {
+      throw new Error('GoalTitle cannot be empty');
+    }
+    return new GoalTitle(value.trim());
+  }
+
+  equals(other: GoalTitle): boolean {
+    return this.value === other.value;
+  }
+}
+```
+
+Rules:
+
+- Private constructor — force use of `from()` factory
+- `value` property — canonical primitive representation (used by serialization)
+- `from()` — validates and constructs; throws on invalid input
+- `equals()` — value-based equality (optional but recommended)
+- Immutable — no setters, no mutation methods
+
+### 6.3 Domain event conventions
+
+**Naming:**
+
+- Past tense: `GoalCreated`, `GoalRenamed`, `MilestoneAdded` (not `CreateGoal`)
+- Aggregate-prefixed: `Goal*`, `Project*` (aids grep, avoids collisions)
+- Describes what happened, not what was requested
+
+**Structure:**
+
+```typescript
+export class GoalRenamed extends DomainEvent {
+  readonly eventType = goalEventTypes.goalRenamed;
+
+  constructor(
+    readonly aggregateId: GoalId,
+    readonly title: GoalTitle,
+    readonly renamedAt: Timestamp,
+    metadata: EventMetadata
+  ) {
+    super(metadata);
+  }
+}
+```
+
+Rules:
+
+- `eventType` — stable string, defined in `eventTypes.ts` (never change after first persist)
+- All fields `readonly` — events are immutable facts
+- VO-typed fields — not primitives (e.g., `GoalTitle` not `string`)
+- `EventMetadata` — carries `eventId`, `actorId`, `causationId`, `correlationId`
+
+**eventType stability:**
+
+Once an `eventType` string is persisted, it must never change. Renaming requires:
+1. New event type with new name
+2. Migration/upcaster from old → new
+3. Keep old type in registry forever
+
+### 6.4 Aggregate conventions
+
+**Structure:**
+
+```typescript
+export class Goal extends AggregateRoot<GoalId> {
+  private title: GoalTitle;
+  private status: GoalStatus;
+
+  // Command method — validates invariants, applies event
+  rename(params: { title: GoalTitle; renamedAt: Timestamp; actorId: ActorId }): void {
+    if (this.status === GoalStatus.Archived) {
+      throw new Error('Cannot rename archived goal');
+    }
+    this.applyEvent(new GoalRenamed(this.id, params.title, params.renamedAt, {
+      eventId: EventId.generate(),
+      actorId: params.actorId,
+    }));
+  }
+
+  // Event application — mutates state, no validation
+  protected apply(event: DomainEvent): void {
+    if (event instanceof GoalRenamed) {
+      this.title = event.title;
+    }
+    // ... other events
+  }
+}
+```
+
+Rules:
+
+- **Command methods** validate invariants, then call `applyEvent()`
+- **`apply()`** only mutates state — no validation, no side effects
+- **Reconstitution** replays events through `apply()` — must be deterministic
+- **No direct state mutation** outside `apply()`
+
+### 6.5 Bounded contexts (implemented)
 
 This document does not enumerate every domain event type (that list becomes stale). Source-of-truth:
 
@@ -390,6 +506,67 @@ These tests are non-negotiable because they protect the serialization + sync inv
 
 - Critical online/offline flows must have Playwright coverage (e.g. sync conflict/rebase recovery, key unlock + projections becoming ready).
 
+### 13.5 Test organization
+
+**Directory structure:**
+
+```
+packages/<pkg>/
+├── src/
+│   └── goals/
+│       └── GoalRepository.ts
+└── __tests__/
+    ├── goals/
+    │   └── GoalRepository.test.ts
+    └── fixtures/
+        └── InMemoryKeyStore.ts
+```
+
+**Naming:**
+
+- Test files: `<SourceFile>.test.ts`
+- Fixtures: descriptive name, in `__tests__/fixtures/`
+- Test descriptions: behavior-focused (`'rejects stale knownVersion'` not `'test case 3'`)
+
+### 13.6 What to mock vs use real
+
+| Component | In unit tests | In integration tests |
+|-----------|---------------|----------------------|
+| Crypto | Real (`NodeCryptoService`) | Real |
+| Key store | `InMemoryKeyStore` | `InMemoryKeyStore` |
+| Event store | Real (`BrowserLiveStoreEventStore`) | Real with test DB |
+| LiveStore | Skip (use in-memory stores) | Real |
+| External APIs | Mock | Mock or test server |
+
+**Rule:** Prefer real implementations when fast enough. Mock at boundaries (HTTP, external services), not internal seams.
+
+### 13.7 Fixture patterns
+
+**In-memory stores:**
+
+```typescript
+// __tests__/fixtures/InMemoryKeyStore.ts
+export class InMemoryKeyStore implements IKeyStore {
+  private readonly keys = new Map<string, Uint8Array>();
+  // ... implement interface
+}
+```
+
+**Domain factories:**
+
+```typescript
+// __tests__/fixtures/goalFactory.ts
+export const createTestGoal = (overrides?: Partial<GoalProps>): Goal => {
+  return Goal.create({
+    id: GoalId.generate(),
+    title: GoalTitle.from('Test Goal'),
+    createdAt: Timestamp.now(),
+    actorId: ActorId.from('test-user'),
+    ...overrides,
+  });
+};
+```
+
 ## 14. Adding a new payload version (playbook)
 
 Adding a new payload version must preserve the “domain latest spec + infra migrations” split.
@@ -403,6 +580,71 @@ Adding a new payload version must preserve the “domain latest spec + infra mig
 Rule:
 
 - Persisted events are upcast on read; no backfill is required unless a new storage backend mandates it.
+
+## 15. Coding conventions
+
+### 15.1 Option\<T\> vs T | null
+
+| Pattern | Where | When |
+|---------|-------|------|
+| `Option<T>` | Domain, Application, Ports | Monadic chaining (`map`, `flatMap`, `fold`) adds clarity |
+| `T \| null` | Infrastructure internals | Simple optional returns without chaining |
+
+**Boundary rule:** Port interfaces use `Option<T>`; infrastructure may use `T | null` internally but converts at the boundary.
+
+**Location:** `packages/application/src/shared/Option.ts`
+
+### 15.2 Error handling
+
+**Custom error classes:**
+
+```typescript
+// Domain errors — invariant violations
+export class GoalAlreadyArchived extends Error { ... }
+
+// Application errors — use-case failures
+export class ConcurrencyError extends Error { ... }
+
+// Infrastructure errors — technical failures
+export class MissingKeyError extends Error { ... }
+export class PersistenceError extends Error { ... }
+```
+
+**When to throw vs return:**
+
+| Situation | Pattern |
+|-----------|---------|
+| Invariant violation (domain) | Throw |
+| Not found (query) | Return `Option<T>` or `null` |
+| Concurrency conflict | Throw `ConcurrencyError` |
+| Decryption failure | Throw `MissingKeyError` |
+| Validation failure (command) | Throw with descriptive message |
+
+### 15.3 Type assertions
+
+`as unknown as T` is acceptable only at serialization boundaries:
+
+```typescript
+// ✅ OK — LiveStore types are invariant, we control the schema
+const store = (await createStorePromise({ ... })) as unknown as Store;
+
+// ✅ OK — registry lookup returns unknown, we validate
+const spec = registry.get(eventType) as PayloadEventSpec<T>;
+
+// ❌ NOT OK — bypassing type safety for convenience
+const user = data as unknown as User;
+```
+
+**Rule:** If you need `as unknown as`, you should be at a boundary with runtime validation nearby.
+
+### 15.4 Async patterns
+
+| Use | When |
+|-----|------|
+| `Promise` | Application code, handlers, repositories |
+| `Effect` | LiveStore internals, sync backend (required by library) |
+
+**Do not** mix Effect into application/domain code. Keep Effect contained to infrastructure where LiveStore requires it.
 
 ## Appendix A: BC runtime data flow (Mermaid)
 

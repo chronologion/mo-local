@@ -6,3 +6,4 @@ export * from './browser/sleep';
 export * from './browser/worker';
 export * from './goals';
 export * from './projects';
+export { tables } from './livestore/schema';

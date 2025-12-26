@@ -146,12 +146,21 @@ export class GoalSnapshotProjector {
     });
     if (!rows.length) return null;
     const row = rows[0];
-    return this.decryptSnapshot(
-      aggregateId,
-      row.payload_encrypted,
-      row.version,
-      kGoal
-    );
+    try {
+      return await this.decryptSnapshot(
+        aggregateId,
+        row.payload_encrypted,
+        row.version,
+        kGoal
+      );
+    } catch {
+      // No backward-compat: treat unreadable snapshots as corrupt, purge, and rebuild from events.
+      this.store.query({
+        query: 'DELETE FROM goal_snapshots WHERE aggregate_id = ?',
+        bindValues: [aggregateId],
+      });
+      return null;
+    }
   }
 
   private async decryptSnapshot(

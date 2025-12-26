@@ -3,20 +3,13 @@ import { randomUUID } from 'crypto';
 
 type OnboardResult = {
   storeId: string;
+  actorId: string;
 };
 
 const API_BASE = process.env.E2E_API_URL ?? 'http://localhost:4000';
 
 async function onboardAndConnect(page: Page): Promise<OnboardResult> {
   const password = `Pass-${randomUUID()}-${Date.now()}`;
-  const storeId = `store-${Date.now()}-${randomUUID()}`;
-
-  await page.addInitScript(
-    ([sid]) => {
-      localStorage.setItem('mo-local-store-id', sid);
-    },
-    [storeId]
-  );
   await page.goto('/');
 
   await page.getByText('Set up your local identity').waitFor();
@@ -53,8 +46,60 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
     return localStorage.getItem('mo-local-store-id') ?? '';
   });
 
-  return { storeId: resolvedStoreId || storeId };
+  const actorId = await page.evaluate(() => {
+    const raw = localStorage.getItem('mo-local-user');
+    if (!raw) return '';
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        'userId' in parsed &&
+        typeof (parsed as { userId?: unknown }).userId === 'string'
+      ) {
+        return (parsed as { userId: string }).userId;
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  });
+
+  return { storeId: resolvedStoreId, actorId };
 }
+
+type EventV1Args = {
+  id: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Record<string, number>;
+  version: number;
+  occurredAt: number;
+  actorId: string | null;
+  causationId: string | null;
+  correlationId: string | null;
+};
+
+const makeEventV1Args = (params: {
+  id: string;
+  aggregateId: string;
+  eventType: string;
+  version: number;
+  occurredAt: number;
+  actorId: string;
+}): EventV1Args => {
+  return {
+    id: params.id,
+    aggregateId: params.aggregateId,
+    eventType: params.eventType,
+    payload: { '0': 1, '1': 2, '2': 3 },
+    version: params.version,
+    occurredAt: params.occurredAt,
+    actorId: params.actorId,
+    causationId: null,
+    correlationId: null,
+  };
+};
 
 async function pushEvents(
   page: Page,
@@ -101,9 +146,11 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
   test.setTimeout(30_000);
 
   test('server-ahead conflict surfaces and sync recovers', async ({ page }) => {
-    const { storeId } = await onboardAndConnect(page);
+    const { storeId, actorId } = await onboardAndConnect(page);
 
     expect(storeId).not.toBe('');
+    expect(actorId).not.toBe('');
+    expect(storeId).toBe(actorId);
 
     // Pull to find current head
     const initial = await pullEvents(page, storeId);
@@ -111,12 +158,21 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
 
     // Seed head with next seqNum
     const firstSeq = head + 1;
+    const aggregateId = randomUUID();
+    const now = Date.now();
     const first = await pushEvents(page, {
       storeId,
       events: [
         {
-          name: 'project.created',
-          args: { id: 'alpha', name: 'Alpha' },
+          name: 'event.v1',
+          args: makeEventV1Args({
+            id: randomUUID(),
+            aggregateId,
+            eventType: 'ProjectCreated',
+            version: 1,
+            occurredAt: now,
+            actorId,
+          }),
           seqNum: firstSeq,
           parentSeqNum: head,
           clientId: 'client-test',
@@ -131,8 +187,15 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
       storeId,
       events: [
         {
-          name: 'project.created',
-          args: { id: 'dup', name: 'Dup' },
+          name: 'event.v1',
+          args: makeEventV1Args({
+            id: randomUUID(),
+            aggregateId,
+            eventType: 'ProjectCreated',
+            version: 2,
+            occurredAt: now + 1,
+            actorId,
+          }),
           seqNum: firstSeq,
           parentSeqNum: head,
           clientId: 'client-test',
@@ -157,8 +220,15 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
       storeId,
       events: [
         {
-          name: 'project.created',
-          args: { id: 'beta', name: 'Beta' },
+          name: 'event.v1',
+          args: makeEventV1Args({
+            id: randomUUID(),
+            aggregateId,
+            eventType: 'ProjectRenamed',
+            version: 3,
+            occurredAt: now + 2,
+            actorId,
+          }),
           seqNum: nextSeq,
           parentSeqNum: firstSeq,
           clientId: 'client-test',

@@ -167,6 +167,13 @@ describe('AggregateKeyManager', () => {
 
     class InMemoryKeyStoreStub implements IKeyStore {
       private readonly keys = new Map<string, Uint8Array>();
+      private masterKey: Uint8Array | null = null;
+      setMasterKey(key: Uint8Array): void {
+        this.masterKey = new Uint8Array(key);
+      }
+      getMasterKey(): Uint8Array | null {
+        return this.masterKey ? new Uint8Array(this.masterKey) : null;
+      }
       async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
         this.keys.set(id, key);
       }

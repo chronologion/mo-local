@@ -1,11 +1,12 @@
 import type { Store } from '@livestore/livestore';
 import type { IEventStore, IKeyStore } from '@mo/application';
-import { tables } from '../../../goals/schema';
+import { projectTables } from '../../schema';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
 import { MissingKeyError } from '../../../errors';
 import type { EncryptedEvent } from '@mo/application';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
+import { KeyringManager } from '../../../crypto/KeyringManager';
 import {
   isProjectEvent,
   type ProjectListItem,
@@ -38,6 +39,7 @@ export class ProjectProjectionRuntime {
     private readonly eventStore: IEventStore,
     crypto: WebCryptoService,
     keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager,
     private readonly toDomain: LiveStoreToDomainAdapter
   ) {
     this.snapshotProjector = new ProjectSnapshotProjector(
@@ -72,7 +74,7 @@ export class ProjectProjectionRuntime {
     );
     await this.processNewEvents();
     this.unsubscribe = this.store.subscribe(
-      tables.project_events.count(),
+      projectTables.project_events.count(),
       () => void this.processNewEvents()
     );
     this.resolveReady?.();
@@ -131,7 +133,7 @@ export class ProjectProjectionRuntime {
     await this.processNewEvents();
     if (!this.unsubscribe) {
       this.unsubscribe = this.store.subscribe(
-        tables.project_events.count(),
+        projectTables.project_events.count(),
         () => void this.processNewEvents()
       );
     }
@@ -198,9 +200,7 @@ export class ProjectProjectionRuntime {
 
   private async projectEvent(event: EncryptedEvent): Promise<boolean> {
     if (!event.sequence) return false;
-    const kProject = await this.snapshotProjector.requireAggregateKey(
-      event.aggregateId
-    );
+    const kProject = await this.keyringManager.resolveKeyForEvent(event);
     const domainEvent = await this.toDomain.toDomain(event, kProject);
     if (!isProjectEvent(domainEvent)) {
       return false;

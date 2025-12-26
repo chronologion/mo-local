@@ -1,9 +1,16 @@
-import { Project, ProjectId, Timestamp, UserId } from '@mo/domain';
+import {
+  Project,
+  ProjectId,
+  Timestamp,
+  UserId,
+  projectEventTypes,
+} from '@mo/domain';
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
   IProjectRepository,
+  IKeyStore,
   none,
   Option,
   some,
@@ -12,7 +19,8 @@ import type { Store } from '@livestore/livestore';
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
-import { MissingKeyError, PersistenceError } from '../errors';
+import { KeyringManager } from '../crypto/KeyringManager';
+import { PersistenceError } from '../errors';
 import {
   decodeProjectSnapshotDomain,
   encodeProjectSnapshotPayload,
@@ -37,28 +45,27 @@ export class ProjectRepository implements IProjectRepository {
     private readonly eventStore: IEventStore,
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyProvider: (
-      aggregateId: string
-    ) => Promise<Uint8Array | null>
+    private readonly keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager
   ) {
     this.toEncrypted = new DomainToLiveStoreAdapter(crypto);
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
   async load(id: ProjectId): Promise<Option<Project>> {
-    const kProject = await this.keyProvider(id.value);
-    if (!kProject) {
-      throw new MissingKeyError(`Missing encryption key for ${id.value}`);
-    }
-
-    const snapshot = await this.loadSnapshot(id.value, kProject);
+    const snapshotKey = await this.keyStore.getAggregateKey(id.value);
+    const snapshot = snapshotKey
+      ? await this.loadSnapshot(id.value, snapshotKey)
+      : null;
     const fromVersion = snapshot ? snapshot.version + 1 : 1;
     const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
     if (!snapshot && tailEvents.length === 0) return none();
 
-    const domainTail = await Promise.all(
-      tailEvents.map((event) => this.toDomain.toDomain(event, kProject))
-    );
+    const domainTail = [];
+    for (const event of tailEvents) {
+      const key = await this.keyringManager.resolveKeyForEvent(event);
+      domainTail.push(await this.toDomain.toDomain(event, key));
+    }
 
     if (snapshot) {
       return some(Project.reconstituteFromSnapshot(snapshot, domainTail));
@@ -80,11 +87,25 @@ export class ProjectRepository implements IProjectRepository {
     const baseVersion = Math.max(maxEventVersion, snapshot?.version ?? 0);
     const startVersion = baseVersion + 1;
     try {
-      const encrypted = await Promise.all(
-        pending.map((event, idx) =>
-          this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey)
-        )
-      );
+      const encrypted = [];
+      for (let idx = 0; idx < pending.length; idx += 1) {
+        const event = pending[idx];
+        if (!event) continue;
+        const options = await this.buildEncryptionOptions(
+          event.eventType,
+          event.aggregateId.value,
+          event.occurredAt.value,
+          encryptionKey
+        );
+        encrypted.push(
+          await this.toEncrypted.toEncrypted(
+            event,
+            startVersion + idx,
+            encryptionKey,
+            options
+          )
+        );
+      }
       await this.eventStore.append(project.id.value, encrypted);
       await this.persistSnapshot(project, encryptionKey, startVersion, pending);
       project.markEventsAsCommitted();
@@ -106,6 +127,29 @@ export class ProjectRepository implements IProjectRepository {
     _actorId: UserId
   ): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
+  }
+
+  private async buildEncryptionOptions(
+    eventType: string,
+    aggregateId: string,
+    occurredAt: number,
+    encryptionKey: Uint8Array
+  ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
+    let keyringUpdate: Uint8Array | undefined;
+    if (eventType === projectEventTypes.projectCreated) {
+      const update = await this.keyringManager.createInitialUpdate(
+        aggregateId,
+        encryptionKey,
+        occurredAt
+      );
+      keyringUpdate = update?.keyringUpdate;
+    }
+    const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
+    const epoch = currentEpoch !== 0 ? currentEpoch : undefined;
+    if (!keyringUpdate && epoch === undefined) {
+      return undefined;
+    }
+    return { epoch, keyringUpdate };
   }
 
   private async persistSnapshot(

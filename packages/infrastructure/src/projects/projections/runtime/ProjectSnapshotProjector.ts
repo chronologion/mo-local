@@ -151,12 +151,21 @@ export class ProjectSnapshotProjector {
       bindValues: [aggregateId],
     });
     if (!rows.length) return null;
-    return this.decryptSnapshot(
-      aggregateId,
-      rows[0]?.payload_encrypted ?? new Uint8Array(),
-      rows[0]?.version ?? 0,
-      key
-    );
+    try {
+      return await this.decryptSnapshot(
+        aggregateId,
+        rows[0]?.payload_encrypted ?? new Uint8Array(),
+        rows[0]?.version ?? 0,
+        key
+      );
+    } catch {
+      // No backward-compat: treat unreadable snapshots as corrupt, purge, and rebuild from events.
+      this.store.query({
+        query: 'DELETE FROM project_snapshots WHERE aggregate_id = ?',
+        bindValues: [aggregateId],
+      });
+      return null;
+    }
   }
 
   private async decryptSnapshot(

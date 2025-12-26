@@ -29,6 +29,8 @@ export class PushValidationError extends Error {
   }
 }
 
+const SUPPORTED_EVENT_NAME = 'event.v1' as const;
+
 @Injectable()
 export class SyncService {
   constructor(
@@ -57,6 +59,15 @@ export class SyncService {
       const head = await this.repository.getHeadSequence(ownerId, storeId);
       return { lastSeqNum: head };
     }
+
+    for (const event of events) {
+      if (event.name !== SUPPORTED_EVENT_NAME) {
+        throw new PushValidationError(
+          `Unsupported event name '${event.name}'. Expected '${SUPPORTED_EVENT_NAME}'.`
+        );
+      }
+    }
+
     const firstSeqNum = first.seqNum;
     const firstParentSeqNum = first.parentSeqNum;
 

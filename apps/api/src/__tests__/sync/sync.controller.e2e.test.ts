@@ -24,6 +24,8 @@ import { EventSequenceNumber, LiveStoreEvent } from '@livestore/common/schema';
 import { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
 import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
 
+const TEST_STORE_ID_V7 = '019b5b7b-c8d0-7961-bb15-60fe00e4e145';
+
 class InMemorySyncEventRepository extends SyncEventRepository {
   private events: SyncEvent[] = [];
 
@@ -47,7 +49,7 @@ class InMemorySyncEventRepository extends SyncEventRepository {
   ): Promise<GlobalSequenceNumber> {
     if (events.length === 0) return expectedParent;
     const owner = events[0]?.ownerId ?? SyncOwnerId.from('user-1');
-    const store = events[0]?.storeId ?? SyncStoreId.from('store-1');
+    const store = events[0]?.storeId ?? SyncStoreId.from(TEST_STORE_ID_V7);
     const head = await this.getHeadSequence(owner, store);
     if (head.unwrap() !== expectedParent.unwrap()) {
       throw new SyncRepositoryHeadMismatchError(head, expectedParent);
@@ -98,7 +100,6 @@ class InMemorySyncStoreRepository extends SyncStoreRepository {
   ): Promise<void> {
     const storeIdValue = storeId.unwrap();
     const ownerValue = ownerId.unwrap();
-    const isLegacyStoreId = (value: string) => value.startsWith('mo-local-v2');
     const existing = this.owners.get(storeIdValue);
     if (existing) {
       if (existing !== ownerValue) {
@@ -106,29 +107,7 @@ class InMemorySyncStoreRepository extends SyncStoreRepository {
       }
       return;
     }
-
-    const ownedStores = [...this.owners.entries()].filter(
-      ([, owner]) => owner === ownerValue
-    );
-
-    if (ownedStores.length === 0) {
-      this.owners.set(storeIdValue, ownerValue);
-      return;
-    }
-
-    if (ownedStores.length === 1) {
-      const [priorStoreId] = ownedStores[0] ?? [];
-      if (!priorStoreId) return;
-      if (priorStoreId === storeIdValue) return;
-      if (!isLegacyStoreId(priorStoreId) || isLegacyStoreId(storeIdValue)) {
-        throw new Error('Store already bound to this identity');
-      }
-      this.owners.delete(priorStoreId);
-      this.owners.set(storeIdValue, ownerValue);
-      return;
-    }
-
-    throw new Error('Multiple stores exist for identity');
+    this.owners.set(storeIdValue, ownerValue);
   }
 }
 
@@ -151,7 +130,7 @@ const makeEvent = (
   seqNum: number,
   parentSeqNum: number
 ): LiveStoreEvent.Global.Encoded => ({
-  name: 'test.event',
+  name: 'event.v1',
   args: { payload: seqNum },
   seqNum: EventSequenceNumber.Global.make(seqNum),
   parentSeqNum: EventSequenceNumber.Global.make(parentSeqNum),
@@ -204,7 +183,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: 'store-1',
+        storeId: TEST_STORE_ID_V7,
         events: [makeEvent(1, 0)],
       })
       .expect(201);
@@ -213,7 +192,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: 'store-1',
+        storeId: TEST_STORE_ID_V7,
         events: [makeEvent(1, 0)],
       })
       .expect(409);
@@ -224,7 +203,7 @@ describe('SyncController (integration, in-memory repos)', () => {
     const pull = await request(app.getHttpServer())
       .get('/sync/pull')
       .set('x-session-token', 'fake')
-      .query({ storeId: 'store-1', since: 0, limit: 10 })
+      .query({ storeId: TEST_STORE_ID_V7, since: 0, limit: 10 })
       .expect(200);
 
     expect(pull.body.events).toEqual([

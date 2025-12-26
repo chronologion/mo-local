@@ -93,6 +93,10 @@ export class IndexedDBKeyStore implements IKeyStore {
     this.masterKey = new Uint8Array(key);
   }
 
+  getMasterKey(): Uint8Array | null {
+    return this.masterKey ? new Uint8Array(this.masterKey) : null;
+  }
+
   private async withStore<T>(
     storeName: string,
     mode: IDBTransactionMode,
@@ -141,7 +145,7 @@ export class IndexedDBKeyStore implements IKeyStore {
     if (!record) return null;
     if (!('blob' in record)) {
       throw new Error(
-        'Legacy key format detected; please re-onboard to regenerate encrypted keys.'
+        'Unsupported identity key record format detected; please clear local state and re-onboard.'
       );
     }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
@@ -184,7 +188,7 @@ export class IndexedDBKeyStore implements IKeyStore {
     if (!record) return null;
     if (!('blob' in record)) {
       throw new Error(
-        'Legacy aggregate key format detected; please clear local data and re-onboard.'
+        'Unsupported aggregate key record format detected; please clear local state and re-onboard.'
       );
     }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
@@ -203,11 +207,6 @@ export class IndexedDBKeyStore implements IKeyStore {
     for (const { aggregateId, blob } of aggregates) {
       if (!this.masterKey) {
         throw new Error('Master key not set');
-      }
-      if (!('blob' in { blob })) {
-        throw new Error(
-          'Legacy aggregate key format detected; please clear local data and re-onboard.'
-        );
       }
       const decrypted = await this.crypto.decrypt(blob, this.masterKey);
       aggregateKeys[aggregateId] = new Uint8Array(decrypted);
@@ -229,7 +228,7 @@ export class IndexedDBKeyStore implements IKeyStore {
       }
       if (!('blob' in identityRecord)) {
         throw new Error(
-          'Legacy key format detected; please re-onboard to regenerate encrypted keys.'
+          'Unsupported identity key record format detected; please clear local state and re-onboard.'
         );
       }
       const decrypted = await this.crypto.decrypt(
@@ -275,10 +274,10 @@ export class IndexedDBKeyStore implements IKeyStore {
     ]);
 
     if (backup.identityKeys) {
-      await this.saveIdentityKeys(
-        backup.userId ?? 'imported',
-        backup.identityKeys
-      );
+      if (!backup.userId || backup.userId.trim().length === 0) {
+        throw new Error('Backup missing userId');
+      }
+      await this.saveIdentityKeys(backup.userId, backup.identityKeys);
     }
 
     const entries = Object.entries(backup.aggregateKeys);

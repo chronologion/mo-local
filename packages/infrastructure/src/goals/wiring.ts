@@ -25,6 +25,7 @@ import {
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
+import { KeyringManager } from '../crypto/KeyringManager';
 import { GoalRepository } from './GoalRepository';
 import { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
 import { GoalReadModel } from './GoalReadModel';
@@ -46,6 +47,7 @@ export type GoalBootstrapDeps = {
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
   keyStore: IKeyStore;
+  keyringManager: KeyringManager;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -62,13 +64,15 @@ export const bootstrapGoalBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
+  keyringManager,
   toDomain,
 }: GoalBootstrapDeps): GoalBoundedContextServices => {
   const goalRepo = new GoalRepository(
     eventStore,
     store,
     crypto,
-    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+    keyStore,
+    keyringManager
   );
   const idempotencyStore = new LiveStoreIdempotencyStore(store);
   const goalHandler = new GoalCommandHandler(
@@ -82,6 +86,7 @@ export const bootstrapGoalBoundedContext = ({
     eventStore,
     crypto,
     keyStore,
+    keyringManager,
     toDomain
   );
   const goalReadModel = new GoalReadModel(goalProjection);
