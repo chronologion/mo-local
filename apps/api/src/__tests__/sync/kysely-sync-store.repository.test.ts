@@ -204,51 +204,20 @@ describe('KyselySyncStoreRepository', () => {
     ).rejects.toBeInstanceOf(SyncAccessDeniedError);
   });
 
-  it('migrates legacy store to new id when no events exist', async () => {
+  it('allows multiple stores for a single owner', async () => {
     const db = new FakeDb();
-    db.stores.push({
-      store_id: 'mo-local-v2-legacy',
-      owner_identity_id: 'owner-1',
-    });
-    db.events.push({
-      owner_identity_id: 'owner-1',
-      store_id: 'mo-local-v2-legacy',
-    });
     const repo = new KyselySyncStoreRepository(makeDbService(db));
     await repo.ensureStoreOwner(
       SyncStoreId.from('store-1'),
       SyncOwnerId.from('owner-1')
     );
-    expect(db.stores[0]?.store_id).toBe('store-1');
-    expect(db.events[0]?.store_id).toBe('store-1');
-  });
-
-  it('rejects migration if new store already has events', async () => {
-    const db = new FakeDb();
-    db.stores.push({
-      store_id: 'mo-local-v2-legacy',
-      owner_identity_id: 'owner-1',
-    });
-    db.events.push({ owner_identity_id: 'owner-1', store_id: 'store-1' });
-    const repo = new KyselySyncStoreRepository(makeDbService(db));
-    await expect(
-      repo.ensureStoreOwner(
-        SyncStoreId.from('store-1'),
-        SyncOwnerId.from('owner-1')
-      )
-    ).rejects.toBeInstanceOf(SyncAccessDeniedError);
-  });
-
-  it('rejects multiple stores for same identity', async () => {
-    const db = new FakeDb();
-    db.stores.push({ store_id: 'mo-local-v2-a', owner_identity_id: 'owner-1' });
-    db.stores.push({ store_id: 'mo-local-v2-b', owner_identity_id: 'owner-1' });
-    const repo = new KyselySyncStoreRepository(makeDbService(db));
-    await expect(
-      repo.ensureStoreOwner(
-        SyncStoreId.from('store-1'),
-        SyncOwnerId.from('owner-1')
-      )
-    ).rejects.toBeInstanceOf(SyncAccessDeniedError);
+    await repo.ensureStoreOwner(
+      SyncStoreId.from('store-2'),
+      SyncOwnerId.from('owner-1')
+    );
+    expect(db.stores).toEqual([
+      { store_id: 'store-1', owner_identity_id: 'owner-1' },
+      { store_id: 'store-2', owner_identity_id: 'owner-1' },
+    ]);
   });
 });
