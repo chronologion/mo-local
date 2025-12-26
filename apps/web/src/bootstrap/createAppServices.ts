@@ -46,7 +46,7 @@ export type AppServices = {
 
 export type CreateAppServicesOptions = {
   adapter: Adapter;
-  storeId?: string;
+  storeId: string;
   contexts?: AppBoundedContext[];
 };
 
@@ -80,9 +80,12 @@ const assertOpfsAvailable = async (): Promise<void> => {
  */
 export const createAppServices = async ({
   adapter,
-  storeId = 'mo-local-v2',
+  storeId,
   contexts = ['goals', 'projects'],
 }: CreateAppServicesOptions): Promise<AppServices> => {
+  if (!storeId) {
+    throw new Error('storeId is required');
+  }
   await assertOpfsAvailable();
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();

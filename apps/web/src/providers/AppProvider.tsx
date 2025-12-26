@@ -6,7 +6,6 @@ import { adapter } from './LiveStoreAdapter';
 import { tables } from '@mo/infrastructure/browser';
 import {
   decodeSalt,
-  deriveLegacySaltForUser,
   encodeSalt,
   generateRandomSalt,
 } from '@mo/infrastructure/crypto/deriveSalt';
@@ -31,8 +30,11 @@ const loadStoredStoreId = (): string | null => {
 };
 
 type UserMeta = {
+  /**
+   * Stable local identity id (UUIDv7). Used for `actorId` and identity key records.
+   */
   userId: string;
-  pwdSalt?: string;
+  pwdSalt: string;
 };
 
 type SessionState =
@@ -73,9 +75,11 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 const userMetaSchema = z.object({
-  userId: z.string().min(1),
-  pwdSalt: z.string().optional(),
+  userId: z.uuid(),
+  pwdSalt: z.string().min(1),
 });
+
+const storeIdSchema = z.uuid();
 
 const loadMeta = (): UserMeta | null => {
   const raw = localStorage.getItem(USER_META_KEY);
@@ -138,17 +142,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (meta) {
       setUserMeta(meta);
       setSession({ status: 'locked', userId: meta.userId });
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORE_ID_KEY, meta.userId);
+      const nextStoreId = meta.userId;
+      if (
+        typeof localStorage !== 'undefined' &&
+        storedStoreId !== nextStoreId
+      ) {
+        localStorage.setItem(STORE_ID_KEY, nextStoreId);
       }
-      setStoreId(meta.userId);
+      setStoreId(nextStoreId);
       return;
     }
 
     setUserMeta(null);
     setSession({ status: 'needs-onboarding' });
-    const fallbackStoreId = storedStoreId ?? uuidv7();
-    if (typeof localStorage !== 'undefined') {
+    const fallbackStoreId = (() => {
+      if (storedStoreId) {
+        const parsed = storeIdSchema.safeParse(storedStoreId);
+        if (parsed.success) return parsed.data;
+      }
+      return uuidv7();
+    })();
+    if (
+      typeof localStorage !== 'undefined' &&
+      storedStoreId !== fallbackStoreId
+    ) {
       localStorage.setItem(STORE_ID_KEY, fallbackStoreId);
     }
     setStoreId(fallbackStoreId);
@@ -394,13 +411,24 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!services) {
       throw new Error('Services not initialized');
     }
-    const userId = storeId ?? uuidv7();
+    if (!storeId) {
+      throw new Error('Store id not initialized');
+    }
+    const parsedStoreId = storeIdSchema.safeParse(storeId);
+    if (!parsedStoreId.success) {
+      throw new Error(
+        'Invalid store id; please reset local state and re-onboard'
+      );
+    }
+    const userId = parsedStoreId.data;
     const salt = generateRandomSalt();
     const saltB64 = encodeSalt(salt);
 
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
     setMasterKey(kek);
+
+    await services.keyStore.clearAll();
 
     const signing = await services.crypto.generateSigningKeyPair();
     const encryption = await services.crypto.generateEncryptionKeyPair();
@@ -412,34 +440,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       encryptionPublicKey: encryption.publicKey,
     });
 
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORE_ID_KEY, userId);
-    }
-    const nextServices =
-      servicesRef.current?.storeId === userId
-        ? servicesRef.current
-        : await switchToStore(userId);
-    nextServices.keyStore.setMasterKey(kek);
-    setMasterKey(kek);
-
     // Start projections only after keys are persisted.
     const meta = { userId, pwdSalt: saltB64 };
     saveMeta(meta);
     setUserMeta(meta);
     setSession({ status: 'ready', userId });
   };
+
   const unlock = async ({ password }: { password: string }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const storedSalt = meta.pwdSalt ? decodeSalt(meta.pwdSalt) : null;
-    const legacySalt = storedSalt
-      ? null
-      : await deriveLegacySaltForUser(meta.userId);
-    const saltForUnlock = storedSalt ?? legacySalt;
-    if (!saltForUnlock) {
-      throw new Error('Unable to determine password salt for unlock');
-    }
+    const saltForUnlock = decodeSalt(meta.pwdSalt);
     const kek = await services.crypto.deriveKeyFromPassword(
       password,
       saltForUnlock
@@ -449,38 +461,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!keys) {
       throw new Error('No keys found, please re-onboard');
     }
-
-    let nextMasterKey = kek;
-    let nextSaltB64 = meta.pwdSalt ?? encodeSalt(saltForUnlock);
-
-    if (!meta.pwdSalt) {
-      // Migrate deterministic salt users to a random per-user salt.
-      const backup = await services.keyStore.exportKeys();
-      const freshSalt = generateRandomSalt();
-      nextSaltB64 = encodeSalt(freshSalt);
-      nextMasterKey = await services.crypto.deriveKeyFromPassword(
-        password,
-        freshSalt
-      );
-      services.keyStore.setMasterKey(nextMasterKey);
-      await services.keyStore.importKeys({
-        ...backup,
-        userId: backup.userId ?? meta.userId,
-      });
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORE_ID_KEY, meta.userId);
-    }
-    const targetServices =
-      servicesRef.current?.storeId === meta.userId
-        ? servicesRef.current
-        : await switchToStore(meta.userId);
-    targetServices.keyStore.setMasterKey(nextMasterKey);
-
-    saveMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
-    setUserMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
-    setMasterKey(nextMasterKey);
+    saveMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
+    setUserMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
+    setMasterKey(kek);
     setSession({ status: 'ready', userId: meta.userId });
   };
 
@@ -526,8 +509,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const meta = loadMeta();
     const decryptSalt =
       (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ??
-      (meta?.pwdSalt ? decodeSalt(meta.pwdSalt) : null) ??
-      (meta?.userId ? await deriveLegacySaltForUser(meta.userId) : null);
+      (meta ? decodeSalt(meta.pwdSalt) : null);
     if (!decryptSalt) {
       throw new Error(
         'Backup missing salt and no local metadata available to derive one'
@@ -542,7 +524,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
     const payloadSchema = z.object({
-      userId: z.string().min(1),
+      userId: z.uuid(),
       identityKeys: z
         .object({
           signingPrivateKey: z.string().min(1),
