@@ -1,9 +1,11 @@
-import type { IEventBus, IKeyStore } from '@mo/application';
+import type { IEventBus } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../projection/ProjectionTaskRunner';
 import { tables } from '../goals/schema';
+import { KeyringManager } from '../crypto/KeyringManager';
+import { MissingKeyError } from '../errors';
 
 type CountQuery = () =>
   | ReturnType<typeof tables.goal_events.count>
@@ -33,7 +35,7 @@ export class CommittedEventPublisher {
     private readonly store: Store,
     private readonly eventBus: IEventBus,
     private readonly toDomain: LiveStoreToDomainAdapter,
-    private readonly keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager,
     configs: StreamConfig[]
   ) {
     this.streams = configs.map((config) => ({
@@ -87,9 +89,9 @@ export class CommittedEventPublisher {
       if (!event.sequence) {
         throw new Error(`Event ${event.id} missing sequence`);
       }
-      let kAggregate: Uint8Array | null;
+      let kAggregate: Uint8Array;
       try {
-        kAggregate = await this.keyStore.getAggregateKey(event.aggregateId);
+        kAggregate = await this.keyringManager.resolveKeyForEvent(event);
       } catch (err) {
         if (err instanceof Error && err.message === 'Master key not set') {
           console.warn(
@@ -97,17 +99,17 @@ export class CommittedEventPublisher {
           );
           return;
         }
-        throw err;
-      }
-      if (!kAggregate) {
-        console.warn(
-          '[CommittedEventPublisher] Missing key, skipping event for aggregate',
-          event.aggregateId
-        );
-        if (event.sequence > processedMax) {
-          processedMax = event.sequence;
+        if (err instanceof MissingKeyError) {
+          console.warn(
+            '[CommittedEventPublisher] Missing key, skipping event for aggregate',
+            event.aggregateId
+          );
+          if (event.sequence > processedMax) {
+            processedMax = event.sequence;
+          }
+          continue;
         }
-        continue;
+        throw err;
       }
       const domainEvent = await this.toDomain.toDomain(event, kAggregate);
       toPublish.push(domainEvent);

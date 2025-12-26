@@ -3,9 +3,14 @@ import type { IdentityKeys, IKeyStore, KeyBackup } from '@mo/application';
 export class InMemoryKeyStore implements IKeyStore {
   private readonly identityKeys = new Map<string, IdentityKeys>();
   private readonly keys = new Map<string, Uint8Array>();
+  private masterKey: Uint8Array | null = null;
 
-  setMasterKey(): void {
-    // noop for tests
+  setMasterKey(key: Uint8Array): void {
+    this.masterKey = new Uint8Array(key);
+  }
+
+  getMasterKey(): Uint8Array | null {
+    return this.masterKey ? new Uint8Array(this.masterKey) : null;
   }
 
   async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {

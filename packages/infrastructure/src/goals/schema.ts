@@ -15,6 +15,8 @@ const goalEventsTable = State.SQLite.table({
     aggregate_id: State.SQLite.text({ nullable: false }),
     event_type: State.SQLite.text({ nullable: false }),
     payload_encrypted: State.SQLite.blob({ nullable: false }),
+    epoch: State.SQLite.integer({ nullable: true }),
+    keyring_update: State.SQLite.blob({ nullable: true }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
     actor_id: State.SQLite.text({ nullable: true }),
@@ -74,6 +76,8 @@ const projectEventsTable = State.SQLite.table({
     aggregate_id: State.SQLite.text({ nullable: false }),
     event_type: State.SQLite.text({ nullable: false }),
     payload_encrypted: State.SQLite.blob({ nullable: false }),
+    epoch: State.SQLite.integer({ nullable: true }),
+    keyring_update: State.SQLite.blob({ nullable: true }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
     actor_id: State.SQLite.text({ nullable: true }),
@@ -161,6 +165,8 @@ type GoalEventPayload = {
   aggregateId: string;
   eventType: string;
   payload: unknown;
+  epoch?: number;
+  keyringUpdate?: unknown;
   version: number;
   occurredAt: number;
   actorId: string | null;
@@ -176,6 +182,8 @@ export const events = {
       aggregateId: S.String,
       eventType: S.String,
       payload: S.Unknown,
+      epoch: S.optional(S.Number),
+      keyringUpdate: S.optional(S.Unknown),
       version: S.Number,
       occurredAt: S.Number,
       actorId: S.NullOr(S.String),
@@ -223,6 +231,8 @@ const materializers = State.SQLite.materializers(events, {
     aggregateId,
     eventType,
     payload,
+    epoch,
+    keyringUpdate,
     version,
     occurredAt,
     actorId,
@@ -231,6 +241,9 @@ const materializers = State.SQLite.materializers(events, {
   }: GoalEventPayload) => {
     try {
       const payloadBytes = asUint8Array(payload) as Uint8Array<ArrayBuffer>;
+      const keyringBytes = keyringUpdate
+        ? (asUint8Array(keyringUpdate) as Uint8Array<ArrayBuffer>)
+        : null;
 
       if (goalEventNames.has(eventType)) {
         return [
@@ -239,6 +252,8 @@ const materializers = State.SQLite.materializers(events, {
             aggregate_id: aggregateId,
             event_type: eventType,
             payload_encrypted: payloadBytes,
+            epoch: epoch ?? null,
+            keyring_update: keyringBytes,
             version,
             occurred_at: occurredAt,
             actor_id: actorId,
@@ -255,6 +270,8 @@ const materializers = State.SQLite.materializers(events, {
             aggregate_id: aggregateId,
             event_type: eventType,
             payload_encrypted: payloadBytes,
+            epoch: epoch ?? null,
+            keyring_update: keyringBytes,
             version,
             occurred_at: occurredAt,
             actor_id: actorId,

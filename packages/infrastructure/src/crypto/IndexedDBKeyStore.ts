@@ -93,6 +93,10 @@ export class IndexedDBKeyStore implements IKeyStore {
     this.masterKey = new Uint8Array(key);
   }
 
+  getMasterKey(): Uint8Array | null {
+    return this.masterKey ? new Uint8Array(this.masterKey) : null;
+  }
+
   private async withStore<T>(
     storeName: string,
     mode: IDBTransactionMode,

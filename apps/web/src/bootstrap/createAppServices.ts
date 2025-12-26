@@ -2,8 +2,12 @@ import { type Adapter } from '@livestore/livestore';
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
 import { GoalAchievementSaga } from '@mo/application';
-import { IndexedDBKeyStore } from '@mo/infrastructure/crypto/IndexedDBKeyStore';
-import { WebCryptoService } from '@mo/infrastructure/crypto/WebCryptoService';
+import {
+  IndexedDBKeyStore,
+  InMemoryKeyringStore,
+  KeyringManager,
+  WebCryptoService,
+} from '@mo/infrastructure';
 import { LiveStoreToDomainAdapter } from '@mo/infrastructure/livestore/adapters/LiveStoreToDomainAdapter';
 import { createStoreAndEventStores } from '@mo/infrastructure/browser/wiring/store';
 import {
@@ -57,6 +61,8 @@ export const createAppServices = async ({
 }: CreateAppServicesOptions): Promise<AppServices> => {
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();
+  const keyringStore = new InMemoryKeyringStore();
+  const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
   const eventBus = new InMemoryEventBus();
   const toDomain = new LiveStoreToDomainAdapter(crypto);
   const apiBaseUrl =
@@ -75,6 +81,7 @@ export const createAppServices = async ({
       eventStore: storeBundle.goalEventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain,
     });
   }
@@ -84,6 +91,7 @@ export const createAppServices = async ({
       eventStore: storeBundle.projectEventStore,
       crypto,
       keyStore,
+      keyringManager,
       toDomain,
     });
   }
@@ -113,7 +121,7 @@ export const createAppServices = async ({
     storeBundle.store,
     eventBus,
     toDomain,
-    keyStore,
+    keyringManager,
     CommittedEventPublisher.buildStreams({
       goalEventStore: contexts.includes('goals')
         ? storeBundle.goalEventStore

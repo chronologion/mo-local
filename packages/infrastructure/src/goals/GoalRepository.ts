@@ -1,9 +1,10 @@
-import { Goal, GoalId, Timestamp, UserId } from '@mo/domain';
+import { Goal, GoalId, Timestamp, UserId, goalEventTypes } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
   IGoalRepository,
+  IKeyStore,
   none,
   Option,
   some,
@@ -12,6 +13,7 @@ import type { Store } from '@livestore/livestore';
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
+import { KeyringManager } from '../crypto/KeyringManager';
 import { MissingKeyError, PersistenceError } from '../errors';
 import { decodeGoalSnapshotDomain } from './snapshots/GoalSnapshotCodec';
 import { buildSnapshotAad } from '../eventing/aad';
@@ -27,28 +29,27 @@ export class GoalRepository implements IGoalRepository {
     private readonly eventStore: IEventStore,
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyProvider: (
-      aggregateId: string
-    ) => Promise<Uint8Array | null>
+    private readonly keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager
   ) {
     this.toEncrypted = new DomainToLiveStoreAdapter(crypto);
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
   async load(id: GoalId): Promise<Option<Goal>> {
-    const kGoal = await this.keyProvider(id.value);
-    if (!kGoal) {
-      throw new MissingKeyError(`Missing encryption key for ${id.value}`);
-    }
-
-    const snapshot = await this.loadSnapshot(id.value, kGoal);
+    const snapshotKey = await this.keyStore.getAggregateKey(id.value);
+    const snapshot = snapshotKey
+      ? await this.loadSnapshot(id.value, snapshotKey)
+      : null;
     const fromVersion = snapshot ? snapshot.version + 1 : 1;
     const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
     if (!snapshot && tailEvents.length === 0) return none();
 
-    const domainTail = await Promise.all(
-      tailEvents.map((event) => this.toDomain.toDomain(event, kGoal))
-    );
+    const domainTail = [];
+    for (const event of tailEvents) {
+      const key = await this.keyringManager.resolveKeyForEvent(event);
+      domainTail.push(await this.toDomain.toDomain(event, key));
+    }
 
     if (snapshot) {
       return some(Goal.reconstituteFromSnapshot(snapshot, domainTail));
@@ -71,11 +72,25 @@ export class GoalRepository implements IGoalRepository {
     const startVersion = baseVersion + 1;
 
     try {
-      const encrypted = await Promise.all(
-        pending.map((event, idx) =>
-          this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey)
-        )
-      );
+      const encrypted = [];
+      for (let idx = 0; idx < pending.length; idx += 1) {
+        const event = pending[idx];
+        if (!event) continue;
+        const options = await this.buildEncryptionOptions(
+          event.eventType,
+          event.aggregateId.value,
+          event.occurredAt.value,
+          encryptionKey
+        );
+        encrypted.push(
+          await this.toEncrypted.toEncrypted(
+            event,
+            startVersion + idx,
+            encryptionKey,
+            options
+          )
+        );
+      }
       await this.eventStore.append(goal.id.value, encrypted);
       goal.markEventsAsCommitted();
     } catch (error) {
@@ -118,10 +133,33 @@ export class GoalRepository implements IGoalRepository {
     const goal = await this.load(id);
     if (goal.kind === 'none') return;
     goal.value.archive({ archivedAt, actorId });
-    const kGoal = await this.keyProvider(id.value);
+    const kGoal = await this.keyStore.getAggregateKey(id.value);
     if (!kGoal) {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
     await this.save(goal.value, kGoal);
+  }
+
+  private async buildEncryptionOptions(
+    eventType: string,
+    aggregateId: string,
+    occurredAt: number,
+    encryptionKey: Uint8Array
+  ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
+    let keyringUpdate: Uint8Array | undefined;
+    if (eventType === goalEventTypes.goalCreated) {
+      const update = await this.keyringManager.createInitialUpdate(
+        aggregateId,
+        encryptionKey,
+        occurredAt
+      );
+      keyringUpdate = update?.keyringUpdate;
+    }
+    const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
+    const epoch = currentEpoch !== 0 ? currentEpoch : undefined;
+    if (!keyringUpdate && epoch === undefined) {
+      return undefined;
+    }
+    return { epoch, keyringUpdate };
   }
 }

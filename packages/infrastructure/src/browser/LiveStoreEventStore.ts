@@ -16,6 +16,8 @@ type DomainEventFactory<TSchema extends LiveStoreSchema> = (payload: {
   actorId: string | null;
   causationId: string | null;
   correlationId: string | null;
+  epoch?: number;
+  keyringUpdate?: Uint8Array;
 }) => LiveStoreEvent.Input.ForSchema<TSchema>;
 type GoalEventFactory = DomainEventFactory<LiveStoreSchema.Any>;
 
@@ -70,8 +72,20 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         this.store.commit(
-          ...sorted.map((event) =>
-            this.goalEvent({
+          ...sorted.map((event) => {
+            const payload: {
+              id: string;
+              aggregateId: string;
+              eventType: string;
+              payload: Uint8Array;
+              version: number;
+              occurredAt: number;
+              actorId: string | null;
+              causationId: string | null;
+              correlationId: string | null;
+              epoch?: number;
+              keyringUpdate?: Uint8Array;
+            } = {
               id: event.id,
               aggregateId,
               eventType: event.eventType,
@@ -81,8 +95,15 @@ export class BrowserLiveStoreEventStore implements IEventStore {
               actorId: event.actorId ?? null,
               causationId: event.causationId ?? null,
               correlationId: event.correlationId ?? null,
-            })
-          )
+            };
+            if (event.epoch !== undefined) {
+              payload.epoch = event.epoch;
+            }
+            if (event.keyringUpdate !== undefined) {
+              payload.keyringUpdate = event.keyringUpdate;
+            }
+            return this.goalEvent(payload);
+          })
         );
         await this.waitForMaterialized(aggregateId, expectedFinalVersion);
         return;
@@ -105,6 +126,8 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
+        epoch: number | null;
+        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -114,7 +137,7 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, epoch, keyring_update, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         WHERE aggregate_id = ? AND version >= ?
         ORDER BY version ASC
@@ -154,6 +177,8 @@ export class BrowserLiveStoreEventStore implements IEventStore {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
+        epoch: number | null;
+        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -163,7 +188,7 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       }[]
     >({
       query: `
-        SELECT id, aggregate_id, event_type, payload_encrypted, version, occurred_at, actor_id, causation_id, correlation_id, sequence
+        SELECT id, aggregate_id, event_type, payload_encrypted, epoch, keyring_update, version, occurred_at, actor_id, causation_id, correlation_id, sequence
         FROM ${this.tables.events}
         ${whereClause}
         ORDER BY sequence ASC
@@ -207,6 +232,8 @@ export class BrowserLiveStoreEventStore implements IEventStore {
     aggregate_id: string;
     event_type: string;
     payload_encrypted: Uint8Array;
+    epoch: number | null;
+    keyring_update: Uint8Array | null;
     version: number;
     occurred_at: number;
     actor_id: string | null;
@@ -219,6 +246,8 @@ export class BrowserLiveStoreEventStore implements IEventStore {
       aggregateId: row.aggregate_id,
       eventType: row.event_type,
       payload: row.payload_encrypted,
+      epoch: row.epoch ?? undefined,
+      keyringUpdate: row.keyring_update ?? undefined,
       version: Number(row.version),
       occurredAt: Number(row.occurred_at),
       actorId: row.actor_id,

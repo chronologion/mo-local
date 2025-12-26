@@ -1,5 +1,6 @@
 import { ICryptoService, IKeyStore, KeyPair } from '@mo/application';
 import { SharingCrypto } from './SharingCrypto';
+import { KeyringManager } from './KeyringManager';
 
 type ShareParams = {
   goalId: string;
@@ -22,7 +23,8 @@ export class AggregateKeyManager {
   constructor(
     private readonly keyStore: IKeyStore,
     private readonly crypto: ICryptoService,
-    private readonly sharing: SharingCrypto
+    private readonly sharing: SharingCrypto,
+    private readonly keyringManager?: KeyringManager
   ) {}
 
   async createForOwner(goalId: string): Promise<Uint8Array> {
@@ -33,6 +35,9 @@ export class AggregateKeyManager {
 
     const kGoal = await this.crypto.generateKey();
     await this.keyStore.saveAggregateKey(goalId, kGoal);
+    if (this.keyringManager) {
+      await this.keyringManager.createInitialUpdate(goalId, kGoal, Date.now());
+    }
     return kGoal;
   }
 

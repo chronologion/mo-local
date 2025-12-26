@@ -27,6 +27,7 @@ import {
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
+import { KeyringManager } from '../crypto/KeyringManager';
 import { ProjectRepository } from './ProjectRepository';
 import { ProjectProjectionProcessor } from './projections/runtime/ProjectProjectionProcessor';
 import { ProjectReadModel } from './ProjectReadModel';
@@ -51,6 +52,7 @@ export type ProjectBootstrapDeps = {
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
   keyStore: IKeyStore;
+  keyringManager: KeyringManager;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -69,13 +71,15 @@ export const bootstrapProjectBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
+  keyringManager,
   toDomain,
 }: ProjectBootstrapDeps): ProjectBoundedContextServices => {
   const projectRepo = new ProjectRepository(
     eventStore,
     store,
     crypto,
-    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+    keyStore,
+    keyringManager
   );
   const idempotencyStore = new LiveStoreIdempotencyStore(store);
   const projectHandler = new ProjectCommandHandler(
@@ -89,6 +93,7 @@ export const bootstrapProjectBoundedContext = ({
     eventStore,
     crypto,
     keyStore,
+    keyringManager,
     toDomain
   );
   const projectReadModel = new ProjectReadModel(projectProjection);

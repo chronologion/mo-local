@@ -3,6 +3,8 @@ import { GoalProjectionProcessor } from '../../../src/goals/projections/runtime/
 import { LiveStoreToDomainAdapter } from '../../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { DomainToLiveStoreAdapter } from '../../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
+import { InMemoryKeyringStore } from '../../../src/crypto/InMemoryKeyringStore';
+import { KeyringManager } from '../../../src/crypto/KeyringManager';
 import { decodeGoalSnapshotState } from '../../../src/goals/snapshots/GoalSnapshotCodec';
 import { buildSnapshotAad } from '../../../src/eventing/aad';
 import {
@@ -245,11 +247,17 @@ describe('GoalProjectionProcessor', () => {
   const goalId = aggregateIdValue;
   let crypto: WebCryptoService;
   let keyStore: InMemoryKeyStore;
+  let keyringManager: KeyringManager;
   let store: StoreStub;
 
   beforeEach(() => {
     crypto = new WebCryptoService();
     keyStore = new InMemoryKeyStore();
+    keyringManager = new KeyringManager(
+      crypto,
+      keyStore,
+      new InMemoryKeyringStore()
+    );
     store = new StoreStub();
   });
 
@@ -300,6 +308,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -376,6 +385,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -416,6 +426,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -473,6 +484,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -512,6 +524,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 
@@ -582,6 +595,7 @@ describe('GoalProjectionProcessor', () => {
       eventStore,
       crypto,
       keyStore,
+      keyringManager,
       new LiveStoreToDomainAdapter(crypto)
     );
 

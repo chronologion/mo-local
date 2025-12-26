@@ -25,7 +25,8 @@ export class DomainToLiveStoreAdapter {
   async toEncrypted(
     domainEvent: DomainEvent,
     version: number,
-    kGoal: Uint8Array
+    kGoal: Uint8Array,
+    options?: { epoch?: number; keyringUpdate?: Uint8Array }
   ): Promise<EncryptedEvent> {
     const serialized = encodePersisted(domainEvent);
     const payloadBytes = encodePayloadEnvelope({
@@ -59,6 +60,8 @@ export class DomainToLiveStoreAdapter {
       actorId: domainEvent.actorId.value,
       causationId: domainEvent.causationId?.value ?? null,
       correlationId: domainEvent.correlationId?.value ?? null,
+      epoch: options?.epoch,
+      keyringUpdate: options?.keyringUpdate,
       // sequence is assigned by the event store during append
     };
   }

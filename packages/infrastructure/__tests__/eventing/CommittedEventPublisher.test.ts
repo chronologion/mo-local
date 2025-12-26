@@ -24,6 +24,8 @@ import { CommittedEventPublisher } from '../../src/eventing/CommittedEventPublis
 import { DomainToLiveStoreAdapter } from '../../src/livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../../src/livestore/adapters/LiveStoreToDomainAdapter';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
+import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
+import { KeyringManager } from '../../src/crypto/KeyringManager';
 import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
 
 class EventStoreStub implements IEventStore {
@@ -122,6 +124,9 @@ const meta = () => ({
   actorId: ActorId.from('user-1'),
 });
 
+const buildKeyringManager = (keyStore: InMemoryKeyStore) =>
+  new KeyringManager(crypto, keyStore, new InMemoryKeyringStore());
+
 const buildGoalCreated = () =>
   new GoalCreated(
     {
@@ -168,6 +173,7 @@ describe('CommittedEventPublisher', () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
     const keyStore = new InMemoryKeyStore();
+    const keyringManager = buildKeyringManager(keyStore);
     const key = new Uint8Array(32).fill(1);
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
@@ -178,7 +184,7 @@ describe('CommittedEventPublisher', () => {
       store as unknown as Store,
       bus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({ goalEventStore: eventStore })
     );
 
@@ -190,6 +196,7 @@ describe('CommittedEventPublisher', () => {
   it('persists last sequence and resumes from it', async () => {
     const store = new StoreStub();
     const keyStore = new InMemoryKeyStore();
+    const keyringManager = buildKeyringManager(keyStore);
     const key = new Uint8Array(32).fill(2);
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
@@ -201,7 +208,7 @@ describe('CommittedEventPublisher', () => {
       store as unknown as Store,
       firstBus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({ goalEventStore: eventStore })
     );
     await first.start();
@@ -212,7 +219,7 @@ describe('CommittedEventPublisher', () => {
       store as unknown as Store,
       secondBus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({ goalEventStore: eventStore })
     );
     await second.start();
@@ -223,6 +230,7 @@ describe('CommittedEventPublisher', () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
     const keyStore = new InMemoryKeyStore();
+    const keyringManager = buildKeyringManager(keyStore);
     const key = new Uint8Array(32).fill(3);
     const event = buildGoalCreated();
     const encrypted = await buildEncrypted(event, 5, key);
@@ -232,7 +240,7 @@ describe('CommittedEventPublisher', () => {
       store as unknown as Store,
       bus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({ goalEventStore: eventStore })
     );
 
@@ -250,13 +258,14 @@ describe('CommittedEventPublisher', () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
     const keyStore = new InMemoryKeyStore();
+    const keyringManager = buildKeyringManager(keyStore);
     const eventStore = new EventStoreStub([]);
 
     const publisher = new CommittedEventPublisher(
       store as unknown as Store,
       bus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({ goalEventStore: eventStore })
     );
 
@@ -268,6 +277,7 @@ describe('CommittedEventPublisher', () => {
     const store = new StoreStub();
     const bus = new EventBusStub();
     const keyStore = new InMemoryKeyStore();
+    const keyringManager = buildKeyringManager(keyStore);
     const keyA = new Uint8Array(32).fill(4);
     const keyB = new Uint8Array(32).fill(5);
 
@@ -286,7 +296,7 @@ describe('CommittedEventPublisher', () => {
       store as unknown as Store,
       bus,
       toDomain,
-      keyStore,
+      keyringManager,
       CommittedEventPublisher.buildStreams({
         goalEventStore: goalStore,
         projectEventStore: projectStore,

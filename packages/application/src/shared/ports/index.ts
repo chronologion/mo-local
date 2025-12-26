@@ -1,6 +1,7 @@
 export * from './types';
 export * from './IEventBus';
 export * from './ICryptoService';
+export * from './IKeyringStore';
 export * from './IKeyStore';
 export * from './IEventStore';
 export * from './IIdempotencyStore';
