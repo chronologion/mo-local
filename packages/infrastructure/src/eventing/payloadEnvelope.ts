@@ -32,12 +32,21 @@ export function decodePayloadEnvelope(bytes: Uint8Array): EnvelopeParseResult {
   }
 
   if (!isEnvelopeObject(parsed)) {
-    return { payloadVersion: 1, data: parsed };
+    throw new Error('Malformed payload envelope: expected envelope object');
   }
 
-  const payloadVersion =
-    typeof parsed.payloadVersion === 'number' ? parsed.payloadVersion : 1;
-  const data = parsed.data !== undefined ? parsed.data : parsed;
+  const payloadVersion = parsed.payloadVersion;
+  if (
+    typeof payloadVersion !== 'number' ||
+    !Number.isInteger(payloadVersion) ||
+    payloadVersion < 1
+  ) {
+    throw new Error('Malformed payload envelope: invalid payloadVersion');
+  }
 
-  return { payloadVersion, data };
+  if (!('data' in parsed)) {
+    throw new Error('Malformed payload envelope: missing data');
+  }
+
+  return { payloadVersion, data: parsed.data };
 }

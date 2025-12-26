@@ -34,7 +34,7 @@ type ProjectSnapshotPayloadV1 = {
   description: string;
   goalId: string | null;
   milestones?: Array<{ id: string; name: string; targetDate: string }>;
-  createdBy?: string;
+  createdBy: string;
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
@@ -47,6 +47,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const requireString = (value: unknown, label: string): string => {
   if (typeof value === 'string') return value;
   throw new Error(`Project snapshot ${label} must be a string`);
+};
+
+const requireNonEmptyString = (value: unknown, label: string): string => {
+  const raw = requireString(value, label).trim();
+  if (raw.length === 0) {
+    throw new Error(`Project snapshot ${label} must be a non-empty string`);
+  }
+  return raw;
 };
 
 const requireNumber = (value: unknown, label: string): number => {
@@ -115,10 +123,7 @@ const parsePayloadV1 = (data: unknown): ProjectSnapshotPayloadV1 => {
     description: requireString(data.description, 'description'),
     goalId: requireNullableString(data.goalId, 'goalId'),
     milestones: parseMilestones(data.milestones),
-    createdBy:
-      typeof data.createdBy === 'string' && data.createdBy.trim().length > 0
-        ? data.createdBy
-        : undefined,
+    createdBy: requireNonEmptyString(data.createdBy, 'createdBy'),
     createdAt: requireNumber(data.createdAt, 'createdAt'),
     updatedAt: requireNumber(data.updatedAt, 'updatedAt'),
     archivedAt: requireNullableNumber(data.archivedAt, 'archivedAt'),
@@ -150,6 +155,7 @@ const toPayloadV1 = (
   description: snapshot.description,
   goalId: snapshot.goalId,
   milestones: snapshot.milestones,
+  createdBy: snapshot.createdBy,
   createdAt: snapshot.createdAt,
   updatedAt: snapshot.updatedAt,
   archivedAt: snapshot.archivedAt,
@@ -187,6 +193,7 @@ export const decodeProjectSnapshotState = (
     description: parsed.description,
     goalId: parsed.goalId,
     milestones: parsed.milestones ?? [],
+    createdBy: parsed.createdBy,
     createdAt: parsed.createdAt,
     updatedAt: parsed.updatedAt,
     archivedAt: parsed.archivedAt,
@@ -200,10 +207,6 @@ export const decodeProjectSnapshotDomain = (
 ): ProjectSnapshot => {
   const { snapshotVersion, data } = decodeSnapshotEnvelope(payload);
   const parsed = upcastProjectSnapshot(snapshotVersion, data);
-  const createdByRaw =
-    typeof parsed.createdBy === 'string' && parsed.createdBy.trim().length > 0
-      ? parsed.createdBy
-      : 'imported';
   return {
     id: ProjectId.from(parsed.id),
     name: ProjectName.from(parsed.name),
@@ -219,7 +222,7 @@ export const decodeProjectSnapshotDomain = (
         targetDate: LocalDate.fromString(m.targetDate),
       })
     ),
-    createdBy: UserId.from(createdByRaw),
+    createdBy: UserId.from(parsed.createdBy),
     createdAt: Timestamp.fromMillis(parsed.createdAt),
     updatedAt: Timestamp.fromMillis(parsed.updatedAt),
     archivedAt:

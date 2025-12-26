@@ -51,6 +51,7 @@ export type ProjectSnapshotState = {
   description: string;
   goalId: string | null;
   milestones: ProjectMilestoneState[];
+  createdBy: string;
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
@@ -88,6 +89,7 @@ export const applyProjectEventToSnapshot = (
         description: event.description.value,
         goalId: event.goalId ? event.goalId.value : null,
         milestones: [],
+        createdBy: event.createdBy.value,
         createdAt: event.createdAt.value,
         updatedAt: event.createdAt.value,
         archivedAt: null,

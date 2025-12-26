@@ -17,12 +17,10 @@ describe('payloadEnvelope', () => {
     });
   });
 
-  it('handles legacy payloads without envelope', () => {
+  it('rejects payloads without envelope', () => {
     const legacy = new TextEncoder().encode(
       JSON.stringify({ alpha: 1, beta: 2 })
     );
-    const decoded = decodePayloadEnvelope(legacy);
-    expect(decoded.payloadVersion).toBe(1);
-    expect(decoded.data).toEqual({ alpha: 1, beta: 2 });
+    expect(() => decodePayloadEnvelope(legacy)).toThrow(/payload envelope/i);
   });
 });

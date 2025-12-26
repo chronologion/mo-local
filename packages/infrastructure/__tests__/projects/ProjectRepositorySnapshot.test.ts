@@ -4,7 +4,6 @@ import { WebCryptoService } from '../../src/crypto/WebCryptoService';
 import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
 import { KeyringManager } from '../../src/crypto/KeyringManager';
 import type { IEventStore, EncryptedEvent } from '@mo/application';
-import { isSome } from '@mo/application';
 import { ProjectId, ProjectName } from '@mo/domain';
 import type { Store } from '@livestore/livestore';
 import { buildSnapshotAad } from '../../src/eventing/aad';
@@ -75,7 +74,7 @@ class EmptyEventStoreStub implements IEventStore {
 }
 
 describe('ProjectRepository snapshot compatibility', () => {
-  it('reconstitutes projects when snapshot is missing createdBy', async () => {
+  it('purges snapshots without envelope/createdBy and returns none', async () => {
     const crypto = new WebCryptoService();
     const kProject = await crypto.generateKey();
     const storeStub = new SnapshotStoreStub();
@@ -125,11 +124,8 @@ describe('ProjectRepository snapshot compatibility', () => {
 
     const loaded = await repo.load(projectId);
 
-    expect(isSome(loaded)).toBe(true);
-    expect(isSome(loaded) ? loaded.value.id.value : null).toBe(aggregateId);
-    expect(isSome(loaded) ? loaded.value.createdBy.value : null).toBe(
-      'imported'
-    );
+    expect(loaded.kind).toBe('none');
+    expect(storeStub.deleted).toContain(aggregateId);
   });
 
   it('purges corrupt snapshots and returns null instead of throwing', async () => {

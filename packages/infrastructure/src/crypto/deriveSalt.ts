@@ -23,19 +23,3 @@ export const decodeSalt = (saltB64: string): Uint8Array => {
   }
   return decoded;
 };
-
-/**
- * Legacy deterministic salt derived from userId. Only used for migration of
- * pre-randomized salts.
- */
-export const deriveLegacySaltForUser = async (
-  userId: string
-): Promise<Uint8Array> => {
-  const cryptoApi = globalThis.crypto;
-  if (!cryptoApi?.subtle) {
-    throw new Error('Web Crypto API unavailable for salt derivation');
-  }
-  const data = new TextEncoder().encode(`mo-local-salt:${userId}`);
-  const hash = await cryptoApi.subtle.digest('SHA-256', data);
-  return new Uint8Array(hash);
-};
