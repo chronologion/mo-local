@@ -1,7 +1,7 @@
 import { type Adapter } from '@livestore/livestore';
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
-import { GoalAchievementSaga } from '@mo/application';
+import { GoalAchievementSaga, type ValidationError } from '@mo/application';
 import {
   IndexedDBKeyStore,
   InMemoryKeyringStore,
@@ -13,11 +13,11 @@ import { createStoreAndEventStores } from '@mo/infrastructure/browser/wiring/sto
 import {
   bootstrapGoalBoundedContext,
   type GoalBoundedContextServices,
-} from '@mo/infrastructure/goals/wiring';
+} from '@mo/infrastructure/goals';
 import {
   bootstrapProjectBoundedContext,
   type ProjectBoundedContextServices,
-} from '@mo/infrastructure/projects/wiring';
+} from '@mo/infrastructure/projects';
 import { GoalAchievementSagaStore } from '@mo/infrastructure/sagas/GoalAchievementSagaStore';
 
 export type AppBoundedContext = 'goals' | 'projects';
@@ -50,6 +50,30 @@ export type CreateAppServicesOptions = {
   contexts?: AppBoundedContext[];
 };
 
+type OpfsStorageManager = StorageManager & {
+  getDirectory?: () => Promise<FileSystemDirectoryHandle>;
+};
+
+const assertOpfsAvailable = async (): Promise<void> => {
+  if (typeof navigator === 'undefined') return;
+
+  const storage = navigator.storage as OpfsStorageManager | undefined;
+  if (!storage?.getDirectory) {
+    throw new Error(
+      'LiveStore persistence requires OPFS (StorageManager.getDirectory), which is not available in this browser context.'
+    );
+  }
+
+  try {
+    await storage.getDirectory();
+  } catch {
+    // Safari Private Browsing can expose `navigator.storage` but deny OPFS access at runtime.
+    throw new Error(
+      'LiveStore persistence (OPFS) is not available (Safari Private Browsing is a common cause). Please use a non-private window.'
+    );
+  }
+};
+
 /**
  * Application-level composition root for the web app. Infra exposes BC bootstraps,
  * and the app decides which contexts to start.
@@ -59,6 +83,7 @@ export const createAppServices = async ({
   storeId = 'mo-local-v2',
   contexts = ['goals', 'projects'],
 }: CreateAppServicesOptions): Promise<AppServices> => {
+  await assertOpfsAvailable();
   const crypto = new WebCryptoService();
   const keyStore = new IndexedDBKeyStore();
   const keyringStore = new InMemoryKeyringStore();
@@ -108,7 +133,7 @@ export const createAppServices = async ({
         if (!result.ok) {
           throw new Error(
             `Goal achievement saga failed: ${result.errors
-              .map((e) => `${e.field}:${e.message}`)
+              .map((e: ValidationError) => `${e.field}:${e.message}`)
               .join(', ')}`
           );
         }
