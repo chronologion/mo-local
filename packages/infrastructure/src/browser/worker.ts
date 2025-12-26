@@ -1,5 +1,5 @@
 import { makeWorker } from '@livestore/adapter-web/worker';
-import { schema } from '../goals/schema';
+import { schema } from '../livestore/schema';
 import {
   SyncPayloadSchema,
   makeCloudSyncBackend,

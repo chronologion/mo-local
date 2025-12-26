@@ -3,7 +3,7 @@ import type { Store } from '@livestore/livestore';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../projection/ProjectionTaskRunner';
-import { tables } from '../goals/schema';
+import { tables } from '../livestore/schema';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { MissingKeyError } from '../errors';
 

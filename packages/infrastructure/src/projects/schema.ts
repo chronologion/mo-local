@@ -1,9 +1,9 @@
 import { State } from '@livestore/livestore';
-import { goalEventTypes } from '@mo/domain';
+import { projectEventTypes } from '@mo/domain';
 import type { DomainEventPayload } from '../livestore/types';
 
-const goalEventsTable = State.SQLite.table({
-  name: 'goal_events',
+const projectEventsTable = State.SQLite.table({
+  name: 'project_events',
   columns: {
     sequence: State.SQLite.integer({
       primaryKey: true,
@@ -24,8 +24,8 @@ const goalEventsTable = State.SQLite.table({
   },
 });
 
-const goalSnapshotsTable = State.SQLite.table({
-  name: 'goal_snapshots',
+const projectSnapshotsTable = State.SQLite.table({
+  name: 'project_snapshots',
   columns: {
     aggregate_id: State.SQLite.text({ nullable: false, primaryKey: true }),
     payload_encrypted: State.SQLite.blob({ nullable: false }),
@@ -35,26 +35,16 @@ const goalSnapshotsTable = State.SQLite.table({
   },
 });
 
-const goalProjectionMetaTable = State.SQLite.table({
-  name: 'goal_projection_meta',
+const projectProjectionMetaTable = State.SQLite.table({
+  name: 'project_projection_meta',
   columns: {
     key: State.SQLite.text({ nullable: false, primaryKey: true }),
     value: State.SQLite.text({ nullable: false }),
   },
 });
 
-const goalAnalyticsTable = State.SQLite.table({
-  name: 'goal_analytics',
-  columns: {
-    aggregate_id: State.SQLite.text({ nullable: false, primaryKey: true }),
-    payload_encrypted: State.SQLite.blob({ nullable: false }),
-    last_sequence: State.SQLite.integer({ nullable: false }),
-    updated_at: State.SQLite.integer({ nullable: false }),
-  },
-});
-
-const goalSearchIndexTable = State.SQLite.table({
-  name: 'goal_search_index',
+const projectSearchIndexTable = State.SQLite.table({
+  name: 'project_search_index',
   columns: {
     key: State.SQLite.text({ nullable: false, primaryKey: true }),
     payload_encrypted: State.SQLite.blob({ nullable: false }),
@@ -63,49 +53,26 @@ const goalSearchIndexTable = State.SQLite.table({
   },
 });
 
-const goalAchievementStateTable = State.SQLite.table({
-  name: 'goal_achievement_state',
-  columns: {
-    goal_id: State.SQLite.text({ nullable: false, primaryKey: true }),
-    linked_project_ids: State.SQLite.text({ nullable: false }),
-    completed_project_ids: State.SQLite.text({ nullable: false }),
-    achieved: State.SQLite.integer({ nullable: false }),
-    achievement_requested: State.SQLite.integer({ nullable: false }),
-  },
-});
-
-const goalAchievementProjectsTable = State.SQLite.table({
-  name: 'goal_achievement_projects',
-  columns: {
-    project_id: State.SQLite.text({ nullable: false, primaryKey: true }),
-    goal_id: State.SQLite.text({ nullable: true }),
-    status: State.SQLite.text({ nullable: true }),
-  },
-});
-
-export const goalTables = {
-  goal_events: goalEventsTable,
-  goal_snapshots: goalSnapshotsTable,
-  goal_projection_meta: goalProjectionMetaTable,
-  goal_analytics: goalAnalyticsTable,
-  goal_search_index: goalSearchIndexTable,
-  goal_achievement_state: goalAchievementStateTable,
-  goal_achievement_projects: goalAchievementProjectsTable,
+export const projectTables = {
+  project_events: projectEventsTable,
+  project_snapshots: projectSnapshotsTable,
+  project_projection_meta: projectProjectionMetaTable,
+  project_search_index: projectSearchIndexTable,
 };
 
-const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
+const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
 
-export const materializeGoalEvent = (
+export const materializeProjectEvent = (
   payload: DomainEventPayload,
   payloadBytes: Uint8Array<ArrayBuffer>,
   keyringBytes: Uint8Array<ArrayBuffer> | null
 ) => {
-  if (!goalEventNames.has(payload.eventType)) {
+  if (!projectEventNames.has(payload.eventType)) {
     return [];
   }
 
   return [
-    goalTables.goal_events.insert({
+    projectTables.project_events.insert({
       id: payload.id,
       aggregate_id: payload.aggregateId,
       event_type: payload.eventType,

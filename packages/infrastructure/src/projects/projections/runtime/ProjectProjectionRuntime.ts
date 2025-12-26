@@ -1,6 +1,6 @@
 import type { Store } from '@livestore/livestore';
 import type { IEventStore, IKeyStore } from '@mo/application';
-import { tables } from '../../../goals/schema';
+import { projectTables } from '../../schema';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
 import { MissingKeyError } from '../../../errors';
@@ -74,7 +74,7 @@ export class ProjectProjectionRuntime {
     );
     await this.processNewEvents();
     this.unsubscribe = this.store.subscribe(
-      tables.project_events.count(),
+      projectTables.project_events.count(),
       () => void this.processNewEvents()
     );
     this.resolveReady?.();
@@ -133,7 +133,7 @@ export class ProjectProjectionRuntime {
     await this.processNewEvents();
     if (!this.unsubscribe) {
       this.unsubscribe = this.store.subscribe(
-        tables.project_events.count(),
+        projectTables.project_events.count(),
         () => void this.processNewEvents()
       );
     }

@@ -1,6 +1,6 @@
 import type { Store } from '@livestore/livestore';
 import type { IEventStore, IKeyStore } from '@mo/application';
-import { tables } from '../../schema';
+import { goalTables } from '../../schema';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
 import { MissingKeyError } from '../../../errors';
@@ -72,9 +72,12 @@ export class GoalProjectionRuntime {
       this.lastSequence
     );
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
-      void this.processNewEvents();
-    });
+    this.unsubscribe = this.store.subscribe(
+      goalTables.goal_events.count(),
+      () => {
+        void this.processNewEvents();
+      }
+    );
     this.resolveReady?.();
   }
 
@@ -145,9 +148,12 @@ export class GoalProjectionRuntime {
     await this.saveLastSequence(0);
     await this.snapshotProjector.bootstrapFromSnapshots();
     await this.processNewEvents();
-    this.unsubscribe = this.store.subscribe(tables.goal_events.count(), () => {
-      void this.processNewEvents();
-    });
+    this.unsubscribe = this.store.subscribe(
+      goalTables.goal_events.count(),
+      () => {
+        void this.processNewEvents();
+      }
+    );
     this.emitProjectionChanged();
   }
 
