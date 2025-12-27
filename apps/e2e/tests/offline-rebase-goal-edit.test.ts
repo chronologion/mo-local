@@ -217,7 +217,7 @@ test.describe('offline rebase goal edit', () => {
       mark('edit A2');
       const summaryA2 = `${goalSummary} (A2)`;
       let lastError: Error | null = null;
-      for (let attempt = 1; attempt <= 5; attempt += 1) {
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
           await editGoalSummary(pageA, summaryA2);
           lastError = null;
