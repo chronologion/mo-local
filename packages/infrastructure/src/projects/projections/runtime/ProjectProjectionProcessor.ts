@@ -43,6 +43,10 @@ export class ProjectProjectionProcessor {
     this.runtime.stop();
   }
 
+  flush(): Promise<void> {
+    return this.runtime.flush();
+  }
+
   listProjects(filter?: {
     status?: string;
     goalId?: string | null;

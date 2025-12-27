@@ -94,6 +94,10 @@ export class ProjectProjectionRuntime {
     this.started = false;
   }
 
+  async flush(): Promise<void> {
+    await this.processNewEvents();
+  }
+
   listProjects(filter?: {
     status?: string;
     goalId?: string | null;
