@@ -107,6 +107,8 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
     const isConnected = yield* SubscriptionRef.make<boolean>(false);
     const syncGate = yield* Effect.makeLatch(false);
     let syncGateEnabled = false;
+    let activePullAbort: AbortController | null = null;
+    let activePushAbort: AbortController | null = null;
     const baseUrl =
       typeof payload === 'object' &&
       payload !== null &&
@@ -115,6 +117,8 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
         ? payload.apiBaseUrl
         : defaultBaseUrl;
     const unauthorizedBackoffMs = 1_000;
+    const isAbortError = (error: unknown): boolean =>
+      error instanceof Error && error.name === 'AbortError';
     const applySyncGate = (enabled: boolean) => {
       syncGateEnabled = enabled;
       Effect.runFork(
@@ -123,6 +127,12 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
             yield* syncGate.open;
             return;
           }
+          // Abort any in-flight long-poll / push request so logout immediately
+          // stops sync without waiting for the server response timeout.
+          activePullAbort?.abort();
+          activePullAbort = null;
+          activePushAbort?.abort();
+          activePushAbort = null;
           yield* syncGate.close;
           yield* SubscriptionRef.set(isConnected, false);
         })
@@ -217,6 +227,8 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
         const normalized = batch.map(normalizeEvent);
         yield* Effect.tryPromise({
           try: async () => {
+            const controller = new AbortController();
+            activePushAbort = controller;
             const response = await fetch(buildUrl(baseUrl, '/sync/push'), {
               method: 'POST',
               credentials: 'include',
@@ -227,7 +239,11 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
                 storeId,
                 events: normalized,
               }),
+              signal: controller.signal,
             });
+            if (activePushAbort === controller) {
+              activePushAbort = null;
+            }
 
             if (!response.ok) {
               if (response.status === 401) {
@@ -279,6 +295,13 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
             if (error instanceof IsOfflineError) {
               return error;
             }
+            if (isAbortError(error)) {
+              return new IsOfflineError({
+                cause: new UnknownError({
+                  cause: new Error('Sync push aborted'),
+                }),
+              });
+            }
             return new IsOfflineError({
               cause: new UnknownError({
                 cause:
@@ -321,10 +344,16 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
 
           const data = yield* Effect.tryPromise({
             try: async (): Promise<PullResponse> => {
+              const controller = new AbortController();
+              activePullAbort = controller;
               const response = await fetch(url.toString(), {
                 method: 'GET',
                 credentials: 'include',
+                signal: controller.signal,
               });
+              if (activePullAbort === controller) {
+                activePullAbort = null;
+              }
               if (!response.ok) {
                 if (response.status === 401) {
                   await delay(unauthorizedBackoffMs);
@@ -353,6 +382,13 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
               }
               if (error instanceof IsOfflineError) {
                 return error;
+              }
+              if (isAbortError(error)) {
+                return new IsOfflineError({
+                  cause: new UnknownError({
+                    cause: new Error('Sync pull aborted'),
+                  }),
+                });
               }
               return new IsOfflineError({
                 cause: new UnknownError({
