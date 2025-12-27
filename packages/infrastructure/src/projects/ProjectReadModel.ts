@@ -10,11 +10,13 @@ export class ProjectReadModel implements IProjectReadModel {
 
   async list(filter?: ProjectListFilter): Promise<ProjectListItemDto[]> {
     await this.projection.whenReady();
+    await this.projection.flush();
     return this.projection.listProjects(filter);
   }
 
   async getById(projectId: string): Promise<ProjectListItemDto | null> {
     await this.projection.whenReady();
+    await this.projection.flush();
     return this.projection.getProjectById(projectId);
   }
 
@@ -23,6 +25,7 @@ export class ProjectReadModel implements IProjectReadModel {
     filter?: ProjectListFilter
   ): Promise<ProjectListItemDto[]> {
     await this.projection.whenReady();
+    await this.projection.flush();
     return this.projection.searchProjects(term, filter);
   }
 }

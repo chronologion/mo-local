@@ -93,10 +93,11 @@ export class ProjectSnapshotProjector {
     const previousItem =
       this.projections.get(event.aggregateId) ??
       (previousSnapshot ? projectSnapshotToListItem(previousSnapshot) : null);
+    const nextVersion = previousSnapshot ? previousSnapshot.version + 1 : 1;
     const nextSnapshot = applyProjectEventToSnapshot(
       previousSnapshot,
       domainEvent,
-      event.version
+      nextVersion
     );
     if (!nextSnapshot) {
       return {
@@ -185,7 +186,7 @@ export class ProjectSnapshotProjector {
     key: Uint8Array,
     event: EncryptedEvent
   ): Promise<void> {
-    const aad = buildSnapshotAad(aggregateId, event.version);
+    const aad = buildSnapshotAad(aggregateId, snapshot.version);
     const cipher = await this.crypto.encrypt(
       encodeProjectSnapshotState(snapshot),
       key,
@@ -204,7 +205,7 @@ export class ProjectSnapshotProjector {
       bindValues: [
         aggregateId,
         cipher as Uint8Array<ArrayBuffer>,
-        event.version,
+        snapshot.version,
         event.sequence ?? 0,
         event.occurredAt,
       ],

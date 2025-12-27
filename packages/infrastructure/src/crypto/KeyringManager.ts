@@ -94,10 +94,12 @@ export class KeyringManager {
       return dek;
     }
 
-    const fallback = await this.keyStore.getAggregateKey(event.aggregateId);
-    if (fallback) {
-      this.cacheKey(event.aggregateId, epoch, fallback);
-      return fallback;
+    if (epoch === 0) {
+      const fallback = await this.keyStore.getAggregateKey(event.aggregateId);
+      if (fallback) {
+        this.cacheKey(event.aggregateId, epoch, fallback);
+        return fallback;
+      }
     }
 
     throw new MissingKeyError(

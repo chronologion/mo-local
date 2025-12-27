@@ -30,6 +30,7 @@ import { buildSnapshotAad } from '../eventing/aad';
 type SnapshotRow = {
   payload_encrypted: Uint8Array;
   version: number;
+  last_sequence: number;
 };
 
 /**
@@ -54,12 +55,16 @@ export class ProjectRepository implements IProjectRepository {
 
   async load(id: ProjectId): Promise<Option<Project>> {
     const snapshotKey = await this.keyStore.getAggregateKey(id.value);
-    const snapshot = snapshotKey
+    const loadedSnapshot = snapshotKey
       ? await this.loadSnapshot(id.value, snapshotKey)
       : null;
-    const fromVersion = snapshot ? snapshot.version + 1 : 1;
-    const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
-    if (!snapshot && tailEvents.length === 0) return none();
+    const tailEvents = loadedSnapshot
+      ? await this.eventStore.getAllEvents({
+          aggregateId: id.value,
+          since: loadedSnapshot.lastSequence,
+        })
+      : await this.eventStore.getAllEvents({ aggregateId: id.value });
+    if (!loadedSnapshot && tailEvents.length === 0) return none();
 
     const domainTail = [];
     for (const event of tailEvents) {
@@ -67,8 +72,10 @@ export class ProjectRepository implements IProjectRepository {
       domainTail.push(await this.toDomain.toDomain(event, key));
     }
 
-    if (snapshot) {
-      return some(Project.reconstituteFromSnapshot(snapshot, domainTail));
+    if (loadedSnapshot) {
+      return some(
+        Project.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail)
+      );
     }
     return some(Project.reconstitute(id, domainTail));
   }
@@ -84,7 +91,10 @@ export class ProjectRepository implements IProjectRepository {
       bindValues: [project.id.value],
     });
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
-    const baseVersion = Math.max(maxEventVersion, snapshot?.version ?? 0);
+    const baseVersion = Math.max(
+      maxEventVersion,
+      snapshot?.snapshot.version ?? 0
+    );
     const startVersion = baseVersion + 1;
     try {
       const encrypted = [];
@@ -107,7 +117,7 @@ export class ProjectRepository implements IProjectRepository {
         );
       }
       await this.eventStore.append(project.id.value, encrypted);
-      await this.persistSnapshot(project, encryptionKey, startVersion, pending);
+      await this.persistSnapshot(project, encryptionKey);
       project.markEventsAsCommitted();
     } catch (error) {
       if (error instanceof ConcurrencyError) {
@@ -154,11 +164,9 @@ export class ProjectRepository implements IProjectRepository {
 
   private async persistSnapshot(
     project: Project,
-    encryptionKey: Uint8Array,
-    startVersion: number,
-    pending: readonly unknown[]
+    encryptionKey: Uint8Array
   ): Promise<void> {
-    const nextVersion = startVersion + pending.length - 1;
+    const snapshotVersion = project.version;
     const payload = {
       id: project.id.value,
       name: project.name.value,
@@ -176,9 +184,9 @@ export class ProjectRepository implements IProjectRepository {
       createdAt: project.createdAt.value,
       updatedAt: project.updatedAt.value,
       archivedAt: project.archivedAt ? project.archivedAt.value : null,
-      version: nextVersion,
+      version: snapshotVersion,
     };
-    const aad = buildSnapshotAad(project.id.value, nextVersion);
+    const aad = buildSnapshotAad(project.id.value, snapshotVersion);
     const cipher = await this.crypto.encrypt(
       encodeProjectSnapshotPayload(payload),
       encryptionKey,
@@ -187,6 +195,12 @@ export class ProjectRepository implements IProjectRepository {
     const storedCipherBuffer = new ArrayBuffer(cipher.byteLength);
     const storedCipher = new Uint8Array(storedCipherBuffer);
     storedCipher.set(cipher);
+    const maxSequenceRows = this.store.query<{ sequence: number | null }[]>({
+      query:
+        'SELECT MAX(sequence) as sequence FROM project_events WHERE aggregate_id = ?',
+      bindValues: [project.id.value],
+    });
+    const lastSequence = Number(maxSequenceRows[0]?.sequence ?? 0);
     this.store.query({
       query: `
         INSERT INTO project_snapshots (aggregate_id, payload_encrypted, version, last_sequence, updated_at)
@@ -200,8 +214,8 @@ export class ProjectRepository implements IProjectRepository {
       bindValues: [
         project.id.value,
         storedCipher,
-        nextVersion,
-        nextVersion,
+        snapshotVersion,
+        lastSequence,
         project.updatedAt.value,
       ],
     });
@@ -211,23 +225,12 @@ export class ProjectRepository implements IProjectRepository {
     aggregateId: string,
     key: Uint8Array
   ): Promise<{
-    id: ProjectSnapshot['id'];
-    name: ProjectSnapshot['name'];
-    status: ProjectSnapshot['status'];
-    startDate: ProjectSnapshot['startDate'];
-    targetDate: ProjectSnapshot['targetDate'];
-    description: ProjectSnapshot['description'];
-    goalId: ProjectSnapshot['goalId'];
-    milestones: ProjectSnapshot['milestones'];
-    createdBy: ProjectSnapshot['createdBy'];
-    createdAt: ProjectSnapshot['createdAt'];
-    updatedAt: ProjectSnapshot['updatedAt'];
-    archivedAt: ProjectSnapshot['archivedAt'];
-    version: ProjectSnapshot['version'];
+    snapshot: ProjectSnapshot;
+    lastSequence: number;
   } | null> {
     const rows = this.store.query<SnapshotRow[]>({
       query:
-        'SELECT payload_encrypted, version FROM project_snapshots WHERE aggregate_id = ? LIMIT 1',
+        'SELECT payload_encrypted, version, last_sequence FROM project_snapshots WHERE aggregate_id = ? LIMIT 1',
       bindValues: [aggregateId],
     });
     if (!rows.length) return null;
@@ -244,7 +247,10 @@ export class ProjectRepository implements IProjectRepository {
       throw error;
     }
     try {
-      return decodeProjectSnapshotDomain(plaintext, row.version);
+      return {
+        snapshot: decodeProjectSnapshotDomain(plaintext, row.version),
+        lastSequence: Number(row.last_sequence),
+      };
     } catch {
       this.purgeCorruptSnapshot(aggregateId);
       return null;

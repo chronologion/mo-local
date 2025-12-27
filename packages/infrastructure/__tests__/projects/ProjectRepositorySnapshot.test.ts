@@ -12,7 +12,7 @@ import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
 class SnapshotStoreStub {
   private readonly snapshots = new Map<
     string,
-    { payload_encrypted: Uint8Array; version: number }
+    { payload_encrypted: Uint8Array; version: number; last_sequence: number }
   >();
   readonly deleted: string[] = [];
 
@@ -23,11 +23,13 @@ class SnapshotStoreStub {
   saveSnapshot(
     aggregateId: string,
     payloadEncrypted: Uint8Array,
-    version: number
+    version: number,
+    lastSequence: number = version
   ): void {
     this.snapshots.set(aggregateId, {
       payload_encrypted: payloadEncrypted,
       version,
+      last_sequence: lastSequence,
     });
   }
 
@@ -39,7 +41,9 @@ class SnapshotStoreStub {
     bindValues: Array<string | number | Uint8Array>;
   }): TResult {
     if (
-      query.includes('SELECT payload_encrypted, version FROM project_snapshots')
+      query.includes(
+        'SELECT payload_encrypted, version, last_sequence FROM project_snapshots'
+      )
     ) {
       const aggregateId = bindValues[0] as string;
       const row = this.snapshots.get(aggregateId);

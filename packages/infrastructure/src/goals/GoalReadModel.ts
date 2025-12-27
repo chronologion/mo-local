@@ -11,6 +11,7 @@ export class GoalReadModel implements IGoalReadModel {
 
   async list(filter?: GoalListFilter): Promise<GoalListItemDto[]> {
     await this.projection.whenReady();
+    await this.projection.flush();
     const all = this.projection.listGoals();
     if (!filter) return all;
     return all.filter((item) => this.matchesFilter(item, filter));
@@ -18,6 +19,7 @@ export class GoalReadModel implements IGoalReadModel {
 
   async getById(goalId: string): Promise<GoalListItemDto | null> {
     await this.projection.whenReady();
+    await this.projection.flush();
     return this.projection.getGoalById(goalId);
   }
 
@@ -26,6 +28,7 @@ export class GoalReadModel implements IGoalReadModel {
     filter?: GoalListFilter
   ): Promise<GoalListItemDto[]> {
     await this.projection.whenReady();
+    await this.projection.flush();
     return this.projection.searchGoals(term, filter);
   }
 

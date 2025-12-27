@@ -38,12 +38,16 @@ export class GoalRepository implements IGoalRepository {
 
   async load(id: GoalId): Promise<Option<Goal>> {
     const snapshotKey = await this.keyStore.getAggregateKey(id.value);
-    const snapshot = snapshotKey
+    const loadedSnapshot = snapshotKey
       ? await this.loadSnapshot(id.value, snapshotKey)
       : null;
-    const fromVersion = snapshot ? snapshot.version + 1 : 1;
-    const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
-    if (!snapshot && tailEvents.length === 0) return none();
+    const tailEvents = loadedSnapshot
+      ? await this.eventStore.getAllEvents({
+          aggregateId: id.value,
+          since: loadedSnapshot.lastSequence,
+        })
+      : await this.eventStore.getAllEvents({ aggregateId: id.value });
+    if (!loadedSnapshot && tailEvents.length === 0) return none();
 
     const domainTail = [];
     for (const event of tailEvents) {
@@ -51,8 +55,10 @@ export class GoalRepository implements IGoalRepository {
       domainTail.push(await this.toDomain.toDomain(event, key));
     }
 
-    if (snapshot) {
-      return some(Goal.reconstituteFromSnapshot(snapshot, domainTail));
+    if (loadedSnapshot) {
+      return some(
+        Goal.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail)
+      );
     }
     return some(Goal.reconstitute(id, domainTail));
   }
@@ -68,7 +74,10 @@ export class GoalRepository implements IGoalRepository {
       bindValues: [goal.id.value],
     });
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
-    const baseVersion = Math.max(maxEventVersion, snapshot?.version ?? 0);
+    const baseVersion = Math.max(
+      maxEventVersion,
+      snapshot?.snapshot.version ?? 0
+    );
     const startVersion = baseVersion + 1;
 
     try {
@@ -106,12 +115,16 @@ export class GoalRepository implements IGoalRepository {
   private async loadSnapshot(
     aggregateId: string,
     kGoal: Uint8Array
-  ): Promise<GoalSnapshot | null> {
+  ): Promise<{ snapshot: GoalSnapshot; lastSequence: number } | null> {
     const rows = this.store.query<
-      { payload_encrypted: Uint8Array; version: number }[]
+      {
+        payload_encrypted: Uint8Array;
+        version: number;
+        last_sequence: number;
+      }[]
     >({
       query:
-        'SELECT payload_encrypted, version FROM goal_snapshots WHERE aggregate_id = ? LIMIT 1',
+        'SELECT payload_encrypted, version, last_sequence FROM goal_snapshots WHERE aggregate_id = ? LIMIT 1',
       bindValues: [aggregateId],
     });
     if (!rows.length) return null;
@@ -122,7 +135,10 @@ export class GoalRepository implements IGoalRepository {
       kGoal,
       aad
     );
-    return decodeGoalSnapshotDomain(plaintext, row.version);
+    return {
+      snapshot: decodeGoalSnapshotDomain(plaintext, row.version),
+      lastSequence: Number(row.last_sequence),
+    };
   }
 
   async archive(
