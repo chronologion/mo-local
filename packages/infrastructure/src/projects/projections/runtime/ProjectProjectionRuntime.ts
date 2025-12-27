@@ -13,13 +13,11 @@ import {
 } from '../model/ProjectProjectionState';
 import { ProjectSnapshotProjector } from './ProjectSnapshotProjector';
 import { ProjectSearchProjector } from './ProjectSearchProjector';
-import { ProjectPruneProjector } from './ProjectPruneProjector';
 
 const META_LAST_SEQUENCE_KEY = 'project_last_sequence';
 const META_LAST_SEQUENCE_EVENT_ID_KEY = 'project_last_sequence_event_id';
 const META_LAST_SEQUENCE_EVENT_VERSION_KEY =
   'project_last_sequence_event_version';
-const PRUNE_TAIL_SEQUENCE_WINDOW = 10;
 
 type SequenceCursor = Readonly<{ id: string; version: number }>;
 
@@ -38,7 +36,6 @@ export class ProjectProjectionRuntime {
 
   private readonly snapshotProjector: ProjectSnapshotProjector;
   private readonly searchProjector: ProjectSearchProjector;
-  private readonly pruneProjector: ProjectPruneProjector;
 
   constructor(
     private readonly store: Store,
@@ -54,7 +51,6 @@ export class ProjectProjectionRuntime {
       keyStore
     );
     this.searchProjector = new ProjectSearchProjector(store, crypto, keyStore);
-    this.pruneProjector = new ProjectPruneProjector(store);
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;
     });
@@ -204,10 +200,6 @@ export class ProjectProjectionRuntime {
       this.lastSequenceCursor = processedMaxCursor;
       await this.saveLastSequenceCursor(processedMax, processedMaxCursor);
       await this.searchProjector.persistIndex(processedMax, Date.now());
-      const pruneThreshold = processedMax - PRUNE_TAIL_SEQUENCE_WINDOW;
-      if (pruneThreshold > 0) {
-        this.pruneProjector.pruneProcessedEvents(pruneThreshold);
-      }
     }
     if (projectionChanged) {
       this.emitProjectionChanged();

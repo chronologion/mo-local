@@ -11,12 +11,10 @@ import { KeyringManager } from '../../../crypto/KeyringManager';
 import { GoalAnalyticsProjector } from './GoalAnalyticsProjector';
 import { GoalSnapshotProjector } from './GoalSnapshotProjector';
 import { GoalSearchProjector } from './GoalSearchProjector';
-import { GoalPruneProjector } from './GoalPruneProjector';
 
 const META_LAST_SEQUENCE_KEY = 'last_sequence';
 const META_LAST_SEQUENCE_EVENT_ID_KEY = 'last_sequence_event_id';
 const META_LAST_SEQUENCE_EVENT_VERSION_KEY = 'last_sequence_event_version';
-const PRUNE_TAIL_SEQUENCE_WINDOW = 10;
 
 type SequenceCursor = Readonly<{ id: string; version: number }>;
 
@@ -36,7 +34,6 @@ export class GoalProjectionRuntime {
   private readonly snapshotProjector: GoalSnapshotProjector;
   private readonly analyticsProjector: GoalAnalyticsProjector;
   private readonly searchProjector: GoalSearchProjector;
-  private readonly pruneProjector: GoalPruneProjector;
 
   constructor(
     private readonly store: Store,
@@ -53,7 +50,6 @@ export class GoalProjectionRuntime {
       keyStore
     );
     this.searchProjector = new GoalSearchProjector(store, crypto, keyStore);
-    this.pruneProjector = new GoalPruneProjector(store);
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;
     });
@@ -206,10 +202,6 @@ export class GoalProjectionRuntime {
       this.lastSequenceCursor = processedMaxCursor;
       await this.saveLastSequenceCursor(processedMax, processedMaxCursor);
       await this.searchProjector.persistIndex(processedMax, Date.now());
-      const pruneThreshold = processedMax - PRUNE_TAIL_SEQUENCE_WINDOW;
-      if (pruneThreshold > 0) {
-        this.pruneProjector.pruneProcessedEvents(pruneThreshold);
-      }
     }
     if (projectionChanged) {
       this.emitProjectionChanged();
