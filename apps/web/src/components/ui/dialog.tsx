@@ -12,14 +12,6 @@ const DialogPortal = DialogPrimitive.Portal;
 
 const DialogClose = DialogPrimitive.Close;
 
-type DialogDescriptionRegistry = {
-  register(): void;
-  unregister(): void;
-};
-
-const DialogDescriptionRegistryContext =
-  React.createContext<DialogDescriptionRegistry | null>(null);
-
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -38,61 +30,26 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
-  const [hasDescription, setHasDescription] = React.useState(false);
-  const descriptionCountRef = React.useRef(0);
-
-  const registerDescription = React.useCallback(() => {
-    descriptionCountRef.current += 1;
-    if (descriptionCountRef.current === 1) {
-      setHasDescription(true);
-    }
-  }, []);
-
-  const unregisterDescription = React.useCallback(() => {
-    descriptionCountRef.current = Math.max(0, descriptionCountRef.current - 1);
-    if (descriptionCountRef.current === 0) {
-      setHasDescription(false);
-    }
-  }, []);
-
-  const registry = React.useMemo(
-    () => ({
-      register: registerDescription,
-      unregister: unregisterDescription,
-    }),
-    [registerDescription, unregisterDescription]
-  );
-
-  const shouldRenderFallbackDescription = !hasDescription;
-
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        className={cn(
-          'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-border bg-background p-6 shadow-2xl ring-1 ring-border/70 backdrop-blur-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]',
-          className
-        )}
-        {...props}
-      >
-        <DialogDescriptionRegistryContext.Provider value={registry}>
-          {shouldRenderFallbackDescription ? (
-            <DialogPrimitive.Description className="sr-only">
-              Dialog content
-            </DialogPrimitive.Description>
-          ) : null}
-          {children}
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 transition-opacity hover:bg-white/5 hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none data-[state=open]:bg-white/5">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        </DialogDescriptionRegistryContext.Provider>
-      </DialogPrimitive.Content>
-    </DialogPortal>
-  );
-});
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      aria-describedby={undefined}
+      className={cn(
+        'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-2xl border border-border bg-background p-6 shadow-2xl ring-1 ring-border/70 backdrop-blur-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]',
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 transition-opacity hover:bg-white/5 hover:text-foreground hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none data-[state=open]:bg-white/5">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({
@@ -132,22 +89,13 @@ DialogTitle.displayName = DialogPrimitive.Title.displayName;
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => {
-  const registry = React.useContext(DialogDescriptionRegistryContext);
-
-  React.useEffect(() => {
-    registry?.register();
-    return () => registry?.unregister();
-  }, [registry]);
-
-  return (
-    <DialogPrimitive.Description
-      ref={ref}
-      className={cn('text-sm text-muted-foreground', className)}
-      {...props}
-    />
-  );
-});
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-sm text-muted-foreground', className)}
+    {...props}
+  />
+));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
