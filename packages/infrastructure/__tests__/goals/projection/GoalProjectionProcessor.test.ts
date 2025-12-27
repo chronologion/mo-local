@@ -549,7 +549,7 @@ describe('GoalProjectionProcessor', () => {
     await processor.flush();
 
     const snapshot = store.snapshots.get(goalId);
-    expect(snapshot?.version).toBe(3);
+    expect(snapshot?.version).toBe(2);
     const decodedSnapshot = await decodeSnapshot(
       crypto,
       snapshot!.payload_encrypted,

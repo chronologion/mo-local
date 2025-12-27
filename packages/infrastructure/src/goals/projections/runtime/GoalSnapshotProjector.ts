@@ -95,10 +95,11 @@ export class GoalSnapshotProjector {
     const previousItem =
       this.projections.get(event.aggregateId) ??
       (previousSnapshot ? snapshotToListItem(previousSnapshot) : null);
+    const nextVersion = previousSnapshot ? previousSnapshot.version + 1 : 1;
     const nextSnapshot = applyEventToSnapshot(
       previousSnapshot,
       domainEvent,
-      event.version
+      nextVersion
     );
     if (!nextSnapshot) {
       return {
