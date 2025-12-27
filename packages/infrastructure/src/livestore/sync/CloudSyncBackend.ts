@@ -109,6 +109,9 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
     let syncGateEnabled = false;
     let activePullAbort: AbortController | null = null;
     let activePushAbort: AbortController | null = null;
+    // Track if we just reconnected - the first poll after reconnection should be quick
+    // to allow pending pushes to proceed without waiting 20s
+    let justReconnected = false;
     const baseUrl =
       typeof payload === 'object' &&
       payload !== null &&
@@ -124,6 +127,13 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
       Effect.runFork(
         Effect.gen(function* () {
           if (enabled) {
+            // Abort any stale long-poll from before disconnection so we immediately
+            // start a fresh poll that can see new changes.
+            activePullAbort?.abort();
+            activePullAbort = null;
+            // Mark that we just reconnected - the next poll should be quick (no wait)
+            // to allow pending local pushes to proceed without the 20s delay
+            justReconnected = true;
             yield* syncGate.open;
             return;
           }
@@ -329,11 +339,18 @@ export const makeCloudSyncBackend: SyncBackendConstructor<Schema.JsonValue> = ({
       );
 
       const live = options?.live ?? false;
-      const waitMs = live ? 20_000 : 0;
+      const liveWaitMs = 20_000;
 
       const fetchPage = (since: number) =>
         Effect.gen(function* () {
           yield* syncGate.await;
+          // First poll after reconnection should be quick (no wait) to unblock
+          // pending local pushes. Subsequent polls use the normal live wait.
+          const useQuickPoll = justReconnected;
+          if (justReconnected) {
+            justReconnected = false;
+          }
+          const waitMs = live && !useQuickPoll ? liveWaitMs : 0;
           const url = new URL(buildUrl(baseUrl, '/sync/pull'));
           url.searchParams.set('storeId', storeId);
           url.searchParams.set('since', String(since));
