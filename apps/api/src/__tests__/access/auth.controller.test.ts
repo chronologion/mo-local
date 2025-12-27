@@ -4,6 +4,7 @@ import { BadRequestException } from '@nestjs/common';
 import { AuthController } from '../../access/presentation/controllers/auth.controller';
 import { MeController } from '../../access/presentation/controllers/me.controller';
 import { AuthService } from '../../access/application/auth.service';
+import { SessionCache } from '../../access/application/session-cache';
 import { IdentityRepository } from '../../access/application/ports/identity-repository';
 import { KratosPasswordService } from '../../access/infrastructure/kratos-password.service';
 import { KratosClient } from '../../access/infrastructure/kratos.client';
@@ -80,7 +81,7 @@ describe('AuthController', () => {
       new StubIdentityRepository()
     );
     const registerSpy = vi.spyOn(authService, 'register');
-    const controller = new AuthController(authService);
+    const controller = new AuthController(authService, new SessionCache());
     const res = makeResponse();
 
     const result = await controller.register(
@@ -115,7 +116,7 @@ describe('AuthController', () => {
       new StubIdentityRepository()
     );
     const loginSpy = vi.spyOn(authService, 'login');
-    const controller = new AuthController(authService);
+    const controller = new AuthController(authService, new SessionCache());
     const res = makeResponse();
 
     const result = await controller.login(
@@ -144,7 +145,8 @@ describe('AuthController', () => {
           traits: { email: 'user3@example.com' },
         }),
         new StubIdentityRepository()
-      )
+      ),
+      new SessionCache()
     );
     const identity: AuthenticatedIdentity = {
       id: 'identity-3',
@@ -168,7 +170,8 @@ describe('AuthController', () => {
           traits: {},
         }),
         new StubIdentityRepository()
-      )
+      ),
+      new SessionCache()
     );
     expect(() => controller.whoami(undefined)).toThrow(BadRequestException);
   });
@@ -184,7 +187,7 @@ describe('AuthController', () => {
       new StubIdentityRepository()
     );
     const logoutSpy = vi.spyOn(authService, 'logout').mockResolvedValue();
-    const controller = new AuthController(authService);
+    const controller = new AuthController(authService, new SessionCache());
     const res = makeResponse();
     res.req.headers = { cookie: `${SESSION_COOKIE_NAME}=cookie-token` };
 
@@ -205,9 +208,10 @@ describe('AuthController', () => {
 
     expect(logoutSpy).toHaveBeenCalledWith('header-token');
     expect(logoutSpy).toHaveBeenCalledWith('cookie-token');
-    expect(res.clearCookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, {
-      path: '/',
-    });
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      SESSION_COOKIE_NAME,
+      expect.objectContaining({ path: '/' })
+    );
   });
 });
 

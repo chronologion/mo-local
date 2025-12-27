@@ -3,6 +3,7 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import express, { type Request } from 'express';
 import { AuthService } from '../../access/application/auth.service';
+import { SessionCache } from '../../access/application/session-cache';
 import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
 import type { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
 import { IdentityRepository } from '../../access/application/ports/identity-repository';
@@ -106,7 +107,7 @@ describe('auth service + guard', () => {
       new StubKratosClient(identity),
       identities
     );
-    const guard = new KratosSessionGuard(authService);
+    const guard = new KratosSessionGuard(authService, new SessionCache());
     const request: Request & { authIdentity?: AuthenticatedIdentity } =
       Object.create(express.request);
     request.headers = { 'x-session-token': session.sessionToken };
@@ -122,7 +123,7 @@ describe('auth service + guard', () => {
       new StubKratosClient(identity),
       identities
     );
-    const guard = new KratosSessionGuard(authService);
+    const guard = new KratosSessionGuard(authService, new SessionCache());
     const request: Request = Object.create(express.request);
     request.headers = {};
     await expect(
