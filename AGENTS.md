@@ -10,7 +10,7 @@ Key rules:
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
 - NEVER "hand-code" dependency versions in `package.json`! Just install latest, unless there's a reason not to, but you must justify and get approval first.
-- Follow DDD layering and split responsibilities according to best practices! Domain is core without dependencies. Commands and Queries are lean objects, no logic. Handlers have the logic. 
+- Follow DDD layering and split responsibilities according to best practices! Domain is core without dependencies. Commands and Queries are lean objects, no logic. Handlers have the logic.
 - When discussing architecture topics, understand `docs/architecture.md` first and record any significant decisions there. But don't casually read this document for every little bug fix as it's a large document and will consume a lot of context!
 - Domain classes – aggregates, entities and domain events – use VOs for their members. We have a "no primitive types" obsessions!
 - In case of blocking issues and PRD divergence you can't reconcile – stop and ask.
