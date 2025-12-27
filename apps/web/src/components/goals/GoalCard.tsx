@@ -3,27 +3,34 @@ import type { GoalListItemDto } from '@mo/application';
 import { useProjects } from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Archive, Pencil, RefreshCw } from 'lucide-react';
+import {
+  Archive,
+  CheckCircle2,
+  Pencil,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react';
 
 type GoalCardProps = {
   goal: GoalListItemDto;
   onEdit: (goal: GoalListItemDto) => void;
   onArchive: () => Promise<void>;
+  onToggleAchieved: (goal: GoalListItemDto) => Promise<void>;
   isUpdating: boolean;
   isArchiving: boolean;
+  isTogglingAchieved: boolean;
 };
 
 export function GoalCard({
   goal,
   onEdit,
   onArchive,
+  onToggleAchieved,
   isUpdating,
   isArchiving,
+  isTogglingAchieved,
 }: GoalCardProps) {
-  const projectFilter = useMemo(
-    () => ({ goalId: goal.id as string | null }),
-    [goal.id]
-  );
+  const projectFilter = useMemo(() => ({ goalId: goal.id }), [goal.id]);
   const { projects, loading: loadingProjects } = useProjects(projectFilter);
 
   return (
@@ -32,6 +39,12 @@ export function GoalCard({
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{goal.slice}</Badge>
           <Badge>{goal.priority}</Badge>
+          {goal.achievedAt !== null && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              Achieved
+            </Badge>
+          )}
         </div>
         <span className="text-xs text-muted-foreground">
           {goal.targetMonth}
@@ -58,6 +71,27 @@ export function GoalCard({
         </div>
       ) : null}
       <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={isTogglingAchieved}
+          onClick={async () => {
+            await onToggleAchieved(goal);
+          }}
+          aria-label={
+            goal.achievedAt !== null
+              ? 'Mark goal as not achieved'
+              : 'Mark goal as achieved'
+          }
+        >
+          {isTogglingAchieved ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : goal.achievedAt !== null ? (
+            <XCircle className="h-4 w-4" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="icon"

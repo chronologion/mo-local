@@ -5,6 +5,7 @@ import { KratosPasswordService } from '../infrastructure/kratos-password.service
 import { AuthController } from './controllers/auth.controller';
 import { MeController } from './controllers/me.controller';
 import { AuthService } from '../application/auth.service';
+import { SessionCache } from '../application/session-cache';
 import { KyselyIdentityRepository } from '../infrastructure/identity.repository';
 import { IdentityRepository } from '../application/ports/identity-repository';
 import { AccessDatabaseModule } from '../infrastructure/database.module';
@@ -17,6 +18,7 @@ import { AccessDatabaseModule } from '../infrastructure/database.module';
     KratosSessionGuard,
     KratosPasswordService,
     AuthService,
+    SessionCache,
     {
       provide: IdentityRepository,
       useClass: KyselyIdentityRepository,
@@ -27,6 +29,7 @@ import { AccessDatabaseModule } from '../infrastructure/database.module';
     KratosSessionGuard,
     KratosPasswordService,
     AuthService,
+    SessionCache,
   ],
 })
 export class AccessModule {}

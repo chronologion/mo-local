@@ -1,5 +1,5 @@
-import { ICryptoService } from '../ICryptoService';
-import { SymmetricKey, KeyPair } from '../types';
+import { ICryptoService } from '../../../src/shared/ports/ICryptoService';
+import { SymmetricKey, KeyPair } from '../../../src/shared/ports/types';
 
 type CryptoLike = {
   getRandomValues: (array: Uint8Array) => Uint8Array;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  InMemoryEventBus,
+  InMemoryIdempotencyStore,
   InMemoryKeyStore,
   InMemoryProjectRepository,
   MockCryptoService,
@@ -17,11 +17,19 @@ import {
 } from '../../../src/projects/commands';
 import { ValidationException } from '../../../src/errors/ValidationError';
 
+class CountingCryptoService extends MockCryptoService {
+  generateKeyCalls = 0;
+
+  override async generateKey(): Promise<Uint8Array> {
+    this.generateKeyCalls += 1;
+    return super.generateKey();
+  }
+}
+
 const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
 const userId = 'user-1';
 const baseCreate = () =>
   new CreateProject({
-    type: 'CreateProject',
     projectId,
     name: 'Project Alpha',
     status: 'planned',
@@ -31,44 +39,90 @@ const baseCreate = () =>
     goalId: null,
     userId,
     timestamp: Date.now(),
+    idempotencyKey: 'idem-create',
   });
 
 const setup = () => {
   const repo = new InMemoryProjectRepository();
-  const eventBus = new InMemoryEventBus();
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
-  const handler = new ProjectCommandHandler(repo, keyStore, crypto, eventBus);
-  return { repo, eventBus, keyStore, crypto, handler };
+  const idempotencyStore = new InMemoryIdempotencyStore();
+  const handler = new ProjectCommandHandler(
+    repo,
+    keyStore,
+    crypto,
+    idempotencyStore
+  );
+  return { repo, keyStore, crypto, idempotencyStore, handler };
 };
 
 describe('ProjectCommandHandler', () => {
+  it('is idempotent for duplicate CreateProject idempotencyKey', async () => {
+    const repo = new InMemoryProjectRepository();
+    const keyStore = new InMemoryKeyStore();
+    const crypto = new CountingCryptoService();
+    const idempotencyStore = new InMemoryIdempotencyStore();
+    const handler = new ProjectCommandHandler(
+      repo,
+      keyStore,
+      crypto,
+      idempotencyStore
+    );
+
+    const first = await handler.handleCreate(baseCreate());
+    const second = await handler.handleCreate(baseCreate());
+
+    expect(first.projectId).toBe(projectId);
+    expect(second.projectId).toBe(projectId);
+    if (!('encryptionKey' in first) || !('encryptionKey' in second)) {
+      throw new Error('Expected create result to include encryptionKey');
+    }
+    expect(Array.from(second.encryptionKey)).toEqual(
+      Array.from(first.encryptionKey)
+    );
+    expect(crypto.generateKeyCalls).toBe(1);
+  });
+
+  it('throws when idempotencyKey is reused for a different project', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate());
+
+    const original = baseCreate();
+    await expect(
+      handler.handleCreate(
+        new CreateProject({
+          ...original,
+          projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f299',
+          idempotencyKey: original.idempotencyKey,
+        })
+      )
+    ).rejects.toThrow(/Idempotency key reuse detected/);
+  });
+
   it('creates a project and stores aggregate key', async () => {
-    const { handler, keyStore, eventBus, repo } = setup();
+    const { handler, keyStore, repo } = setup();
     const result = await handler.handleCreate(baseCreate());
 
     expect(result.projectId).toBe(projectId);
     const storedKey = await keyStore.getAggregateKey(projectId);
     expect(storedKey).toBeInstanceOf(Uint8Array);
-    expect(eventBus.getPublished().length).toBeGreaterThan(0);
     expect(repo.getStoredKey(ProjectId.from(projectId))).toBeDefined();
   });
 
-  it('updates status and publishes event', async () => {
-    const { handler, eventBus } = setup();
+  it('updates status', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate());
-    const before = eventBus.getPublished().length;
 
     await handler.handleChangeStatus(
       new ChangeProjectStatus({
-        type: 'ChangeProjectStatus',
         projectId,
         status: 'in_progress',
         userId,
         timestamp: Date.now(),
+        knownVersion: 1,
+        idempotencyKey: 'idem-status',
       })
     );
-    expect(eventBus.getPublished().length).toBeGreaterThan(before);
   });
 
   it('fails when aggregate key missing', async () => {
@@ -79,34 +133,34 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeName(
         new ChangeProjectName({
-          type: 'ChangeProjectName',
           projectId,
           name: 'New name',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-name-missing-key',
         })
       )
     ).rejects.toBeInstanceOf(Error);
   });
 
   it('does not publish when repository save fails', async () => {
-    const { handler, repo, eventBus } = setup();
+    const { handler, repo } = setup();
     await handler.handleCreate(baseCreate());
-    const before = eventBus.getPublished().length;
     repo.failNextSave();
 
     await expect(
       handler.handleChangeDescription(
         new ChangeProjectDescription({
-          type: 'ChangeProjectDescription',
           projectId,
           description: 'New desc',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-desc-fail',
         })
       )
     ).rejects.toBeInstanceOf(Error);
-    expect(eventBus.getPublished().length).toBe(before);
   });
 
   it('surfaces concurrency errors from repository', async () => {
@@ -117,12 +171,13 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeDates(
         new ChangeProjectDates({
-          type: 'ChangeProjectDates',
           projectId,
           startDate: '2025-01-02',
           targetDate: '2025-03-01',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-dates-concurrency',
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -134,29 +189,32 @@ describe('ProjectCommandHandler', () => {
     await expect(
       handler.handleChangeStatus(
         new ChangeProjectStatus({
-          type: 'ChangeProjectStatus',
           projectId,
           status: 'not-a-status' as never,
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-invalid-status',
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });
 
-  it('does not depend on userId for project updates', async () => {
+  it('throws ConcurrencyError when knownVersion mismatches', async () => {
     const { handler } = setup();
     await handler.handleCreate(baseCreate());
 
-    const commandWithoutUserId = {
-      type: 'ChangeProjectName',
-      projectId,
-      name: 'Updated name',
-      timestamp: Date.now(),
-    } as unknown as ChangeProjectName;
-
     await expect(
-      handler.handleChangeName(commandWithoutUserId)
-    ).resolves.toBeDefined();
+      handler.handleChangeStatus(
+        new ChangeProjectStatus({
+          projectId,
+          status: 'in_progress',
+          userId,
+          timestamp: Date.now(),
+          knownVersion: 0,
+          idempotencyKey: 'idem-status-mismatch',
+        })
+      )
+    ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 });

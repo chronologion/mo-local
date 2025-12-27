@@ -9,6 +9,10 @@ export interface IKeyStore {
    * Implementations may reject operations if this key is not set.
    */
   setMasterKey(key: Uint8Array): void;
+  /**
+   * Returns the current master key if available.
+   */
+  getMasterKey(): Uint8Array | null;
   // User identity keys
   saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void>;
   getIdentityKeys(userId: string): Promise<IdentityKeys | null>;

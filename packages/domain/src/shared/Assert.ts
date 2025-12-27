@@ -92,8 +92,8 @@ export class Assert<T> {
 
   // === Array/Set Assertions ===
 
-  isOneOf<U>(allowed: readonly U[]): this {
-    if (!allowed.includes(this.value as unknown as U)) {
+  isOneOf(allowed: readonly T[]): this {
+    if (!allowed.includes(this.value)) {
       throw new Error(
         this.formatError(`must be one of [${allowed.join(', ')}]`, this.value)
       );

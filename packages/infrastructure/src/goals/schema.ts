@@ -1,7 +1,7 @@
-import { Events, makeSchema, State } from '@livestore/livestore';
-import * as S from 'effect/Schema';
+import { State } from '@livestore/livestore';
+import { goalEventTypes } from '@mo/domain';
+import type { DomainEventPayload } from '../livestore/types';
 
-// LiveStore schema mirroring encrypted goal event log (ciphertext only).
 const goalEventsTable = State.SQLite.table({
   name: 'goal_events',
   columns: {
@@ -14,8 +14,13 @@ const goalEventsTable = State.SQLite.table({
     aggregate_id: State.SQLite.text({ nullable: false }),
     event_type: State.SQLite.text({ nullable: false }),
     payload_encrypted: State.SQLite.blob({ nullable: false }),
+    epoch: State.SQLite.integer({ nullable: true }),
+    keyring_update: State.SQLite.blob({ nullable: true }),
     version: State.SQLite.integer({ nullable: false }),
     occurred_at: State.SQLite.integer({ nullable: false }),
+    actor_id: State.SQLite.text({ nullable: true }),
+    causation_id: State.SQLite.text({ nullable: true }),
+    correlation_id: State.SQLite.text({ nullable: true }),
   },
 });
 
@@ -58,203 +63,60 @@ const goalSearchIndexTable = State.SQLite.table({
   },
 });
 
-const projectEventsTable = State.SQLite.table({
-  name: 'project_events',
+const goalAchievementStateTable = State.SQLite.table({
+  name: 'goal_achievement_state',
   columns: {
-    sequence: State.SQLite.integer({
-      primaryKey: true,
-      autoIncrement: true,
-      nullable: true,
-    }),
-    id: State.SQLite.text({ nullable: false }),
-    aggregate_id: State.SQLite.text({ nullable: false }),
-    event_type: State.SQLite.text({ nullable: false }),
-    payload_encrypted: State.SQLite.blob({ nullable: false }),
-    version: State.SQLite.integer({ nullable: false }),
-    occurred_at: State.SQLite.integer({ nullable: false }),
+    goal_id: State.SQLite.text({ nullable: false, primaryKey: true }),
+    linked_project_ids: State.SQLite.text({ nullable: false }),
+    completed_project_ids: State.SQLite.text({ nullable: false }),
+    achieved: State.SQLite.integer({ nullable: false }),
+    achievement_requested: State.SQLite.integer({ nullable: false }),
   },
 });
 
-const projectSnapshotsTable = State.SQLite.table({
-  name: 'project_snapshots',
+const goalAchievementProjectsTable = State.SQLite.table({
+  name: 'goal_achievement_projects',
   columns: {
-    aggregate_id: State.SQLite.text({ nullable: false, primaryKey: true }),
-    payload_encrypted: State.SQLite.blob({ nullable: false }),
-    version: State.SQLite.integer({ nullable: false }),
-    last_sequence: State.SQLite.integer({ nullable: false }),
-    updated_at: State.SQLite.integer({ nullable: false }),
+    project_id: State.SQLite.text({ nullable: false, primaryKey: true }),
+    goal_id: State.SQLite.text({ nullable: true }),
+    status: State.SQLite.text({ nullable: true }),
   },
 });
 
-const projectProjectionMetaTable = State.SQLite.table({
-  name: 'project_projection_meta',
-  columns: {
-    key: State.SQLite.text({ nullable: false, primaryKey: true }),
-    value: State.SQLite.text({ nullable: false }),
-  },
-});
-
-const projectSearchIndexTable = State.SQLite.table({
-  name: 'project_search_index',
-  columns: {
-    key: State.SQLite.text({ nullable: false, primaryKey: true }),
-    payload_encrypted: State.SQLite.blob({ nullable: false }),
-    last_sequence: State.SQLite.integer({ nullable: false }),
-    updated_at: State.SQLite.integer({ nullable: false }),
-  },
-});
-
-export const tables = {
+export const goalTables = {
   goal_events: goalEventsTable,
   goal_snapshots: goalSnapshotsTable,
   goal_projection_meta: goalProjectionMetaTable,
   goal_analytics: goalAnalyticsTable,
   goal_search_index: goalSearchIndexTable,
-  project_events: projectEventsTable,
-  project_snapshots: projectSnapshotsTable,
-  project_projection_meta: projectProjectionMetaTable,
-  project_search_index: projectSearchIndexTable,
+  goal_achievement_state: goalAchievementStateTable,
+  goal_achievement_projects: goalAchievementProjectsTable,
 };
 
-type GoalEventPayload = {
-  id: string;
-  aggregateId: string;
-  eventType: string;
-  payload: unknown;
-  version: number;
-  occurredAt: number;
-};
+const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
 
-export const events = {
-  goalEvent: Events.synced({
-    name: 'goal.event.v1',
-    schema: S.Struct({
-      id: S.String,
-      aggregateId: S.String,
-      eventType: S.String,
-      payload: S.Unknown,
-      version: S.Number,
-      occurredAt: S.Number,
-    }),
-  }),
-  projectEvent: Events.synced({
-    name: 'project.event.v1',
-    schema: S.Struct({
-      id: S.String,
-      aggregateId: S.String,
-      eventType: S.String,
-      payload: S.Unknown,
-      version: S.Number,
-      occurredAt: S.Number,
-    }),
-  }),
-};
-
-const asUint8Array = (payload: unknown): Uint8Array => {
-  if (payload instanceof Uint8Array) return payload;
-  if (payload instanceof ArrayBuffer) return new Uint8Array(payload);
-  if (
-    payload &&
-    typeof (payload as { buffer?: ArrayBuffer }).buffer === 'object'
-  ) {
-    return new Uint8Array((payload as { buffer: ArrayBuffer }).buffer);
+export const materializeGoalEvent = (
+  payload: DomainEventPayload,
+  payloadBytes: Uint8Array<ArrayBuffer>,
+  keyringBytes: Uint8Array<ArrayBuffer> | null
+) => {
+  if (!goalEventNames.has(payload.eventType)) {
+    return [];
   }
-  if (
-    payload &&
-    typeof payload === 'object' &&
-    Object.keys(payload).length > 0 &&
-    Object.keys(payload).every((key) => Number.isInteger(Number(key)))
-  ) {
-    const entries = Object.entries(payload as Record<string, number>);
-    const sorted = entries
-      .map(([key, value]) => [Number(key), value] as const)
-      .sort((a, b) => a[0] - b[0]);
-    const result = new Uint8Array(sorted.length);
-    for (let index = 0; index < sorted.length; index += 1) {
-      const value = sorted[index]?.[1];
-      result[index] = typeof value === 'number' ? value : 0;
-    }
-    return result;
-  }
-  throw new Error('Invalid payload type for goal event');
+
+  return [
+    goalTables.goal_events.insert({
+      id: payload.id,
+      aggregate_id: payload.aggregateId,
+      event_type: payload.eventType,
+      payload_encrypted: payloadBytes,
+      epoch: payload.epoch ?? null,
+      keyring_update: keyringBytes,
+      version: payload.version,
+      occurred_at: payload.occurredAt,
+      actor_id: payload.actorId,
+      causation_id: payload.causationId,
+      correlation_id: payload.correlationId,
+    }),
+  ];
 };
-
-const materializers = State.SQLite.materializers(events, {
-  'goal.event.v1': ({
-    id,
-    aggregateId,
-    eventType,
-    payload,
-    version,
-    occurredAt,
-  }: GoalEventPayload) => {
-    try {
-      console.info('[goal.event materializer] inserting event', {
-        id,
-        aggregateId,
-        eventType,
-        version,
-        occurredAt,
-      });
-      return [
-        tables.goal_events.insert({
-          id,
-          aggregate_id: aggregateId,
-          event_type: eventType,
-          payload_encrypted: asUint8Array(payload) as Uint8Array<ArrayBuffer>,
-          version,
-          occurred_at: occurredAt,
-        }),
-      ];
-    } catch (error) {
-      console.error('[goal.event materializer] failed to normalize payload', {
-        error,
-        aggregateId,
-        eventType,
-        version,
-        occurredAt,
-      });
-      return [];
-    }
-  },
-  'project.event.v1': ({
-    id,
-    aggregateId,
-    eventType,
-    payload,
-    version,
-    occurredAt,
-  }: GoalEventPayload) => {
-    try {
-      return [
-        tables.project_events.insert({
-          id,
-          aggregate_id: aggregateId,
-          event_type: eventType,
-          payload_encrypted: asUint8Array(payload) as Uint8Array<ArrayBuffer>,
-          version,
-          occurred_at: occurredAt,
-        }),
-      ];
-    } catch (error) {
-      console.error(
-        '[project.event materializer] failed to normalize payload',
-        {
-          error,
-          aggregateId,
-          eventType,
-          version,
-          occurredAt,
-        }
-      );
-      return [];
-    }
-  },
-});
-
-const state = State.SQLite.makeState({
-  tables,
-  materializers,
-});
-
-export const schema = makeSchema({ state, events });

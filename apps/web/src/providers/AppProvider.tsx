@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
 import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
@@ -6,7 +6,6 @@ import { adapter } from './LiveStoreAdapter';
 import { tables } from '@mo/infrastructure/browser';
 import {
   decodeSalt,
-  deriveLegacySaltForUser,
   encodeSalt,
   generateRandomSalt,
 } from '@mo/infrastructure/crypto/deriveSalt';
@@ -17,23 +16,25 @@ import {
   type InterfaceContextValue,
   type InterfaceServices,
 } from '@mo/presentation/react';
+import { setSyncGateEnabled } from '@mo/infrastructure/livestore/sync/syncGate';
+import { useRemoteAuth } from './RemoteAuthProvider';
+import { resetSyncHeadInOpfs } from '../utils/resetSyncHead';
 
 const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';
 const STORE_ID_KEY = 'mo-local-store-id';
-const DEFAULT_STORE_ID = 'mo-local-v2';
 
-const loadStoreId = (): string => {
-  if (typeof localStorage === 'undefined') return DEFAULT_STORE_ID;
-  const existing = localStorage.getItem(STORE_ID_KEY);
-  if (existing) return existing;
-  localStorage.setItem(STORE_ID_KEY, DEFAULT_STORE_ID);
-  return DEFAULT_STORE_ID;
+const loadStoredStoreId = (): string | null => {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(STORE_ID_KEY);
 };
 
 type UserMeta = {
+  /**
+   * Stable local identity id (UUIDv7). Used for `actorId` and identity key records.
+   */
   userId: string;
-  pwdSalt?: string;
+  pwdSalt: string;
 };
 
 type SessionState =
@@ -46,6 +47,15 @@ type SessionState =
     };
 
 type Services = Awaited<ReturnType<typeof createAppServices>>;
+
+const getStoreShutdownPromise = (
+  store: Services['store']
+): (() => Promise<void>) | null => {
+  const candidate = store as { shutdownPromise?: unknown };
+  return typeof candidate.shutdownPromise === 'function'
+    ? (candidate.shutdownPromise as () => Promise<void>)
+    : null;
+};
 
 type AppContextValue = {
   services: Services;
@@ -65,9 +75,11 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 const userMetaSchema = z.object({
-  userId: z.string().min(1),
-  pwdSalt: z.string().optional(),
+  userId: z.uuid(),
+  pwdSalt: z.string().min(1),
 });
+
+const storeIdSchema = z.uuid();
 
 const loadMeta = (): UserMeta | null => {
   const raw = localStorage.getItem(USER_META_KEY);
@@ -87,7 +99,18 @@ const saveMeta = (meta: UserMeta): void => {
 };
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  const { state: remoteAuthState } = useRemoteAuth();
   const [services, setServices] = useState<Services | null>(null);
+  const [servicesConfig, setServicesConfig] = useState<{
+    storeId: string;
+  } | null>(null);
+  const servicesRef = useRef<Services | null>(null);
+  const pendingInitResolver = useRef<{
+    resolve: (svc: Services) => void;
+    reject: (error: unknown) => void;
+    targetStoreId: string;
+  } | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [masterKey, setMasterKey] = useState<Uint8Array | null>(null);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
@@ -100,21 +123,71 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     aggregateCount?: number;
     tables?: string[];
     onRebuild?: () => void;
+    onResetSyncHead?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
+  const sagaBootstrappedRef = useRef<Set<string>>(new Set());
+  const publisherStartedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    const enabled =
+      session.status === 'ready' && remoteAuthState.status === 'connected';
+    setSyncGateEnabled(enabled);
+  }, [remoteAuthState.status, session.status]);
+
+  useEffect(() => {
+    const meta = loadMeta();
+    const storedStoreId = loadStoredStoreId();
+    if (meta) {
+      setUserMeta(meta);
+      setSession({ status: 'locked', userId: meta.userId });
+      const nextStoreId = meta.userId;
+      if (
+        typeof localStorage !== 'undefined' &&
+        storedStoreId !== nextStoreId
+      ) {
+        localStorage.setItem(STORE_ID_KEY, nextStoreId);
+      }
+      setStoreId(nextStoreId);
+      return;
+    }
+
+    setUserMeta(null);
+    setSession({ status: 'needs-onboarding' });
+    const fallbackStoreId = (() => {
+      if (storedStoreId) {
+        const parsed = storeIdSchema.safeParse(storedStoreId);
+        if (parsed.success) return parsed.data;
+      }
+      return uuidv7();
+    })();
+    if (
+      typeof localStorage !== 'undefined' &&
+      storedStoreId !== fallbackStoreId
+    ) {
+      localStorage.setItem(STORE_ID_KEY, fallbackStoreId);
+    }
+    setStoreId(fallbackStoreId);
+  }, []);
+
+  useEffect(() => {
+    if (!storeId) return;
+    setServices(null);
+    setServicesConfig(null);
+    setDebugInfo(null);
+    servicesRef.current = null;
     const controller = new AbortController();
     const { signal } = controller;
     let unsubscribe: (() => void) | undefined;
     let intervalId: number | undefined;
+    let createdServices: Services | null = null;
     (async () => {
       try {
-        const currentStoreId = loadStoreId();
+        setInitError(null);
         const svc = await createAppServices({
           adapter,
-          storeId: currentStoreId,
+          storeId,
           contexts: ['goals', 'projects'],
         });
         const updateDebug = () => {
@@ -166,7 +239,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount,
             aggregateCount,
             tables: tablesList,
-            onRebuild: rebuildProjections,
+            onRebuild: () => {
+              const goalCtx = svc.contexts.goals;
+              const projectCtx = svc.contexts.projects;
+              if (!goalCtx || !projectCtx) {
+                return;
+              }
+              void (async () => {
+                await goalCtx.goalProjection.resetAndRebuild();
+                await projectCtx.projectProjection.resetAndRebuild();
+              })();
+            },
+            onResetSyncHead: () => {
+              void (async () => {
+                try {
+                  try {
+                    svc.contexts.goals?.goalProjection.stop();
+                    svc.contexts.projects?.projectProjection.stop();
+                    const maybeShutdown = getStoreShutdownPromise(svc.store);
+                    if (maybeShutdown) {
+                      await maybeShutdown();
+                    }
+                  } catch (error) {
+                    console.warn(
+                      'LiveStore shutdown failed before reset',
+                      error
+                    );
+                  }
+                  const ok = await resetSyncHeadInOpfs(svc.store.storeId);
+                  if (!ok) {
+                    alert(
+                      'Unable to find eventlog DB with __livestore_sync_status; sync head not reset.'
+                    );
+                    return;
+                  }
+                  alert('Sync head reset to 0. Reloading to trigger re-push.');
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Failed to reset sync head', error);
+                  alert(
+                    error instanceof Error
+                      ? error.message
+                      : 'Failed to reset sync head'
+                  );
+                }
+              })();
+            },
           });
         };
 
@@ -181,13 +299,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (!signal.aborted) {
+          servicesRef.current = svc;
           setServices(svc);
+          setServicesConfig({ storeId });
+          if (
+            pendingInitResolver.current &&
+            pendingInitResolver.current.targetStoreId === svc.storeId
+          ) {
+            pendingInitResolver.current.resolve(svc);
+            pendingInitResolver.current = null;
+          }
         }
+        createdServices = svc;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to initialize app';
         if (!signal.aborted) {
           setInitError(message);
+          setServicesConfig(null);
+          if (pendingInitResolver.current) {
+            pendingInitResolver.current.reject(error);
+            pendingInitResolver.current = null;
+          }
         }
       }
     })();
@@ -197,43 +330,105 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (intervalId !== undefined) {
         window.clearInterval(intervalId);
       }
+      try {
+        createdServices?.contexts.goals?.goalProjection.stop();
+        createdServices?.contexts.projects?.projectProjection.stop();
+        createdServices?.publisher.stop();
+        const maybeShutdown = createdServices
+          ? getStoreShutdownPromise(createdServices.store)
+          : null;
+        void maybeShutdown?.();
+      } catch (error) {
+        console.warn('Failed to shutdown LiveStore cleanly', error);
+      }
+      if (
+        pendingInitResolver.current &&
+        pendingInitResolver.current.targetStoreId === storeId
+      ) {
+        pendingInitResolver.current.reject(
+          new Error('Store initialization aborted')
+        );
+        pendingInitResolver.current = null;
+      }
     };
-  }, []);
+  }, [storeId]);
+
+  const switchToStore = async (targetStoreId: string): Promise<Services> => {
+    if (
+      servicesRef.current &&
+      servicesRef.current.storeId === targetStoreId &&
+      services
+    ) {
+      return servicesRef.current;
+    }
+    return await new Promise<Services>((resolve, reject) => {
+      pendingInitResolver.current = { resolve, reject, targetStoreId };
+      setStoreId(targetStoreId);
+    });
+  };
 
   useEffect(() => {
-    if (!services) return;
-    const controller = new AbortController();
-    const { signal } = controller;
-    (async () => {
-      const meta = loadMeta();
-      if (!meta) {
-        if (!signal.aborted) {
-          setUserMeta(null);
-          setSession({ status: 'needs-onboarding' });
+    if (!services || session.status !== 'ready' || !masterKey) return;
+    let cancelled = false;
+    const currentServices = services;
+    currentServices.keyStore.setMasterKey(masterKey);
+    const goalCtx = currentServices.contexts.goals;
+    const projectCtx = currentServices.contexts.projects;
+    if (!goalCtx || !projectCtx) return;
+    void (async () => {
+      try {
+        if (servicesRef.current !== currentServices) return;
+        if (!publisherStartedRef.current.has(currentServices.storeId)) {
+          await currentServices.publisher.start();
+          publisherStartedRef.current.add(currentServices.storeId);
         }
-        return;
-      }
-      if (!signal.aborted) {
-        setUserMeta(meta);
-        setSession({ status: 'locked', userId: meta.userId });
+        await goalCtx.goalProjection.start();
+        await projectCtx.projectProjection.start();
+        const saga = currentServices.sagas?.goalAchievement;
+        if (saga && !sagaBootstrappedRef.current.has(currentServices.storeId)) {
+          saga.subscribe(currentServices.eventBus);
+          await saga.bootstrap();
+          sagaBootstrappedRef.current.add(currentServices.storeId);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if (servicesRef.current !== currentServices) return;
+        if (
+          error instanceof Error &&
+          error.message.includes('Store has been shut down')
+        ) {
+          return;
+        }
+        console.warn('Failed to start projections', error);
       }
     })();
     return () => {
-      controller.abort();
+      cancelled = true;
     };
-  }, [services]);
+  }, [services, masterKey, session.status]);
 
   const completeOnboarding = async ({ password }: { password: string }) => {
     if (!services) {
       throw new Error('Services not initialized');
     }
-    const userId = uuidv7();
+    if (!storeId) {
+      throw new Error('Store id not initialized');
+    }
+    const parsedStoreId = storeIdSchema.safeParse(storeId);
+    if (!parsedStoreId.success) {
+      throw new Error(
+        'Invalid store id; please reset local state and re-onboard'
+      );
+    }
+    const userId = parsedStoreId.data;
     const salt = generateRandomSalt();
     const saltB64 = encodeSalt(salt);
 
     const kek = await services.crypto.deriveKeyFromPassword(password, salt);
     services.keyStore.setMasterKey(kek);
     setMasterKey(kek);
+
+    await services.keyStore.clearAll();
 
     const signing = await services.crypto.generateSigningKeyPair();
     const encryption = await services.crypto.generateEncryptionKeyPair();
@@ -246,30 +441,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     // Start projections only after keys are persisted.
-    const goalCtx = services.contexts.goals;
-    const projectCtx = services.contexts.projects;
-    if (!goalCtx || !projectCtx) {
-      throw new Error('Bounded contexts not bootstrapped');
-    }
-    await goalCtx.goalProjection.start();
-    await projectCtx.projectProjection.start();
     const meta = { userId, pwdSalt: saltB64 };
     saveMeta(meta);
     setUserMeta(meta);
     setSession({ status: 'ready', userId });
   };
+
   const unlock = async ({ password }: { password: string }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const storedSalt = meta.pwdSalt ? decodeSalt(meta.pwdSalt) : null;
-    const legacySalt = storedSalt
-      ? null
-      : await deriveLegacySaltForUser(meta.userId);
-    const saltForUnlock = storedSalt ?? legacySalt;
-    if (!saltForUnlock) {
-      throw new Error('Unable to determine password salt for unlock');
-    }
+    const saltForUnlock = decodeSalt(meta.pwdSalt);
     const kek = await services.crypto.deriveKeyFromPassword(
       password,
       saltForUnlock
@@ -279,36 +461,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!keys) {
       throw new Error('No keys found, please re-onboard');
     }
-
-    let nextMasterKey = kek;
-    let nextSaltB64 = meta.pwdSalt ?? encodeSalt(saltForUnlock);
-
-    if (!meta.pwdSalt) {
-      // Migrate deterministic salt users to a random per-user salt.
-      const backup = await services.keyStore.exportKeys();
-      const freshSalt = generateRandomSalt();
-      nextSaltB64 = encodeSalt(freshSalt);
-      nextMasterKey = await services.crypto.deriveKeyFromPassword(
-        password,
-        freshSalt
-      );
-      services.keyStore.setMasterKey(nextMasterKey);
-      await services.keyStore.importKeys({
-        ...backup,
-        userId: backup.userId ?? meta.userId,
-      });
-    }
-
-    saveMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
-    setUserMeta({ userId: meta.userId, pwdSalt: nextSaltB64 });
-    setMasterKey(nextMasterKey);
-    const goalCtx = services.contexts.goals;
-    const projectCtx = services.contexts.projects;
-    if (!goalCtx || !projectCtx) {
-      throw new Error('Bounded contexts not bootstrapped');
-    }
-    await goalCtx.goalProjection.start();
-    await projectCtx.projectProjection.start();
+    saveMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
+    setUserMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
+    setMasterKey(kek);
     setSession({ status: 'ready', userId: meta.userId });
   };
 
@@ -319,15 +474,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const projectCtx = services.contexts.projects;
       goalCtx?.goalProjection.stop();
       projectCtx?.projectProjection.stop();
-      await (
-        services.store as unknown as { shutdownPromise?: () => Promise<void> }
-      ).shutdownPromise?.();
+      const maybeShutdown = getStoreShutdownPromise(services.store);
+      await maybeShutdown?.();
     } catch (error) {
       console.warn('LiveStore shutdown failed', error);
     }
     indexedDB.deleteDatabase('mo-local-keys');
     localStorage.removeItem(USER_META_KEY);
-    const nextStoreId = `${DEFAULT_STORE_ID}-${uuidv7()}`;
+    const nextStoreId = uuidv7();
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
     localStorage.removeItem(RESET_FLAG_KEY);
     window.location.reload();
@@ -355,8 +509,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const meta = loadMeta();
     const decryptSalt =
       (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ??
-      (meta?.pwdSalt ? decodeSalt(meta.pwdSalt) : null) ??
-      (meta?.userId ? await deriveLegacySaltForUser(meta.userId) : null);
+      (meta ? decodeSalt(meta.pwdSalt) : null);
     if (!decryptSalt) {
       throw new Error(
         'Backup missing salt and no local metadata available to derive one'
@@ -371,7 +524,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
     const payloadSchema = z.object({
-      userId: z.string().min(1),
+      userId: z.uuid(),
       identityKeys: z
         .object({
           signingPrivateKey: z.string().min(1),
@@ -428,12 +581,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       );
     }
 
-    const goalCtx = services.contexts.goals;
-    const projectCtx = services.contexts.projects;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORE_ID_KEY, payload.userId);
+    }
+    const targetServices =
+      servicesRef.current?.storeId === payload.userId
+        ? servicesRef.current
+        : await switchToStore(payload.userId);
+    targetServices.keyStore.setMasterKey(persistKek);
+
+    const goalCtx = targetServices.contexts.goals;
+    const projectCtx = targetServices.contexts.projects;
     if (!goalCtx || !projectCtx) {
       throw new Error('Bounded contexts not bootstrapped');
     }
-    await goalCtx.goalProjection.start();
     const nextMeta = {
       userId: payload.userId,
       pwdSalt: persistSaltB64,
@@ -448,7 +609,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return <div>Failed to initialize LiveStore: {initError}</div>;
   }
 
-  if (!services) {
+  if (!services || !servicesConfig || servicesConfig.storeId !== storeId) {
     return <div>Loading app...</div>;
   }
 
@@ -491,7 +652,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           {children}
         </InterfaceProvider>
       </AppContext.Provider>
-      {debugInfo && import.meta.env.DEV ? (
+      {debugInfo && import.meta.env.DEV && session.status === 'ready' ? (
         <DebugPanel
           info={{
             vfsName: 'adapter-web',
@@ -508,6 +669,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             storage: debugInfo.storage,
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
+            onRebuild: debugInfo.onRebuild,
+            onResetSyncHead: debugInfo.onResetSyncHead,
           }}
         />
       ) : null}

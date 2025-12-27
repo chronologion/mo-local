@@ -1,30 +1,36 @@
 import {
   Project,
   ProjectId,
-  ProjectName,
-  ProjectStatus,
-  ProjectDescription,
-  LocalDate,
-  GoalId,
-  Milestone,
-  MilestoneId,
-  UserId,
   Timestamp,
+  UserId,
+  projectEventTypes,
 } from '@mo/domain';
+import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
   IEventStore,
   IProjectRepository,
+  IKeyStore,
+  none,
+  Option,
+  some,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
 import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
-import { MissingKeyError, PersistenceError } from '../errors';
+import { KeyringManager } from '../crypto/KeyringManager';
+import { PersistenceError } from '../errors';
+import {
+  decodeProjectSnapshotDomain,
+  encodeProjectSnapshotPayload,
+} from './snapshots/ProjectSnapshotCodec';
+import { buildSnapshotAad } from '../eventing/aad';
 
 type SnapshotRow = {
   payload_encrypted: Uint8Array;
   version: number;
+  last_sequence: number;
 };
 
 /**
@@ -40,33 +46,38 @@ export class ProjectRepository implements IProjectRepository {
     private readonly eventStore: IEventStore,
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyProvider: (
-      aggregateId: string
-    ) => Promise<Uint8Array | null>
+    private readonly keyStore: IKeyStore,
+    private readonly keyringManager: KeyringManager
   ) {
     this.toEncrypted = new DomainToLiveStoreAdapter(crypto);
     this.toDomain = new LiveStoreToDomainAdapter(crypto);
   }
 
-  async load(id: ProjectId): Promise<Project | null> {
-    const kProject = await this.keyProvider(id.value);
-    if (!kProject) {
-      throw new MissingKeyError(`Missing encryption key for ${id.value}`);
+  async load(id: ProjectId): Promise<Option<Project>> {
+    const snapshotKey = await this.keyStore.getAggregateKey(id.value);
+    const loadedSnapshot = snapshotKey
+      ? await this.loadSnapshot(id.value, snapshotKey)
+      : null;
+    const tailEvents = loadedSnapshot
+      ? await this.eventStore.getAllEvents({
+          aggregateId: id.value,
+          since: loadedSnapshot.lastSequence,
+        })
+      : await this.eventStore.getAllEvents({ aggregateId: id.value });
+    if (!loadedSnapshot && tailEvents.length === 0) return none();
+
+    const domainTail = [];
+    for (const event of tailEvents) {
+      const key = await this.keyringManager.resolveKeyForEvent(event);
+      domainTail.push(await this.toDomain.toDomain(event, key));
     }
 
-    const snapshot = await this.loadSnapshot(id.value, kProject);
-    const fromVersion = snapshot ? snapshot.version + 1 : 1;
-    const tailEvents = await this.eventStore.getEvents(id.value, fromVersion);
-    if (!snapshot && tailEvents.length === 0) return null;
-
-    const domainTail = await Promise.all(
-      tailEvents.map((event) => this.toDomain.toDomain(event, kProject))
-    );
-
-    if (snapshot) {
-      return Project.reconstituteFromSnapshot(snapshot, domainTail);
+    if (loadedSnapshot) {
+      return some(
+        Project.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail)
+      );
     }
-    return Project.reconstitute(id, domainTail);
+    return some(Project.reconstitute(id, domainTail));
   }
 
   async save(project: Project, encryptionKey: Uint8Array): Promise<void> {
@@ -80,20 +91,33 @@ export class ProjectRepository implements IProjectRepository {
       bindValues: [project.id.value],
     });
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
-    const baseVersion = Math.max(maxEventVersion, snapshot?.version ?? 0);
+    const baseVersion = Math.max(
+      maxEventVersion,
+      snapshot?.snapshot.version ?? 0
+    );
     const startVersion = baseVersion + 1;
     try {
-      const encrypted = await Promise.all(
-        pending.map((event, idx) =>
-          this.toEncrypted.toEncrypted(
-            event as never,
+      const encrypted = [];
+      for (let idx = 0; idx < pending.length; idx += 1) {
+        const event = pending[idx];
+        if (!event) continue;
+        const options = await this.buildEncryptionOptions(
+          event.eventType,
+          event.aggregateId.value,
+          event.occurredAt.value,
+          encryptionKey
+        );
+        encrypted.push(
+          await this.toEncrypted.toEncrypted(
+            event,
             startVersion + idx,
-            encryptionKey
+            encryptionKey,
+            options
           )
-        )
-      );
+        );
+      }
       await this.eventStore.append(project.id.value, encrypted);
-      await this.persistSnapshot(project, encryptionKey, startVersion, pending);
+      await this.persistSnapshot(project, encryptionKey);
       project.markEventsAsCommitted();
     } catch (error) {
       if (error instanceof ConcurrencyError) {
@@ -107,17 +131,42 @@ export class ProjectRepository implements IProjectRepository {
     }
   }
 
-  async archive(_id: ProjectId): Promise<void> {
+  async archive(
+    _id: ProjectId,
+    _archivedAt: Timestamp,
+    _actorId: UserId
+  ): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
+  }
+
+  private async buildEncryptionOptions(
+    eventType: string,
+    aggregateId: string,
+    occurredAt: number,
+    encryptionKey: Uint8Array
+  ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
+    let keyringUpdate: Uint8Array | undefined;
+    if (eventType === projectEventTypes.projectCreated) {
+      const update = await this.keyringManager.createInitialUpdate(
+        aggregateId,
+        encryptionKey,
+        occurredAt
+      );
+      keyringUpdate = update?.keyringUpdate;
+    }
+    const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
+    const epoch = currentEpoch !== 0 ? currentEpoch : undefined;
+    if (!keyringUpdate && epoch === undefined) {
+      return undefined;
+    }
+    return { epoch, keyringUpdate };
   }
 
   private async persistSnapshot(
     project: Project,
-    encryptionKey: Uint8Array,
-    startVersion: number,
-    pending: readonly unknown[]
+    encryptionKey: Uint8Array
   ): Promise<void> {
-    const nextVersion = startVersion + pending.length - 1;
+    const snapshotVersion = project.version;
     const payload = {
       id: project.id.value,
       name: project.name.value,
@@ -128,26 +177,30 @@ export class ProjectRepository implements IProjectRepository {
       goalId: project.goalId ? project.goalId.value : null,
       milestones: project.milestones.map((m) => ({
         id: m.id.value,
-        name: m.name,
+        name: m.name.value,
         targetDate: m.targetDate.value,
       })),
       createdBy: project.createdBy.value,
       createdAt: project.createdAt.value,
       updatedAt: project.updatedAt.value,
       archivedAt: project.archivedAt ? project.archivedAt.value : null,
-      version: nextVersion,
+      version: snapshotVersion,
     };
-    const aad = new TextEncoder().encode(
-      `${project.id.value}:snapshot:${nextVersion}`
-    );
+    const aad = buildSnapshotAad(project.id.value, snapshotVersion);
     const cipher = await this.crypto.encrypt(
-      new TextEncoder().encode(JSON.stringify(payload)),
+      encodeProjectSnapshotPayload(payload),
       encryptionKey,
       aad
     );
     const storedCipherBuffer = new ArrayBuffer(cipher.byteLength);
     const storedCipher = new Uint8Array(storedCipherBuffer);
     storedCipher.set(cipher);
+    const maxSequenceRows = this.store.query<{ sequence: number | null }[]>({
+      query:
+        'SELECT MAX(sequence) as sequence FROM project_events WHERE aggregate_id = ?',
+      bindValues: [project.id.value],
+    });
+    const lastSequence = Number(maxSequenceRows[0]?.sequence ?? 0);
     this.store.query({
       query: `
         INSERT INTO project_snapshots (aggregate_id, payload_encrypted, version, last_sequence, updated_at)
@@ -161,8 +214,8 @@ export class ProjectRepository implements IProjectRepository {
       bindValues: [
         project.id.value,
         storedCipher,
-        nextVersion,
-        nextVersion,
+        snapshotVersion,
+        lastSequence,
         project.updatedAt.value,
       ],
     });
@@ -172,44 +225,17 @@ export class ProjectRepository implements IProjectRepository {
     aggregateId: string,
     key: Uint8Array
   ): Promise<{
-    id: ProjectId;
-    name: ProjectName;
-    status: ProjectStatus;
-    startDate: LocalDate;
-    targetDate: LocalDate;
-    description: ProjectDescription;
-    goalId: GoalId | null;
-    milestones: Milestone[];
-    createdBy: UserId;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-    archivedAt: Timestamp | null;
-    version: number;
+    snapshot: ProjectSnapshot;
+    lastSequence: number;
   } | null> {
     const rows = this.store.query<SnapshotRow[]>({
       query:
-        'SELECT payload_encrypted, version FROM project_snapshots WHERE aggregate_id = ? LIMIT 1',
+        'SELECT payload_encrypted, version, last_sequence FROM project_snapshots WHERE aggregate_id = ? LIMIT 1',
       bindValues: [aggregateId],
     });
     if (!rows.length) return null;
     const row = rows[0];
-    type SnapshotPayload = {
-      id: string;
-      name: string;
-      status: 'planned' | 'in_progress' | 'completed' | 'canceled';
-      startDate: string;
-      targetDate: string;
-      description: string;
-      goalId: string | null;
-      milestones?: { id: string; name: string; targetDate: string }[];
-      createdBy?: string;
-      createdAt: number;
-      updatedAt: number;
-      archivedAt: number | null;
-    };
-    const aad = new TextEncoder().encode(
-      `${aggregateId}:snapshot:${row.version}`
-    );
+    const aad = buildSnapshotAad(aggregateId, row.version);
     let plaintext: Uint8Array;
     try {
       plaintext = await this.crypto.decrypt(row.payload_encrypted, key, aad);
@@ -220,41 +246,15 @@ export class ProjectRepository implements IProjectRepository {
       }
       throw error;
     }
-    let parsed: SnapshotPayload;
     try {
-      parsed = JSON.parse(new TextDecoder().decode(plaintext));
-    } catch (error) {
+      return {
+        snapshot: decodeProjectSnapshotDomain(plaintext, row.version),
+        lastSequence: Number(row.last_sequence),
+      };
+    } catch {
       this.purgeCorruptSnapshot(aggregateId);
       return null;
     }
-    const createdByRaw =
-      typeof parsed.createdBy === 'string' && parsed.createdBy.trim().length > 0
-        ? parsed.createdBy
-        : 'imported';
-    return {
-      id: ProjectId.from(parsed.id),
-      name: ProjectName.from(parsed.name),
-      status: ProjectStatus.from(parsed.status),
-      startDate: LocalDate.fromString(parsed.startDate),
-      targetDate: LocalDate.fromString(parsed.targetDate),
-      description: ProjectDescription.from(parsed.description),
-      goalId: parsed.goalId ? GoalId.from(parsed.goalId) : null,
-      milestones: (parsed.milestones ?? []).map((m) =>
-        Milestone.create({
-          id: MilestoneId.from(m.id),
-          name: m.name,
-          targetDate: LocalDate.fromString(m.targetDate),
-        })
-      ),
-      createdBy: UserId.from(createdByRaw),
-      createdAt: Timestamp.fromMillis(parsed.createdAt),
-      updatedAt: Timestamp.fromMillis(parsed.updatedAt),
-      archivedAt:
-        parsed.archivedAt === null
-          ? null
-          : Timestamp.fromMillis(parsed.archivedAt),
-      version: row.version,
-    };
   }
 
   private isCryptoOperationError(error: unknown): boolean {

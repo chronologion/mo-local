@@ -23,17 +23,18 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IEventBus,
+  IKeyStore,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
-import { IndexedDBKeyStore } from '../crypto/IndexedDBKeyStore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
+import { KeyringManager } from '../crypto/KeyringManager';
 import { ProjectRepository } from './ProjectRepository';
-import { ProjectProjectionProcessor } from './projection/ProjectProjectionProcessor';
+import { ProjectProjectionProcessor } from './projections/runtime/ProjectProjectionProcessor';
 import { ProjectReadModel } from './ProjectReadModel';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
+import { LiveStoreIdempotencyStore } from '../idempotency';
 
 export type ProjectBoundedContextServices = {
   projectRepo: ProjectRepository;
@@ -50,8 +51,8 @@ export type ProjectBootstrapDeps = {
   store: Store;
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
-  keyStore: IndexedDBKeyStore;
-  eventBus: IEventBus;
+  keyStore: IKeyStore;
+  keyringManager: KeyringManager;
   toDomain: LiveStoreToDomainAdapter;
 };
 
@@ -70,26 +71,29 @@ export const bootstrapProjectBoundedContext = ({
   eventStore,
   crypto,
   keyStore,
-  eventBus,
+  keyringManager,
   toDomain,
 }: ProjectBootstrapDeps): ProjectBoundedContextServices => {
   const projectRepo = new ProjectRepository(
     eventStore,
     store,
     crypto,
-    async (aggregateId: string) => keyStore.getAggregateKey(aggregateId)
+    keyStore,
+    keyringManager
   );
+  const idempotencyStore = new LiveStoreIdempotencyStore(store);
   const projectHandler = new ProjectCommandHandler(
     projectRepo,
     keyStore,
     crypto,
-    eventBus
+    idempotencyStore
   );
   const projectProjection = new ProjectProjectionProcessor(
     store,
     eventStore,
     crypto,
     keyStore,
+    keyringManager,
     toDomain
   );
   const projectReadModel = new ProjectReadModel(projectProjection);

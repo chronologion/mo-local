@@ -8,5 +8,11 @@ export default defineConfig({
     globals: true,
     include: ['src/__tests__/**/*.{test,spec}.ts'],
     testTimeout: 15000,
+    coverage: {
+      provider: 'v8',
+      all: true,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*'],
+    },
   },
 });

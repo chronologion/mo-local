@@ -13,6 +13,7 @@ import { KratosClient } from '../../access/infrastructure/kratos.client';
 import { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
 import { SESSION_COOKIE_NAME } from '../../access/presentation/session-cookie';
 import { AuthService } from '../../access/application/auth.service';
+import { SessionCache } from '../../access/application/session-cache';
 import { AuthController } from '../../access/presentation/controllers/auth.controller';
 import { MeController } from '../../access/presentation/controllers/me.controller';
 import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
@@ -109,13 +110,18 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       fakeKratos as unknown as KratosClient,
       fakeIdentities
     );
-    const sessionGuard = new KratosSessionGuard(authService);
+    const sessionCache = new SessionCache();
+    const sessionGuard = new KratosSessionGuard(authService, sessionCache);
 
     // Ensure Nest has constructor metadata for the controller.
-    Reflect.defineMetadata('design:paramtypes', [AuthService], AuthController);
     Reflect.defineMetadata(
       'design:paramtypes',
-      [AuthService],
+      [AuthService, SessionCache],
+      AuthController
+    );
+    Reflect.defineMetadata(
+      'design:paramtypes',
+      [AuthService, SessionCache],
       KratosSessionGuard
     );
 
@@ -123,6 +129,7 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       controllers: [AuthController, MeController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: SessionCache, useValue: sessionCache },
         { provide: KratosSessionGuard, useValue: sessionGuard },
         { provide: KratosPasswordService, useValue: fakePasswords },
         { provide: KratosClient, useValue: fakeKratos },
@@ -246,6 +253,11 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       .send({ email: 'dave@example.com', password: 'supersecret' })
       .expect(201);
     const cookie = cookieHeader(login.headers['set-cookie']);
+
+    await request(app.getHttpServer())
+      .get('/auth/whoami')
+      .set('Cookie', cookie)
+      .expect(200);
 
     const logout = await request(app.getHttpServer())
       .post('/auth/logout')

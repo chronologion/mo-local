@@ -6,11 +6,12 @@ Key rules:
 
 - Use Linear MCP tools to read and edit issues.
 - Follow the progress of each task by regularly committing and submitting comments to the Linear issue you're working on on what was achieved so far and what were the challenges.
-- Make a branch per Linear subissue and use short conventional commit messages.
+- Make a branch per Linear subissue and use short conventional commit messages per layer, don't create mega-commits with the whole change across all layers.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
 - NEVER "hand-code" dependency versions in `package.json`! Just install latest, unless there's a reason not to, but you must justify and get approval first.
-- Follow DDD/clean architecture layering and split responsibilities according to best practices! Domain is core without dependencies. Commands and Queries are lean objects, no logic. Handlers have the logic.
+- Follow DDD layering and split responsibilities according to best practices! Domain is core without dependencies. Commands and Queries are lean objects, no logic. Handlers have the logic.
+- When discussing architecture topics, understand `docs/architecture.md` first and record any significant decisions there. But don't casually read this document for every little bug fix as it's a large document and will consume a lot of context!
 - Domain classes – aggregates, entities and domain events – use VOs for their members. We have a "no primitive types" obsessions!
 - In case of blocking issues and PRD divergence you can't reconcile – stop and ask.
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.

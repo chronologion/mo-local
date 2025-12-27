@@ -1,15 +1,8 @@
-import { DomainEvent, goalEventTypes, projectEventTypes } from '@mo/domain';
+import { ActorId, CorrelationId, DomainEvent, EventId } from '@mo/domain';
 import { EncryptedEvent, ICryptoService } from '@mo/application';
-import { GoalEventCodec } from '../../goals/GoalEventCodec';
-import { ProjectEventCodec } from '../../projects/ProjectEventCodec';
-
-const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
-const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
-
-type PayloadWrapper = {
-  payloadVersion: number;
-  data: unknown;
-};
+import { buildEventAad } from '../../eventing/aad';
+import { decodePayloadEnvelope } from '../../eventing/payloadEnvelope';
+import { decodePersisted } from '../../eventing/registry';
 
 /**
  * Converts encrypted LiveStore events into domain events.
@@ -22,8 +15,10 @@ export class LiveStoreToDomainAdapter {
     lsEvent: EncryptedEvent,
     key: Uint8Array
   ): Promise<DomainEvent> {
-    const aad = new TextEncoder().encode(
-      `${lsEvent.aggregateId}:${lsEvent.eventType}:${lsEvent.version}`
+    const aad = buildEventAad(
+      lsEvent.aggregateId,
+      lsEvent.eventType,
+      lsEvent.version
     );
     let payloadBytes: Uint8Array;
     try {
@@ -36,42 +31,27 @@ export class LiveStoreToDomainAdapter {
       );
     }
 
-    let wrapper: PayloadWrapper | unknown;
-    try {
-      wrapper = JSON.parse(new TextDecoder().decode(payloadBytes));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Invalid JSON payload';
-      throw new Error(`Malformed payload for ${lsEvent.eventType}: ${message}`);
+    const { payloadVersion, data } = decodePayloadEnvelope(payloadBytes);
+    if (!lsEvent.actorId) {
+      throw new Error(`Missing actorId for ${lsEvent.eventType} ${lsEvent.id}`);
     }
-
-    // Backward/legacy handling: if payloadVersion is missing, assume v1 and raw data.
-    const payloadVersion =
-      typeof (wrapper as PayloadWrapper).payloadVersion === 'number'
-        ? (wrapper as PayloadWrapper).payloadVersion
-        : 1;
-    const data =
-      (wrapper as PayloadWrapper).data !== undefined
-        ? (wrapper as PayloadWrapper).data
-        : wrapper;
-
-    if (goalEventNames.has(lsEvent.eventType)) {
-      return GoalEventCodec.deserialize(
-        lsEvent.eventType as (typeof goalEventTypes)[keyof typeof goalEventTypes],
-        payloadVersion,
-        data
-      );
-    }
-
-    if (projectEventNames.has(lsEvent.eventType)) {
-      return ProjectEventCodec.deserialize(
-        lsEvent.eventType as (typeof projectEventTypes)[keyof typeof projectEventTypes],
-        payloadVersion,
-        data
-      );
-    }
-
-    throw new Error(`Unsupported event type: ${lsEvent.eventType}`);
+    return decodePersisted(
+      {
+        type: lsEvent.eventType,
+        version: payloadVersion,
+        payload: data,
+      },
+      {
+        eventId: EventId.from(lsEvent.id),
+        actorId: ActorId.from(lsEvent.actorId),
+        causationId: lsEvent.causationId
+          ? EventId.from(lsEvent.causationId)
+          : undefined,
+        correlationId: lsEvent.correlationId
+          ? CorrelationId.from(lsEvent.correlationId)
+          : undefined,
+      }
+    );
   }
 
   async toDomainBatch(

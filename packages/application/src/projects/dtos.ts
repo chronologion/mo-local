@@ -12,4 +12,5 @@ export type ProjectListItemDto = {
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
+  version: number;
 };

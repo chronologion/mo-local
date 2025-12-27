@@ -2,7 +2,9 @@
 
 **Version**: 2.1  
 **Status**: In progress  
-**Last Updated**: 2025-12-01
+**Last Updated**: 2025-12-25
+
+> Architecture note: the long-lived architecture reference (layers + key ADRs) is `docs/architecture.md`. This PRD remains a product/workflow WIP doc and will be retired once the architecture doc is complete.
 
 ## 1. Objective
 
@@ -12,22 +14,22 @@ Build a local-first proof of concept that demonstrates:
 - **Event-sourced storage** with LiveStore (SQLite+OPFS) so every state change is captured as an immutable goal event.
 - **Per-aggregate encryption**: each goal has its own symmetric key managed in the browser keystore and never leaves the device in plaintext.
 - A React experience that works fully offline, including onboarding, unlock, goal CRUD, and encrypted backups.
-- A foundation we can extend with sync + sharing once the backend exists.
+- A foundation we can extend with sharing and richer collaboration on top of the current sync backend.
 
 ## 2. Scope and Phases
 
-| Area                                              | Status         | Notes                                                                                            |
-| ------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
-| Balanced Wheel Goal domain                        | ✅ Implemented | Aggregate + value objects enforced via fluent `Assert` DSL.                                      |
-| Goal command handling (create/update/archive)     | ✅ Implemented | Validated commands routed through `GoalApplicationService`.                                      |
-| Per-goal encryption & key storage                 | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK.                         |
-| LiveStore persistence                             | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite.                                   |
-| React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine.                                                    |
-| Tests (Vitest + Playwright)                       | ✅ Implemented | Unit suites run via `yarn test`; Playwright e2e runs via `yarn e2e` (stack required).            |
-| Backend APIs (NestJS + Postgres)                  | 🔜 Planned     | `apps/api` is a placeholder; server and sync endpoints are the next phase after the offline POC. |
-| Sync + multi-device replication                   | 🔜 Planned     | No push/pull transport yet. Backups currently move keys only, not event logs.                    |
-| Sharing / invites / wrapped key distribution      | 🔜 Planned     | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet.       |
-| Docker Compose dev stack                          | ✅ Implemented | Local dev stack for Postgres + Kratos + API + Web (used by Playwright e2e).                      |
+| Area                                              | Status         | Notes                                                                                                                               |
+| ------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Balanced Wheel Goal domain                        | ✅ Implemented | Aggregate + value objects enforced via fluent `Assert` DSL.                                                                         |
+| Goal command handling (create/update/archive)     | ✅ Implemented | Validated commands routed through `GoalApplicationService`.                                                                         |
+| Per-goal encryption & key storage                 | ✅ Implemented | `IndexedDBKeyStore` stores identity + aggregate keys encrypted with KEK.                                                            |
+| LiveStore persistence                             | ✅ Implemented | Browser adapter writes encrypted events to OPFS-backed SQLite.                                                                      |
+| React UI (onboarding, unlock, dashboard, backups) | ✅ Implemented | `AppProvider` wires services + state machine.                                                                                       |
+| Tests (Vitest + Playwright)                       | ✅ Implemented | Unit suites run via `yarn test`; Playwright e2e runs via `yarn e2e` (stack required).                                               |
+| Backend APIs (NestJS + Postgres)                  | ✅ Implemented | `apps/api` server, access and sync endpoints.                                                                                       |
+| Sync + multi-device replication                   | ✅ Implemented | LiveStore-driven push/pull via `CloudSyncBackend` → `/sync/push` + `/sync/pull`, with server-ahead conflict detection and rebasing. |
+| Sharing / invites / wrapped key distribution      | 🔜 Planned     | Domain events and crypto helpers exist; flows are not exposed in UI or infrastructure yet.                                          |
+| Docker Compose dev stack                          | ✅ Implemented | Local dev stack for Postgres + Kratos + API + Web (used by Playwright e2e).                                                         |
 
 ### 2.1 In-scope (POC)
 
@@ -61,7 +63,7 @@ Build a local-first proof of concept that demonstrates:
 mo-local/
 ├── apps/
 │   ├── web/                # React + Vite client (composition root + UI)
-│   └── api/                # Placeholder for future backend
+│   └── api/                # NestJS API (auth + sync backend)
 ├── packages/
 │   ├── domain/             # Goals, Projects, Identity aggregates + value objects
 │   ├── application/        # CQRS types, handlers, ports
@@ -88,14 +90,44 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 - **Infrastructure** implements those ports, translates domain events to encrypted LiveStore payloads, runs projection processors and read models per BC, and exposes browser-friendly wiring functions (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`) instead of owning a global composition root.
 - **Presentation** is split between `packages/presentation` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
 
+### 3.3 Identity, store, and sync identifiers
+
+The system deliberately separates the **local-first root of trust** from server and client/session identifiers:
+
+```text
+userId (= storeId)              ← LOCAL-FIRST ROOT OF TRUST
+    │                             Cryptographic identity, owns keys
+    │                             Exists before any server
+    │
+    ├── identityId               ← Server concern (Kratos)
+    │                             Only for sync/sharing auth
+    │                             Maps TO userId, not the other way
+    │
+    ├── clientId "y7ucs"         ← Device: Laptop
+    │       ├── sessionId           Tab 1
+    │       └── sessionId           Tab 2
+    │
+    └── clientId "bGyre"         ← Device: Phone
+            └── sessionId           Tab
+```
+
+- `userId` is generated on onboarding in the browser and anchors everything else: it owns the key material and, by design, is also the `storeId` used for LiveStore + sync. It exists independently of any backend and remains stable across devices when restored from backup.
+- `identityId` is a Kratos identity that authenticates sync/sharing requests on the server. It maps to a `userId` (and therefore to a `storeId`) but is not itself the local source of truth.
+- `clientId` is a LiveStore concept that identifies a device/browser profile acting on behalf of a given `userId`. It is stable for that profile and is useful for diagnostics and per-device analysis.
+- `sessionId` is scoped to a single LiveStore `Store` instance (tab/session) and gives fine-grained auditability for which tab produced which events.
+
+Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync; server-side identities and LiveStore client/session identifiers are subordinate and can be rotated or reissued without changing the underlying goal/project history.
+
 ## 4. Domain Layer
 
 - **Aggregate**: `Goal` (`packages/domain/src/goals/Goal.ts`). Emits:
   - `GoalCreated`
-  - `GoalSummaryChanged`
-  - `GoalSliceChanged`
-  - `GoalTargetChanged`
-  - `GoalPriorityChanged`
+  - `GoalRefined`
+  - `GoalRecategorized`
+  - `GoalRescheduled`
+  - `GoalPrioritized`
+  - `GoalAchieved`
+  - `GoalUnachieved`
   - `GoalArchived`
   - `GoalAccessGranted`
   - `GoalAccessRevoked`
@@ -114,12 +146,12 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
   - `BaseCommand`, `BaseCommandHandler`, `IBus`, `CommandResult`, `Repository<TAggregate, TId>`, and `ReadModel<TDto, TFilter, TSearchFilter>`.
   - Cross-cutting ports: `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
 - **Goal BC** (`packages/application/src/goals`):
-  - Commands (`.../goals/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`.
-  - `GoalCommandHandler` (extends `BaseCommandHandler`) orchestrates loading, domain mutations, persistence, key lookups, and event publication through `IEventBus` + `IEventStore`.
+  - Commands (`.../goals/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `AchieveGoal`, `UnachieveGoal`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`.
+  - `GoalCommandHandler` (extends `BaseCommandHandler`) orchestrates loading, domain mutations, persistence, and key lookups; publication is treated as a post-commit concern driven from LiveStore (see commit boundary rules below).
   - `GoalQueryHandler` depends only on the `IGoalReadModel` port, which is implemented in infrastructure.
 - **Project BC** (`packages/application/src/projects`):
   - Commands (`.../projects/commands`): `CreateProject`, `ChangeProjectStatus`, `ChangeProjectDates`, `ChangeProjectName`, `ChangeProjectDescription`, `AddProjectGoal`, `RemoveProjectGoal`, `AddProjectMilestone`, `ChangeProjectMilestoneTargetDate`, `ChangeProjectMilestoneName`, `ArchiveProjectMilestone`, `ArchiveProject`.
-  - `ProjectCommandHandler` mirrors the goals pattern (extends `BaseCommandHandler`, uses `IProjectRepository`, `IKeyStore`, `ICryptoService`, `IEventBus`).
+  - `ProjectCommandHandler` mirrors the goals pattern (extends `BaseCommandHandler`, uses `IProjectRepository`, `IKeyStore`, `ICryptoService`; publication is post-commit).
   - `ProjectQueryHandler` depends on `IProjectReadModel`.
 - **Identity** (`packages/application/src/identity`):
   - Commands: `RegisterUserCommand`, `ImportUserKeysCommand`.
@@ -131,9 +163,10 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 
 - **LiveStore schema**: `packages/infrastructure/src/goals/schema.ts` defines the SQLite schema shared by the Goals and Projects BCs: event tables (`goal_events`, `project_events`), snapshot tables (`goal_snapshots`, `project_snapshots`), projection meta tables (`goal_projection_meta`, `project_projection_meta`), analytics (`goal_analytics`), and search indices (`goal_search_index`, `project_search_index`). LiveStore's internal `__livestore_session_changeset` table remains the canonical append-only log.
 - **Event codecs & adapters**:
-  - `GoalEventCodec` / `ProjectEventCodec` convert domain events to versioned wire payloads and back.
-  - `DomainToLiveStoreAdapter` uses those codecs plus `ICryptoService` to encrypt payloads into `EncryptedEvent` envelopes.
-  - `LiveStoreToDomainAdapter` decrypts `EncryptedEvent` rows, delegates payload validation/upcasting to the codecs, and returns domain events.
+  - Domain events are encrypted at rest; LiveStore stores only ciphertext (`payload_encrypted`) in the per-BC tables.
+  - `DomainToLiveStoreAdapter` encrypts payload envelopes and writes them to the event store.
+  - `LiveStoreToDomainAdapter` decrypts payload envelopes and hydrates domain events.
+  - Serialization/versioning/upcasting rules are standardized into a single `packages/infrastructure/src/eventing/` runtime + registry (replacing per-BC codecs).
 - **Event stores**:
   - `BrowserLiveStoreEventStore` is a LiveStore-backed implementation of `IEventStore` with optimistic concurrency checks and retry logic; it is instantiated twice in browser wiring: once for `goal_events` / `goal_snapshots` and once for `project_events` / `project_snapshots`.
 - **Crypto**:
@@ -144,6 +177,10 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 - **Projections & read models**:
   - `GoalProjectionProcessor` / `ProjectProjectionProcessor` consume encrypted events from the BC event stores, maintain encrypted snapshots + analytics/search tables in LiveStore, and expose in-memory projections.
   - `GoalReadModel` / `ProjectReadModel` wrap those processors and implement the `IGoalReadModel` / `IProjectReadModel` ports consumed by the application query handlers.
+- **Sync (browser + API)**:
+  - LiveStore’s `ClientSessionSyncProcessor` orchestrates push/pull against a `SyncBackend` implementation.
+  - `CloudSyncBackend` implements that contract in the browser and calls the NestJS sync API (`POST /sync/push`, `GET /sync/pull`), mapping HTTP 409 responses into LiveStore’s `InvalidPushError` so the client can rebase when the server is ahead.
+  - On the server, `SyncController` delegates to `SyncService`, which persists events and store ownership via `KyselySyncEventRepository` / `KyselySyncStoreRepository` into the `sync.events` and `sync.stores` tables.
 - **BC wiring**:
   - `packages/infrastructure/src/browser/wiring/store.ts` configures the LiveStore `Store` and per-BC event stores from a browser adapter.
   - `bootstrapGoalBoundedContext` / `bootstrapProjectBoundedContext` (under `packages/infrastructure/src/goals` and `.../projects`) compose repositories, projection processors, read models, and command/query buses for each BC.
@@ -162,18 +199,80 @@ At runtime, the web app integrates LiveStore as follows:
 4. `AppProvider` exposes these buses and projection ports to the presentation layer via `InterfaceProvider` from `@mo/presentation/react`, and uses the underlying `Store` only for diagnostics/debug UI in DEV.
 5. LiveStore uses OPFS under the hood; all event, snapshot, analytics, and search tables live in the same per-origin SQLite database.
 
-### 6.2 Event versioning & migrations
+### 6.2 Event serialization, versioning & migrations (contract)
 
-- Domain events are deliberately version-agnostic: they expose a single canonical payload shape per event type and do not carry payload-level versions.
-- Versioning is handled exclusively in infrastructure through per-BC codecs:
-  - `GoalEventCodec` and `ProjectEventCodec` define the latest payload version per event and the upcast steps from older versions.
-  - `DomainToLiveStoreAdapter` wraps serialized payloads in `{ payloadVersion, data }` envelopes before encryption.
-  - `LiveStoreToDomainAdapter` unwraps envelopes, applies any configured upcasters (e.g. v1 → v2), and only then hydrates domain events.
-- Legacy events without a `payloadVersion` wrapper are treated as `payloadVersion = 1` with the raw JSON payload passed directly to the codec; tests cover this compatibility path.
-- When a breaking change is required:
-  - Introduce a new payload schema and bump the latest version for the affected event type in the codec.
-  - Add explicit upcast functions from each older version to the new shape.
-  - Do not change domain event constructors or `toJSON`/`fromJSON`; migrations live entirely at the persistence boundary.
+**Goals**
+
+- One unified, type-safe event serialization path for both Goals and Projects.
+- Domain stays version-agnostic (no upcasters in domain).
+- Infrastructure owns payload versions and migrations.
+
+**Rules**
+
+1. **Domain events**
+   - immutable facts, VO-based members, stable `eventType` discriminator.
+   - no `toJSON`/`fromJSON` methods on events.
+2. **Latest mapping spec (domain)**
+   - each event co-locates a “latest-only” mapping spec (`PayloadEventSpec`) defining how to encode/decode its VO fields.
+   - specs are pure and contain no versioning/upcasting logic.
+3. **Versions + upcasting (infrastructure)**
+   - infra defines `latestVersionOf(eventType)` and migration plans per event type.
+   - decode path is: decrypt → decode envelope → upcast payload → hydrate domain event.
+4. **Payload envelope (inside ciphertext)**
+   - the encrypted plaintext is JSON of the form `{ payloadVersion, data }`.
+   - envelope is JSON-only (no `undefined`) and uses a stable property order when constructed.
+5. **Registry**
+   - infra builds a registry of event specs from an explicit `allSpecs` export (manual in POC, codegen later).
+   - no Vite-only `import.meta.glob` in packages (keeps `tsc`/Vitest/Node compatible).
+
+This contract is implemented by (target) `packages/infrastructure/src/eventing/` and replaces per-BC codecs over time.
+
+**Contract versioning (POC-friendly)**
+Because the POC does not require backward compatibility, we treat the event contract as versioned:
+
+- LiveStore synced event name is versioned (`event.vN`). The current contract uses a single synced event name **`event.v1`** for both Goals and Projects (`packages/infrastructure/src/goals/schema.ts`), reducing metadata leakage compared to per-BC event names.
+- When we make a breaking change (event set, `eventType` strings, or payload shapes), we bump `vN` (and/or bump `storeId`) so we never mix histories across contracts, and we reset any existing local/server data for the old contract.
+
+### 6.3 Sync byte-preservation contract (server)
+
+LiveStore sync compares encoded events strictly. The server must not change the byte-level representation of event args for already-synced sequence numbers.
+
+**Rule**
+
+- Persist `sync.events.args` as **TEXT containing JSON** (not `jsonb`) and treat it as order-sensitive/opaque.
+- “Byte-preservation” here is defined as: `serializeArgs(args) === JSON.stringify(args)` at push time, and the same string is derivable after pull (`JSON.stringify(pulled.args) === storedText`), not that we store raw HTTP request bytes.
+
+**Implementation grounding**
+
+- Migration: `apps/api/src/sync/infrastructure/migrations/sync/0003_sync_args_text.ts`
+- Repository persists `serializeArgs(args)` (currently `JSON.stringify(args)`) and rehydrates via `parseArgs` to avoid key-order changes.
+
+**Tests**
+
+- Ensure `args` round-trips with identical bytes (`storedText === JSON.stringify(incomingArgs)`).
+
+### 6.4 Conflict model (local OCC vs sync LWW)
+
+We have two distinct “conflict” layers:
+
+1. **Local optimistic concurrency control (OCC)** (implemented):
+   - commands carry `knownVersion` (aggregate version the UI believes it edited).
+   - handlers reject with `ConcurrencyError` if the aggregate version changed (prevents silent overwrites on the same device / between tabs).
+2. **Cross-device sync resolution** (LiveStore default):
+   - server assigns global sequence numbers (total ordering).
+   - server-ahead is detected on push (HTTP 409 with `minimumExpectedSeqNum`/`providedSeqNum`), and the client rebases by pulling missing events then replaying local commits.
+   - convergence behaves like last-write-wins by global ordering: if two devices emit conflicting domain events, whichever is later in the global order is what projections reflect.
+
+User-facing implication: OCC conflicts are surfaced immediately at command time; sync “conflicts” resolve by ordering/rebase and may overwrite an older offline edit.
+
+### 6.5 Commit boundary (durability + publication)
+
+LiveStore `commit()` is the durable boundary on-device. Anything else (event bus publication, projections) must be derivable from committed data and be replayable after reloads/crashes.
+
+Implemented rule:
+
+- Do not publish “pending events” from command handlers as an external side effect of persistence.
+- Publish from a post-commit stream (materialized event tables ordered by `sequence`) with dedupe via persisted cursor (`CommittedEventPublisher`).
 
 ## 7. Interface Layer (apps/web)
 
@@ -204,8 +303,9 @@ At runtime, the web app integrates LiveStore as follows:
 3. **Goal & Project CRUD**
    - Interface hooks dispatch typed commands onto the per-BC command buses → `GoalCommandHandler` / `ProjectCommandHandler` parse VOs and mutate aggregates → encrypted events are appended to the BC event stores → projection processors update snapshots/analytics/search and refresh the in-memory read models consumed by queries.
 4. **Backup / Restore**
-   - Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy (salt is persisted for unlock on fresh devices).
-   - Restore: upload blob, derive KEK using provided salt (or migrate legacy backups to a fresh random salt), decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. This is a **key backup only**; event logs and goal data stay on the device until sync/log export exists.
+
+- Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy (salt is persisted for unlock on fresh devices).
+- Restore: upload blob, derive KEK using provided salt (or migrate legacy backups to a fresh random salt), decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. This is a **key backup only**; event logs and goal data are not part of the backup payload and instead flow via LiveStore + the sync backend when enabled.
 
 ## 8. Developer Workflow
 
@@ -241,18 +341,18 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 
 ## 9. Current Limitations & Follow-ups
 
-1. **Backups do not include event logs**: Export/restore flows only move identity + aggregate keys (`apps/web/src/components/goals/BackupModal.tsx`). Without separate OPFS export or sync server, "multi-device support" is limited to reusing the same identity on the same browser profile.
+1. **Backups do not include event logs**: Export/restore flows only move identity + aggregate keys (`apps/web/src/components/goals/BackupModal.tsx`). Event logs live in LiveStore (`__livestore_session_changeset` + BC tables) and, when sync is enabled, in the `sync.events` table; the backup format does not include either, so restoring a backup does not by itself replay past goal/project history.
 2. **Legacy backups without salt**: Old `.backup` files lacking a `salt` still need existing metadata to derive the legacy deterministic salt; first unlock/restore now rewraps keys with a random per-user salt and saves it to metadata/backups.
-3. **Backend + sync + sharing**: No HTTP APIs, invites, or wrapped key distribution exist yet. `AggregateKeyManager`, `SharingCrypto`, and `ISyncProvider` ports are unused.
-4. **Projection runtime still runs on the main thread**: `GoalProjectionProcessor` / `ProjectProjectionProcessor` are main-thread consumers triggered by LiveStore subscriptions. Worker-based execution and cross-tab coordination are future work.
-5. **Docker documentation is aspirational**: A Docker Compose stack for full-stack + E2E is still planned but not present in the repo.
+3. **Sharing + wrapped key distribution**: Sync APIs (`/sync/push`, `/sync/pull`) and server-side persistence (`sync.events`, `sync.stores`) are implemented and exercised by integration + Playwright tests, but cross-user sharing and wrapped key distribution are not. `AggregateKeyManager`, `SharingCrypto`, and the application-level `ISyncProvider` port are defined for future flows but not yet wired into the UI or backend.
+4. **Store identity vs. user identity**: `storeId` is now derived from `userId` (local-first root of trust) on onboarding/unlock/restore, so the same user syncs to the same logical store across devices. Existing per-device stores created before this change are not auto-migrated; restoring a key backup on a fresh device will bind sync to the `userId`-based `storeId`.
+5. **Projection runtime still runs on the main thread**: `GoalProjectionProcessor` / `ProjectProjectionProcessor` are main-thread consumers triggered by LiveStore subscriptions. Worker-based execution and cross-tab coordination are future work.
+6. **Docker stack docs need consolidation**: the Docker Compose dev stack exists (`docker-compose.yml`, `yarn dev:stack`), but documentation still lives across README/scripts and should be consolidated as the stack grows.
+7. **ZK is payload-only (metadata leakage)**: while domain payloads are encrypted, LiveStore sync necessarily transmits event name and args in plaintext; today that includes `aggregateId`, `eventType`, `version`, and `occurredAt` (see `packages/infrastructure/src/goals/schema.ts`). We already reduce one leakage vector by using a single synced event name (`event.v1`), but args-based leakage remains; accepted for the POC and tracked as future hardening.
 
 ## 10. Next Steps
 
-- Wire the backend (NestJS + Postgres) and implement the sync provider described in earlier revisions.
-- Extend backups to include encrypted event snapshots or ship sync before advertising multi-device support.
+- Sharing between user devices & with other users.
 - Implement a worker‑based projection runtime per BC (mirroring the current processors) to keep the UI responsive under heavier loads and to support cross-tab processing.
-- Add a Docker Compose/dev stack once the backend and sync flows are in place.
 
 ## 11. BC Projection Runtime (diagram + key facts)
 
@@ -261,89 +361,166 @@ Goals and Projects BCs now share the same event-sourced pipeline with encrypted 
 ```mermaid
 flowchart TB
 
-subgraph App["App UI<br>(Web / React)"]
-  UI["Screens & Components"]
-end
-
-subgraph Interface["Interface Layer<br>(Adapters & Context)"]
-  IF_CommandAPI["Command API"]
-  IF_QueryAPI["Query API<br>+ subscriptions"]
-end
-
-subgraph Application["Application Layer (BC)<br>CQRS + Ports"]
-  CmdBus["Command Bus"]
-  QryBus["Query Bus"]
-  CmdHandler["Command Handler(s)"]
-  QryHandler["Query Handler(s)"]
-  RepoPort["Repository Port"]
-  ReadModelPort["Read Model Port"]
-  EventBus["Event Bus"]
-end
-
-subgraph Domain["Domain Layer (BC)<br>Aggregates + Events"]
-  Aggregate["Aggregate Root<br>+ Value Objects"]
-  DomainEvents["Domain Events"]
-end
-
-subgraph Infra["Infrastructure Layer (BC)"]
-  subgraph Eventing["Event Store & Crypto"]
-    EventStoreAdapter["Domain Event Adapter<br>(Codec + Crypto)"]
-    LiveStoreEventStore["BC Event Store<br>(EventStore API)"]
-    CryptoService["Crypto Service"]
-    KeyStore["Key Store"]
+  subgraph App["App UI<br>(Web / React)"]
+    UI["Screens & Components"]
   end
 
-  subgraph Projections["Projections & Read Model"]
-    ProjectionProcessor["Projection Processor"]
-    ReadModelImpl["Read Model Implementation<br>(In-memory Projection)"]
+  subgraph Interface["Interface Layer<br>(Adapters & Context)"]
+    IF_CommandAPI["GoalCommand API (hooks)"]
+    IF_QueryAPI["GoalQuery API (hooks + subscriptions)"]
   end
 
-  subgraph LiveStoreStore["LiveStore Store<br>(SQLite + OPFS)"]
-    LSChangeset[(__livestore_session_changeset)]
-    LSEvents[(bc_events)]
-    LSSnapshots[(bc_snapshots)]
-    LSProjectionMeta[(bc_projection_meta)]
-    LSAnalytics[(bc_analytics)]
-    LSSearch[(bc_search_index)]
+  subgraph Application["Application Layer (Goals BC)<br>CQRS + Ports"]
+    CmdBus["Command Bus (IBus&lt;GoalCommand&gt;)"]
+    QryBus["Query Bus (IBus&lt;GoalQuery&gt;)"]
+    CmdHandler["GoalCommandHandler"]
+    QryHandler["GoalQueryHandler"]
+    Saga["GoalAchievementSaga<br>(cross-BC)"]
+    RepoPort["IGoalRepository (port)"]
+    ReadModelPort["IGoalReadModel (port)"]
+    EventBus["IEventBus (port)"]
   end
 
-  Subscribers["EventBus Subscribers<br>(Sync, Analytics, Other BCs)"]
-end
+  subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]
+    GoalAgg["Goal<br>(Aggregate Root)"]
+    GoalEvents["Domain Events:<br>GoalEventType (eventType strings)"]
+  end
 
-UI --> IF_CommandAPI
-UI --> IF_QueryAPI
+  subgraph Infra["Infrastructure Layer (Goals BC)"]
 
-IF_CommandAPI --> CmdBus
-IF_QueryAPI --> QryBus
+    subgraph Eventing["Event Store & Crypto (browser, custom)"]
+      EventStoreAdapter["DomainToLiveStoreAdapter"]
+      ToDomainAdapter["LiveStoreToDomainAdapter"]
+      CommittedPublisher["CommittedEventPublisher"]
+      LiveStoreEventStore["BrowserLiveStoreEventStore"]
+      CryptoService["WebCryptoService"]
+      KeyStore["IndexedDBKeyStore"]
+      InMemoryEventBus["InMemoryEventBus"]
+      SimpleBusImpl["SimpleBus&lt;GoalCommand&gt; / SimpleBus&lt;GoalQuery&gt;"]
+      GoalRepoImpl["GoalRepository"]
+    end
 
-CmdBus --> CmdHandler
-QryBus --> QryHandler
+    subgraph Projections["Projections & Read Model (browser, custom)"]
+      ProjectionProcessor["GoalProjectionProcessor"]
+      ReadModelImpl["GoalReadModel"]
+    end
 
-CmdHandler --> RepoPort
-RepoPort --> Aggregate
+    subgraph LiveStoreStore["LiveStore Store<br>(SQLite + OPFS, browser DB)"]
+      LSChangeset[(__livestore_session_changeset)]
+      LSEvents[(goal_events)]
+      LSSnapshots[(goal_snapshots)]
+      LSGoalAchState[(goal_achievement_state)]
+      LSGoalAchProjects[(goal_achievement_projects)]
+      LSProjectionMeta[(goal_projection_meta)]
+      LSAnalytics[(goal_analytics)]
+      LSSearch[(goal_search_index)]
+      LSSyncProc["ClientSessionSyncProcessor"]
+    end
 
-QryHandler --> ReadModelPort
-ReadModelPort --> ReadModelImpl
+    subgraph SyncClient["Sync (browser, HTTP client)"]
+      CloudSyncBackend["CloudSyncBackend"]
+    end
 
-Aggregate --> DomainEvents
-DomainEvents --> EventBus
+    Subscribers["Other EventBus Subscribers<br>(sagas, analytics, other BCs)"]
+  end
 
-EventBus --> EventStoreAdapter
-EventBus --> ProjectionProcessor
-EventBus --> Subscribers
+  subgraph SyncServer["Sync Backend (NestJS + Postgres)"]
+    subgraph SyncPresentation["Presentation<br>/sync API"]
+      SyncController["SyncController<br>POST /sync/push, GET /sync/pull"]
+    end
 
-EventStoreAdapter --> LiveStoreEventStore
-EventStoreAdapter --> CryptoService
-EventStoreAdapter --> KeyStore
+    subgraph SyncApplication["Application Layer (Sync)"]
+      SyncService["SyncService"]
+    end
 
-LiveStoreEventStore --> LSEvents
-LiveStoreEventStore --> LSSnapshots
+    subgraph SyncInfra["Persistence<br>sync schema (Postgres)"]
+      SyncEventRepo["KyselySyncEventRepository"]
+      SyncStoreRepo["KyselySyncStoreRepository"]
+      SyncEvents[(sync.events)]
+      SyncStores[(sync.stores)]
+    end
+  end
 
-ProjectionProcessor --> LSChangeset
-ProjectionProcessor --> LSProjectionMeta
-ProjectionProcessor --> LSAnalytics
-ProjectionProcessor --> LSSearch
-ProjectionProcessor --> ReadModelImpl
+  %% App ↔ Interface ↔ Application
+  UI --> IF_CommandAPI
+  UI --> IF_QueryAPI
+
+  IF_CommandAPI --> CmdBus
+  IF_QueryAPI --> QryBus
+
+  CmdBus --> CmdHandler
+  QryBus --> QryHandler
+
+  %% Command handler → domain + ports
+  CmdHandler --> GoalAgg
+  CmdHandler --> RepoPort
+
+  %% Query handler → read model port
+  QryHandler --> ReadModelPort
+
+  %% Saga subscribes post-commit and dispatches commands
+  EventBus --> Saga
+  Saga -- "dispatch AchieveGoal" --> CmdBus
+  Saga -- "persist saga state" --> LSGoalAchState
+  Saga -- "persist saga state" --> LSGoalAchProjects
+
+  %% Domain events
+  GoalAgg --> GoalEvents
+
+  %% EventBus fan-out into subscribers (post-commit publication)
+  EventBus --> Subscribers
+
+  %% Event store & crypto wiring
+  GoalRepoImpl --> EventStoreAdapter
+  EventStoreAdapter --> LiveStoreEventStore
+  EventStoreAdapter --> CryptoService
+  EventStoreAdapter --> KeyStore
+
+  LiveStoreEventStore --> LSEvents
+  LiveStoreEventStore --> LSSnapshots
+
+  %% Projections → browser DB + in-memory read model
+  ProjectionProcessor --> LiveStoreEventStore
+  ProjectionProcessor --> ToDomainAdapter
+  ProjectionProcessor --> KeyStore
+  ProjectionProcessor --> LSProjectionMeta
+  ProjectionProcessor --> LSAnalytics
+  ProjectionProcessor --> LSSearch
+  ProjectionProcessor --> ReadModelImpl
+
+  %% Post-commit publication → EventBus
+  CommittedPublisher --> LiveStoreEventStore
+  CommittedPublisher --> ToDomainAdapter
+  CommittedPublisher --> KeyStore
+  CommittedPublisher --> EventBus
+
+  %% Ports implemented in Infra (dashed)
+  RepoPort -. "implemented by" .-> GoalRepoImpl
+  ReadModelPort -. "implemented by" .-> ReadModelImpl
+  EventBus -. "implemented by" .-> InMemoryEventBus
+  CmdBus -. "implemented by" .-> SimpleBusImpl
+  QryBus -. "implemented by" .-> SimpleBusImpl
+
+  %% LiveStore sync loop over browser DB shapes
+  LSChangeset <--> LSSyncProc
+
+  %% Sync loop – client side (LiveStore → CloudSyncBackend)
+  LSSyncProc -- "SyncBackend.push / pull" --> CloudSyncBackend
+
+  %% Sync loop – HTTP transport (client → server)
+  CloudSyncBackend -- "PUSH (POST /sync/push)" --> SyncController
+  CloudSyncBackend -- "PULL (GET /sync/pull)" --> SyncController
+
+  SyncController --> SyncService
+  SyncService --> SyncEventRepo --> SyncEvents
+  SyncService --> SyncStoreRepo --> SyncStores
+
+  %% ========= STYLING =========
+  classDef ls fill:#E0F4FF,stroke:#007ACC,stroke-width:1px,color:#000;
+  class LSChangeset,LSEvents,LSSnapshots,LSProjectionMeta,LSAnalytics,LSSearch,LSSyncProc ls;
+
+  classDef port fill:#FFFFFF,stroke:#555555,stroke-width:1px,stroke-dasharray:4 3;
+  class CmdBus,QryBus,EventBus,RepoPort,ReadModelPort port;
 ```
 
 Key facts:
@@ -351,7 +528,7 @@ Key facts:
 - LiveStore’s canonical append-only log is `__livestore_session_changeset`; per-BC event stores (`bc_events`) are materialized tables (`goal_events`, `project_events`, …) driven by LiveStore materializers.
 - Snapshots (`bc_snapshots`) and analytics (`bc_analytics`) are encrypted and local-only; they keep catch-up fast and let the BC event tables be pruned based on `bc_projection_meta.last_sequence`.
 - The read path is in-memory (projection + search index) seeded from snapshots + tail events, with a “ready” signal exposed via the projection ports used by the interface layer.
-- EventBus subscribers are the hook for future sync, cross-BC reactions, and analytics without coupling the domain to infrastructure details.
+- EventBus subscribers are the hook for cross-BC reactions and analytics without coupling the domain to infrastructure details; sync itself is handled by LiveStore’s `ClientSessionSyncProcessor` + `CloudSyncBackend`.
 - In the current POC, this pattern is instantiated for both Goals and Projects; additional BCs can reuse the same structure with their own codecs and tables.
 - Projection processors are idempotent: they only advance `last_sequence` after successful processing and can safely be restarted or forced to rebuild from snapshots plus tail events.
 - If a per-aggregate key is missing during catch-up (`MissingKeyError`), the processor logs a warning and stops; once the key is available (e.g., after key import), the next run will resume from the same `last_sequence`.

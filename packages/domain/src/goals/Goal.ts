@@ -9,14 +9,17 @@ import { Summary } from './vos/Summary';
 import { AccessEntry } from './vos/AccessEntry';
 import { UserId } from '../identity/UserId';
 import { GoalCreated } from './events/GoalCreated';
-import { GoalSummaryChanged } from './events/GoalSummaryChanged';
-import { GoalSliceChanged } from './events/GoalSliceChanged';
-import { GoalTargetChanged } from './events/GoalTargetChanged';
-import { GoalPriorityChanged } from './events/GoalPriorityChanged';
+import { GoalRefined } from './events/GoalRefined';
+import { GoalRecategorized } from './events/GoalRecategorized';
+import { GoalRescheduled } from './events/GoalRescheduled';
+import { GoalPrioritized } from './events/GoalPrioritized';
+import { GoalAchieved } from './events/GoalAchieved';
+import { GoalUnachieved } from './events/GoalUnachieved';
 import { GoalArchived } from './events/GoalArchived';
 import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
+import { EventId } from '../shared/vos/EventId';
 import { Permission } from './vos/Permission';
 
 export type GoalSnapshot = {
@@ -27,6 +30,7 @@ export type GoalSnapshot = {
   targetMonth: Month;
   createdBy: UserId;
   createdAt: Timestamp;
+  achievedAt: Timestamp | null;
   archivedAt: Timestamp | null;
   version: number;
 };
@@ -53,8 +57,17 @@ export type GoalSnapshot = {
  *   createdBy: UserId.from('user-123'),
  * });
  *
- * goal.changeSummary(Summary.from('Run a sub-4 hour marathon'));
- * goal.grantAccess(UserId.from('user-456'), Permission.from('edit'));
+ * goal.changeSummary({
+ *   summary: Summary.from('Run a sub-4 hour marathon'),
+ *   changedAt: Timestamp.fromMillis(Date.now()),
+ *   actorId: UserId.from('user-123'),
+ * });
+ * goal.grantAccess({
+ *   userId: UserId.from('user-456'),
+ *   permission: Permission.from('edit'),
+ *   grantedAt: Timestamp.fromMillis(Date.now()),
+ *   actorId: UserId.from('user-123'),
+ * });
  * ```
  */
 export class Goal extends AggregateRoot<GoalId> {
@@ -64,6 +77,7 @@ export class Goal extends AggregateRoot<GoalId> {
   private _priority: Priority | undefined;
   private _createdBy: UserId | undefined;
   private _createdAt: Timestamp | undefined;
+  private _achievedAt: Timestamp | null = null;
   private _archivedAt: Timestamp | null = null;
   private _accessList: AccessEntry[] = [];
 
@@ -108,18 +122,22 @@ export class Goal extends AggregateRoot<GoalId> {
     targetMonth: Month;
     priority: Priority;
     createdBy: UserId;
+    createdAt: Timestamp;
   }): Goal {
     const goal = new Goal(params.id);
     goal.apply(
-      new GoalCreated({
-        goalId: params.id,
-        slice: params.slice,
-        summary: params.summary,
-        targetMonth: params.targetMonth,
-        priority: params.priority,
-        createdBy: params.createdBy,
-        createdAt: Timestamp.now(),
-      })
+      new GoalCreated(
+        {
+          goalId: params.id,
+          slice: params.slice,
+          summary: params.summary,
+          targetMonth: params.targetMonth,
+          priority: params.priority,
+          createdBy: params.createdBy,
+          createdAt: params.createdAt,
+        },
+        { eventId: EventId.create(), actorId: params.createdBy }
+      )
     );
     return goal;
   }
@@ -160,6 +178,14 @@ export class Goal extends AggregateRoot<GoalId> {
     return this._archivedAt;
   }
 
+  get achievedAt(): Timestamp | null {
+    return this._achievedAt;
+  }
+
+  get isAchieved(): boolean {
+    return this._achievedAt !== null;
+  }
+
   get isArchived(): boolean {
     return this._archivedAt !== null;
   }
@@ -175,16 +201,26 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or summary is unchanged
    */
-  changeSummary(newSummary: Summary): void {
+  changeSummary(params: {
+    summary: Summary;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    Assert.that(newSummary.equals(this.summary), 'Summary unchanged').isFalse();
+    Assert.that(
+      params.summary.equals(this.summary),
+      'Summary unchanged'
+    ).isFalse();
 
     this.apply(
-      new GoalSummaryChanged({
-        goalId: this.id,
-        summary: newSummary,
-        changedAt: Timestamp.now(),
-      })
+      new GoalRefined(
+        {
+          goalId: this.id,
+          summary: params.summary,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -193,16 +229,23 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or slice is unchanged
    */
-  changeSlice(newSlice: Slice): void {
+  changeSlice(params: {
+    slice: Slice;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    Assert.that(newSlice.equals(this.slice), 'Slice unchanged').isFalse();
+    Assert.that(params.slice.equals(this.slice), 'Slice unchanged').isFalse();
 
     this.apply(
-      new GoalSliceChanged({
-        goalId: this.id,
-        slice: newSlice,
-        changedAt: Timestamp.now(),
-      })
+      new GoalRecategorized(
+        {
+          goalId: this.id,
+          slice: params.slice,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -211,19 +254,26 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or month is unchanged
    */
-  changeTargetMonth(newMonth: Month): void {
+  changeTargetMonth(params: {
+    targetMonth: Month;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      newMonth.equals(this.targetMonth),
+      params.targetMonth.equals(this.targetMonth),
       'Target month unchanged'
     ).isFalse();
 
     this.apply(
-      new GoalTargetChanged({
-        goalId: this.id,
-        targetMonth: newMonth,
-        changedAt: Timestamp.now(),
-      })
+      new GoalRescheduled(
+        {
+          goalId: this.id,
+          targetMonth: params.targetMonth,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -232,19 +282,64 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or priority is unchanged
    */
-  changePriority(newPriority: Priority): void {
+  changePriority(params: {
+    priority: Priority;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      newPriority.equals(this.priority),
+      params.priority.equals(this.priority),
       'Priority unchanged'
     ).isFalse();
 
     this.apply(
-      new GoalPriorityChanged({
-        goalId: this.id,
-        priority: newPriority,
-        changedAt: Timestamp.now(),
-      })
+      new GoalPrioritized(
+        {
+          goalId: this.id,
+          priority: params.priority,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
+    );
+  }
+
+  /**
+   * Mark the goal as achieved.
+   *
+   * @throws {Error} if goal is archived or already achieved
+   */
+  achieve(params: { achievedAt: Timestamp; actorId: UserId }): void {
+    this.assertNotArchived();
+    Assert.that(this.isAchieved, 'Goal already achieved').isFalse();
+    this.apply(
+      new GoalAchieved(
+        {
+          goalId: this.id,
+          achievedAt: params.achievedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
+    );
+  }
+
+  /**
+   * Mark the goal as not achieved.
+   *
+   * @throws {Error} if goal is archived or not achieved
+   */
+  unachieve(params: { unachievedAt: Timestamp; actorId: UserId }): void {
+    this.assertNotArchived();
+    Assert.that(this.isAchieved, 'Goal not achieved').isTrue();
+    this.apply(
+      new GoalUnachieved(
+        {
+          goalId: this.id,
+          unachievedAt: params.unachievedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -253,16 +348,19 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is already archived
    */
-  archive(): void {
+  archive(params: { archivedAt: Timestamp; actorId: UserId }): void {
     if (this.isArchived) {
       return;
     }
 
     this.apply(
-      new GoalArchived({
-        goalId: this.id,
-        archivedAt: Timestamp.now(),
-      })
+      new GoalArchived(
+        {
+          goalId: this.id,
+          archivedAt: params.archivedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -271,11 +369,16 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user already has access
    */
-  grantAccess(userId: UserId, permission: Permission): void {
+  grantAccess(params: {
+    userId: UserId;
+    permission: Permission;
+    grantedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
 
     const existing = this._accessList.find(
-      (entry) => entry.userId.equals(userId) && entry.isActive
+      (entry) => entry.userId.equals(params.userId) && entry.isActive
     );
     Assert.that(existing, 'User already has access').satisfies(
       (e) => e === undefined,
@@ -283,12 +386,15 @@ export class Goal extends AggregateRoot<GoalId> {
     );
 
     this.apply(
-      new GoalAccessGranted({
-        goalId: this.id,
-        grantedTo: userId,
-        permission,
-        grantedAt: Timestamp.now(),
-      })
+      new GoalAccessGranted(
+        {
+          goalId: this.id,
+          grantedTo: params.userId,
+          permission: params.permission,
+          grantedAt: params.grantedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -297,20 +403,27 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user doesn't have active access
    */
-  revokeAccess(userId: UserId): void {
+  revokeAccess(params: {
+    userId: UserId;
+    revokedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
 
     const existing = this._accessList.find(
-      (entry) => entry.userId.equals(userId) && entry.isActive
+      (entry) => entry.userId.equals(params.userId) && entry.isActive
     );
     Assert.that(existing, 'Access entry').isDefined();
 
     this.apply(
-      new GoalAccessRevoked({
-        goalId: this.id,
-        revokedFrom: userId,
-        revokedAt: Timestamp.now(),
-      })
+      new GoalAccessRevoked(
+        {
+          goalId: this.id,
+          revokedFrom: params.userId,
+          revokedAt: params.revokedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
@@ -321,6 +434,7 @@ export class Goal extends AggregateRoot<GoalId> {
     this._priority = snapshot.priority;
     this._createdBy = snapshot.createdBy;
     this._createdAt = snapshot.createdAt;
+    this._achievedAt = snapshot.achievedAt;
     this._archivedAt = snapshot.archivedAt;
     this._accessList = [];
     this.restoreVersion(snapshot.version);
@@ -329,49 +443,57 @@ export class Goal extends AggregateRoot<GoalId> {
   // === Event Handlers ===
 
   protected onGoalCreated(event: GoalCreated): void {
-    this._slice = event.payload.slice;
-    this._summary = event.payload.summary;
-    this._targetMonth = event.payload.targetMonth;
-    this._priority = event.payload.priority;
-    this._createdBy = event.payload.createdBy;
-    this._createdAt = event.payload.createdAt;
+    this._slice = event.slice;
+    this._summary = event.summary;
+    this._targetMonth = event.targetMonth;
+    this._priority = event.priority;
+    this._createdBy = event.createdBy;
+    this._createdAt = event.createdAt;
   }
 
-  protected onGoalSummaryChanged(event: GoalSummaryChanged): void {
-    this._summary = event.payload.summary;
+  protected onGoalRefined(event: GoalRefined): void {
+    this._summary = event.summary;
   }
 
-  protected onGoalSliceChanged(event: GoalSliceChanged): void {
-    this._slice = event.payload.slice;
+  protected onGoalRecategorized(event: GoalRecategorized): void {
+    this._slice = event.slice;
   }
 
-  protected onGoalTargetChanged(event: GoalTargetChanged): void {
-    this._targetMonth = event.payload.targetMonth;
+  protected onGoalRescheduled(event: GoalRescheduled): void {
+    this._targetMonth = event.targetMonth;
   }
 
-  protected onGoalPriorityChanged(event: GoalPriorityChanged): void {
-    this._priority = event.payload.priority;
+  protected onGoalPrioritized(event: GoalPrioritized): void {
+    this._priority = event.priority;
+  }
+
+  protected onGoalAchieved(event: GoalAchieved): void {
+    this._achievedAt = event.achievedAt;
+  }
+
+  protected onGoalUnachieved(_: GoalUnachieved): void {
+    this._achievedAt = null;
   }
 
   protected onGoalArchived(event: GoalArchived): void {
-    this._archivedAt = event.payload.archivedAt;
+    this._archivedAt = event.archivedAt;
   }
 
   protected onGoalAccessGranted(event: GoalAccessGranted): void {
     const entry = AccessEntry.create({
-      userId: event.payload.grantedTo,
-      permission: event.payload.permission,
-      grantedAt: event.payload.grantedAt,
+      userId: event.grantedTo,
+      permission: event.permission,
+      grantedAt: event.grantedAt,
     });
     this._accessList.push(entry);
   }
 
   protected onGoalAccessRevoked(event: GoalAccessRevoked): void {
     const entry = this._accessList.find(
-      (e) => e.userId.equals(event.payload.revokedFrom) && e.isActive
+      (e) => e.userId.equals(event.revokedFrom) && e.isActive
     );
     if (entry) {
-      entry.revoke(event.payload.revokedAt);
+      entry.revoke(event.revokedAt);
     }
   }
 

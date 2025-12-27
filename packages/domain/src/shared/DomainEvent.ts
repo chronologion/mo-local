@@ -1,4 +1,8 @@
-import type { AggregateId } from './vos/AggregateId';
+import { IEvent } from './IEvent';
+import { ActorId } from './vos/ActorId';
+import { AggregateId } from './vos/AggregateId';
+import { CorrelationId } from './vos/CorrelationId';
+import { EventId } from './vos/EventId';
 import type { Timestamp } from './vos/Timestamp';
 
 /**
@@ -11,13 +15,38 @@ import type { Timestamp } from './vos/Timestamp';
  * - `aggregateId` is an AggregateId (e.g. GoalId, ProjectId)
  * - `occurredAt` is a Timestamp value object
  */
-export interface DomainEvent<TId extends AggregateId = AggregateId> {
-  /** The type of event (e.g., 'GoalCreated', 'GoalSummaryChanged') */
-  readonly eventType: string;
+export abstract class DomainEvent<
+  TId extends AggregateId = AggregateId,
+> implements IEvent<TId> {
+  abstract readonly eventType: string;
 
-  /** The ID of the aggregate this event belongs to */
-  get aggregateId(): TId;
+  readonly aggregateId: TId;
+  readonly occurredAt: Timestamp;
+  readonly eventId: EventId;
+  readonly actorId: ActorId;
+  readonly causationId?: EventId;
+  readonly correlationId?: CorrelationId;
 
-  /** When this event occurred (domain-level timestamp value object) */
-  get occurredAt(): Timestamp;
+  constructor(params: {
+    aggregateId: TId;
+    occurredAt: Timestamp;
+    eventId: EventId;
+    actorId: ActorId;
+    causationId?: EventId;
+    correlationId?: CorrelationId;
+  }) {
+    this.aggregateId = params.aggregateId;
+    this.occurredAt = params.occurredAt;
+    this.eventId = params.eventId;
+    this.actorId = params.actorId;
+    this.causationId = params.causationId;
+    this.correlationId = params.correlationId;
+  }
 }
+
+export type EventMetadata = Readonly<{
+  eventId: EventId;
+  actorId: ActorId;
+  causationId?: EventId;
+  correlationId?: CorrelationId;
+}>;

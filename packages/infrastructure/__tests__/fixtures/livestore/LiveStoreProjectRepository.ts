@@ -1,10 +1,13 @@
-import { Project, ProjectId, DomainEvent } from '@mo/domain';
+import { Project, ProjectId, DomainEvent, Timestamp, UserId } from '@mo/domain';
 import {
   ConcurrencyError,
   EncryptedEvent,
   IEventStore,
   NotFoundError,
   IProjectRepository,
+  none,
+  Option,
+  some,
 } from '@mo/application';
 import { PersistenceError } from '../../../src/errors';
 
@@ -29,9 +32,9 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     ) => Promise<Uint8Array | null>
   ) {}
 
-  async load(id: ProjectId): Promise<Project | null> {
+  async load(id: ProjectId): Promise<Option<Project>> {
     const encryptedEvents = await this.eventStore.getEvents(id.value);
-    if (encryptedEvents.length === 0) return null;
+    if (encryptedEvents.length === 0) return none();
 
     const kProject = await this.keyProvider(id.value);
     if (!kProject) {
@@ -43,7 +46,7 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     const domainEvents = encryptedEvents.map((e) =>
       this.adapter.toDomain(e, kProject)
     );
-    return Project.reconstitute(id, domainEvents);
+    return some(Project.reconstitute(id, domainEvents));
   }
 
   async save(project: Project, encryptionKey: Uint8Array): Promise<void> {
@@ -70,7 +73,11 @@ export class LiveStoreProjectRepository implements IProjectRepository {
     }
   }
 
-  async archive(_id: ProjectId): Promise<void> {
+  async archive(
+    _id: ProjectId,
+    _archivedAt: Timestamp,
+    _actorId: UserId
+  ): Promise<void> {
     // Soft-delete is modeled as events; no physical deletion.
   }
 }

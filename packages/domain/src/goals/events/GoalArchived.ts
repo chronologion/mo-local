@@ -1,40 +1,42 @@
-import { DomainEvent } from '../../shared/DomainEvent';
+import { DomainEvent, type EventMetadata } from '../../shared/DomainEvent';
 import { goalEventTypes } from './eventTypes';
 import { GoalId } from '../vos/GoalId';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import { ToJSON } from '../../shared/serialization';
+import { payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
-export type GoalArchivedJSON = ToJSON<GoalArchived['payload']>;
+export interface GoalArchivedPayload {
+  goalId: GoalId;
+  archivedAt: Timestamp;
+}
 
-export class GoalArchived implements DomainEvent<GoalId> {
+export class GoalArchived
+  extends DomainEvent<GoalId>
+  implements GoalArchivedPayload
+{
   readonly eventType = goalEventTypes.goalArchived;
 
-  constructor(
-    public readonly payload: {
-      goalId: GoalId;
-      archivedAt: Timestamp;
-    }
-  ) {}
+  readonly goalId: GoalId;
+  readonly archivedAt: Timestamp;
 
-  get aggregateId(): GoalId {
-    return this.payload.goalId;
-  }
-
-  get occurredAt(): Timestamp {
-    return this.payload.archivedAt;
-  }
-
-  toJSON(): GoalArchivedJSON {
-    return {
-      goalId: this.payload.goalId.value,
-      archivedAt: this.payload.archivedAt.value,
-    };
-  }
-
-  static fromJSON(json: GoalArchivedJSON): GoalArchived {
-    return new GoalArchived({
-      goalId: GoalId.from(json.goalId),
-      archivedAt: Timestamp.fromMillis(json.archivedAt),
+  constructor(payload: GoalArchivedPayload, meta: EventMetadata) {
+    super({
+      aggregateId: payload.goalId,
+      occurredAt: payload.archivedAt,
+      eventId: meta.eventId,
+      actorId: meta.actorId,
+      causationId: meta?.causationId,
+      correlationId: meta?.correlationId,
     });
+    this.goalId = payload.goalId;
+    this.archivedAt = payload.archivedAt;
+    Object.freeze(this);
   }
 }
+
+export const GoalArchivedSpec = payloadEventSpec<
+  GoalArchived,
+  GoalArchivedPayload
+>(goalEventTypes.goalArchived, (p, meta) => new GoalArchived(p, meta), {
+  goalId: voString(GoalId.from),
+  archivedAt: voNumber(Timestamp.fromMillis),
+});

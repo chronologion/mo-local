@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
-  InMemoryEventBus,
   InMemoryGoalRepository,
+  InMemoryIdempotencyStore,
   InMemoryKeyStore,
   MockCryptoService,
 } from '../../fixtures/ports';
@@ -13,7 +13,18 @@ import {
   ChangeGoalSummary,
   ChangeGoalTargetMonth,
   CreateGoal,
+  AchieveGoal,
+  UnachieveGoal,
 } from '../../../src/goals/commands';
+
+class CountingCryptoService extends MockCryptoService {
+  generateKeyCalls = 0;
+
+  override async generateKey(): Promise<Uint8Array> {
+    this.generateKeyCalls += 1;
+    return super.generateKey();
+  }
+}
 
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
 const userId = 'user-1';
@@ -25,32 +36,82 @@ const baseCreate = new CreateGoal({
   priority: 'must' as const,
   userId,
   timestamp: Date.now(),
+  idempotencyKey: 'idem-create',
 });
 
 const setup = () => {
   const repo = new InMemoryGoalRepository();
-  const eventBus = new InMemoryEventBus();
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
-  const handler = new GoalCommandHandler(repo, keyStore, crypto, eventBus);
-  return { repo, eventBus, keyStore, crypto, handler };
+  const idempotencyStore = new InMemoryIdempotencyStore();
+  const handler = new GoalCommandHandler(
+    repo,
+    keyStore,
+    crypto,
+    idempotencyStore
+  );
+  return { repo, keyStore, crypto, idempotencyStore, handler };
 };
 
 describe('GoalCommandHandler', () => {
+  it('is idempotent for duplicate CreateGoal idempotencyKey', async () => {
+    const repo = new InMemoryGoalRepository();
+    const keyStore = new InMemoryKeyStore();
+    const crypto = new CountingCryptoService();
+    const idempotencyStore = new InMemoryIdempotencyStore();
+    const handler = new GoalCommandHandler(
+      repo,
+      keyStore,
+      crypto,
+      idempotencyStore
+    );
+
+    const first = await handler.handleCreate(baseCreate);
+    const second = await handler.handleCreate(
+      new CreateGoal({
+        ...baseCreate,
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(first.goalId).toBe(goalId);
+    expect(second.goalId).toBe(goalId);
+    if (!('encryptionKey' in first) || !('encryptionKey' in second)) {
+      throw new Error('Expected create result to include encryptionKey');
+    }
+    expect(Array.from(second.encryptionKey)).toEqual(
+      Array.from(first.encryptionKey)
+    );
+    expect(crypto.generateKeyCalls).toBe(1);
+  });
+
+  it('throws when idempotencyKey is reused for a different goal', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await expect(
+      handler.handleCreate(
+        new CreateGoal({
+          ...baseCreate,
+          goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f999',
+          idempotencyKey: baseCreate.idempotencyKey,
+        })
+      )
+    ).rejects.toThrow(/Idempotency key reuse detected/);
+  });
+
   it('creates a goal and stores aggregate key', async () => {
-    const { handler, keyStore, eventBus } = setup();
+    const { handler, keyStore } = setup();
 
     await handler.handleCreate(baseCreate);
 
     const storedKey = await keyStore.getAggregateKey(goalId);
     expect(storedKey).toBeInstanceOf(Uint8Array);
-    expect(eventBus.getPublished().length).toBeGreaterThan(0);
   });
 
-  it('updates summary and publishes event', async () => {
-    const { handler, eventBus } = setup();
+  it('updates summary', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
 
     await handler.handleChangeSummary(
       new ChangeGoalSummary({
@@ -58,9 +119,50 @@ describe('GoalCommandHandler', () => {
         summary: 'Run a faster marathon',
         userId,
         timestamp: Date.now(),
+        knownVersion: 1,
+        idempotencyKey: 'idem-summary',
       })
     );
-    expect(eventBus.getPublished().length).toBeGreaterThan(before);
+  });
+
+  it('marks a goal as achieved', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await handler.handleAchieve(
+      new AchieveGoal({
+        goalId,
+        userId,
+        timestamp: Date.now(),
+        knownVersion: 1,
+        idempotencyKey: 'idem-achieve',
+      })
+    );
+  });
+
+  it('marks a goal as not achieved', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await handler.handleAchieve(
+      new AchieveGoal({
+        goalId,
+        userId,
+        timestamp: Date.now(),
+        knownVersion: 1,
+        idempotencyKey: 'idem-achieve-unachieve',
+      })
+    );
+
+    await handler.handleUnachieve(
+      new UnachieveGoal({
+        goalId,
+        userId,
+        timestamp: Date.now(),
+        knownVersion: 2,
+        idempotencyKey: 'idem-unachieve',
+      })
+    );
   });
 
   it('fails when aggregate key missing', async () => {
@@ -75,15 +177,16 @@ describe('GoalCommandHandler', () => {
           summary: 'Another summary',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-summary-missing-key',
         })
       )
     ).rejects.toThrow();
   });
 
   it('does not publish when repository save fails', async () => {
-    const { handler, repo, eventBus } = setup();
+    const { handler, repo } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
     repo.failNextSave();
 
     await expect(
@@ -93,10 +196,11 @@ describe('GoalCommandHandler', () => {
           priority: 'should',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-priority-fail',
         })
       )
     ).rejects.toThrow();
-    expect(eventBus.getPublished().length).toBe(before);
   });
 
   it('surfaces concurrency errors from repository', async () => {
@@ -111,16 +215,16 @@ describe('GoalCommandHandler', () => {
           slice: 'Work',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-slice-concurrency',
         })
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 
-  it('fails when event bus publish fails', async () => {
-    const { handler, eventBus } = setup();
+  it('changes target month', async () => {
+    const { handler } = setup();
     await handler.handleCreate(baseCreate);
-    const before = eventBus.getPublished().length;
-    eventBus.failNext(new Error('publish failed'));
 
     await expect(
       handler.handleChangeTargetMonth(
@@ -129,9 +233,28 @@ describe('GoalCommandHandler', () => {
           targetMonth: '2026-01',
           userId,
           timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-target-month',
         })
       )
-    ).rejects.toThrow();
-    expect(eventBus.getPublished().length).toBe(before);
+    ).resolves.toBeDefined();
+  });
+
+  it('throws ConcurrencyError when knownVersion mismatches', async () => {
+    const { handler } = setup();
+    await handler.handleCreate(baseCreate);
+
+    await expect(
+      handler.handleChangeSummary(
+        new ChangeGoalSummary({
+          goalId,
+          summary: 'Run a faster marathon',
+          userId,
+          timestamp: Date.now(),
+          knownVersion: 0,
+          idempotencyKey: 'idem-summary-mismatch',
+        })
+      )
+    ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 });

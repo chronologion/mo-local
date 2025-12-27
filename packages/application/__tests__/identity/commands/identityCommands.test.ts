@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateRegisterUserCommand } from '../../../src/identity/commands/RegisterUserCommand';
 import { validateImportUserKeysCommand } from '../../../src/identity/commands/ImportUserKeysCommand';
-import { KeyBackup } from '../../../src/ports/types';
+import { KeyBackup } from '../../../src/shared/ports/types';
 
 const now = Date.now();
 

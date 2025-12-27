@@ -4,14 +4,17 @@ import {
   buildAnalyticsDeltas,
   GoalSnapshotState,
   snapshotToListItem,
-} from '../../src/goals/GoalProjectionState';
+} from '../../src/goals/projections/model/GoalProjectionState';
 import {
+  ActorId,
   GoalCreated,
   GoalArchived,
-  GoalSliceChanged,
-  GoalSummaryChanged,
-  GoalTargetChanged,
-  GoalPriorityChanged,
+  GoalRecategorized,
+  GoalRefined,
+  GoalRescheduled,
+  GoalPrioritized,
+  GoalAchieved,
+  GoalUnachieved,
   GoalAccessGranted,
   GoalId,
   Slice,
@@ -21,22 +24,30 @@ import {
   UserId,
   Timestamp,
   Permission,
+  EventId,
 } from '@mo/domain';
 
 const baseDate = Timestamp.fromMillis(
   new Date('2025-01-01T00:00:00Z').getTime()
 );
 const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000001');
-
-const createdEvent = new GoalCreated({
-  goalId: aggregateId,
-  slice: Slice.from('Health'),
-  summary: Summary.from('Run a marathon'),
-  targetMonth: Month.from('2025-12'),
-  priority: Priority.from('must'),
-  createdBy: UserId.from('user-1'),
-  createdAt: baseDate,
+const meta = () => ({
+  eventId: EventId.create(),
+  actorId: ActorId.from('user-1'),
 });
+
+const createdEvent = new GoalCreated(
+  {
+    goalId: aggregateId,
+    slice: Slice.from('Health'),
+    summary: Summary.from('Run a marathon'),
+    targetMonth: Month.from('2025-12'),
+    priority: Priority.from('must'),
+    createdBy: UserId.from('user-1'),
+    createdAt: baseDate,
+  },
+  meta()
+);
 
 describe('GoalProjectionState', () => {
   it('creates and updates a snapshot from events', () => {
@@ -47,17 +58,21 @@ describe('GoalProjectionState', () => {
       summary: 'Run a marathon',
       targetMonth: '2025-12',
       priority: 'must',
+      achievedAt: null,
       archivedAt: null,
       version: 1,
     });
 
     const updated = applyEventToSnapshot(
       created,
-      new GoalSummaryChanged({
-        goalId: aggregateId,
-        summary: Summary.from('Run a half-marathon first'),
-        changedAt: baseDate,
-      }),
+      new GoalRefined(
+        {
+          goalId: aggregateId,
+          summary: Summary.from('Run a half-marathon first'),
+          changedAt: baseDate,
+        },
+        meta()
+      ),
       2
     );
     expect(updated?.summary).toBe('Run a half-marathon first');
@@ -65,11 +80,14 @@ describe('GoalProjectionState', () => {
 
     const movedSlice = applyEventToSnapshot(
       updated,
-      new GoalSliceChanged({
-        goalId: aggregateId,
-        slice: Slice.from('Leisure'),
-        changedAt: baseDate,
-      }),
+      new GoalRecategorized(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Leisure'),
+          changedAt: baseDate,
+        },
+        meta()
+      ),
       3
     );
     expect(movedSlice?.slice).toBe('Leisure');
@@ -77,11 +95,14 @@ describe('GoalProjectionState', () => {
 
     const retargeted = applyEventToSnapshot(
       movedSlice,
-      new GoalTargetChanged({
-        goalId: aggregateId,
-        targetMonth: Month.from('2026-01'),
-        changedAt: baseDate,
-      }),
+      new GoalRescheduled(
+        {
+          goalId: aggregateId,
+          targetMonth: Month.from('2026-01'),
+          changedAt: baseDate,
+        },
+        meta()
+      ),
       4
     );
     expect(retargeted?.targetMonth).toBe('2026-01');
@@ -89,23 +110,33 @@ describe('GoalProjectionState', () => {
 
     const reprioritized = applyEventToSnapshot(
       retargeted,
-      new GoalPriorityChanged({
-        goalId: aggregateId,
-        priority: Priority.from('should'),
-        changedAt: baseDate,
-      }),
+      new GoalPrioritized(
+        {
+          goalId: aggregateId,
+          priority: Priority.from('should'),
+          changedAt: baseDate,
+        },
+        meta()
+      ),
       5
     );
     expect(reprioritized?.priority).toBe('should');
     expect(reprioritized?.version).toBe(5);
 
-    const archived = applyEventToSnapshot(
+    const achieved = applyEventToSnapshot(
       reprioritized,
-      new GoalArchived({ goalId: aggregateId, archivedAt: baseDate }),
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
       6
     );
+    expect(achieved?.achievedAt).toBe(baseDate.value);
+
+    const archived = applyEventToSnapshot(
+      achieved,
+      new GoalArchived({ goalId: aggregateId, archivedAt: baseDate }, meta()),
+      7
+    );
     expect(archived?.archivedAt).toBe(baseDate.value);
-    expect(archived?.version).toBe(6);
+    expect(archived?.version).toBe(7);
   });
 
   it('ignores access events for snapshot payload but advances version', () => {
@@ -116,12 +147,15 @@ describe('GoalProjectionState', () => {
     ) as GoalSnapshotState;
     const afterAccess = applyEventToSnapshot(
       created,
-      new GoalAccessGranted({
-        goalId: aggregateId,
-        grantedTo: UserId.from('user-2'),
-        permission: Permission.from('edit'),
-        grantedAt: baseDate,
-      }),
+      new GoalAccessGranted(
+        {
+          goalId: aggregateId,
+          grantedTo: UserId.from('user-2'),
+          permission: Permission.from('edit'),
+          grantedAt: baseDate,
+        },
+        meta()
+      ),
       2
     );
     expect(afterAccess?.version).toBe(2);
@@ -161,7 +195,44 @@ describe('GoalProjectionState', () => {
       priority: 'must',
       targetMonth: '2025-12',
       createdAt: created.createdAt,
+      achievedAt: null,
       archivedAt: null,
     });
+  });
+
+  it('sets achievedAt when goal is achieved', () => {
+    const created = applyEventToSnapshot(
+      null,
+      createdEvent,
+      1
+    ) as GoalSnapshotState;
+    const achieved = applyEventToSnapshot(
+      created,
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
+      2
+    );
+    expect(achieved?.achievedAt).toBe(baseDate.value);
+  });
+
+  it('clears achievedAt when goal is unachieved', () => {
+    const created = applyEventToSnapshot(
+      null,
+      createdEvent,
+      1
+    ) as GoalSnapshotState;
+    const achieved = applyEventToSnapshot(
+      created,
+      new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
+      2
+    );
+    const unachieved = applyEventToSnapshot(
+      achieved,
+      new GoalUnachieved(
+        { goalId: aggregateId, unachievedAt: baseDate },
+        meta()
+      ),
+      3
+    );
+    expect(unachieved?.achievedAt).toBeNull();
   });
 });

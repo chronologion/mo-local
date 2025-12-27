@@ -8,21 +8,23 @@ import { ProjectStatus } from './vos/ProjectStatus';
 import { ProjectDescription } from './vos/ProjectDescription';
 import { Milestone } from './Milestone';
 import { MilestoneId } from './vos/MilestoneId';
+import { MilestoneName } from './vos/MilestoneName';
 import { GoalId } from '../goals/vos/GoalId';
 import { UserId } from '../identity/UserId';
 import { ProjectCreated } from './events/ProjectCreated';
-import { ProjectStatusChanged } from './events/ProjectStatusChanged';
-import { ProjectDateChanged } from './events/ProjectDateChanged';
-import { ProjectNameChanged } from './events/ProjectNameChanged';
-import { ProjectDescriptionChanged } from './events/ProjectDescriptionChanged';
+import { ProjectStatusTransitioned } from './events/ProjectStatusTransitioned';
+import { ProjectRescheduled } from './events/ProjectRescheduled';
+import { ProjectRenamed } from './events/ProjectRenamed';
+import { ProjectDescribed } from './events/ProjectDescribed';
 import { ProjectGoalAdded } from './events/ProjectGoalAdded';
 import { ProjectGoalRemoved } from './events/ProjectGoalRemoved';
 import { ProjectMilestoneAdded } from './events/ProjectMilestoneAdded';
-import { ProjectMilestoneTargetDateChanged } from './events/ProjectMilestoneTargetDateChanged';
-import { ProjectMilestoneNameChanged } from './events/ProjectMilestoneNameChanged';
+import { ProjectMilestoneRescheduled } from './events/ProjectMilestoneRescheduled';
+import { ProjectMilestoneRenamed } from './events/ProjectMilestoneRenamed';
 import { ProjectMilestoneArchived } from './events/ProjectMilestoneArchived';
 import { ProjectArchived } from './events/ProjectArchived';
 import { DomainEvent } from '../shared/DomainEvent';
+import { EventId } from '../shared/vos/EventId';
 
 export type ProjectSnapshot = {
   id: ProjectId;
@@ -66,6 +68,7 @@ export class Project extends AggregateRoot<ProjectId> {
     description: ProjectDescription;
     goalId?: GoalId | null;
     createdBy: UserId;
+    createdAt: Timestamp;
   }): Project {
     if (!params.startDate.isSameOrBefore(params.targetDate)) {
       throw new Error('Start date must be on or before target date');
@@ -73,17 +76,20 @@ export class Project extends AggregateRoot<ProjectId> {
 
     const project = new Project(params.id);
     project.apply(
-      new ProjectCreated({
-        projectId: params.id,
-        name: params.name,
-        status: params.status,
-        startDate: params.startDate,
-        targetDate: params.targetDate,
-        description: params.description,
-        goalId: params.goalId ?? null,
-        createdBy: params.createdBy,
-        createdAt: Timestamp.now(),
-      })
+      new ProjectCreated(
+        {
+          projectId: params.id,
+          name: params.name,
+          status: params.status,
+          startDate: params.startDate,
+          targetDate: params.targetDate,
+          description: params.description,
+          goalId: params.goalId ?? null,
+          createdBy: params.createdBy,
+          createdAt: params.createdAt,
+        },
+        { eventId: EventId.create(), actorId: params.createdBy }
+      )
     );
     return project;
   }
@@ -162,50 +168,78 @@ export class Project extends AggregateRoot<ProjectId> {
     return this._archivedAt !== null;
   }
 
-  changeName(name: ProjectName): void {
+  changeName(params: {
+    name: ProjectName;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    Assert.that(name.equals(this.name), 'ProjectName unchanged').isFalse();
+    Assert.that(
+      params.name.equals(this.name),
+      'ProjectName unchanged'
+    ).isFalse();
     this.apply(
-      new ProjectNameChanged({
-        projectId: this.id,
-        name,
-        changedAt: Timestamp.now(),
-      })
+      new ProjectRenamed(
+        {
+          projectId: this.id,
+          name: params.name,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  changeDescription(description: ProjectDescription): void {
+  changeDescription(params: {
+    description: ProjectDescription;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      description.equals(this.description),
+      params.description.equals(this.description),
       'ProjectDescription unchanged'
     ).isFalse();
     this.apply(
-      new ProjectDescriptionChanged({
-        projectId: this.id,
-        description,
-        changedAt: Timestamp.now(),
-      })
+      new ProjectDescribed(
+        {
+          projectId: this.id,
+          description: params.description,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  changeStatus(status: ProjectStatus): void {
+  changeStatus(params: {
+    status: ProjectStatus;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
-      status.equals(this.status),
+      params.status.equals(this.status),
       'ProjectStatus unchanged'
     ).isFalse();
-    this.assertAllowedStatusTransition(status);
     this.apply(
-      new ProjectStatusChanged({
-        projectId: this.id,
-        status,
-        changedAt: Timestamp.now(),
-      })
+      new ProjectStatusTransitioned(
+        {
+          projectId: this.id,
+          status: params.status,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  changeDates(params: { startDate: LocalDate; targetDate: LocalDate }): void {
+  changeDates(params: {
+    startDate: LocalDate;
+    targetDate: LocalDate;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     if (!params.startDate.isSameOrBefore(params.targetDate)) {
       throw new Error('Start date must be on or before target date');
@@ -221,47 +255,62 @@ export class Project extends AggregateRoot<ProjectId> {
     ).isTrue();
 
     this.apply(
-      new ProjectDateChanged({
-        projectId: this.id,
-        startDate: params.startDate,
-        targetDate: params.targetDate,
-        changedAt: Timestamp.now(),
-      })
+      new ProjectRescheduled(
+        {
+          projectId: this.id,
+          startDate: params.startDate,
+          targetDate: params.targetDate,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  addGoal(goalId: GoalId): void {
+  addGoal(params: {
+    goalId: GoalId;
+    addedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
     Assert.that(
       this._goalId === null,
       'Project already linked to a goal'
     ).isTrue();
     this.apply(
-      new ProjectGoalAdded({
-        projectId: this.id,
-        goalId,
-        addedAt: Timestamp.now(),
-      })
+      new ProjectGoalAdded(
+        {
+          projectId: this.id,
+          goalId: params.goalId,
+          addedAt: params.addedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  removeGoal(): void {
+  removeGoal(params: { removedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     if (this._goalId === null) {
       return;
     }
     this.apply(
-      new ProjectGoalRemoved({
-        projectId: this.id,
-        removedAt: Timestamp.now(),
-      })
+      new ProjectGoalRemoved(
+        {
+          projectId: this.id,
+          removedAt: params.removedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
   addMilestone(params: {
     id: MilestoneId;
-    name: string;
+    name: MilestoneName;
     targetDate: LocalDate;
+    addedAt: Timestamp;
+    actorId: UserId;
   }): void {
     this.assertNotArchived();
     this.assertDateWithinRange(params.targetDate);
@@ -270,155 +319,182 @@ export class Project extends AggregateRoot<ProjectId> {
       'Duplicate milestone id'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneAdded({
-        projectId: this.id,
-        milestoneId: params.id,
-        name: params.name,
-        targetDate: params.targetDate,
-        addedAt: Timestamp.now(),
-      })
+      new ProjectMilestoneAdded(
+        {
+          projectId: this.id,
+          milestoneId: params.id,
+          name: params.name,
+          targetDate: params.targetDate,
+          addedAt: params.addedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  changeMilestoneName(milestoneId: MilestoneId, name: string): void {
+  changeMilestoneName(params: {
+    milestoneId: MilestoneId;
+    name: MilestoneName;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    const milestone = this.findMilestone(milestoneId);
-    Assert.that(name.trim(), 'Milestone name').isNonEmpty();
-    Assert.that(milestone.name === name, 'Milestone name unchanged').isFalse();
-    this.apply(
-      new ProjectMilestoneNameChanged({
-        projectId: this.id,
-        milestoneId,
-        name,
-        changedAt: Timestamp.now(),
-      })
-    );
-  }
-
-  changeMilestoneTargetDate(
-    milestoneId: MilestoneId,
-    targetDate: LocalDate
-  ): void {
-    this.assertNotArchived();
-    this.assertDateWithinRange(targetDate);
-    const milestone = this.findMilestone(milestoneId);
+    const milestone = this.findMilestone(params.milestoneId);
+    Assert.that(params.name, 'Milestone name').isDefined();
     Assert.that(
-      milestone.targetDate.equals(targetDate),
+      milestone.name.equals(params.name),
+      'Milestone name unchanged'
+    ).isFalse();
+    this.apply(
+      new ProjectMilestoneRenamed(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          name: params.name,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
+    );
+  }
+
+  changeMilestoneTargetDate(params: {
+    milestoneId: MilestoneId;
+    targetDate: LocalDate;
+    changedAt: Timestamp;
+    actorId: UserId;
+  }): void {
+    this.assertNotArchived();
+    this.assertDateWithinRange(params.targetDate);
+    const milestone = this.findMilestone(params.milestoneId);
+    Assert.that(
+      milestone.targetDate.equals(params.targetDate),
       'Milestone target unchanged'
     ).isFalse();
     this.apply(
-      new ProjectMilestoneTargetDateChanged({
-        projectId: this.id,
-        milestoneId,
-        targetDate,
-        changedAt: Timestamp.now(),
-      })
+      new ProjectMilestoneRescheduled(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          targetDate: params.targetDate,
+          changedAt: params.changedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  archiveMilestone(milestoneId: MilestoneId): void {
+  archiveMilestone(params: {
+    milestoneId: MilestoneId;
+    archivedAt: Timestamp;
+    actorId: UserId;
+  }): void {
     this.assertNotArchived();
-    this.findMilestone(milestoneId);
+    this.findMilestone(params.milestoneId);
     this.apply(
-      new ProjectMilestoneArchived({
-        projectId: this.id,
-        milestoneId,
-        archivedAt: Timestamp.now(),
-      })
+      new ProjectMilestoneArchived(
+        {
+          projectId: this.id,
+          milestoneId: params.milestoneId,
+          archivedAt: params.archivedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
-  archive(): void {
+  archive(params: { archivedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     this.apply(
-      new ProjectArchived({
-        projectId: this.id,
-        archivedAt: Timestamp.now(),
-      })
+      new ProjectArchived(
+        {
+          projectId: this.id,
+          archivedAt: params.archivedAt,
+        },
+        { eventId: EventId.create(), actorId: params.actorId }
+      )
     );
   }
 
   // === Event handlers ===
 
   private onProjectCreated(event: ProjectCreated): void {
-    this._name = event.payload.name;
-    this._status = event.payload.status;
-    this._startDate = event.payload.startDate;
-    this._targetDate = event.payload.targetDate;
-    this._description = event.payload.description;
-    this._goalId = event.payload.goalId;
-    this._createdBy = event.payload.createdBy;
-    this._createdAt = event.payload.createdAt;
+    this._name = event.name;
+    this._status = event.status;
+    this._startDate = event.startDate;
+    this._targetDate = event.targetDate;
+    this._description = event.description;
+    this._goalId = event.goalId;
+    this._createdBy = event.createdBy;
+    this._createdAt = event.createdAt;
     this._updatedAt = this._createdAt;
   }
 
-  private onProjectStatusChanged(event: ProjectStatusChanged): void {
-    this._status = event.payload.status;
-    this._updatedAt = event.payload.changedAt;
+  private onProjectStatusTransitioned(event: ProjectStatusTransitioned): void {
+    this._status = event.status;
+    this._updatedAt = event.changedAt;
   }
 
-  private onProjectDateChanged(event: ProjectDateChanged): void {
-    this._startDate = event.payload.startDate;
-    this._targetDate = event.payload.targetDate;
-    this._updatedAt = event.payload.changedAt;
+  private onProjectRescheduled(event: ProjectRescheduled): void {
+    this._startDate = event.startDate;
+    this._targetDate = event.targetDate;
+    this._updatedAt = event.changedAt;
   }
 
-  private onProjectNameChanged(event: ProjectNameChanged): void {
-    this._name = event.payload.name;
-    this._updatedAt = event.payload.changedAt;
+  private onProjectRenamed(event: ProjectRenamed): void {
+    this._name = event.name;
+    this._updatedAt = event.changedAt;
   }
 
-  private onProjectDescriptionChanged(event: ProjectDescriptionChanged): void {
-    this._description = event.payload.description;
-    this._updatedAt = event.payload.changedAt;
+  private onProjectDescribed(event: ProjectDescribed): void {
+    this._description = event.description;
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectGoalAdded(event: ProjectGoalAdded): void {
-    this._goalId = event.payload.goalId;
-    this._updatedAt = event.payload.addedAt;
+    this._goalId = event.goalId;
+    this._updatedAt = event.addedAt;
   }
 
   private onProjectGoalRemoved(event: ProjectGoalRemoved): void {
     this._goalId = null;
-    this._updatedAt = event.payload.removedAt;
+    this._updatedAt = event.removedAt;
   }
 
   private onProjectMilestoneAdded(event: ProjectMilestoneAdded): void {
     const milestone = Milestone.create({
-      id: event.payload.milestoneId,
-      name: event.payload.name,
-      targetDate: event.payload.targetDate,
+      id: event.milestoneId,
+      name: event.name,
+      targetDate: event.targetDate,
     });
     this._milestones.push(milestone);
-    this._updatedAt = event.payload.addedAt;
+    this._updatedAt = event.addedAt;
   }
 
-  private onProjectMilestoneTargetDateChanged(
-    event: ProjectMilestoneTargetDateChanged
+  private onProjectMilestoneRescheduled(
+    event: ProjectMilestoneRescheduled
   ): void {
-    const milestone = this.findMilestone(event.payload.milestoneId);
-    milestone.changeTargetDate(event.payload.targetDate);
-    this._updatedAt = event.payload.changedAt;
+    const milestone = this.findMilestone(event.milestoneId);
+    milestone.changeTargetDate(event.targetDate);
+    this._updatedAt = event.changedAt;
   }
 
-  private onProjectMilestoneNameChanged(
-    event: ProjectMilestoneNameChanged
-  ): void {
-    const milestone = this.findMilestone(event.payload.milestoneId);
-    milestone.changeName(event.payload.name);
-    this._updatedAt = event.payload.changedAt;
+  private onProjectMilestoneRenamed(event: ProjectMilestoneRenamed): void {
+    const milestone = this.findMilestone(event.milestoneId);
+    milestone.changeName(event.name);
+    this._updatedAt = event.changedAt;
   }
 
   private onProjectMilestoneArchived(event: ProjectMilestoneArchived): void {
     this._milestones = this._milestones.filter(
-      (m) => !m.id.equals(event.payload.milestoneId)
+      (m) => !m.id.equals(event.milestoneId)
     );
-    this._updatedAt = event.payload.archivedAt;
+    this._updatedAt = event.archivedAt;
   }
 
   private onProjectArchived(event: ProjectArchived): void {
-    this._archivedAt = event.payload.archivedAt;
-    this._updatedAt = event.payload.archivedAt;
+    this._archivedAt = event.archivedAt;
+    this._updatedAt = event.archivedAt;
   }
 
   // === Helpers ===
@@ -448,21 +524,6 @@ export class Project extends AggregateRoot<ProjectId> {
         this.targetDate.isSameOrAfter(date),
       'Milestone target date must be within project dates'
     ).isTrue();
-  }
-
-  private assertAllowedStatusTransition(next: ProjectStatus): void {
-    const current = this.status;
-    const allowed: Record<ProjectStatus['value'], ProjectStatus['value'][]> = {
-      planned: ['in_progress', 'canceled'],
-      in_progress: ['completed', 'canceled'],
-      completed: [],
-      canceled: [],
-    };
-    if (!allowed[current.value].includes(next.value)) {
-      throw new Error(
-        `Invalid status transition from ${current.value} to ${next.value}`
-      );
-    }
   }
 
   private findMilestone(id: MilestoneId): Milestone {

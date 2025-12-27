@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
-import type { ProjectCommand } from '@mo/application';
+import { GetProjectByIdQuery, type ProjectCommand } from '@mo/application';
 import { useInterface } from '../context';
 
 export type CreateProjectParams = {
@@ -60,6 +60,22 @@ export const useProjectCommands = () => {
     [services.projectCommandBus]
   );
 
+  const loadKnownVersion = useCallback(
+    async (projectId: string): Promise<number> => {
+      const current = await services.projectQueryBus.dispatch(
+        new GetProjectByIdQuery(projectId)
+      );
+      if (Array.isArray(current)) {
+        throw new Error('Invalid query result');
+      }
+      if (!current) {
+        throw new Error('Project not found');
+      }
+      return current.version;
+    },
+    [services.projectQueryBus]
+  );
+
   const createProject = useCallback(
     async (params: CreateProjectParams) => {
       const userId = ensureUserId();
@@ -74,6 +90,7 @@ export const useProjectCommands = () => {
         goalId: params.goalId ?? null,
         userId,
         timestamp: Date.now(),
+        idempotencyKey: uuidv7(),
       });
     },
     [dispatch, ensureUserId]
@@ -82,39 +99,42 @@ export const useProjectCommands = () => {
   const updateProject = useCallback(
     async (params: UpdateProjectParams) => {
       const userId = ensureUserId();
-      const tasks: Array<Promise<unknown>> = [];
+      let knownVersion = await loadKnownVersion(params.projectId);
       if (params.status) {
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectStatus',
-            projectId: params.projectId,
-            status: params.status,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectStatus',
+          projectId: params.projectId,
+          status: params.status,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
       if (params.name) {
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectName',
-            projectId: params.projectId,
-            name: params.name,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectName',
+          projectId: params.projectId,
+          name: params.name,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
       if (params.description) {
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectDescription',
-            projectId: params.projectId,
-            description: params.description,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectDescription',
+          projectId: params.projectId,
+          description: params.description,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
       if (params.startDate !== undefined || params.targetDate !== undefined) {
         if (!params.startDate || !params.targetDate) {
@@ -122,51 +142,59 @@ export const useProjectCommands = () => {
             'Both start and target dates are required to change project dates'
           );
         }
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectDates',
-            projectId: params.projectId,
-            startDate: params.startDate,
-            targetDate: params.targetDate,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectDates',
+          projectId: params.projectId,
+          startDate: params.startDate,
+          targetDate: params.targetDate,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
       if (params.goalId !== undefined) {
-        tasks.push(
-          params.goalId
-            ? dispatch({
-                type: 'AddProjectGoal',
-                projectId: params.projectId,
-                goalId: params.goalId,
-                userId,
-                timestamp: Date.now(),
-              })
-            : dispatch({
-                type: 'RemoveProjectGoal',
-                projectId: params.projectId,
-                userId,
-                timestamp: Date.now(),
-              })
-        );
+        if (params.goalId) {
+          await dispatch({
+            type: 'AddProjectGoal',
+            projectId: params.projectId,
+            goalId: params.goalId,
+            userId,
+            timestamp: Date.now(),
+            knownVersion,
+            idempotencyKey: uuidv7(),
+          });
+        } else {
+          await dispatch({
+            type: 'RemoveProjectGoal',
+            projectId: params.projectId,
+            userId,
+            timestamp: Date.now(),
+            knownVersion,
+            idempotencyKey: uuidv7(),
+          });
+        }
+        knownVersion += 1;
       }
-      await Promise.all(tasks);
     },
-    [dispatch, ensureUserId]
+    [dispatch, ensureUserId, loadKnownVersion]
   );
 
   const archiveProject = useCallback(
     async (projectId: string) => {
       const userId = ensureUserId();
+      const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'ArchiveProject',
         projectId,
         userId,
         timestamp: Date.now(),
+        knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
-    [dispatch, ensureUserId]
+    [dispatch, ensureUserId, loadKnownVersion]
   );
 
   const addMilestone = useCallback(
@@ -175,6 +203,7 @@ export const useProjectCommands = () => {
       milestone: { name: string; targetDate: string }
     ) => {
       const userId = ensureUserId();
+      const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'AddProjectMilestone',
         projectId,
@@ -183,9 +212,11 @@ export const useProjectCommands = () => {
         targetDate: milestone.targetDate,
         userId,
         timestamp: Date.now(),
+        knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
-    [dispatch, ensureUserId]
+    [dispatch, ensureUserId, loadKnownVersion]
   );
 
   const updateMilestone = useCallback(
@@ -195,48 +226,52 @@ export const useProjectCommands = () => {
       changes: { name?: string; targetDate?: string }
     ) => {
       const userId = ensureUserId();
-      const tasks: Array<Promise<unknown>> = [];
+      let knownVersion = await loadKnownVersion(projectId);
       if (changes.name) {
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectMilestoneName',
-            projectId,
-            milestoneId,
-            name: changes.name,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectMilestoneName',
+          projectId,
+          milestoneId,
+          name: changes.name,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
       if (changes.targetDate) {
-        tasks.push(
-          dispatch({
-            type: 'ChangeProjectMilestoneTargetDate',
-            projectId,
-            milestoneId,
-            targetDate: changes.targetDate,
-            userId,
-            timestamp: Date.now(),
-          })
-        );
+        await dispatch({
+          type: 'ChangeProjectMilestoneTargetDate',
+          projectId,
+          milestoneId,
+          targetDate: changes.targetDate,
+          userId,
+          timestamp: Date.now(),
+          knownVersion,
+          idempotencyKey: uuidv7(),
+        });
+        knownVersion += 1;
       }
-      await Promise.all(tasks);
     },
-    [dispatch, ensureUserId]
+    [dispatch, ensureUserId, loadKnownVersion]
   );
 
   const archiveMilestone = useCallback(
     async (projectId: string, milestoneId: string) => {
       const userId = ensureUserId();
+      const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'ArchiveProjectMilestone',
         projectId,
         milestoneId,
         userId,
         timestamp: Date.now(),
+        knownVersion,
+        idempotencyKey: uuidv7(),
       });
     },
-    [dispatch, ensureUserId]
+    [dispatch, ensureUserId, loadKnownVersion]
   );
 
   return {

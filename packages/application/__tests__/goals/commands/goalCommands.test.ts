@@ -6,8 +6,8 @@ import {
 } from '../../../src/goals/commands';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
-  InMemoryEventBus,
   InMemoryGoalRepository,
+  InMemoryIdempotencyStore,
   InMemoryKeyStore,
   MockCryptoService,
 } from '../../fixtures/ports';
@@ -22,7 +22,7 @@ const makeHandler = () =>
     new InMemoryGoalRepository(),
     new InMemoryKeyStore(),
     new MockCryptoService(),
-    new InMemoryEventBus()
+    new InMemoryIdempotencyStore()
   );
 
 const createGoal = () =>
@@ -34,6 +34,7 @@ const createGoal = () =>
     priority: 'must',
     userId,
     timestamp: now,
+    idempotencyKey: 'idem-create',
   });
 
 describe('CreateGoal', () => {
@@ -46,6 +47,7 @@ describe('CreateGoal', () => {
       priority: 'must',
       userId: 'user-1',
       timestamp: now,
+      idempotencyKey: 'idem-create-lean',
     });
 
     expect(cmd.type).toBe('CreateGoal');
@@ -67,6 +69,8 @@ describe('Goal command validation inside handler', () => {
           summary: '',
           userId,
           timestamp: now,
+          knownVersion: 1,
+          idempotencyKey: 'idem-summary-invalid',
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);
@@ -84,6 +88,8 @@ describe('Goal command validation inside handler', () => {
           permission: 'owner' as never,
           userId,
           timestamp: now,
+          knownVersion: 1,
+          idempotencyKey: 'idem-grant-invalid',
         })
       )
     ).rejects.toBeInstanceOf(ValidationException);

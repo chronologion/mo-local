@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -39,12 +39,6 @@ export function GoalForm({
   const [values, setValues] = useState<GoalFormValues>(
     initialValues ?? defaultValues
   );
-
-  useEffect(() => {
-    if (initialValues) {
-      setValues(initialValues);
-    }
-  }, [initialValues]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

@@ -12,10 +12,10 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <React.StrictMode>
-    <AppProvider>
-      <RemoteAuthProvider>
+    <RemoteAuthProvider>
+      <AppProvider>
         <App />
-      </RemoteAuthProvider>
-    </AppProvider>
+      </AppProvider>
+    </RemoteAuthProvider>
   </React.StrictMode>
 );

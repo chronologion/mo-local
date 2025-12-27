@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectRepository } from '../../src/projects/ProjectRepository';
 import { WebCryptoService } from '../../src/crypto/WebCryptoService';
+import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
+import { KeyringManager } from '../../src/crypto/KeyringManager';
 import type { IEventStore, EncryptedEvent } from '@mo/application';
 import { ProjectId, ProjectName } from '@mo/domain';
 import type { Store } from '@livestore/livestore';
+import { buildSnapshotAad } from '../../src/eventing/aad';
+import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
 
 class SnapshotStoreStub {
   private readonly snapshots = new Map<
     string,
-    { payload_encrypted: Uint8Array; version: number }
+    { payload_encrypted: Uint8Array; version: number; last_sequence: number }
   >();
   readonly deleted: string[] = [];
 
@@ -19,11 +23,13 @@ class SnapshotStoreStub {
   saveSnapshot(
     aggregateId: string,
     payloadEncrypted: Uint8Array,
-    version: number
+    version: number,
+    lastSequence: number = version
   ): void {
     this.snapshots.set(aggregateId, {
       payload_encrypted: payloadEncrypted,
       version,
+      last_sequence: lastSequence,
     });
   }
 
@@ -35,7 +41,9 @@ class SnapshotStoreStub {
     bindValues: Array<string | number | Uint8Array>;
   }): TResult {
     if (
-      query.includes('SELECT payload_encrypted, version FROM project_snapshots')
+      query.includes(
+        'SELECT payload_encrypted, version, last_sequence FROM project_snapshots'
+      )
     ) {
       const aggregateId = bindValues[0] as string;
       const row = this.snapshots.get(aggregateId);
@@ -70,12 +78,18 @@ class EmptyEventStoreStub implements IEventStore {
 }
 
 describe('ProjectRepository snapshot compatibility', () => {
-  it('reconstitutes projects when snapshot is missing createdBy', async () => {
+  it('purges snapshots without envelope/createdBy and returns none', async () => {
     const crypto = new WebCryptoService();
     const kProject = await crypto.generateKey();
     const storeStub = new SnapshotStoreStub();
     const store = storeStub as unknown as Store;
     const eventStore = new EmptyEventStoreStub();
+    const keyStore = new InMemoryKeyStore();
+    const keyringManager = new KeyringManager(
+      crypto,
+      keyStore,
+      new InMemoryKeyringStore()
+    );
     const aggregateId = '00000000-0000-0000-0000-000000000001';
     const projectId = ProjectId.from(aggregateId);
 
@@ -95,26 +109,27 @@ describe('ProjectRepository snapshot compatibility', () => {
     };
 
     const version = 1;
-    const aad = new TextEncoder().encode(`${aggregateId}:snapshot:${version}`);
+    const aad = buildSnapshotAad(aggregateId, version);
     const plaintext = new TextEncoder().encode(
       JSON.stringify(legacySnapshotPayload)
     );
     const cipher = await crypto.encrypt(plaintext, kProject, aad);
 
     storeStub.saveSnapshot(aggregateId, cipher, version);
+    await keyStore.saveAggregateKey(aggregateId, kProject);
 
     const repo = new ProjectRepository(
       eventStore,
       store,
       crypto,
-      async (id: string) => (id === aggregateId ? kProject : null)
+      keyStore,
+      keyringManager
     );
 
     const loaded = await repo.load(projectId);
 
-    expect(loaded).not.toBeNull();
-    expect(loaded?.id.value).toBe(aggregateId);
-    expect(loaded?.createdBy.value).toBe('imported');
+    expect(loaded.kind).toBe('none');
+    expect(storeStub.deleted).toContain(aggregateId);
   });
 
   it('purges corrupt snapshots and returns null instead of throwing', async () => {
@@ -123,23 +138,31 @@ describe('ProjectRepository snapshot compatibility', () => {
     const storeStub = new SnapshotStoreStub();
     const store = storeStub as unknown as Store;
     const eventStore = new EmptyEventStoreStub();
+    const keyStore = new InMemoryKeyStore();
+    const keyringManager = new KeyringManager(
+      crypto,
+      keyStore,
+      new InMemoryKeyringStore()
+    );
     const aggregateId = '00000000-0000-0000-0000-000000000002';
     const projectId = ProjectId.from(aggregateId);
 
     // Save an intentionally corrupt payload that will fail decryption.
     const corruptCipher = new Uint8Array(64).fill(7);
     storeStub.saveSnapshot(aggregateId, corruptCipher, 1);
+    await keyStore.saveAggregateKey(aggregateId, kProject);
 
     const repo = new ProjectRepository(
       eventStore,
       store,
       crypto,
-      async () => kProject
+      keyStore,
+      keyringManager
     );
 
     const loaded = await repo.load(projectId);
 
-    expect(loaded).toBeNull();
+    expect(loaded.kind).toBe('none');
     expect(storeStub.deleted).toContain(aggregateId);
   });
 });
