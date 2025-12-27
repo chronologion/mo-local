@@ -243,6 +243,16 @@ test.describe('offline rebase goal edit', () => {
         throw lastError;
       }
 
+      // Device B receives A's rebased edit and should be able to keep editing.
+      mark('wait for A2 on B');
+      await expect(pageB.getByText(summaryA2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+
+      mark('edit B2');
+      const summaryB2 = `${goalSummary} (B2)`;
+      await editGoalSummary(pageB, summaryB2);
+
       mark('assert no version mismatch errors');
       expect(
         [...errorsA, ...errorsB].filter((msg) =>
