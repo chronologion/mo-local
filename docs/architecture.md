@@ -187,6 +187,7 @@ Rules:
 **eventType stability:**
 
 Once an `eventType` string is persisted, it must never change. Renaming requires:
+
 1. New event type with new name
 2. Migration/upcaster from old → new
 3. Keep old type in registry forever
@@ -201,14 +202,20 @@ export class Goal extends AggregateRoot<GoalId> {
   private status: GoalStatus;
 
   // Command method — validates invariants, applies event
-  rename(params: { title: GoalTitle; renamedAt: Timestamp; actorId: ActorId }): void {
+  rename(params: {
+    title: GoalTitle;
+    renamedAt: Timestamp;
+    actorId: ActorId;
+  }): void {
     if (this.status === GoalStatus.Archived) {
       throw new Error('Cannot rename archived goal');
     }
-    this.applyEvent(new GoalRenamed(this.id, params.title, params.renamedAt, {
-      eventId: EventId.generate(),
-      actorId: params.actorId,
-    }));
+    this.applyEvent(
+      new GoalRenamed(this.id, params.title, params.renamedAt, {
+        eventId: EventId.generate(),
+        actorId: params.actorId,
+      })
+    );
   }
 
   // Event application — mutates state, no validation
@@ -475,6 +482,7 @@ Recovery:
 
 - Use projection processor `resetAndRebuild()` to clear derived tables and replay from `*_events` tables.
 - Note: rebuild requires the relevant aggregate keys; missing keys will cause those aggregates to remain absent.
+- **Sync rebase caveat**: LiveStore sync can roll back and rewrite already-materialized `*_events` rows during a rebase. Our encrypted projection tables (`*_snapshots`, `*_analytics`, `*_search_index`) are written out-of-band via `store.query(...)`, so they are not part of LiveStore’s changeset rollback. The projection runtimes must therefore detect cursor divergence (persisted `sequence` + tail `id/version`) and trigger a deterministic rebuild to avoid stale versions/optimistic concurrency conflicts.
 
 ### 12.4 Saga stuck state
 
@@ -530,13 +538,13 @@ packages/<pkg>/
 
 ### 13.6 What to mock vs use real
 
-| Component | In unit tests | In integration tests |
-|-----------|---------------|----------------------|
-| Crypto | Real (`NodeCryptoService`) | Real |
-| Key store | `InMemoryKeyStore` | `InMemoryKeyStore` |
-| Event store | Real (`BrowserLiveStoreEventStore`) | Real with test DB |
-| LiveStore | Skip (use in-memory stores) | Real |
-| External APIs | Mock | Mock or test server |
+| Component     | In unit tests                       | In integration tests |
+| ------------- | ----------------------------------- | -------------------- |
+| Crypto        | Real (`NodeCryptoService`)          | Real                 |
+| Key store     | `InMemoryKeyStore`                  | `InMemoryKeyStore`   |
+| Event store   | Real (`BrowserLiveStoreEventStore`) | Real with test DB    |
+| LiveStore     | Skip (use in-memory stores)         | Real                 |
+| External APIs | Mock                                | Mock or test server  |
 
 **Rule:** Prefer real implementations when fast enough. Mock at boundaries (HTTP, external services), not internal seams.
 
@@ -585,10 +593,10 @@ Rule:
 
 ### 15.1 Option\<T\> vs T | null
 
-| Pattern | Where | When |
-|---------|-------|------|
+| Pattern     | Where                      | When                                                     |
+| ----------- | -------------------------- | -------------------------------------------------------- |
 | `Option<T>` | Domain, Application, Ports | Monadic chaining (`map`, `flatMap`, `fold`) adds clarity |
-| `T \| null` | Infrastructure internals | Simple optional returns without chaining |
+| `T \| null` | Infrastructure internals   | Simple optional returns without chaining                 |
 
 **Boundary rule:** Port interfaces use `Option<T>`; infrastructure may use `T | null` internally but converts at the boundary.
 
@@ -612,12 +620,12 @@ export class PersistenceError extends Error { ... }
 
 **When to throw vs return:**
 
-| Situation | Pattern |
-|-----------|---------|
-| Invariant violation (domain) | Throw |
-| Not found (query) | Return `Option<T>` or `null` |
-| Concurrency conflict | Throw `ConcurrencyError` |
-| Decryption failure | Throw `MissingKeyError` |
+| Situation                    | Pattern                        |
+| ---------------------------- | ------------------------------ |
+| Invariant violation (domain) | Throw                          |
+| Not found (query)            | Return `Option<T>` or `null`   |
+| Concurrency conflict         | Throw `ConcurrencyError`       |
+| Decryption failure           | Throw `MissingKeyError`        |
 | Validation failure (command) | Throw with descriptive message |
 
 ### 15.3 Type assertions
@@ -639,10 +647,10 @@ const user = data as unknown as User;
 
 ### 15.4 Async patterns
 
-| Use | When |
-|-----|------|
-| `Promise` | Application code, handlers, repositories |
-| `Effect` | LiveStore internals, sync backend (required by library) |
+| Use       | When                                                    |
+| --------- | ------------------------------------------------------- |
+| `Promise` | Application code, handlers, repositories                |
+| `Effect`  | LiveStore internals, sync backend (required by library) |
 
 **Do not** mix Effect into application/domain code. Keep Effect contained to infrastructure where LiveStore requires it.
 
