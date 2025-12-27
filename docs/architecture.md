@@ -483,6 +483,7 @@ Recovery:
 - Use projection processor `resetAndRebuild()` to clear derived tables and replay from `*_events` tables.
 - Note: rebuild requires the relevant aggregate keys; missing keys will cause those aggregates to remain absent.
 - **Sync rebase caveat**: LiveStore sync can roll back and rewrite already-materialized `*_events` rows during a rebase. Our encrypted projection tables (`*_snapshots`, `*_analytics`, `*_search_index`) are written out-of-band via `store.query(...)`, so they are not part of LiveStore’s changeset rollback. The projection runtimes must therefore detect cursor divergence (persisted `sequence` + tail `id/version`) and trigger a deterministic rebuild to avoid stale versions/optimistic concurrency conflicts.
+- **OCC caveat**: after concurrent offline edits, `*_events.version` is not guaranteed to be unique/monotonic across devices before the local state has “caught up” (the ciphertext AAD depends on that per-event version). For optimistic concurrency (`knownVersion`), treat snapshot `version` as the aggregate’s applied-event count and use `last_sequence` (not per-event `version`) as the incremental cursor when loading tail events.
 
 ### 12.4 Saga stuck state
 
