@@ -90,6 +90,13 @@ class StoreStub {
       );
       return [] as unknown as TResult;
     }
+    if (query.includes('SELECT id, version FROM goal_events WHERE sequence')) {
+      const sequence = bindValues[0] as number;
+      const row = this.eventLog.find((event) => event.sequence === sequence);
+      return row
+        ? ([{ id: row.id, version: row.version }] as unknown as TResult)
+        : ([] as unknown as TResult);
+    }
     if (query === 'DELETE FROM goal_snapshots') {
       this.snapshots.clear();
       return [] as unknown as TResult;
@@ -210,6 +217,33 @@ class EventStoreStub implements IEventStore {
   async getAllEvents(filter?: { since?: number }): Promise<EncryptedEvent[]> {
     if (!filter?.since) return this.events;
     return this.events.filter(
+      (event) => (event.sequence ?? 0) > (filter.since ?? 0)
+    );
+  }
+}
+
+class LiveEventStoreStub implements IEventStore {
+  constructor(private readonly store: StoreStub) {}
+
+  async append(): Promise<void> {
+    throw new Error('append not implemented for test stub');
+  }
+
+  async getEvents(
+    aggregateId: string,
+    fromVersion?: number
+  ): Promise<EncryptedEvent[]> {
+    return this.store.eventLog.filter((event) => {
+      const matchesAggregate = event.aggregateId === aggregateId;
+      const matchesVersion =
+        fromVersion === undefined ? true : event.version > fromVersion;
+      return matchesAggregate && matchesVersion;
+    });
+  }
+
+  async getAllEvents(filter?: { since?: number }): Promise<EncryptedEvent[]> {
+    if (!filter?.since) return this.store.eventLog;
+    return this.store.eventLog.filter(
       (event) => (event.sequence ?? 0) > (filter.since ?? 0)
     );
   }
@@ -435,6 +469,95 @@ describe('GoalProjectionProcessor', () => {
     await processor.resetAndRebuild();
     expect(processor.listGoals()).toHaveLength(1);
     expect(store.snapshots.size).toBe(1);
+  });
+
+  it('rebuilds projections when the event log is rebased in-place', async () => {
+    const kGoal = await crypto.generateKey();
+    await keyStore.saveAggregateKey(goalId, kGoal);
+    const toEncrypted = new DomainToLiveStoreAdapter(crypto);
+    const created = await toEncrypted.toEncrypted(
+      new GoalCreated(
+        {
+          goalId: aggregateId,
+          slice: Slice.from('Health'),
+          summary: Summary.from('Run'),
+          targetMonth: Month.from('2025-12'),
+          priority: Priority.from('must'),
+          createdBy: UserId.from('user-1'),
+          createdAt: Timestamp.fromMillis(
+            new Date('2025-01-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
+      1,
+      kGoal
+    );
+    const targetChanged = await toEncrypted.toEncrypted(
+      new GoalRescheduled(
+        {
+          goalId: aggregateId,
+          targetMonth: Month.from('2026-01'),
+          changedAt: Timestamp.fromMillis(
+            new Date('2025-02-01T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
+      2,
+      kGoal
+    );
+
+    store.eventLog = [
+      { ...created, sequence: 1 },
+      { ...targetChanged, sequence: 2 },
+    ];
+
+    const processor = new GoalProjectionProcessor(
+      store as unknown as Store,
+      new LiveEventStoreStub(store),
+      crypto,
+      keyStore,
+      keyringManager,
+      new LiveStoreToDomainAdapter(crypto)
+    );
+
+    await processor.start();
+    expect(store.snapshots.get(goalId)?.version).toBe(2);
+
+    // Simulate a rebase that replaces the last processed event without advancing
+    // the state-table `sequence` cursor (tail rewrite within a transaction).
+    const rebasedTargetChanged = await toEncrypted.toEncrypted(
+      new GoalRescheduled(
+        {
+          goalId: aggregateId,
+          targetMonth: Month.from('2026-02'),
+          changedAt: Timestamp.fromMillis(
+            new Date('2025-02-02T00:00:00Z').getTime()
+          ),
+        },
+        meta()
+      ),
+      3,
+      kGoal
+    );
+    store.eventLog = [
+      { ...created, sequence: 1 },
+      { ...rebasedTargetChanged, sequence: 2 },
+    ];
+
+    await processor.flush();
+
+    const snapshot = store.snapshots.get(goalId);
+    expect(snapshot?.version).toBe(3);
+    const decodedSnapshot = await decodeSnapshot(
+      crypto,
+      snapshot!.payload_encrypted,
+      goalId,
+      snapshot!.version,
+      kGoal
+    );
+    expect(decodedSnapshot.targetMonth).toBe('2026-02');
   });
 
   it('prunes processed events from the outbox once snapshots are up to date', async () => {

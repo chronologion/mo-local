@@ -41,6 +41,7 @@ class StoreStub {
   searchIndex: { payload_encrypted: Uint8Array; last_sequence: number } | null =
     null;
   meta = new Map<string, string>();
+  eventLog: EncryptedEvent[] = [];
 
   subscribe(): () => void {
     return () => {};
@@ -83,12 +84,13 @@ class StoreStub {
       return rows as unknown as TResult;
     }
     if (query.includes('INSERT INTO project_projection_meta')) {
-      const [, value] = bindValues as [string, string];
-      this.meta.set('project_last_sequence', value as string);
+      const [key, value] = bindValues as [string, string];
+      this.meta.set(key, value);
       return [] as unknown as TResult;
     }
     if (query.includes('SELECT value FROM project_projection_meta')) {
-      const value = this.meta.get('project_last_sequence');
+      const key = bindValues[0] as string;
+      const value = this.meta.get(key);
       return (value ? [{ value }] : []) as unknown as TResult;
     }
     if (query.includes('INSERT INTO project_search_index')) {
@@ -114,12 +116,33 @@ class StoreStub {
       // pruning handled by event store stub
       return [] as unknown as TResult;
     }
+    if (query.includes('DELETE FROM project_projection_meta')) {
+      this.meta.clear();
+      return [] as unknown as TResult;
+    }
+    if (
+      query.includes('SELECT id, version FROM project_events WHERE sequence')
+    ) {
+      const sequence = bindValues[0] as number;
+      const row = this.eventLog.find((event) => event.sequence === sequence);
+      return row
+        ? ([{ id: row.id, version: row.version }] as unknown as TResult)
+        : ([] as unknown as TResult);
+    }
     return [] as unknown as TResult;
   }
 }
 
 class EventStoreStub implements IEventStore {
   private events: EncryptedEvent[] = [];
+
+  reset(): void {
+    this.events = [];
+  }
+
+  getEventLog(): ReadonlyArray<EncryptedEvent> {
+    return this.events;
+  }
 
   async append(_aggregateId: string, events: EncryptedEvent[]): Promise<void> {
     this.events.push(
@@ -160,18 +183,22 @@ describe('ProjectProjectionProcessor', () => {
   const crypto = new WebCryptoService();
   const toEncrypted = new DomainToLiveStoreAdapter(crypto);
   const toDomain = new LiveStoreToDomainAdapter(crypto);
-  const store = new StoreStub() as unknown as Store;
+  let storeStub: StoreStub;
+  let store: Store;
   const keyStore = new InMemoryKeyStore();
   let keyringManager: KeyringManager;
   const eventStore = new EventStoreStub();
   const projectId = '00000000-0000-0000-0000-000000000301';
 
   beforeEach(async () => {
-    (eventStore as EventStoreStub)['events'] = [];
+    storeStub = new StoreStub();
+    store = storeStub as unknown as Store;
+    eventStore.reset();
     keyStore['keys'].clear();
-    store.meta.clear();
-    store.searchIndex = null;
-    store.snapshots.clear();
+    storeStub.meta.clear();
+    storeStub.searchIndex = null;
+    storeStub.snapshots.clear();
+    storeStub.eventLog = [];
     keyringManager = new KeyringManager(
       crypto,
       keyStore,
@@ -224,6 +251,7 @@ describe('ProjectProjectionProcessor', () => {
       )
     );
     await eventStore.append(projectId, encryptedBatch);
+    storeStub.eventLog = [...eventStore.getEventLog()];
 
     const processor = new ProjectProjectionProcessor(
       store,
@@ -259,6 +287,7 @@ describe('ProjectProjectionProcessor', () => {
     );
     const encrypted = await toEncrypted.toEncrypted(created, 1, kProject);
     await eventStore.append(projectId, [encrypted]);
+    storeStub.eventLog = [...eventStore.getEventLog()];
 
     const processor = new ProjectProjectionProcessor(
       store,
@@ -320,6 +349,7 @@ describe('ProjectProjectionProcessor', () => {
     await eventStore.append(projectB, [
       await toEncrypted.toEncrypted(createdB, 1, kProjectB),
     ]);
+    storeStub.eventLog = [...eventStore.getEventLog()];
 
     const first = new ProjectProjectionProcessor(
       store,
@@ -405,6 +435,7 @@ describe('ProjectProjectionProcessor', () => {
 
     await eventStore.append(missingProjectId, [missingEncrypted]);
     await eventStore.append(projectId, [presentEncrypted]);
+    storeStub.eventLog = [...eventStore.getEventLog()];
 
     const processor = new ProjectProjectionProcessor(
       store,
