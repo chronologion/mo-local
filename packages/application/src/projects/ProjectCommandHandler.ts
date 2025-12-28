@@ -25,8 +25,12 @@ import {
   ArchiveProjectMilestone,
   ArchiveProject,
 } from './commands';
-import { IProjectRepository } from './ports/IProjectRepository';
-import { ICryptoService, IIdempotencyStore, IKeyStore } from '../shared/ports';
+import { ProjectRepositoryPort } from './ports/ProjectRepositoryPort';
+import {
+  CryptoServicePort,
+  IdempotencyStorePort,
+  KeyStorePort,
+} from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
@@ -36,10 +40,10 @@ export type ProjectCommandResult =
 
 export class ProjectCommandHandler extends BaseCommandHandler {
   constructor(
-    private readonly projectRepo: IProjectRepository,
-    private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService,
-    private readonly idempotencyStore: IIdempotencyStore
+    private readonly projectRepo: ProjectRepositoryPort,
+    private readonly keyStore: KeyStorePort,
+    private readonly crypto: CryptoServicePort,
+    private readonly idempotencyStore: IdempotencyStorePort
   ) {
     super();
   }

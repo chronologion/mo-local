@@ -1,1 +1,1 @@
-export * from './ports/ICloudAccessClient';
+export * from './ports/CloudAccessClientPort';

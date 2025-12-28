@@ -86,7 +86,7 @@ Hard rules:
 ### 5.3 Publication path (post-commit → event bus)
 
 1. `CommittedEventPublisher` streams **committed** events from materialized tables ordered by `sequence`.
-2. It decrypts and rehydrates domain events and publishes them on `IEventBus`.
+2. It decrypts and rehydrates domain events and publishes them on `EventBusPort`.
 3. It persists a cursor per stream to guarantee replayability and avoid double-publish on reload.
 
 **Contract**
@@ -247,7 +247,7 @@ This document does not enumerate every domain event type (that list becomes stal
 ### 7.1 Responsibilities
 
 - Define use-case contracts (commands/queries) and their handlers.
-- Define outbound ports (`IEventStore`, `IKeyStore`, `ICryptoService`, `IEventBus`, read model ports, sync provider ports).
+- Define outbound ports (`EventStorePort`, `KeyStorePort`, `CryptoServicePort`, `EventBusPort`, read model ports, sync provider ports).
 - Enforce the local OCC contract via `knownVersion`.
 
 ### 7.2 Local conflict UX contract (OCC)
@@ -263,7 +263,7 @@ Sagas coordinate behavior across bounded contexts without collapsing them into o
 
 Contracts:
 
-- Sagas subscribe to **committed** domain events via `IEventBus` (which is fed by post-commit streaming).
+- Sagas subscribe to **committed** domain events via `EventBusPort` (which is fed by post-commit streaming).
 - Sagas keep their own minimal state (not projection state) and persist it independently.
 - Sagas dispatch commands to other BCs and must be idempotent:
   - idempotency keys should include the **triggering event ID** to allow safe re-runs.
@@ -575,7 +575,7 @@ packages/<pkg>/
 
 ```typescript
 // __tests__/fixtures/InMemoryKeyStore.ts
-export class InMemoryKeyStore implements IKeyStore {
+export class InMemoryKeyStore implements KeyStorePort {
   private readonly keys = new Map<string, Uint8Array>();
   // ... implement interface
 }
@@ -692,14 +692,14 @@ flowchart TB
   end
 
   subgraph Application["Application Layer (Goals BC)<br>CQRS + Ports"]
-    CmdBus["Command Bus (IBus&lt;GoalCommand&gt;)"]
-    QryBus["Query Bus (IBus&lt;GoalQuery&gt;)"]
+    CmdBus["Command Bus (BusPort&lt;GoalCommand&gt;)"]
+    QryBus["Query Bus (BusPort&lt;GoalQuery&gt;)"]
     CmdHandler["GoalCommandHandler"]
     QryHandler["GoalQueryHandler"]
     Saga["GoalAchievementSaga<br>(cross-BC)"]
-    RepoPort["IGoalRepository (port)"]
-    ReadModelPort["IGoalReadModel (port)"]
-    EventBus["IEventBus (port)"]
+    RepoPort["GoalRepositoryPort (port)"]
+    ReadModelPort["GoalReadModelPort (port)"]
+    EventBus["EventBusPort (port)"]
   end
 
   subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]

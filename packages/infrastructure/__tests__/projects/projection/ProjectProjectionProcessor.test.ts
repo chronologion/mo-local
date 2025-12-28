@@ -20,7 +20,7 @@ import {
   UserId,
   EventId,
 } from '@mo/domain';
-import type { EncryptedEvent, IEventStore } from '@mo/application';
+import type { EncryptedEvent, EventStorePort } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
 
@@ -133,7 +133,7 @@ class StoreStub {
   }
 }
 
-class EventStoreStub implements IEventStore {
+class EventStoreStub implements EventStorePort {
   private events: EncryptedEvent[] = [];
 
   reset(): void {

@@ -9,7 +9,7 @@ export type ProjectListFilter = {
   goalId?: string | null;
 };
 
-export type IProjectReadModel = ReadModel<
+export type ProjectReadModelPort = ReadModel<
   ProjectListItemDto,
   ProjectListFilter
 >;

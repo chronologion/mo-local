@@ -1,13 +1,13 @@
 import { ConcurrencyError } from '@mo/application';
-import { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
+import { EncryptedEvent, EventFilter, EventStorePort } from '@mo/application';
 
 /**
- * Minimal in-memory implementation of IEventStore.
+ * Minimal in-memory implementation of EventStorePort.
  *
  * Simulates LiveStore behavior: assigns sequence numbers, enforces
  * monotonic versions per aggregate, and supports basic filtering.
  */
-export class LiveStoreEventStore implements IEventStore {
+export class LiveStoreEventStore implements EventStorePort {
   private readonly eventsByAggregate = new Map<string, StoredEvent[]>();
   private globalSequence = 0;
 

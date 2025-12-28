@@ -21,7 +21,7 @@ import {
   Timestamp,
   EventId,
 } from '@mo/domain';
-import { EncryptedEvent, IEventStore } from '@mo/application';
+import { EncryptedEvent, EventStorePort } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
 
@@ -195,7 +195,7 @@ class StoreStub {
   }
 }
 
-class EventStoreStub implements IEventStore {
+class EventStoreStub implements EventStorePort {
   constructor(private readonly events: EncryptedEvent[]) {}
 
   async append(): Promise<void> {
@@ -222,7 +222,7 @@ class EventStoreStub implements IEventStore {
   }
 }
 
-class LiveEventStoreStub implements IEventStore {
+class LiveEventStoreStub implements EventStorePort {
   constructor(private readonly store: StoreStub) {}
 
   async append(): Promise<void> {

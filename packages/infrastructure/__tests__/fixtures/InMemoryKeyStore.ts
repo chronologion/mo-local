@@ -1,6 +1,6 @@
-import type { IdentityKeys, IKeyStore, KeyBackup } from '@mo/application';
+import type { IdentityKeys, KeyStorePort, KeyBackup } from '@mo/application';
 
-export class InMemoryKeyStore implements IKeyStore {
+export class InMemoryKeyStore implements KeyStorePort {
   private readonly identityKeys = new Map<string, IdentityKeys>();
   private readonly keys = new Map<string, Uint8Array>();
   private masterKey: Uint8Array | null = null;

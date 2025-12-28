@@ -1,4 +1,4 @@
-import type { IEventBus } from '@mo/application';
+import type { EventBusPort } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
 import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
@@ -33,7 +33,7 @@ export class CommittedEventPublisher {
 
   constructor(
     private readonly store: Store,
-    private readonly eventBus: IEventBus,
+    private readonly eventBus: EventBusPort,
     private readonly toDomain: LiveStoreToDomainAdapter,
     private readonly keyringManager: KeyringManager,
     configs: StreamConfig[]

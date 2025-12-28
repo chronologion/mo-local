@@ -8,6 +8,6 @@ import type { Repository } from '../../shared/ports/Repository';
  * optimistic concurrency, and applying the provided encryption key where
  * necessary.
  */
-export interface IGoalRepository extends Repository<Goal, GoalId> {
+export interface GoalRepositoryPort extends Repository<Goal, GoalId> {
   archive(id: GoalId, archivedAt: Timestamp, actorId: UserId): Promise<void>;
 }

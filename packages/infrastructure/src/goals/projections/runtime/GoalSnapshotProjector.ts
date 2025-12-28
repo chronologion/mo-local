@@ -1,4 +1,4 @@
-import type { IKeyStore } from '@mo/application';
+import type { KeyStorePort } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import type { EncryptedEvent } from '@mo/application';
 import { MissingKeyError } from '../../../errors';
@@ -39,7 +39,7 @@ export class GoalSnapshotProjector {
   constructor(
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore
+    private readonly keyStore: KeyStorePort
   ) {}
 
   listProjections(): GoalListItem[] {

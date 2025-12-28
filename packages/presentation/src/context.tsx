@@ -6,7 +6,7 @@ import type {
   GoalCommandResult,
   GoalQuery,
   GoalQueryResult,
-  IBus,
+  BusPort,
   ProjectCommand,
   ProjectCommandResult,
   ProjectQuery,
@@ -30,10 +30,13 @@ export interface ProjectProjectionPort {
 }
 
 export interface InterfaceServices {
-  goalCommandBus: IBus<GoalCommand, CommandResult<GoalCommandResult>>;
-  goalQueryBus: IBus<GoalQuery, GoalQueryResult>;
-  projectCommandBus: IBus<ProjectCommand, CommandResult<ProjectCommandResult>>;
-  projectQueryBus: IBus<ProjectQuery, ProjectQueryResult>;
+  goalCommandBus: BusPort<GoalCommand, CommandResult<GoalCommandResult>>;
+  goalQueryBus: BusPort<GoalQuery, GoalQueryResult>;
+  projectCommandBus: BusPort<
+    ProjectCommand,
+    CommandResult<ProjectCommandResult>
+  >;
+  projectQueryBus: BusPort<ProjectQuery, ProjectQueryResult>;
   goalProjection: GoalProjectionPort;
   projectProjection: ProjectProjectionPort;
 }

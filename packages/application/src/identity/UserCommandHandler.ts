@@ -2,7 +2,7 @@ import {
   ValidatedRegisterUserCommand,
   ValidatedImportUserKeysCommand,
 } from './commands';
-import { IKeyStore, IEventBus } from '../ports';
+import { KeyStorePort, EventBusPort } from '../ports';
 import { EventId, Timestamp, UserRegistered } from '@mo/domain';
 
 /**
@@ -10,8 +10,8 @@ import { EventId, Timestamp, UserRegistered } from '@mo/domain';
  */
 export class UserCommandHandler {
   constructor(
-    private readonly keyStore: IKeyStore,
-    private readonly eventBus: IEventBus
+    private readonly keyStore: KeyStorePort,
+    private readonly eventBus: EventBusPort
   ) {}
 
   async handleRegister(

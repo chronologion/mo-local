@@ -21,7 +21,7 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IKeyStore,
+  KeyStorePort,
 } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import { WebCryptoService } from '../crypto/WebCryptoService';
@@ -46,7 +46,7 @@ export type GoalBootstrapDeps = {
   store: Store;
   eventStore: BrowserLiveStoreEventStore;
   crypto: WebCryptoService;
-  keyStore: IKeyStore;
+  keyStore: KeyStorePort;
   keyringManager: KeyringManager;
   toDomain: LiveStoreToDomainAdapter;
 };

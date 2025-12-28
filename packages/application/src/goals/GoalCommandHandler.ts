@@ -21,8 +21,12 @@ import {
   GrantGoalAccess,
   RevokeGoalAccess,
 } from './commands';
-import { IGoalRepository } from './ports/IGoalRepository';
-import { ICryptoService, IIdempotencyStore, IKeyStore } from '../shared/ports';
+import { GoalRepositoryPort } from './ports/GoalRepositoryPort';
+import {
+  CryptoServicePort,
+  IdempotencyStorePort,
+  KeyStorePort,
+} from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
@@ -35,10 +39,10 @@ export type GoalCommandResult =
  */
 export class GoalCommandHandler extends BaseCommandHandler {
   constructor(
-    private readonly goalRepo: IGoalRepository,
-    private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService,
-    private readonly idempotencyStore: IIdempotencyStore
+    private readonly goalRepo: GoalRepositoryPort,
+    private readonly keyStore: KeyStorePort,
+    private readonly crypto: CryptoServicePort,
+    private readonly idempotencyStore: IdempotencyStorePort
   ) {
     super();
   }

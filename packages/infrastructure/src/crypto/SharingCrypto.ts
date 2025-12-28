@@ -1,4 +1,4 @@
-import { ICryptoService } from '@mo/application';
+import { CryptoServicePort } from '@mo/application';
 import { ECIES_EPHEMERAL_LENGTH } from './eciesEnvelope';
 
 const CURVE = 'P-256';
@@ -19,7 +19,7 @@ type UnwrapParams = {
  * Sharing helpers for wrapping K_goal with the recipient's public key using ECDH.
  */
 export class SharingCrypto {
-  constructor(private readonly crypto: ICryptoService) {}
+  constructor(private readonly crypto: CryptoServicePort) {}
 
   async deriveSharedSecret(
     privateKey: Uint8Array,

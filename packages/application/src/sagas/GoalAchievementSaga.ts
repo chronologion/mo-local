@@ -1,6 +1,6 @@
-import type { IEventBus } from '../shared/ports/IEventBus';
-import type { IGoalRepository } from '../goals/ports/IGoalRepository';
-import type { IProjectReadModel } from '../projects/ports/IProjectReadModel';
+import type { EventBusPort } from '../shared/ports/EventBusPort';
+import type { GoalRepositoryPort } from '../goals/ports/GoalRepositoryPort';
+import type { ProjectReadModelPort } from '../projects/ports/ProjectReadModelPort';
 import { AchieveGoal } from '../goals/commands';
 import {
   EventId,
@@ -17,9 +17,9 @@ import {
 } from '@mo/domain';
 import type {
   GoalAchievementState,
-  IGoalAchievementStore,
+  GoalAchievementStorePort,
   ProjectAchievementState,
-} from './ports/IGoalAchievementStore';
+} from './ports/GoalAchievementStorePort';
 
 type DispatchAchieveGoal = (command: AchieveGoal) => Promise<void>;
 
@@ -33,9 +33,9 @@ const emptyGoalState = (goalId: string): GoalAchievementState => ({
 
 export class GoalAchievementSaga {
   constructor(
-    private readonly store: IGoalAchievementStore,
-    private readonly goalRepo: IGoalRepository,
-    private readonly projectReadModel: IProjectReadModel,
+    private readonly store: GoalAchievementStorePort,
+    private readonly goalRepo: GoalRepositoryPort,
+    private readonly projectReadModel: ProjectReadModelPort,
     private readonly dispatchAchieveGoal: DispatchAchieveGoal
   ) {}
 
@@ -77,7 +77,7 @@ export class GoalAchievementSaga {
     }
   }
 
-  subscribe(eventBus: IEventBus): void {
+  subscribe(eventBus: EventBusPort): void {
     eventBus.subscribe(projectEventTypes.projectCreated, (event) =>
       this.handleProjectCreated(event as ProjectCreated)
     );

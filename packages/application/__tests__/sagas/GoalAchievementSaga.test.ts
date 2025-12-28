@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   GoalAchievementSaga,
   type GoalAchievementState,
-  type IGoalAchievementStore,
+  type GoalAchievementStorePort,
   type ProjectAchievementState,
 } from '../../src/sagas';
-import type { IEventBus } from '../../src/shared/ports/IEventBus';
+import type { EventBusPort } from '../../src/shared/ports/EventBusPort';
 import type { EventHandler } from '../../src/shared/ports/types';
-import type { IGoalRepository } from '../../src/goals/ports/IGoalRepository';
-import type { IProjectReadModel } from '../../src/projects/ports/IProjectReadModel';
+import type { GoalRepositoryPort } from '../../src/goals/ports/GoalRepositoryPort';
+import type { ProjectReadModelPort } from '../../src/projects/ports/ProjectReadModelPort';
 import type { ProjectListItemDto } from '../../src/projects/dtos';
 import {
   ActorId,
@@ -33,7 +33,7 @@ import {
 } from '@mo/domain';
 import { none, some, type Option } from '../../src/shared/ports/Option';
 
-class InMemoryGoalAchievementStore implements IGoalAchievementStore {
+class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
   private readonly goals = new Map<string, GoalAchievementState>();
   private readonly projects = new Map<string, ProjectAchievementState>();
 
@@ -60,7 +60,7 @@ class InMemoryGoalAchievementStore implements IGoalAchievementStore {
   }
 }
 
-class StubGoalRepository implements IGoalRepository {
+class StubGoalRepository implements GoalRepositoryPort {
   constructor(private readonly goals: Map<string, Goal>) {}
 
   async load(id: GoalId): Promise<Option<Goal>> {
@@ -77,7 +77,7 @@ class StubGoalRepository implements IGoalRepository {
   }
 }
 
-class StubProjectReadModel implements IProjectReadModel {
+class StubProjectReadModel implements ProjectReadModelPort {
   constructor(private readonly projects: ProjectListItemDto[]) {}
 
   async list(): Promise<ProjectListItemDto[]> {
@@ -93,7 +93,7 @@ class StubProjectReadModel implements IProjectReadModel {
   }
 }
 
-class InMemoryEventBus implements IEventBus {
+class InMemoryEventBus implements EventBusPort {
   private readonly handlers = new Map<string, EventHandler[]>();
 
   async publish(events: DomainEvent[]): Promise<void> {

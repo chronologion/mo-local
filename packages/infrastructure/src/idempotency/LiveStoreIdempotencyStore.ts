@@ -1,5 +1,5 @@
 import type { Store } from '@livestore/livestore';
-import type { IIdempotencyStore, IdempotencyRecord } from '@mo/application';
+import type { IdempotencyStorePort, IdempotencyRecord } from '@mo/application';
 
 type Row = {
   idempotency_key: string;
@@ -8,7 +8,7 @@ type Row = {
   created_at: number;
 };
 
-export class LiveStoreIdempotencyStore implements IIdempotencyStore {
+export class LiveStoreIdempotencyStore implements IdempotencyStorePort {
   constructor(private readonly store: Store) {}
 
   async get(key: string): Promise<IdempotencyRecord | null> {

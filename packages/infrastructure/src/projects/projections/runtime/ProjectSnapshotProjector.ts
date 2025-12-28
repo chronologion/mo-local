@@ -1,5 +1,5 @@
 import type { Store } from '@livestore/livestore';
-import type { IKeyStore, EncryptedEvent } from '@mo/application';
+import type { KeyStorePort, EncryptedEvent } from '@mo/application';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
 import { MissingKeyError } from '../../../errors';
 import { buildSnapshotAad } from '../../../eventing/aad';
@@ -38,7 +38,7 @@ export class ProjectSnapshotProjector {
   constructor(
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore
+    private readonly keyStore: KeyStorePort
   ) {}
 
   listProjections(): ProjectListItem[] {

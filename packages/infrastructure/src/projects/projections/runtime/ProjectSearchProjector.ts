@@ -1,6 +1,6 @@
 import MiniSearch, { type SearchResult } from 'minisearch';
 import type { Store } from '@livestore/livestore';
-import type { IKeyStore } from '@mo/application';
+import type { KeyStorePort } from '@mo/application';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
 import { PROJECT_SEARCH_CONFIG } from './ProjectSearchConfig';
 import type { ProjectListItem } from '../model/ProjectProjectionState';
@@ -18,7 +18,7 @@ export class ProjectSearchProjector {
   constructor(
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore
+    private readonly keyStore: KeyStorePort
   ) {
     this.searchIndex = this.createSearchIndex();
   }

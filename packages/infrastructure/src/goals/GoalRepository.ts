@@ -2,9 +2,9 @@ import { Goal, GoalId, Timestamp, UserId, goalEventTypes } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
-  IEventStore,
-  IGoalRepository,
-  IKeyStore,
+  EventStorePort,
+  GoalRepositoryPort,
+  KeyStorePort,
   none,
   Option,
   some,
@@ -21,15 +21,15 @@ import { buildSnapshotAad } from '../eventing/aad';
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
  */
-export class GoalRepository implements IGoalRepository {
+export class GoalRepository implements GoalRepositoryPort {
   private readonly toEncrypted: DomainToLiveStoreAdapter;
   private readonly toDomain: LiveStoreToDomainAdapter;
 
   constructor(
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: EventStorePort,
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore,
+    private readonly keyStore: KeyStorePort,
     private readonly keyringManager: KeyringManager
   ) {
     this.toEncrypted = new DomainToLiveStoreAdapter(crypto);

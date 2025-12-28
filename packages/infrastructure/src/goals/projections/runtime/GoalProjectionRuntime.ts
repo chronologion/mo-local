@@ -1,5 +1,5 @@
 import type { Store } from '@livestore/livestore';
-import type { IEventStore, IKeyStore } from '@mo/application';
+import type { EventStorePort, KeyStorePort } from '@mo/application';
 import { goalTables } from '../../schema';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
@@ -37,9 +37,9 @@ export class GoalProjectionRuntime {
 
   constructor(
     private readonly store: Store,
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: EventStorePort,
     crypto: WebCryptoService,
-    keyStore: IKeyStore,
+    keyStore: KeyStorePort,
     private readonly keyringManager: KeyringManager,
     private readonly toDomain: LiveStoreToDomainAdapter
   ) {

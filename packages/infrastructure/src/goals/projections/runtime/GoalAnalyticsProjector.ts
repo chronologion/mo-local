@@ -1,4 +1,4 @@
-import type { IKeyStore } from '@mo/application';
+import type { KeyStorePort } from '@mo/application';
 import type { Store } from '@livestore/livestore';
 import type { DomainEvent } from '@mo/domain';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
@@ -44,7 +44,7 @@ export class GoalAnalyticsProjector {
   constructor(
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore
+    private readonly keyStore: KeyStorePort
   ) {}
 
   clearCache(): void {

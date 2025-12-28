@@ -3,7 +3,7 @@ import { ProjectRepository } from '../../src/projects/ProjectRepository';
 import { WebCryptoService } from '../../src/crypto/WebCryptoService';
 import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
 import { KeyringManager } from '../../src/crypto/KeyringManager';
-import type { IEventStore, EncryptedEvent } from '@mo/application';
+import type { EventStorePort, EncryptedEvent } from '@mo/application';
 import { ProjectId, ProjectName } from '@mo/domain';
 import type { Store } from '@livestore/livestore';
 import { buildSnapshotAad } from '../../src/eventing/aad';
@@ -60,7 +60,7 @@ class SnapshotStoreStub {
   }
 }
 
-class EmptyEventStoreStub implements IEventStore {
+class EmptyEventStoreStub implements EventStorePort {
   async append(_aggregateId: string, _events: EncryptedEvent[]): Promise<void> {
     // no-op for this test
   }

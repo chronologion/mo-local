@@ -6,7 +6,10 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { CloudIdentitySession, ICloudAccessClient } from '@mo/application';
+import type {
+  CloudIdentitySession,
+  CloudAccessClientPort,
+} from '@mo/application';
 import { HttpCloudAccessClient } from '@mo/infrastructure/cloud';
 
 type RemoteAuthState =
@@ -37,7 +40,7 @@ const RemoteAuthContext = createContext<RemoteAuthContextValue | null>(null);
 
 export type RemoteAuthProviderProps = {
   children: React.ReactNode;
-  client?: ICloudAccessClient;
+  client?: CloudAccessClientPort;
 };
 
 export const RemoteAuthProvider = ({
@@ -49,7 +52,7 @@ export const RemoteAuthProvider = ({
   });
   const [error, setError] = useState<string | null>(null);
 
-  const client: ICloudAccessClient = useMemo(
+  const client: CloudAccessClientPort = useMemo(
     () => injectedClient ?? new HttpCloudAccessClient(apiBaseUrl),
     [injectedClient]
   );

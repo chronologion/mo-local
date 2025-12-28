@@ -2,7 +2,7 @@ import { Goal, GoalId, DomainEvent } from '@mo/domain';
 import {
   ConcurrencyError,
   EncryptedEvent,
-  IEventStore,
+  EventStorePort,
   NotFoundError,
   none,
   Option,
@@ -26,7 +26,7 @@ export interface GoalEventAdapter {
  */
 export class LiveStoreGoalRepository {
   constructor(
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: EventStorePort,
     private readonly adapter: GoalEventAdapter,
     private readonly keyProvider: (
       aggregateId: string

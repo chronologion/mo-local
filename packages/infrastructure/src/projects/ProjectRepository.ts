@@ -8,9 +8,9 @@ import {
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
-  IEventStore,
-  IProjectRepository,
-  IKeyStore,
+  EventStorePort,
+  ProjectRepositoryPort,
+  KeyStorePort,
   none,
   Option,
   some,
@@ -38,15 +38,15 @@ type SnapshotRow = {
  * Browser-friendly project repository that uses LiveStore tables with encryption.
  * Persists encrypted snapshots to speed reconstitution.
  */
-export class ProjectRepository implements IProjectRepository {
+export class ProjectRepository implements ProjectRepositoryPort {
   private readonly toEncrypted: DomainToLiveStoreAdapter;
   private readonly toDomain: LiveStoreToDomainAdapter;
 
   constructor(
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: EventStorePort,
     private readonly store: Store,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore,
+    private readonly keyStore: KeyStorePort,
     private readonly keyringManager: KeyringManager
   ) {
     this.toEncrypted = new DomainToLiveStoreAdapter(crypto);

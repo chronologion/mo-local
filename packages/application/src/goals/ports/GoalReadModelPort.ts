@@ -10,4 +10,4 @@ export type GoalListFilter = {
   priority?: string;
 };
 
-export type IGoalReadModel = ReadModel<GoalListItemDto, GoalListFilter>;
+export type GoalReadModelPort = ReadModel<GoalListItemDto, GoalListFilter>;

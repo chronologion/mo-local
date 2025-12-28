@@ -1,4 +1,4 @@
-import { ICryptoService, IKeyStore, KeyPair } from '@mo/application';
+import { CryptoServicePort, KeyStorePort, KeyPair } from '@mo/application';
 import { SharingCrypto } from './SharingCrypto';
 import { KeyringManager } from './KeyringManager';
 
@@ -21,8 +21,8 @@ type AcceptParams = {
  */
 export class AggregateKeyManager {
   constructor(
-    private readonly keyStore: IKeyStore,
-    private readonly crypto: ICryptoService,
+    private readonly keyStore: KeyStorePort,
+    private readonly crypto: CryptoServicePort,
     private readonly sharing: SharingCrypto,
     private readonly keyringManager?: KeyringManager
   ) {}
