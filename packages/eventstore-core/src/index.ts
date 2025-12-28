@@ -32,6 +32,11 @@ export type EffectiveCursor = Readonly<{
   pendingCommitSequence: number;
 }>;
 
+export const ZERO_EFFECTIVE_CURSOR: EffectiveCursor = {
+  globalSequence: 0,
+  pendingCommitSequence: 0,
+};
+
 export const ProjectionOrderings = {
   effectiveTotalOrder: 'effectiveTotalOrder',
   commitSequence: 'commitSequence',
@@ -55,6 +60,7 @@ export type EventRecord = Readonly<{
   eventType: string;
   payload: Uint8Array; // encrypted ciphertext (opaque)
   version: number; // per-aggregate version (AAD binding)
+  /** Unix epoch milliseconds when the event occurred (client clock). */
   occurredAt: number;
   actorId: string | null;
   causationId: string | null;
@@ -86,6 +92,10 @@ export const EventRecordDerivedKeys = {
 export type EventRecordDerivedKey =
   (typeof EventRecordDerivedKeys)[keyof typeof EventRecordDerivedKeys];
 
+/**
+ * Low-level event log for append + read.
+ * Implemented by platform-specific adapters (@mo/eventstore-web, etc.).
+ */
 export interface EventLogPort {
   append(
     events: ReadonlyArray<Omit<EventRecord, EventRecordDerivedKey>>
