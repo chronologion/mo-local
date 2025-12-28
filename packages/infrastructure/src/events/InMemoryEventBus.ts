@@ -1,10 +1,10 @@
-import { type IEventBus, type EventHandler } from '@mo/application';
+import { type EventBusPort, type EventHandler } from '@mo/application';
 import { DomainEvent } from '@mo/domain';
 
 /**
  * Simple in-memory event bus implementation for browser/runtime wiring.
  */
-export class InMemoryEventBus implements IEventBus {
+export class InMemoryEventBus implements EventBusPort {
   private readonly handlers = new Map<string, EventHandler[]>();
 
   async publish(events: DomainEvent[]): Promise<void> {

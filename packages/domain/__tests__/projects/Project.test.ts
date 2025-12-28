@@ -11,12 +11,8 @@ import { GoalId } from '../../src/goals/vos/GoalId';
 import { UserId } from '../../src/identity/UserId';
 import { Timestamp } from '../../src/shared/vos/Timestamp';
 
-const today = LocalDate.today();
-const nextMonth = LocalDate.from(
-  today.year,
-  today.month,
-  Math.min(today.day + 1, 28)
-);
+const today = LocalDate.from(2025, 1, 15);
+const nextMonth = LocalDate.from(2025, 1, 16);
 const createdAt = Timestamp.fromMillis(1_700_000_000_000);
 const changedAt = Timestamp.fromMillis(1_700_000_000_500);
 const laterAt = Timestamp.fromMillis(1_700_000_001_000);

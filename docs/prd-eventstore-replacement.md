@@ -97,8 +97,8 @@ Our architecture (see `docs/architecture.md`) requires these to be separable bec
 ### 2.3 Hard constraints from `docs/architecture.md`
 
 - **Application owns ports**. Existing ports stay the public contracts:
-  - `EventStorePort` (encrypted events; currently `IEventStore` in code),
-  - `IdempotencyStorePort` (currently `IIdempotencyStore` in code),
+  - `EventStorePort` (encrypted events),
+  - `IdempotencyStorePort`,
   - read model ports, buses, etc.
 - **Commit boundary**: “durable” means “persisted to local SQLite”. Anything else must be derivable/replayable.
 - **AAD binding**: payload encryption binds integrity to `{aggregateId, eventType, version}`.
@@ -117,7 +117,7 @@ This section lists the key mismatches in the initial draft and the changes neede
 
 **Draft issue**: introducing `@mo/eventstore-core` as “the event store interface” risks moving port ownership out of application.
 
-**Decision**: `@mo/eventstore-core` is pure/shared _infrastructure tooling_ (types + helpers). The application ports (`EventStorePort`, `IdempotencyStorePort`; currently `IEventStore`, `IIdempotencyStore` in code) remain in `packages/application`.
+**Decision**: `@mo/eventstore-core` is pure/shared _infrastructure tooling_ (types + helpers). The application ports (`EventStorePort`, `IdempotencyStorePort`) remain in `packages/application`.
 
 ### 3.2 Reactive queries (sync vs async APIs)
 
@@ -2204,7 +2204,7 @@ The architecture document calls out that sagas/process managers may persist thei
 **Decision/requirement**:
 
 - Saga state MUST be rebuildable and/or resettable on rebase. It must never become a “hidden second source of truth” that survives re-ordering of events.
-- If sagas issue commands as side effects, they MUST use idempotency keys via the existing `IdempotencyStorePort` (currently `IIdempotencyStore` in code) so that rebuild/replay does not double-apply external actions.
+- If sagas issue commands as side effects, they MUST use idempotency keys via `IdempotencyStorePort` so that rebuild/replay does not double-apply external actions.
   - Suggested scheme (MVP): deterministic keys like `{sagaId}:{stepName}:{targetId}`.
   - Rule: record the idempotency key (durably) before performing the side effect.
 - `onRebaseRequired()` MUST invalidate saga/process-manager state together with projections (either by rebuilding from events, or by clearing saga tables and restarting from a safe cursor).
@@ -2219,16 +2219,15 @@ The architecture document calls out that sagas/process managers may persist thei
 
 Mixed naming conventions (“some ports have an `I` prefix, some don’t”) creates ongoing friction in a DDD/CQRS codebase where role clarity matters.
 
-**Decision (for new code in the replacement milestone)**:
+**Decision (required for this milestone)**:
 
 - **Application ports** use the `*Port` suffix and avoid the `I` prefix.
   - Examples: `EventStorePort`, `IdempotencyStorePort`, `GoalRepositoryPort`, `GoalReadModelPort`, `EventBusPort`.
 - **Infrastructure implementations** use concrete names without `Port` (and without `I`):
   - Examples: `BrowserSqliteEventStore`, `SqliteIdempotencyStore`, `InMemoryEventBus`.
-- Existing `I*` port names in the current codebase are allowed to remain for this milestone to reduce churn. Do **not** introduce “dual naming” or bidirectional aliases.
-  - If we rename ports, do it as a single mechanical sweep after the big-bang cutover is stable.
-  - Rule of thumb: when you see `ISomething` in the existing codebase, the target name is `SomethingPort` (ports are ports; the `I` prefix is legacy).
-  - Same applies to generic buses: when you see `IBus<T>`, treat it as a legacy spelling of `BusPort<T>` (and prefer `CommandBusPort` / `QueryBusPort` aliases at the boundary).
+- All existing `I*` port names must be renamed to `*Port` as a single mechanical sweep (no behavior changes, no aliases).
+  - Rule: `ISomething` → `SomethingPort`.
+  - Generic buses use `BusPort<T>` (prefer `CommandBusPort` / `QueryBusPort` aliases when intent is clearer).
 
 **Table naming**:
 
@@ -2519,7 +2518,7 @@ Phases describe _what_ changes; stories describe _how to staff and sequence_ it.
 
 0. **S0 — Prep work (mechanical, reduces LiveStore cognitive load)**
    - Naming cleanup (mechanical rename sweep, no behavior changes):
-     - rename `I*` port spellings to `*Port` where we touch them (doc/types first; code can follow as a separate mechanical commit),
+     - rename all application ports from `I*` to `*Port` (required; not optional),
      - rename platform-runtime-internal `I*` surfaces to `*Port` consistently (`SqliteDbPort`, `SyncTransportPort`, etc.).
    - Remove stale LiveStore assumptions in docs (anything implying dual-runtime/feature flags).
    - Add/maintain a “where to change code” map (see §10.1) so implementation work is not blocked by LiveStore sprawl.
@@ -2596,7 +2595,7 @@ This PRD is intentionally explicit so engineers do not invent architecture while
 
 1. **S0 — PRD hygiene + naming cleanup (ports-as-ports)**
    - AC: PRD uses `*Port` naming consistently for normative interfaces (no new `I*` in the spec).
-   - AC: add a short mapping note: existing code may still spell `I*` until the implementation refactor sweep.
+   - AC: rename all application ports from `I*` to `*Port` across codebase (required, mechanical, no behavior changes).
    - AC: remove rollout wording that implies backward compat (“transition/legacy tables”) where it is not true.
 2. **S1 — `@mo/eventstore-core`**
    - AC: cursor + ordering helpers are finalized + unit tested (`effectiveTotalOrder`, cursor comparisons, error taxonomy).
@@ -2662,12 +2661,18 @@ If an engineer can’t see “what to change” because the repo is full of Live
 - `apps/web/src/bootstrap/createAppServices.ts` (LiveStore adapter wiring into app services)
 - `apps/web/src/providers/AppProvider.tsx` (direct `store.subscribe(...)` usage)
 - `apps/web/src/utils/resetSyncHead.worker.ts`, `apps/web/src/utils/resetSyncHeadEventlog.ts` (LiveStore internal tables tooling; delete after cutover)
+- `apps/web/__tests__/utils/resetSyncHeadEventlog.test.ts` (LiveStore internal tables behavior)
+- `apps/web/vite.config.ts` (LiveStore bundling exclusions)
+- `apps/web/package.json` (LiveStore deps)
 
 **Infrastructure (packages/infrastructure)**
 
 - Store creation + worker glue:
   - `packages/infrastructure/src/browser/wiring/store.ts`
   - `packages/infrastructure/src/browser/worker.ts`
+- LiveStore re-exports to remove:
+  - `packages/infrastructure/src/index.ts`
+  - `packages/infrastructure/src/browser.ts`
 - LiveStore sync adapter:
   - `packages/infrastructure/src/livestore/sync/CloudSyncBackend.ts`
   - `packages/infrastructure/src/livestore/schema.ts`
@@ -2681,6 +2686,8 @@ If an engineer can’t see “what to change” because the repo is full of Live
   - Repositories: `packages/infrastructure/src/goals/GoalRepository.ts`, `packages/infrastructure/src/projects/ProjectRepository.ts`
 - Test suites that are LiveStore-specific and will be deleted or rewritten:
   - `packages/infrastructure/__tests__/livestore/**`
+- Package-level wiring:
+  - `packages/infrastructure/package.json` (LiveStore deps + export map)
 
 **Sync server (apps/api)**
 
@@ -2694,6 +2701,7 @@ If an engineer can’t see “what to change” because the repo is full of Live
 - Find remaining LiveStore usage:
   - `rg -n \"@livestore|livestore\" packages apps`
   - `rg -n \"\\bstore\\.(commit|query|subscribe)\\(\" packages apps`
+  - `rg -n \"__livestore_\" packages apps`
 - After cutover, these should be empty (except historical docs):
   - no `@livestore/*` imports in `apps/web` or `packages/infrastructure`
   - no references to `__livestore_*` internal tables in runtime code

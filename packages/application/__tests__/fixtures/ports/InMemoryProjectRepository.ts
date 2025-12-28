@@ -1,5 +1,5 @@
 import { Project, ProjectId, Timestamp, UserId } from '@mo/domain';
-import { IProjectRepository } from '../../../src/projects/ports/IProjectRepository';
+import { ProjectRepositoryPort } from '../../../src/projects/ports/ProjectRepositoryPort';
 import { none, Option, some } from '../../../src/shared/ports/Option';
 
 type StoredProject = {
@@ -7,7 +7,7 @@ type StoredProject = {
   encryptionKey: Uint8Array;
 };
 
-export class InMemoryProjectRepository implements IProjectRepository {
+export class InMemoryProjectRepository implements ProjectRepositoryPort {
   private readonly store = new Map<string, StoredProject>();
   private failSave = false;
   private errorToThrow: Error | null = null;

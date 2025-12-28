@@ -5,7 +5,7 @@ export type IdempotencyRecord = {
   createdAt: number;
 };
 
-export interface IIdempotencyStore {
+export interface IdempotencyStorePort {
   get(key: string): Promise<IdempotencyRecord | null>;
   record(record: IdempotencyRecord): Promise<void>;
 }

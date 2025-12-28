@@ -1,2 +1,2 @@
 export * from './GoalAchievementSaga';
-export * from './ports/IGoalAchievementStore';
+export * from './ports/GoalAchievementStorePort';

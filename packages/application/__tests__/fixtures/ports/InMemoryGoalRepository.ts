@@ -1,5 +1,5 @@
 import { Goal, GoalId, Timestamp, UserId } from '@mo/domain';
-import { IGoalRepository } from '../../../src/goals/ports/IGoalRepository';
+import { GoalRepositoryPort } from '../../../src/goals/ports/GoalRepositoryPort';
 import { none, Option, some } from '../../../src/shared/ports/Option';
 
 type StoredGoal = {
@@ -10,7 +10,7 @@ type StoredGoal = {
 /**
  * Simple in-memory repository for tests.
  */
-export class InMemoryGoalRepository implements IGoalRepository {
+export class InMemoryGoalRepository implements GoalRepositoryPort {
   private readonly store = new Map<string, StoredGoal>();
   private failSave = false;
   private errorToThrow: Error | null = null;

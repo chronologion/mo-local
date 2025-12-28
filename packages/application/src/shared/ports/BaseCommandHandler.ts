@@ -1,7 +1,7 @@
 import { ValidationError } from './CommandResult';
 import { ValidationException } from '../../errors/ValidationError';
 import { ConcurrencyError } from '../../errors/ConcurrencyError';
-import type { IdempotencyRecord } from './IIdempotencyStore';
+import type { IdempotencyRecord } from './IdempotencyStorePort';
 
 type FieldParser<TCommand, TResult> = (command: TCommand) => TResult;
 

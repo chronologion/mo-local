@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IKeyStore } from '@mo/application';
+import { KeyStorePort } from '@mo/application';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
 import { SharingCrypto } from '../../src/crypto/SharingCrypto';
 import { AggregateKeyManager } from '../../src/crypto/AggregateKeyManager';
@@ -165,7 +165,7 @@ describe('AggregateKeyManager', () => {
     const crypto = new NodeCryptoService();
     const sharing = new SharingCrypto(crypto);
 
-    class InMemoryKeyStoreStub implements IKeyStore {
+    class InMemoryKeyStoreStub implements KeyStorePort {
       private readonly keys = new Map<string, Uint8Array>();
       private masterKey: Uint8Array | null = null;
       setMasterKey(key: Uint8Array): void {

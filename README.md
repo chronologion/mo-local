@@ -6,7 +6,7 @@ MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS do
 
 - **apps/web** – React + Vite client with onboarding, unlock, goals/projects dashboards (tabs, FTS search, per-goal/project modals, milestones), and key backup/restoration flows. Hosts the composition root.
 - **packages/domain** – Pure TypeScript domain for Goals (Balanced Wheel), Projects, and Identity (aggregates, value objects, fluent assertions).
-- **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`), and identity commands.
+- **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`GoalRepositoryPort`, `GoalReadModelPort`, `ProjectRepositoryPort`, `ProjectReadModelPort`), and identity commands.
 - **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
 - **packages/presentation** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
 - **apps/api** – NestJS backend (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, Access BC migrations, and a LiveStore sync backend with `/sync/push` + `/sync/pull` persisting into `sync.events` / `sync.stores`).

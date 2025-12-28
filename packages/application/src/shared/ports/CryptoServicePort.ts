@@ -6,7 +6,7 @@ import { KeyPair, SymmetricKey } from './types';
  * Implementations may use WebCrypto, SubtleCrypto, or platform-native libs,
  * but must present a pure Uint8Array-based API to keep the domain portable.
  */
-export interface ICryptoService {
+export interface CryptoServicePort {
   // Key generation
   generateKey(): Promise<SymmetricKey>;
   generateSigningKeyPair(): Promise<KeyPair>;

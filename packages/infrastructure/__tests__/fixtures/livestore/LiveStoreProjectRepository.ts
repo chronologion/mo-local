@@ -2,9 +2,9 @@ import { Project, ProjectId, DomainEvent, Timestamp, UserId } from '@mo/domain';
 import {
   ConcurrencyError,
   EncryptedEvent,
-  IEventStore,
+  EventStorePort,
   NotFoundError,
-  IProjectRepository,
+  ProjectRepositoryPort,
   none,
   Option,
   some,
@@ -21,11 +21,11 @@ export interface ProjectEventAdapter {
 }
 
 /**
- * Event-sourced project repository backed by an IEventStore (e.g., LiveStoreEventStore).
+ * Event-sourced project repository backed by an EventStorePort (e.g., LiveStoreEventStore).
  */
-export class LiveStoreProjectRepository implements IProjectRepository {
+export class LiveStoreProjectRepository implements ProjectRepositoryPort {
   constructor(
-    private readonly eventStore: IEventStore,
+    private readonly eventStore: EventStorePort,
     private readonly adapter: ProjectEventAdapter,
     private readonly keyProvider: (
       aggregateId: string

@@ -1,4 +1,4 @@
-import type { IGoalReadModel, GoalListFilter } from '@mo/application';
+import type { GoalReadModelPort, GoalListFilter } from '@mo/application';
 import type { GoalListItemDto } from '@mo/application';
 import type { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
 
@@ -6,7 +6,7 @@ import type { GoalProjectionProcessor } from './projections/runtime/GoalProjecti
  * Thin adapter exposing GoalProjectionProcessor as an application read model.
  * Readiness is handled internally so application code stays unaware of infra concerns.
  */
-export class GoalReadModel implements IGoalReadModel {
+export class GoalReadModel implements GoalReadModelPort {
   constructor(private readonly projection: GoalProjectionProcessor) {}
 
   async list(filter?: GoalListFilter): Promise<GoalListItemDto[]> {

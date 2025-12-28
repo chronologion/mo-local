@@ -1,5 +1,5 @@
 import { DomainEvent } from '@mo/domain';
-import { EncryptedEvent, ICryptoService } from '@mo/application';
+import { EncryptedEvent, CryptoServicePort } from '@mo/application';
 import { encodePayloadEnvelope } from '../../eventing/payloadEnvelope';
 import { encodePersisted } from '../../eventing/registry';
 import { buildEventAad } from '../../eventing/aad';
@@ -20,7 +20,7 @@ import { buildEventAad } from '../../eventing/aad';
  * domain layer itself.
  */
 export class DomainToLiveStoreAdapter {
-  constructor(private readonly crypto: ICryptoService) {}
+  constructor(private readonly crypto: CryptoServicePort) {}
 
   async toEncrypted(
     domainEvent: DomainEvent,

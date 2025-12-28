@@ -1,5 +1,5 @@
 import type { Store } from '@livestore/livestore';
-import type { IEventStore, IKeyStore } from '@mo/application';
+import type { EventStorePort, KeyStorePort } from '@mo/application';
 import type { WebCryptoService } from '../../../crypto/WebCryptoService';
 import { LiveStoreToDomainAdapter } from '../../../livestore/adapters/LiveStoreToDomainAdapter';
 import { ProjectProjectionRuntime } from './ProjectProjectionRuntime';
@@ -11,9 +11,9 @@ export class ProjectProjectionProcessor {
 
   constructor(
     store: Store,
-    eventStore: IEventStore,
+    eventStore: EventStorePort,
     crypto: WebCryptoService,
-    keyStore: IKeyStore,
+    keyStore: KeyStorePort,
     keyringManager: KeyringManager,
     toDomain: LiveStoreToDomainAdapter
   ) {

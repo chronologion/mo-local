@@ -1,4 +1,8 @@
-import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
+import type {
+  EncryptedEvent,
+  EventFilter,
+  EventStorePort,
+} from '@mo/application';
 import type {
   LiveStoreEvent,
   LiveStoreSchema,
@@ -30,7 +34,7 @@ const MATERIALIZE_DELAY_MS = 5;
  * LiveStore-backed event store for browser, with version checks and retries.
  * Accepts the LiveStore `events` factory to avoid schema coupling.
  */
-export class BrowserLiveStoreEventStore implements IEventStore {
+export class BrowserLiveStoreEventStore implements EventStorePort {
   constructor(
     private readonly store: Store,
     private readonly goalEvent: GoalEventFactory,

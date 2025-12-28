@@ -1,9 +1,9 @@
 import type {
-  IIdempotencyStore,
+  IdempotencyStorePort,
   IdempotencyRecord,
 } from '../../../src/shared/ports';
 
-export class InMemoryIdempotencyStore implements IIdempotencyStore {
+export class InMemoryIdempotencyStore implements IdempotencyStorePort {
   private readonly records = new Map<string, IdempotencyRecord>();
 
   async get(key: string): Promise<IdempotencyRecord | null> {

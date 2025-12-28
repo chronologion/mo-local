@@ -1,11 +1,11 @@
-import type { IProjectReadModel, ProjectListFilter } from '@mo/application';
+import type { ProjectReadModelPort, ProjectListFilter } from '@mo/application';
 import type { ProjectListItemDto } from '@mo/application';
 import type { ProjectProjectionProcessor } from './projections/runtime/ProjectProjectionProcessor';
 
 /**
  * Adapter that exposes ProjectProjectionProcessor caches via the application read model port.
  */
-export class ProjectReadModel implements IProjectReadModel {
+export class ProjectReadModel implements ProjectReadModelPort {
   constructor(private readonly projection: ProjectProjectionProcessor) {}
 
   async list(filter?: ProjectListFilter): Promise<ProjectListItemDto[]> {

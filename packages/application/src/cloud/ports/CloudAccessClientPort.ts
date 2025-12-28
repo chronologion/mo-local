@@ -3,7 +3,7 @@ export type CloudIdentitySession = {
   email?: string;
 };
 
-export interface ICloudAccessClient {
+export interface CloudAccessClientPort {
   whoAmI(): Promise<CloudIdentitySession | null>;
 
   register(params: {

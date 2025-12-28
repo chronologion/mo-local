@@ -1,8 +1,8 @@
 import type {
   EncryptedEvent,
-  ICryptoService,
-  IKeyStore,
-  IKeyringStore,
+  CryptoServicePort,
+  KeyStorePort,
+  KeyringStorePort,
 } from '@mo/application';
 import { MissingKeyError } from '../errors';
 import { Keyring } from './Keyring';
@@ -16,9 +16,9 @@ export class KeyringManager {
   private readonly epochKeys = new Map<string, Map<number, Uint8Array>>();
 
   constructor(
-    private readonly crypto: ICryptoService,
-    private readonly keyStore: IKeyStore,
-    private readonly keyringStore: IKeyringStore
+    private readonly crypto: CryptoServicePort,
+    private readonly keyStore: KeyStorePort,
+    private readonly keyringStore: KeyringStorePort
   ) {}
 
   async createInitialUpdate(

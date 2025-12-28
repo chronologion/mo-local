@@ -3,7 +3,7 @@ import { IdentityKeys, KeyBackup } from './types';
 /**
  * Secure storage abstraction for identity and per-aggregate keys.
  */
-export interface IKeyStore {
+export interface KeyStorePort {
   /**
    * Provide a symmetric master key used to wrap/unwrap private material.
    * Implementations may reject operations if this key is not set.

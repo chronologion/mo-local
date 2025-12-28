@@ -1,5 +1,5 @@
 import type { IQueryHandler } from '../shared/ports/cqrsTypes';
-import type { IGoalReadModel } from './ports/IGoalReadModel';
+import type { GoalReadModelPort } from './ports/GoalReadModelPort';
 import type { GoalListItemDto } from './dtos';
 import { ListGoalsQuery, GetGoalByIdQuery, SearchGoalsQuery } from './queries';
 
@@ -11,7 +11,7 @@ export class GoalQueryHandler implements IQueryHandler<
   GoalQuery,
   GoalQueryResult
 > {
-  constructor(private readonly readModel: IGoalReadModel) {}
+  constructor(private readonly readModel: GoalReadModelPort) {}
 
   execute(query: GoalQuery): Promise<GoalQueryResult> {
     switch (query.type) {

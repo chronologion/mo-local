@@ -1,7 +1,7 @@
 import type { Store } from '@livestore/livestore';
 import type {
   GoalAchievementState,
-  IGoalAchievementStore,
+  GoalAchievementStorePort,
   ProjectAchievementState,
 } from '@mo/application';
 
@@ -33,7 +33,7 @@ const parseJsonList = (value: string | null | undefined): string[] => {
 
 const serializeList = (values: string[]): string => JSON.stringify(values);
 
-export class GoalAchievementSagaStore implements IGoalAchievementStore {
+export class GoalAchievementSagaStore implements GoalAchievementStorePort {
   constructor(private readonly store: Store) {}
 
   async getGoalState(goalId: string): Promise<GoalAchievementState | null> {

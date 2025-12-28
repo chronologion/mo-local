@@ -1,4 +1,7 @@
-import type { CloudIdentitySession, ICloudAccessClient } from '@mo/application';
+import type {
+  CloudIdentitySession,
+  CloudAccessClientPort,
+} from '@mo/application';
 import { z } from 'zod';
 
 const sessionResponseSchema = z.object({
@@ -58,7 +61,7 @@ export class CloudAccessError extends Error {
   }
 }
 
-export class HttpCloudAccessClient implements ICloudAccessClient {
+export class HttpCloudAccessClient implements CloudAccessClientPort {
   constructor(private readonly baseUrl: string) {}
 
   private buildUrl(path: string): string {

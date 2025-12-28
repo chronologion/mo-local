@@ -1,9 +1,9 @@
-import type { BusEnvelope, IBus } from '@mo/application';
+import type { BusEnvelope, BusPort } from '@mo/application';
 
-export class SimpleBus<TEnvelope extends BusEnvelope, TResult> implements IBus<
-  TEnvelope,
-  TResult
-> {
+export class SimpleBus<
+  TEnvelope extends BusEnvelope,
+  TResult,
+> implements BusPort<TEnvelope, TResult> {
   private readonly handlers = new Map<
     string,
     (message: TEnvelope) => Promise<TResult>

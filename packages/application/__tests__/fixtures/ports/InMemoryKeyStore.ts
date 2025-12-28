@@ -1,7 +1,7 @@
-import { IKeyStore } from '../../../src/shared/ports/IKeyStore';
+import { KeyStorePort } from '../../../src/shared/ports/KeyStorePort';
 import { IdentityKeys, KeyBackup } from '../../../src/shared/ports/types';
 
-export class InMemoryKeyStore implements IKeyStore {
+export class InMemoryKeyStore implements KeyStorePort {
   private identityKeys = new Map<string, IdentityKeys>();
   private aggregateKeys = new Map<string, Uint8Array>();
   private masterKey: Uint8Array | null = null;

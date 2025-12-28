@@ -1,10 +1,10 @@
 import { DomainEvent } from '@mo/domain';
-import { EventHandler, IEventBus } from '@mo/application';
+import { EventHandler, EventBusPort } from '@mo/application';
 
 /**
  * In-process pub/sub for tests.
  */
-export class InMemoryEventBus implements IEventBus {
+export class InMemoryEventBus implements EventBusPort {
   private readonly handlers = new Map<string, EventHandler[]>();
   private readonly published: DomainEvent[] = [];
   private failNextWith: Error | null = null;

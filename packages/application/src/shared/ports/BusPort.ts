@@ -1,6 +1,6 @@
 export type BusEnvelope = { type: string };
 
-export interface IBus<TEnvelope extends BusEnvelope, TResult> {
+export interface BusPort<TEnvelope extends BusEnvelope, TResult> {
   register<TMessage extends TEnvelope>(
     type: TMessage['type'],
     handler: (message: TMessage) => Promise<TResult>

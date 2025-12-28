@@ -18,7 +18,11 @@ import {
   ProjectDescription,
   EventId,
 } from '@mo/domain';
-import type { EncryptedEvent, EventFilter, IEventStore } from '@mo/application';
+import type {
+  EncryptedEvent,
+  EventFilter,
+  EventStorePort,
+} from '@mo/application';
 import type { DomainEvent } from '@mo/domain';
 import { CommittedEventPublisher } from '../../src/eventing/CommittedEventPublisher';
 import { DomainToLiveStoreAdapter } from '../../src/livestore/adapters/DomainToLiveStoreAdapter';
@@ -28,7 +32,7 @@ import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
 import { KeyringManager } from '../../src/crypto/KeyringManager';
 import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
 
-class EventStoreStub implements IEventStore {
+class EventStoreStub implements EventStorePort {
   constructor(private readonly events: EncryptedEvent[]) {}
 
   async append(): Promise<void> {

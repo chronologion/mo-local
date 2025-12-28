@@ -1,5 +1,5 @@
 import { ActorId, CorrelationId, DomainEvent, EventId } from '@mo/domain';
-import { EncryptedEvent, ICryptoService } from '@mo/application';
+import { EncryptedEvent, CryptoServicePort } from '@mo/application';
 import { buildEventAad } from '../../eventing/aad';
 import { decodePayloadEnvelope } from '../../eventing/payloadEnvelope';
 import { decodePersisted } from '../../eventing/registry';
@@ -9,7 +9,7 @@ import { decodePersisted } from '../../eventing/registry';
  * Delegates all event-shape/version logic to the per-BC codecs.
  */
 export class LiveStoreToDomainAdapter {
-  constructor(private readonly crypto: ICryptoService) {}
+  constructor(private readonly crypto: CryptoServicePort) {}
 
   async toDomain(
     lsEvent: EncryptedEvent,

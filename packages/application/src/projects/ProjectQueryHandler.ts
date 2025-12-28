@@ -1,5 +1,5 @@
 import type { IQueryHandler } from '../shared/ports/cqrsTypes';
-import type { IProjectReadModel } from './ports/IProjectReadModel';
+import type { ProjectReadModelPort } from './ports/ProjectReadModelPort';
 import type { ProjectListItemDto } from './dtos';
 import { ListProjectsQuery } from './queries/ListProjectsQuery';
 import { GetProjectByIdQuery } from './queries/GetProjectByIdQuery';
@@ -19,7 +19,7 @@ export class ProjectQueryHandler implements IQueryHandler<
   ProjectQuery,
   ProjectQueryResult
 > {
-  constructor(private readonly readModel: IProjectReadModel) {}
+  constructor(private readonly readModel: ProjectReadModelPort) {}
 
   execute(query: ProjectQuery): Promise<ProjectQueryResult> {
     switch (query.type) {

@@ -1,4 +1,4 @@
-import { ICryptoService } from '../../../src/shared/ports/ICryptoService';
+import { CryptoServicePort } from '../../../src/shared/ports/CryptoServicePort';
 import { SymmetricKey, KeyPair } from '../../../src/shared/ports/types';
 
 type CryptoLike = {
@@ -54,7 +54,7 @@ const deriveKeyBytes = (master: Uint8Array, context: string): Uint8Array => {
 /**
  * Non-cryptographic mock; suitable only for tests.
  */
-export class MockCryptoService implements ICryptoService {
+export class MockCryptoService implements CryptoServicePort {
   async generateKey(): Promise<SymmetricKey> {
     return randomBytes(32);
   }

@@ -14,7 +14,7 @@ export type ProjectAchievementState = {
   status: ProjectStatusValue | null;
 };
 
-export interface IGoalAchievementStore {
+export interface GoalAchievementStorePort {
   getGoalState(goalId: string): Promise<GoalAchievementState | null>;
   saveGoalState(state: GoalAchievementState): Promise<void>;
   getProjectState(projectId: string): Promise<ProjectAchievementState | null>;
