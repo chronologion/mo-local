@@ -4,6 +4,7 @@ import * as SQLiteConstants from 'wa-sqlite/src/sqlite-constants.js';
 import { AccessHandlePoolVFS } from 'wa-sqlite/src/examples/AccessHandlePoolVFS.js';
 import type { SqliteBatchResult, SqliteStatement, SqliteValue } from '../types';
 import { PlatformErrorCodes, type PlatformError } from '@mo/eventstore-core';
+import { applySchema } from './schema';
 
 type SqliteApi = ReturnType<typeof SQLite.Factory>;
 type VfsWithClose = SQLiteVFS & {
@@ -40,9 +41,15 @@ export async function createSqliteContext(options: {
   );
   await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
   await sqlite3.exec(db, 'PRAGMA synchronous = FULL');
-  const vfsName =
-    typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed;
-  return { sqlite3, db, vfsName, vfs };
+  const ctx: SqliteContext = {
+    sqlite3,
+    db,
+    vfsName:
+      typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed,
+    vfs,
+  };
+  await applySchema(ctx);
+  return ctx;
 }
 
 export async function closeSqliteContext(ctx: SqliteContext): Promise<void> {
