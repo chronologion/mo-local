@@ -71,7 +71,7 @@ describeIfBrowser('batch atomicity', () => {
       'test.db',
       SQLiteConstants.SQLITE_OPEN_CREATE |
         SQLiteConstants.SQLITE_OPEN_READWRITE,
-      vfs.name
+      ctx.vfs.name
     );
     const rows = await runQuery(
       ctx.sqlite3,
