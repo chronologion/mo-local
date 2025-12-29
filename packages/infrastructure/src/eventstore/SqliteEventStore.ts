@@ -35,6 +35,11 @@ export class SqliteEventStore implements EventStorePort {
     eventsToAppend: EncryptedEvent[]
   ): Promise<void> {
     if (eventsToAppend.length === 0) return;
+    const minVersion = Math.min(
+      ...eventsToAppend.map((event) => event.version)
+    );
+    const expectedPreviousVersion =
+      Number.isFinite(minVersion) && minVersion > 0 ? minVersion - 1 : null;
     const toAppend: EncryptedEventToAppend[] = eventsToAppend.map((event) => ({
       eventId: event.id,
       aggregateId,
@@ -52,7 +57,7 @@ export class SqliteEventStore implements EventStorePort {
     await this.appender.appendForAggregate(
       this.db,
       this.spec,
-      { aggregateId, version: null },
+      { aggregateId, version: expectedPreviousVersion },
       toAppend
     );
   }
