@@ -64,9 +64,9 @@ class FakeDb implements SqliteDbPort {
       if (normalized.includes('WHERE PROJECTION_ID')) {
         const [projectionId] = params as [string];
         const row = this.projectionMeta.get(projectionId);
-        return row ? ([row] as T[]) : [];
+        return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
       }
-      return [...this.projectionMeta.values()] as T[];
+      return [...this.projectionMeta.values()] as unknown as T[];
     }
 
     if (normalized.includes('FROM EVENTS E')) {
@@ -98,7 +98,7 @@ class FakeDb implements SqliteDbPort {
           return a.commit_sequence - b.commit_sequence;
         })
         .slice(0, Number(limit));
-      return rows as T[];
+      return rows as unknown as T[];
     }
 
     if (normalized.includes('FROM EVENTS')) {
@@ -115,7 +115,7 @@ class FakeDb implements SqliteDbPort {
         )
         .sort((a, b) => a.commit_sequence - b.commit_sequence)
         .slice(0, Number(limit));
-      return rows as T[];
+      return rows as unknown as T[];
     }
 
     throw new Error(`Unhandled query: ${sql}`);

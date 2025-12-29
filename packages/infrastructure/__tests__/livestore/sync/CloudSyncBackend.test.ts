@@ -11,11 +11,14 @@ import { makeCloudSyncBackend } from '../../../src/livestore/sync/CloudSyncBacke
 const pushUrl = 'http://api.example.com/sync/push';
 const pullUrl = 'http://api.example.com/sync/pull';
 
+const asSeq = (value: number): LiveStoreEvent.Global.Encoded['seqNum'] =>
+  value as LiveStoreEvent.Global.Encoded['seqNum'];
+
 const sampleEvent = (seqNum: number): LiveStoreEvent.Global.Encoded => ({
   name: 'sample.event',
   args: { value: seqNum },
-  seqNum: `e${seqNum}`,
-  parentSeqNum: `e${Math.max(0, seqNum - 1)}`,
+  seqNum: asSeq(seqNum),
+  parentSeqNum: asSeq(Math.max(0, seqNum - 1)),
   clientId: 'client-1',
   sessionId: 'session-1',
 });

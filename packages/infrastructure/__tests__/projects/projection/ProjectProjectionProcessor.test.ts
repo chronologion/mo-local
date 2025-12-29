@@ -110,7 +110,9 @@ class StoreStub {
         'SELECT payload_encrypted, last_sequence FROM project_search_index'
       )
     ) {
-      return this.searchIndex ? [this.searchIndex] : ([] as unknown as TResult);
+      return this.searchIndex
+        ? ([this.searchIndex] as unknown as TResult)
+        : ([] as unknown as TResult);
     }
     if (query.startsWith('DELETE FROM project_events WHERE')) {
       // pruning handled by event store stub
@@ -264,7 +266,7 @@ describe('ProjectProjectionProcessor', () => {
     await processor.start();
     const listed = processor.listProjects();
     expect(listed).toHaveLength(0); // archived removes it
-    expect(store.snapshots.size).toBeGreaterThan(0);
+    expect(storeStub.snapshots.size).toBeGreaterThan(0);
   });
 
   it('indexes projects for search', async () => {
