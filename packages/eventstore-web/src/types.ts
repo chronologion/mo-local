@@ -61,17 +61,30 @@ export type SqliteBatchResult =
     }>;
 
 export interface SqliteDbPort {
+  /**
+   * Execute a SQL query and return rows as plain objects.
+   */
   query<T extends Readonly<Record<string, unknown>>>(
     sql: string,
     params?: ReadonlyArray<SqliteValue>
   ): Promise<ReadonlyArray<T>>;
 
+  /**
+   * Execute a SQL statement with no returned rows.
+   */
   execute(sql: string, params?: ReadonlyArray<SqliteValue>): Promise<void>;
 
+  /**
+   * Execute multiple statements atomically in a single transaction.
+   * All statements succeed or all are rolled back.
+   */
   batch(
     statements: ReadonlyArray<SqliteStatement>
   ): Promise<ReadonlyArray<SqliteBatchResult>>;
 
+  /**
+   * Subscribe to table-level invalidations.
+   */
   subscribeToTables(
     tables: ReadonlyArray<SqliteTableName>,
     listener: () => void

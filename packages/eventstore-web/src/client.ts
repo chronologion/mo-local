@@ -195,23 +195,25 @@ export class DbClient implements SqliteDbPort {
 
 export async function sendHello(
   port: MessagePortLike,
-  message: WorkerHello
+  message: WorkerHello,
+  timeoutMs = 5000
 ): Promise<Extract<WorkerHello, { kind: typeof WorkerHelloKinds.helloOk }>> {
   return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      port.removeEventListener('message', handler);
+      reject(new Error('Worker hello timeout'));
+    }, timeoutMs);
     const handler = (event: MessageEvent) => {
       const data = event.data as WorkerHello | undefined;
       if (!data || typeof data !== 'object') return;
       if (data.kind === WorkerHelloKinds.helloOk) {
+        clearTimeout(timeoutId);
         port.removeEventListener('message', handler);
         resolve(data);
       }
     };
     port.addEventListener('message', handler);
     port.postMessage(message);
-    setTimeout(() => {
-      port.removeEventListener('message', handler);
-      reject(new Error('Worker hello timeout'));
-    }, 5000);
   });
 }
 

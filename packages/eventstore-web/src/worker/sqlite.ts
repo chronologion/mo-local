@@ -38,6 +38,8 @@ export async function createSqliteContext(options: {
     options.dbName,
     SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
   );
+  await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
+  await sqlite3.exec(db, 'PRAGMA synchronous = FULL');
   const vfsName =
     typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed;
   return { sqlite3, db, vfsName, vfs };
