@@ -297,6 +297,59 @@ const makeRecordJson = (params: {
   });
 
 describe('SyncEngine', () => {
+  it('runs pull/push loops and respects interval sleep', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    const storeId = 'store-loop';
+    let pullCalls = 0;
+    let pushCalls = 0;
+
+    transport.pull = async () => {
+      pullCalls += 1;
+      return { head: pullCalls, events: [], hasMore: false, nextSince: null };
+    };
+    transport.push = async () => {
+      pushCalls += 1;
+      return { ok: true, head: 0, assigned: [] };
+    };
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId,
+      onRebaseRequired,
+      pullIntervalMs: 5,
+      pushIntervalMs: 5,
+      pullWaitMs: 0,
+    });
+
+    engine.start();
+    await vi.advanceTimersByTimeAsync(20);
+    await Promise.resolve();
+    engine.stop();
+
+    expect(pullCalls).toBeGreaterThan(0);
+    expect(pushCalls).toBeGreaterThan(0);
+    vi.useRealTimers();
+  });
+
   it('pulls remote events, writes mappings, and triggers rebase when pending exists', async () => {
     const db = new MemoryDb();
     const transport = new FakeTransport();
@@ -424,5 +477,177 @@ describe('SyncEngine', () => {
     expect(db.getEventMap('local-1')?.global_seq).toBe(2);
     expect(db.getSyncMeta(storeId)?.last_pulled_global_seq).toBe(2);
     expect(transport.pushRequests).toHaveLength(2);
+  });
+
+  it('sets error when pull response hasMore without nextSince', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    const statusHistory: SyncStatus[] = [];
+
+    transport.pullResponses.push({
+      head: 1,
+      events: [
+        {
+          globalSequence: 1,
+          eventId: 'remote-1',
+          recordJson: makeRecordJson({
+            id: 'remote-1',
+            aggregateType: 'goal',
+            aggregateId: 'goal-1',
+            eventType: 'GoalCreated',
+            payload: new Uint8Array([1]),
+            version: 1,
+          }),
+        },
+      ],
+      hasMore: true,
+      nextSince: null,
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-2',
+      onRebaseRequired,
+      onStatusChange: (status) => statusHistory.push(status),
+    });
+
+    await engine.syncOnce();
+
+    expect(statusHistory.some((status) => status.kind === 'error')).toBe(true);
+  });
+
+  it('sets error when conflict does not advance cursor', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1, 2, 3]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    transport.pullResponses.push({
+      head: 5,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.pushResponses.push({
+      ok: false,
+      head: 6,
+      reason: 'server_ahead',
+    });
+    transport.pullResponses.push({
+      head: 5,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-3',
+      onRebaseRequired,
+    });
+
+    await engine.syncOnce();
+
+    expect(engine.getStatus().kind).toBe('error');
+  });
+
+  it('sets error when remote record id mismatches event id', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    const statusHistory: SyncStatus[] = [];
+
+    transport.pullResponses.push({
+      head: 1,
+      events: [
+        {
+          globalSequence: 1,
+          eventId: 'remote-1',
+          recordJson: makeRecordJson({
+            id: 'different-id',
+            aggregateType: 'goal',
+            aggregateId: 'goal-1',
+            eventType: 'GoalCreated',
+            payload: new Uint8Array([1]),
+            version: 1,
+          }),
+        },
+      ],
+      hasMore: false,
+      nextSince: 1,
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-4',
+      onRebaseRequired,
+      onStatusChange: (status) => statusHistory.push(status),
+    });
+
+    await engine.syncOnce();
+
+    expect(statusHistory.some((status) => status.kind === 'error')).toBe(true);
+  });
+
+  it('handles push ok with empty assignments', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1, 2, 3]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    transport.pullResponses.push({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.pushResponses.push({
+      ok: true,
+      head: 0,
+      assigned: [],
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-5',
+      onRebaseRequired,
+    });
+
+    await engine.syncOnce();
+
+    expect(engine.getStatus().kind).toBe('idle');
   });
 });
