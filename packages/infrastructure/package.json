@@ -23,7 +23,8 @@
   },
   "scripts": {
     "test": "vitest --no-watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@mo/application": "1.0.0",
