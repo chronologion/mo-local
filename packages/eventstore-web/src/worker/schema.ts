@@ -19,7 +19,7 @@ const SCHEMA_V1: ReadonlyArray<string> = [
     correlation_id TEXT NULL,
     epoch INTEGER NULL
   )`,
-  'CREATE INDEX IF NOT EXISTS events_aggregate_version ON events (aggregate_type, aggregate_id, version)',
+  'CREATE UNIQUE INDEX IF NOT EXISTS events_aggregate_version ON events (aggregate_type, aggregate_id, version)',
   'CREATE INDEX IF NOT EXISTS events_aggregate_commit_sequence ON events (aggregate_type, commit_sequence)',
   `CREATE TABLE IF NOT EXISTS snapshots (
     aggregate_type TEXT NOT NULL,

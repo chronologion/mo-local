@@ -8,9 +8,17 @@ export type {
   SqliteTableName,
   ChangeOperation,
   ChangeHint,
+  ChangeHintKind,
+  SqliteStatementKind,
   SqliteStatement,
   SqliteBatchResult,
   SqliteDbPort,
+} from './types';
+
+export {
+  ChangeOperations,
+  ChangeHintKinds,
+  SqliteStatementKinds,
 } from './types';
 
 export type {
