@@ -51,7 +51,7 @@ export class TestSqliteDb implements SqliteDbPort {
     params: ReadonlyArray<SqliteValue> = []
   ): Promise<ReadonlyArray<T>> {
     const normalized = sql.trim().toUpperCase();
-    if (normalized.includes('SELECT MAX(VERSION)')) {
+    if (this.isSelectMaxVersion(normalized)) {
       const [aggregateType, aggregateId] = params as [string, string];
       const maxVersion = this.events
         .filter(
@@ -63,10 +63,7 @@ export class TestSqliteDb implements SqliteDbPort {
       return [{ version: maxVersion || null } as T];
     }
 
-    if (
-      normalized.includes('FROM EVENTS') &&
-      normalized.includes('WHERE ID IN')
-    ) {
+    if (this.isSelectEventsByIds(normalized)) {
       const ids = params as ReadonlyArray<string>;
       const rows = this.events
         .filter((row) => ids.includes(row.id))
@@ -74,12 +71,7 @@ export class TestSqliteDb implements SqliteDbPort {
       return rows as T[];
     }
 
-    if (
-      normalized.includes('FROM EVENTS') &&
-      normalized.includes('AGGREGATE_TYPE = ?') &&
-      normalized.includes('AGGREGATE_ID = ?') &&
-      normalized.includes('VERSION >= ?')
-    ) {
+    if (this.isSelectEventsForAggregate(normalized)) {
       const [aggregateType, aggregateId, fromVersion] = params as [
         string,
         string,
@@ -96,7 +88,7 @@ export class TestSqliteDb implements SqliteDbPort {
       return rows as T[];
     }
 
-    if (normalized.includes('FROM IDEMPOTENCY_KEYS')) {
+    if (this.isSelectIdempotency(normalized)) {
       const key = params[0] as string;
       const row = this.idempotency.get(key);
       return row ? ([row] as T[]) : [];
@@ -110,7 +102,7 @@ export class TestSqliteDb implements SqliteDbPort {
     params: ReadonlyArray<SqliteValue> = []
   ): Promise<void> {
     const normalized = sql.trim().toUpperCase();
-    if (normalized.startsWith('INSERT INTO IDEMPOTENCY_KEYS')) {
+    if (this.isInsertIdempotency(normalized)) {
       const [key, commandType, aggregateId, createdAt] = params as [
         string,
         string,
@@ -136,10 +128,18 @@ export class TestSqliteDb implements SqliteDbPort {
       if (statement.kind === SqliteStatementKinds.execute) {
         this.applyExecute(statement.sql, statement.params ?? []);
         results.push({ kind: SqliteStatementKinds.execute });
-      } else {
-        const rows = await this.query(statement.sql, statement.params ?? []);
-        results.push({ kind: SqliteStatementKinds.query, rows });
+        continue;
       }
+      if (this.isInsertEventsReturning(statement.sql)) {
+        const row = this.applyInsertReturning(
+          statement.sql,
+          statement.params ?? []
+        );
+        results.push({ kind: SqliteStatementKinds.query, rows: [row] });
+        continue;
+      }
+      const rows = await this.query(statement.sql, statement.params ?? []);
+      results.push({ kind: SqliteStatementKinds.query, rows });
     }
     return results;
   }
@@ -160,7 +160,7 @@ export class TestSqliteDb implements SqliteDbPort {
 
   private applyExecute(sql: string, params: ReadonlyArray<SqliteValue>): void {
     const normalized = sql.trim().toUpperCase();
-    if (normalized.startsWith('INSERT INTO EVENTS')) {
+    if (this.isInsertEvents(normalized)) {
       const [
         id,
         aggregateType,
@@ -211,5 +211,51 @@ export class TestSqliteDb implements SqliteDbPort {
 
   getEvents(): ReadonlyArray<TestEventRow> {
     return [...this.events];
+  }
+
+  private isSelectMaxVersion(sql: string): boolean {
+    return sql.includes('SELECT MAX(VERSION)');
+  }
+
+  private isSelectEventsByIds(sql: string): boolean {
+    return sql.includes('FROM EVENTS') && sql.includes('WHERE ID IN');
+  }
+
+  private isSelectEventsForAggregate(sql: string): boolean {
+    return (
+      sql.includes('FROM EVENTS') &&
+      sql.includes('AGGREGATE_TYPE = ?') &&
+      sql.includes('AGGREGATE_ID = ?') &&
+      sql.includes('VERSION >= ?')
+    );
+  }
+
+  private isSelectIdempotency(sql: string): boolean {
+    return sql.includes('FROM IDEMPOTENCY_KEYS');
+  }
+
+  private isInsertIdempotency(sql: string): boolean {
+    return sql.startsWith('INSERT INTO IDEMPOTENCY_KEYS');
+  }
+
+  private isInsertEvents(sql: string): boolean {
+    return sql.startsWith('INSERT INTO EVENTS');
+  }
+
+  private isInsertEventsReturning(sql: string): boolean {
+    const normalized = sql.trim().toUpperCase();
+    return this.isInsertEvents(normalized) && normalized.includes('RETURNING');
+  }
+
+  private applyInsertReturning(
+    sql: string,
+    params: ReadonlyArray<SqliteValue>
+  ): TestEventRow {
+    this.applyExecute(sql, params);
+    const last = this.events[this.events.length - 1];
+    if (!last) {
+      throw new Error('INSERT RETURNING produced no row');
+    }
+    return last;
   }
 }
