@@ -30,6 +30,7 @@ type PullEventsDto = {
   storeId: string;
   since?: number;
   limit?: number;
+  waitMs?: number;
 };
 
 const makeIdentity = (id = 'owner-1'): AuthenticatedIdentity => ({
@@ -211,12 +212,47 @@ describe('SyncController', () => {
       storeId: 'store-1',
       since: 1,
       limit: 1,
+      waitMs: 0,
     };
     const result = await controller.pull(dto, makeIdentity());
     expect(result.events).toHaveLength(1);
     expect(result.hasMore).toBe(true);
     expect(result.head).toBe(3);
     expect(result.nextSince).toBe(2);
+  });
+
+  it('waits when waitMs is provided and no events returned', async () => {
+    const pullImpl = vi
+      .fn()
+      .mockResolvedValueOnce({
+        events: [],
+        head: GlobalSequenceNumber.from(0),
+      })
+      .mockResolvedValueOnce({
+        events: [
+          {
+            ownerId: SyncOwnerId.from('owner-1'),
+            storeId: SyncStoreId.from('store-1'),
+            globalSequence: GlobalSequenceNumber.from(1),
+            eventId: 'e1',
+            recordJson: '{"ok":true}',
+            createdAt: new Date(),
+          },
+        ],
+        head: GlobalSequenceNumber.from(1),
+      });
+    const syncService = new TestSyncService(undefined, pullImpl);
+    const controller = new SyncController(syncService);
+    const dto: PullEventsDto = {
+      storeId: 'store-1',
+      since: 0,
+      limit: 10,
+      waitMs: 1,
+    };
+    const result = await controller.pull(dto, makeIdentity());
+    expect(pullImpl).toHaveBeenCalledTimes(2);
+    expect(result.events).toHaveLength(1);
+    expect(result.nextSince).toBe(1);
   });
 
   it('rejects missing identity on pull', async () => {

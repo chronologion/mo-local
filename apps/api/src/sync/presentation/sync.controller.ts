@@ -94,19 +94,35 @@ export class SyncController {
     const since = GlobalSequenceNumber.from(Number(sinceValue));
     const limit = Number(limitValue);
 
-    const { events, head } = await this.syncService.pullEvents({
+    const waitMs = dto.waitMs ?? 0;
+    let { events, head } = await this.syncService.pullEvents({
       ownerId,
       storeId,
       since,
       limit,
     });
 
+    if (events.length === 0 && waitMs > 0) {
+      await delay(waitMs);
+      const next = await this.syncService.pullEvents({
+        ownerId,
+        storeId,
+        since,
+        limit,
+      });
+      events = next.events;
+      head = next.head;
+    }
+
     const responseEvents = events.map((event) => ({
       globalSequence: event.globalSequence.unwrap(),
       eventId: event.eventId,
       recordJson: event.recordJson,
     }));
-    const lastSequence = events[events.length - 1]?.globalSequence.unwrap();
+    const lastSequence =
+      responseEvents.length > 0
+        ? responseEvents[responseEvents.length - 1]?.globalSequence
+        : null;
 
     return {
       events: responseEvents,
@@ -115,7 +131,12 @@ export class SyncController {
         responseEvents.length === limit &&
         head.unwrap() > (lastSequence ?? since.unwrap()),
       head: head.unwrap(),
-      nextSince: responseEvents.length > 0 ? (lastSequence ?? null) : null,
+      nextSince: lastSequence,
     };
   }
 }
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });

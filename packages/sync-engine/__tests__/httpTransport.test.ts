@@ -65,6 +65,42 @@ describe('HttpSyncTransport', () => {
     ).rejects.toThrow('Invalid sync push response');
   });
 
+  it('throws on push non-409 error status', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeResponse({ error: 'oops' }, { status: 500 }));
+    const transport = new HttpSyncTransport({
+      baseUrl: 'http://localhost:4000',
+      fetchImpl,
+    });
+
+    await expect(
+      transport.push({
+        storeId: 'store-1',
+        expectedHead: 0,
+        events: [],
+      })
+    ).rejects.toThrow('Sync push failed with status 500');
+  });
+
+  it('throws on push unauthorized', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeResponse({ error: 'nope' }, { status: 401 }));
+    const transport = new HttpSyncTransport({
+      baseUrl: 'http://localhost:4000',
+      fetchImpl,
+    });
+
+    await expect(
+      transport.push({
+        storeId: 'store-1',
+        expectedHead: 0,
+        events: [],
+      })
+    ).rejects.toThrow('Sync push unauthorized (401)');
+  });
+
   it('pulls from /sync/pull with waitMs when provided', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       makeResponse({
@@ -91,6 +127,20 @@ describe('HttpSyncTransport', () => {
       'http://localhost:4000/sync/pull?storeId=store-1&since=2&limit=50&waitMs=10'
     );
     expect(init.credentials).toBe('include');
+  });
+
+  it('throws on pull non-OK status', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeResponse({ error: 'nope' }, { status: 503 }));
+    const transport = new HttpSyncTransport({
+      baseUrl: 'http://localhost:4000',
+      fetchImpl,
+    });
+
+    await expect(
+      transport.pull({ storeId: 'store-1', since: 0, limit: 1 })
+    ).rejects.toThrow('Sync pull failed with status 503');
   });
 
   it('ping throws when status is not ok', async () => {

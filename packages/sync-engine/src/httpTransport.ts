@@ -46,7 +46,19 @@ export class HttpSyncTransport implements SyncTransportPort {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(request),
     });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(`Sync push unauthorized (${response.status})`);
+    }
     const body = await safeParseJson(response);
+    if (response.status === 409) {
+      if (!isObject(body)) {
+        throw new Error('Invalid sync push conflict response');
+      }
+      return body as SyncPushConflictResponseV1;
+    }
+    if (!response.ok) {
+      throw new Error(`Sync push failed with status ${response.status}`);
+    }
     if (!isObject(body)) {
       throw new Error('Invalid sync push response');
     }
@@ -71,7 +83,13 @@ export class HttpSyncTransport implements SyncTransportPort {
       `${this.baseUrl}/sync/pull?${query.toString()}`,
       { credentials: this.credentials }
     );
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(`Sync pull unauthorized (${response.status})`);
+    }
     const body = await safeParseJson(response);
+    if (!response.ok) {
+      throw new Error(`Sync pull failed with status ${response.status}`);
+    }
     if (!isObject(body)) {
       throw new Error('Invalid sync pull response');
     }
