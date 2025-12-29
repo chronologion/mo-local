@@ -24,7 +24,7 @@ describe('base64url codec', () => {
     const originalAtob = globalRef.atob;
     try {
       const bufferImpl = originalBuffer ?? Buffer;
-      globalRef.Buffer = undefined;
+      globalRef.Buffer = undefined as unknown as typeof Buffer;
       globalRef.btoa = (data: string) =>
         bufferImpl.from(data, 'binary').toString('base64');
       globalRef.atob = (data: string) =>
@@ -47,9 +47,9 @@ describe('base64url codec', () => {
     const originalBtoa = globalRef.btoa;
     const originalAtob = globalRef.atob;
     try {
-      globalRef.Buffer = undefined;
-      globalRef.btoa = undefined;
-      globalRef.atob = undefined;
+      globalRef.Buffer = undefined as unknown as typeof Buffer;
+      globalRef.btoa = undefined as unknown as typeof globalRef.btoa;
+      globalRef.atob = undefined as unknown as typeof globalRef.atob;
       expect(() => encodeBase64Url(new Uint8Array([1]))).toThrow(
         'Base64 encoding is not supported in this environment'
       );

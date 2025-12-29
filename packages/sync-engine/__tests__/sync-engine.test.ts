@@ -9,6 +9,7 @@ import type {
 } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
+  SyncStatus,
   SyncPullResponseV1,
   SyncPushConflictResponseV1,
   SyncPushOkResponseV1,
@@ -75,25 +76,25 @@ class MemoryDb implements SqliteDbPort {
       const row = this.getSyncMeta(storeId);
       return [
         { last_pulled_global_seq: row?.last_pulled_global_seq ?? 0 },
-      ] as T[];
+      ] as unknown as T[];
     }
     if (normalized.startsWith('SELECT COUNT(*) AS COUNT FROM EVENTS')) {
       const pending = this.pendingEvents();
-      return [{ count: pending.length }] as T[];
+      return [{ count: pending.length }] as unknown as T[];
     }
     if (normalized.startsWith('SELECT E.ID')) {
       const limit = Number(params[0] ?? 0);
       const pending = this.pendingEvents()
         .sort((a, b) => a.commit_sequence - b.commit_sequence)
         .slice(0, limit);
-      return pending.map((row) => ({ ...row })) as T[];
+      return pending.map((row) => ({ ...row })) as unknown as T[];
     }
     if (normalized.startsWith('SELECT EVENT_ID FROM SYNC_EVENT_MAP')) {
       const ids = params.map((value) => String(value));
       const rows = this.syncEventMap
         .filter((row) => ids.includes(row.event_id))
         .map((row) => ({ event_id: row.event_id }));
-      return rows as T[];
+      return rows as unknown as T[];
     }
     throw new Error(`Unhandled query: ${sql}`);
   }
@@ -648,6 +649,50 @@ describe('SyncEngine', () => {
 
     await engine.syncOnce();
 
+    expect(engine.getStatus().kind).toBe('idle');
+  });
+
+  it('falls back to last_pulled_global_seq when head is unknown', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1, 2, 3]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    const pullError = new Error('pull failed');
+    transport.pull = vi.fn(async () => {
+      throw pullError;
+    });
+    transport.pushResponses.push({
+      ok: true,
+      head: 0,
+      assigned: [{ eventId: 'local-1', globalSequence: 1 }],
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-6',
+      onRebaseRequired,
+    });
+
+    await engine.syncOnce();
+
+    expect(transport.pull).toHaveBeenCalledTimes(3);
+    expect(transport.pushRequests[0]?.expectedHead).toBe(0);
     expect(engine.getStatus().kind).toBe('idle');
   });
 });
