@@ -9,8 +9,9 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests --exclude \"**/*.e2e.test.ts\"",
-    "test:integration": "vitest run src/__tests__/**/*.e2e.test.ts --passWithNoTests",
+    "test:integration": "vitest run __tests__/**/*.e2e.test.ts --passWithNoTests",
     "db:migrate": "tsx src/access/infrastructure/migrations/run.ts && tsx src/sync/infrastructure/migrations/run.ts",
     "db:migrate:down": "tsx src/sync/infrastructure/migrations/run.ts down && tsx src/access/infrastructure/migrations/run.ts down"
   },

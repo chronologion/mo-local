@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { LiveStoreEvent } from '@livestore/common/schema';
-import { SyncEvent } from '../domain/SyncEvent';
+import {
+  SyncEvent,
+  SyncEventAssignment,
+  SyncIncomingEvent,
+} from '../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
 import {
   SyncEventRepository,
-  SyncRepositoryConflictError,
   SyncRepositoryHeadMismatchError,
 } from './ports/sync-event-repository';
 import {
@@ -15,21 +17,22 @@ import {
 } from './ports/sync-access-policy';
 import { SyncStoreRepository } from './ports/sync-store-repository';
 
-export class PushValidationError extends Error {
-  constructor(
-    message: string,
-    readonly details?: {
-      minimumExpectedSeqNum?: number;
-      providedSeqNum?: number;
-    },
-    override readonly cause?: unknown
-  ) {
-    super(message);
-    this.name = 'PushValidationError';
-  }
-}
+export type SyncPushOk = Readonly<{
+  ok: true;
+  head: GlobalSequenceNumber;
+  assigned: ReadonlyArray<SyncEventAssignment>;
+}>;
 
-const SUPPORTED_EVENT_NAME = 'event.v1' as const;
+export type SyncPushConflictReason = 'server_ahead';
+
+export type SyncPushConflict = Readonly<{
+  ok: false;
+  head: GlobalSequenceNumber;
+  reason: SyncPushConflictReason;
+  missing?: ReadonlyArray<SyncEvent>;
+}>;
+
+export type SyncPushResult = SyncPushOk | SyncPushConflict;
 
 @Injectable()
 export class SyncService {
@@ -42,110 +45,41 @@ export class SyncService {
   async pushEvents(params: {
     ownerId: SyncOwnerId;
     storeId: SyncStoreId;
-    events: LiveStoreEvent.Global.Encoded[];
-  }): Promise<{ lastSeqNum: GlobalSequenceNumber }> {
-    const { ownerId, storeId, events } = params;
+    expectedHead: GlobalSequenceNumber;
+    events: ReadonlyArray<SyncIncomingEvent>;
+  }): Promise<SyncPushResult> {
+    const { ownerId, storeId, events, expectedHead } = params;
 
     await this.accessPolicy.ensureCanPush(ownerId, storeId);
     await this.storeRepository.ensureStoreOwner(storeId, ownerId);
 
     if (events.length === 0) {
       const head = await this.repository.getHeadSequence(ownerId, storeId);
-      return { lastSeqNum: head };
+      return { ok: true, head, assigned: [] };
     }
-
-    const first = events[0];
-    if (!first) {
-      const head = await this.repository.getHeadSequence(ownerId, storeId);
-      return { lastSeqNum: head };
-    }
-
-    for (const event of events) {
-      if (event.name !== SUPPORTED_EVENT_NAME) {
-        throw new PushValidationError(
-          `Unsupported event name '${event.name}'. Expected '${SUPPORTED_EVENT_NAME}'.`
-        );
-      }
-    }
-
-    const firstSeqNum = first.seqNum;
-    const firstParentSeqNum = first.parentSeqNum;
-
-    for (let i = 1; i < events.length; i += 1) {
-      const prev = events[i - 1];
-      const curr = events[i];
-      if (curr.seqNum !== prev.seqNum + 1) {
-        throw new PushValidationError('Sequence numbers must be contiguous', {
-          minimumExpectedSeqNum: prev.seqNum + 1,
-          providedSeqNum: curr.seqNum,
-        });
-      }
-      if (curr.parentSeqNum !== prev.seqNum) {
-        throw new PushValidationError('parentSeqNum must match prior seqNum', {
-          minimumExpectedSeqNum: prev.seqNum,
-          providedSeqNum: curr.parentSeqNum,
-        });
-      }
-    }
-
-    if (firstParentSeqNum >= firstSeqNum) {
-      throw new PushValidationError('parentSeqNum must precede seqNum', {
-        minimumExpectedSeqNum: Math.max(firstSeqNum - 1, 0),
-        providedSeqNum: firstParentSeqNum,
-      });
-    }
-
-    if (firstSeqNum !== firstParentSeqNum + 1) {
-      throw new PushValidationError('Sequence numbers must be contiguous', {
-        minimumExpectedSeqNum: firstParentSeqNum + 1,
-        providedSeqNum: firstSeqNum,
-      });
-    }
-
-    const assigned: SyncEvent[] = events.map((event) => {
-      return {
-        ownerId,
-        storeId,
-        seqNum: GlobalSequenceNumber.from(event.seqNum),
-        parentSeqNum: GlobalSequenceNumber.from(event.parentSeqNum),
-        name: event.name,
-        args: event.args,
-        clientId: event.clientId,
-        sessionId: event.sessionId,
-        createdAt: new Date(),
-      };
-    });
 
     try {
-      const newHead = await this.repository.appendBatch(
-        assigned,
-        GlobalSequenceNumber.from(firstParentSeqNum)
-      );
-      return { lastSeqNum: newHead };
+      const result = await this.repository.appendBatch({
+        ownerId,
+        storeId,
+        expectedHead,
+        events,
+      });
+      return { ok: true, head: result.head, assigned: result.assigned };
     } catch (error) {
-      if (error instanceof SyncRepositoryConflictError) {
-        const latestHead = await this.repository.getHeadSequence(
-          ownerId,
-          storeId
-        );
-        throw new PushValidationError(
-          'Duplicate sequence number detected',
-          {
-            minimumExpectedSeqNum: latestHead.unwrap() + 1,
-            providedSeqNum: firstSeqNum,
-          },
-          error
-        );
-      }
       if (error instanceof SyncRepositoryHeadMismatchError) {
-        throw new PushValidationError(
-          'Server ahead of client',
-          {
-            minimumExpectedSeqNum: error.expectedHead.unwrap(),
-            providedSeqNum: error.providedParent.unwrap(),
-          },
-          error
+        const missing = await this.repository.loadSince(
+          ownerId,
+          storeId,
+          expectedHead,
+          1_000
         );
+        return {
+          ok: false,
+          head: error.currentHead,
+          reason: 'server_ahead',
+          missing: missing.length > 0 ? missing : undefined,
+        };
       }
       if (error instanceof SyncAccessDeniedError) {
         throw error;
@@ -166,35 +100,6 @@ export class SyncService {
     return this.loadEvents({ ownerId, storeId, since, limit });
   }
 
-  async pullEventsWithWait(params: {
-    ownerId: SyncOwnerId;
-    storeId: SyncStoreId;
-    since: GlobalSequenceNumber;
-    limit: number;
-    waitMs: number;
-    pollIntervalMs: number;
-  }): Promise<{ events: SyncEvent[]; head: GlobalSequenceNumber }> {
-    const { ownerId, storeId, since, limit, waitMs, pollIntervalMs } = params;
-    await this.accessPolicy.ensureCanPull(ownerId, storeId);
-    await this.storeRepository.ensureStoreOwner(storeId, ownerId);
-
-    const clampedWaitMs = Math.max(0, waitMs);
-    const deadline = Date.now() + clampedWaitMs;
-    const interval = Math.max(50, pollIntervalMs);
-
-    while (true) {
-      const result = await this.loadEvents({ ownerId, storeId, since, limit });
-      if (result.events.length > 0 || clampedWaitMs === 0) {
-        return result;
-      }
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) {
-        return result;
-      }
-      await delay(Math.min(interval, remaining));
-    }
-  }
-
   private async loadEvents(params: {
     ownerId: SyncOwnerId;
     storeId: SyncStoreId;
@@ -208,15 +113,7 @@ export class SyncService {
       since,
       limit
     );
-    const head =
-      events.length > 0
-        ? (events[events.length - 1]?.seqNum ?? since)
-        : await this.repository.getHeadSequence(ownerId, storeId);
+    const head = await this.repository.getHeadSequence(ownerId, storeId);
     return { events, head };
   }
 }
-
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });

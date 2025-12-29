@@ -9,12 +9,9 @@ export async function up(db: Kysely<SyncDatabase>): Promise<void> {
     .addColumn('id', 'bigserial', (col) => col.primaryKey())
     .addColumn('owner_identity_id', 'uuid', (col) => col.notNull())
     .addColumn('store_id', 'varchar', (col) => col.notNull())
-    .addColumn('seq_num', 'integer', (col) => col.notNull())
-    .addColumn('parent_seq_num', 'integer', (col) => col.notNull())
-    .addColumn('name', 'varchar', (col) => col.notNull())
-    .addColumn('args', 'jsonb', (col) => col.notNull())
-    .addColumn('client_id', 'varchar', (col) => col.notNull())
-    .addColumn('session_id', 'varchar', (col) => col.notNull())
+    .addColumn('global_seq', 'integer', (col) => col.notNull())
+    .addColumn('event_id', 'varchar', (col) => col.notNull())
+    .addColumn('record_json', 'text', (col) => col.notNull())
     .addColumn('created_at', 'timestamptz', (col) =>
       col.notNull().defaultTo(sql`now()`)
     )
@@ -23,7 +20,14 @@ export async function up(db: Kysely<SyncDatabase>): Promise<void> {
   await db.schema
     .createIndex('sync_events_stream_seq_idx')
     .on('sync.events')
-    .columns(['owner_identity_id', 'store_id', 'seq_num'])
+    .columns(['owner_identity_id', 'store_id', 'global_seq'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('sync_events_stream_event_id_idx')
+    .on('sync.events')
+    .columns(['owner_identity_id', 'store_id', 'event_id'])
     .unique()
     .execute();
 }

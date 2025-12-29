@@ -1,6 +1,5 @@
 import {
   IsArray,
-  IsDefined,
   IsInt,
   IsString,
   Matches,
@@ -14,32 +13,21 @@ const UUID_V7_REGEX =
 
 class PushEventDto {
   @IsString()
-  name!: string;
-
-  @IsDefined()
-  args!: unknown;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  seqNum!: number;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  parentSeqNum!: number;
+  eventId!: string;
 
   @IsString()
-  clientId!: string;
-
-  @IsString()
-  sessionId!: string;
+  recordJson!: string;
 }
 
 export class PushEventsDto {
   @IsString()
   @Matches(UUID_V7_REGEX, { message: 'storeId must be a UUIDv7' })
   storeId!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  expectedHead!: number;
 
   @IsArray()
   @ValidateNested({ each: true })

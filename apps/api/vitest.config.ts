@@ -6,13 +6,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['src/__tests__/**/*.{test,spec}.ts'],
+    include: ['__tests__/**/*.{test,spec}.ts'],
     testTimeout: 15000,
     coverage: {
       provider: 'v8',
-      all: true,
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*'],
+      exclude: ['__tests__/**', '**/*.test.*', '**/*.spec.*'],
     },
   },
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { OwnerOnlySyncAccessPolicy } from '../../sync/infrastructure/owner-only-sync-access.policy';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
+import { OwnerOnlySyncAccessPolicy } from '../../src/sync/infrastructure/owner-only-sync-access.policy';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
 
 describe('OwnerOnlySyncAccessPolicy', () => {
   it('allows push and pull for valid actors', async () => {

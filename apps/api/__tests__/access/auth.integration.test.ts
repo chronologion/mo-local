@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import express, { type Request } from 'express';
-import { AuthService } from '../../access/application/auth.service';
-import { SessionCache } from '../../access/application/session-cache';
-import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
-import type { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
-import { IdentityRepository } from '../../access/application/ports/identity-repository';
-import { KratosPasswordService } from '../../access/infrastructure/kratos-password.service';
-import { KratosClient } from '../../access/infrastructure/kratos.client';
+import { AuthService } from '../../src/access/application/auth.service';
+import { SessionCache } from '../../src/access/application/session-cache';
+import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
+import type { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
+import { IdentityRepository } from '../../src/access/application/ports/identity-repository';
+import { KratosPasswordService } from '../../src/access/infrastructure/kratos-password.service';
+import { KratosClient } from '../../src/access/infrastructure/kratos.client';
 import { ConfigService } from '@nestjs/config';
 
 type Session = {

@@ -7,70 +7,82 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { SyncController } from '../../sync/presentation/sync.controller';
-import { SyncService } from '../../sync/application/sync.service';
+import { SyncController } from '../../src/sync/presentation/sync.controller';
+import { SyncService } from '../../src/sync/application/sync.service';
 import {
   SyncEventRepository,
-  SyncRepositoryConflictError,
   SyncRepositoryHeadMismatchError,
-} from '../../sync/application/ports/sync-event-repository';
-import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
-import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
-import { SyncEvent } from '../../sync/domain/SyncEvent';
-import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
-import { EventSequenceNumber, LiveStoreEvent } from '@livestore/common/schema';
-import { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
-import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
+} from '../../src/sync/application/ports/sync-event-repository';
+import { SyncStoreRepository } from '../../src/sync/application/ports/sync-store-repository';
+import { SyncAccessPolicy } from '../../src/sync/application/ports/sync-access-policy';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
+import { SyncEvent, SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
+import { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
+import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
 
 const TEST_STORE_ID_V7 = '019b5b7b-c8d0-7961-bb15-60fe00e4e145';
 
 class InMemorySyncEventRepository extends SyncEventRepository {
   private events: SyncEvent[] = [];
+  private heads = new Map<string, number>();
 
   async getHeadSequence(
     ownerId: SyncOwnerId,
     storeId: SyncStoreId
   ): Promise<GlobalSequenceNumber> {
-    const head = this.events
-      .filter(
-        (event) =>
-          event.ownerId.unwrap() === ownerId.unwrap() &&
-          event.storeId.unwrap() === storeId.unwrap()
-      )
-      .reduce((max, event) => Math.max(max, event.seqNum.unwrap()), 0);
-    return GlobalSequenceNumber.from(head);
+    return GlobalSequenceNumber.from(
+      this.heads.get(`${ownerId.unwrap()}::${storeId.unwrap()}`) ?? 0
+    );
   }
 
-  async appendBatch(
-    events: SyncEvent[],
-    expectedParent: GlobalSequenceNumber
-  ): Promise<GlobalSequenceNumber> {
-    if (events.length === 0) return expectedParent;
-    const owner = events[0]?.ownerId ?? SyncOwnerId.from('user-1');
-    const store = events[0]?.storeId ?? SyncStoreId.from(TEST_STORE_ID_V7);
-    const head = await this.getHeadSequence(owner, store);
-    if (head.unwrap() !== expectedParent.unwrap()) {
-      throw new SyncRepositoryHeadMismatchError(head, expectedParent);
+  async appendBatch(params: {
+    ownerId: SyncOwnerId;
+    storeId: SyncStoreId;
+    expectedHead: GlobalSequenceNumber;
+    events: ReadonlyArray<SyncIncomingEvent>;
+  }) {
+    const { ownerId, storeId, expectedHead, events } = params;
+    const key = `${ownerId.unwrap()}::${storeId.unwrap()}`;
+    const head = await this.getHeadSequence(ownerId, storeId);
+    if (head.unwrap() !== expectedHead.unwrap()) {
+      throw new SyncRepositoryHeadMismatchError(head, expectedHead);
     }
-    for (const event of events) {
-      const exists = this.events.some(
+    let currentHead = head.unwrap();
+    const assigned = events.map((event) => {
+      const existing = this.events.find(
         (e) =>
-          e.ownerId.unwrap() === event.ownerId.unwrap() &&
-          e.storeId.unwrap() === event.storeId.unwrap() &&
-          e.seqNum.unwrap() === event.seqNum.unwrap()
+          e.ownerId.unwrap() === ownerId.unwrap() &&
+          e.storeId.unwrap() === storeId.unwrap() &&
+          e.eventId === event.eventId
       );
-      if (exists) {
-        throw new SyncRepositoryConflictError(
-          'Duplicate sequence number for stream'
-        );
+      if (existing) {
+        return {
+          eventId: event.eventId,
+          globalSequence: existing.globalSequence,
+        };
       }
-      this.events.push(event);
-    }
-    this.events.sort((a, b) => a.seqNum.unwrap() - b.seqNum.unwrap());
-    const last = events[events.length - 1];
-    return GlobalSequenceNumber.from(last?.seqNum.unwrap() ?? head.unwrap());
+      currentHead += 1;
+      const stored: SyncEvent = {
+        ownerId,
+        storeId,
+        globalSequence: GlobalSequenceNumber.from(currentHead),
+        eventId: event.eventId,
+        recordJson: event.recordJson,
+        createdAt: new Date(),
+      };
+      this.events.push(stored);
+      return {
+        eventId: event.eventId,
+        globalSequence: stored.globalSequence,
+      };
+    });
+    this.events.sort(
+      (a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap()
+    );
+    this.heads.set(key, currentHead);
+    return { head: GlobalSequenceNumber.from(currentHead), assigned };
   }
 
   async loadSince(
@@ -84,9 +96,9 @@ class InMemorySyncEventRepository extends SyncEventRepository {
         (event) =>
           event.ownerId.unwrap() === ownerId.unwrap() &&
           event.storeId.unwrap() === storeId.unwrap() &&
-          event.seqNum.unwrap() > since.unwrap()
+          event.globalSequence.unwrap() > since.unwrap()
       )
-      .sort((a, b) => a.seqNum.unwrap() - b.seqNum.unwrap())
+      .sort((a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap())
       .slice(0, limit);
   }
 }
@@ -126,16 +138,9 @@ class FakeSessionGuard implements CanActivate {
   }
 }
 
-const makeEvent = (
-  seqNum: number,
-  parentSeqNum: number
-): LiveStoreEvent.Global.Encoded => ({
-  name: 'event.v1',
-  args: { payload: seqNum },
-  seqNum: EventSequenceNumber.Global.make(seqNum),
-  parentSeqNum: EventSequenceNumber.Global.make(parentSeqNum),
-  clientId: 'client-1',
-  sessionId: 'session-1',
+const makeEvent = (eventId: string, payload: number): SyncIncomingEvent => ({
+  eventId,
+  recordJson: JSON.stringify({ payload }),
 });
 
 describe('SyncController (integration, in-memory repos)', () => {
@@ -178,13 +183,14 @@ describe('SyncController (integration, in-memory repos)', () => {
     await app.close();
   });
 
-  it('rejects pushes when server is ahead and preserves client sequence numbers', async () => {
+  it('rejects pushes when server is ahead and returns missing events', async () => {
     await request(app.getHttpServer())
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
         storeId: TEST_STORE_ID_V7,
-        events: [makeEvent(1, 0)],
+        expectedHead: 0,
+        events: [makeEvent('e1', 1)],
       })
       .expect(201);
 
@@ -193,12 +199,17 @@ describe('SyncController (integration, in-memory repos)', () => {
       .set('x-session-token', 'fake')
       .send({
         storeId: TEST_STORE_ID_V7,
-        events: [makeEvent(1, 0)],
+        expectedHead: 0,
+        events: [makeEvent('e2', 2)],
       })
       .expect(409);
 
-    expect(conflict.body.minimumExpectedSeqNum).toBe(1);
-    expect(conflict.body.providedSeqNum).toBe(0);
+    expect(conflict.body.ok).toBe(false);
+    expect(conflict.body.reason).toBe('server_ahead');
+    expect(conflict.body.head).toBe(1);
+    expect(conflict.body.missing).toEqual([
+      expect.objectContaining({ eventId: 'e1', globalSequence: 1 }),
+    ]);
 
     const pull = await request(app.getHttpServer())
       .get('/sync/pull')
@@ -207,8 +218,8 @@ describe('SyncController (integration, in-memory repos)', () => {
       .expect(200);
 
     expect(pull.body.events).toEqual([
-      expect.objectContaining({ seqNum: 1, parentSeqNum: 0 }),
+      expect.objectContaining({ eventId: 'e1', globalSequence: 1 }),
     ]);
-    expect(pull.body.headSeqNum).toBe(1);
+    expect(pull.body.head).toBe(1);
   });
 });
