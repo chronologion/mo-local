@@ -1,4 +1,8 @@
-import { SyncEvent } from '../../domain/SyncEvent';
+import {
+  SyncEvent,
+  SyncEventAssignment,
+  SyncIncomingEvent,
+} from '../../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../../domain/value-objects/SyncStoreId';
@@ -15,13 +19,18 @@ export class SyncRepositoryConflictError extends Error {
 
 export class SyncRepositoryHeadMismatchError extends Error {
   constructor(
-    readonly expectedHead: GlobalSequenceNumber,
-    readonly providedParent: GlobalSequenceNumber
+    readonly currentHead: GlobalSequenceNumber,
+    readonly expectedHead: GlobalSequenceNumber
   ) {
     super('Sync backend head mismatch');
     this.name = 'SyncRepositoryHeadMismatchError';
   }
 }
+
+export type SyncAppendResult = Readonly<{
+  head: GlobalSequenceNumber;
+  assigned: ReadonlyArray<SyncEventAssignment>;
+}>;
 
 export abstract class SyncEventRepository {
   abstract getHeadSequence(
@@ -30,9 +39,13 @@ export abstract class SyncEventRepository {
   ): Promise<GlobalSequenceNumber>;
 
   abstract appendBatch(
-    events: SyncEvent[],
-    expectedParent: GlobalSequenceNumber
-  ): Promise<GlobalSequenceNumber>;
+    params: Readonly<{
+      ownerId: SyncOwnerId;
+      storeId: SyncStoreId;
+      expectedHead: GlobalSequenceNumber;
+      events: ReadonlyArray<SyncIncomingEvent>;
+    }>
+  ): Promise<SyncAppendResult>;
 
   abstract loadSince(
     ownerId: SyncOwnerId,

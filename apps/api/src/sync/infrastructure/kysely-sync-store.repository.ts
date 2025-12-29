@@ -24,6 +24,7 @@ export class KyselySyncStoreRepository extends SyncStoreRepository {
         .values({
           store_id: storeIdValue,
           owner_identity_id: ownerValue,
+          head: 0,
         })
         .onConflict((oc) => oc.column('store_id').doNothing())
         .execute();

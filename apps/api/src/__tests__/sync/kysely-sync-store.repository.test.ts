@@ -5,7 +5,7 @@ import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
 import { SyncAccessDeniedError } from '../../sync/application/ports/sync-access-policy';
 import type { SyncDatabaseService } from '../../sync/infrastructure/database.service';
 
-type StoreRow = { store_id: string; owner_identity_id: string };
+type StoreRow = { store_id: string; owner_identity_id: string; head: number };
 type EventRow = { owner_identity_id: string; store_id: string };
 
 type WhereClause = {
@@ -188,13 +188,17 @@ describe('KyselySyncStoreRepository', () => {
       SyncOwnerId.from('owner-1')
     );
     expect(db.stores).toEqual([
-      { store_id: 'store-1', owner_identity_id: 'owner-1' },
+      { store_id: 'store-1', owner_identity_id: 'owner-1', head: 0 },
     ]);
   });
 
   it('rejects if store owned by different identity', async () => {
     const db = new FakeDb();
-    db.stores.push({ store_id: 'store-1', owner_identity_id: 'owner-1' });
+    db.stores.push({
+      store_id: 'store-1',
+      owner_identity_id: 'owner-1',
+      head: 0,
+    });
     const repo = new KyselySyncStoreRepository(makeDbService(db));
     await expect(
       repo.ensureStoreOwner(
@@ -216,8 +220,8 @@ describe('KyselySyncStoreRepository', () => {
       SyncOwnerId.from('owner-1')
     );
     expect(db.stores).toEqual([
-      { store_id: 'store-1', owner_identity_id: 'owner-1' },
-      { store_id: 'store-2', owner_identity_id: 'owner-1' },
+      { store_id: 'store-1', owner_identity_id: 'owner-1', head: 0 },
+      { store_id: 'store-2', owner_identity_id: 'owner-1', head: 0 },
     ]);
   });
 });

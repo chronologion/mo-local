@@ -10,11 +10,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { EventSequenceNumber, LiveStoreEvent } from '@livestore/common/schema';
 import { AuthIdentity } from '@access/auth-identity.decorator';
 import { AuthenticatedIdentity } from '@access/application/authenticated-identity';
 import { KratosSessionGuard } from '@access/presentation/guards/kratos-session.guard';
-import { SyncService, PushValidationError } from '../application/sync.service';
+import { SyncService } from '../application/sync.service';
 import { GlobalSequenceNumber } from '../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
@@ -39,36 +38,40 @@ export class SyncController {
     try {
       const ownerId = SyncOwnerId.from(identity.id);
       const storeId = SyncStoreId.from(dto.storeId);
-      const events = dto.events.map<LiveStoreEvent.Global.Encoded>((event) => ({
-        name: event.name,
-        args: event.args,
-        seqNum: EventSequenceNumber.Global.make(event.seqNum),
-        parentSeqNum: EventSequenceNumber.Global.make(event.parentSeqNum),
-        clientId: event.clientId,
-        sessionId: event.sessionId,
+      const events = dto.events.map((event) => ({
+        eventId: event.eventId,
+        recordJson: event.recordJson,
       }));
 
       const result = await this.syncService.pushEvents({
         ownerId,
         storeId,
+        expectedHead: GlobalSequenceNumber.from(dto.expectedHead),
         events,
       });
 
-      return { ok: true, lastSeqNum: result.lastSeqNum.unwrap() };
-    } catch (error) {
-      if (error instanceof PushValidationError) {
-        const message =
-          error.message ??
-          'Sync push failed due to validation or sequence conflict';
-        if (error.details?.minimumExpectedSeqNum !== undefined) {
-          throw new ConflictException({
-            message,
-            minimumExpectedSeqNum: error.details.minimumExpectedSeqNum,
-            providedSeqNum: error.details.providedSeqNum,
-          });
-        }
-        throw new ConflictException(message);
+      if (!result.ok) {
+        throw new ConflictException({
+          ok: false,
+          head: result.head.unwrap(),
+          reason: result.reason,
+          missing: result.missing?.map((event) => ({
+            globalSequence: event.globalSequence.unwrap(),
+            eventId: event.eventId,
+            recordJson: event.recordJson,
+          })),
+        });
       }
+
+      return {
+        ok: true,
+        head: result.head.unwrap(),
+        assigned: result.assigned.map((assignment) => ({
+          eventId: assignment.eventId,
+          globalSequence: assignment.globalSequence.unwrap(),
+        })),
+      };
+    } catch (error) {
       if (error instanceof SyncAccessDeniedError) {
         throw new ForbiddenException(error.message);
       }
@@ -88,36 +91,31 @@ export class SyncController {
     const storeId = SyncStoreId.from(dto.storeId);
     const sinceValue = dto.since ?? 0;
     const limitValue = dto.limit ?? 100;
-    const waitValue = dto.waitMs ?? 0;
     const since = GlobalSequenceNumber.from(Number(sinceValue));
     const limit = Number(limitValue);
-    const waitMs = Math.min(Math.max(Number(waitValue), 0), 25_000);
 
-    const { events, head } = await this.syncService.pullEventsWithWait({
+    const { events, head } = await this.syncService.pullEvents({
       ownerId,
       storeId,
       since,
       limit,
-      waitMs,
-      pollIntervalMs: 500,
     });
 
     const responseEvents = events.map((event) => ({
-      name: event.name,
-      args: event.args,
-      seqNum: event.seqNum.unwrap(),
-      parentSeqNum: event.parentSeqNum.unwrap(),
-      clientId: event.clientId,
-      sessionId: event.sessionId,
+      globalSequence: event.globalSequence.unwrap(),
+      eventId: event.eventId,
+      recordJson: event.recordJson,
     }));
+    const lastSequence = events[events.length - 1]?.globalSequence.unwrap();
 
     return {
       events: responseEvents,
       hasMore:
         responseEvents.length > 0 &&
         responseEvents.length === limit &&
-        head.unwrap() > since.unwrap(),
-      headSeqNum: head.unwrap(),
+        head.unwrap() > (lastSequence ?? since.unwrap()),
+      head: head.unwrap(),
+      nextSince: responseEvents.length > 0 ? (lastSequence ?? null) : null,
     };
   }
 }

@@ -20,10 +20,4 @@ export class PullEventsDto {
   @IsInt()
   @Min(1)
   limit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  waitMs?: number;
 }

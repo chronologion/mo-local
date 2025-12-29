@@ -68,37 +68,53 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
   return { storeId: resolvedStoreId, actorId };
 }
 
-type EventV1Args = {
-  id: string;
-  aggregateId: string;
-  eventType: string;
-  payload: Record<string, number>;
-  version: number;
-  occurredAt: number;
-  actorId: string | null;
-  causationId: string | null;
-  correlationId: string | null;
-};
+const encodeBase64Url = (bytes: Uint8Array): string =>
+  Buffer.from(bytes)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 
-const makeEventV1Args = (params: {
+type RecordJsonParams = {
   id: string;
+  aggregateType: string;
   aggregateId: string;
   eventType: string;
+  payload: Uint8Array;
   version: number;
   occurredAt: number;
   actorId: string;
-}): EventV1Args => {
-  return {
+};
+
+const makeRecordJson = (params: RecordJsonParams): string =>
+  JSON.stringify({
     id: params.id,
+    aggregateType: params.aggregateType,
     aggregateId: params.aggregateId,
     eventType: params.eventType,
-    payload: { '0': 1, '1': 2, '2': 3 },
+    payload: encodeBase64Url(params.payload),
     version: params.version,
     occurredAt: params.occurredAt,
     actorId: params.actorId,
     causationId: null,
     correlationId: null,
-  };
+    epoch: null,
+    keyringUpdate: null,
+  });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getReason = (value: unknown): string | undefined => {
+  if (!isRecord(value)) return undefined;
+  const reason = value.reason;
+  return typeof reason === 'string' ? reason : undefined;
+};
+
+const getHead = (value: unknown): number | null => {
+  if (!isRecord(value)) return null;
+  const head = value.head;
+  return typeof head === 'number' ? head : null;
 };
 
 async function pushEvents(
@@ -133,8 +149,14 @@ async function pullEvents(page: Page, storeId: string) {
         { credentials: 'include' }
       );
       const data = (await resp.json()) as {
-        events: Array<{ seqNum: number; parentSeqNum: number; name: string }>;
-        headSeqNum: number;
+        events: Array<{
+          globalSequence: number;
+          eventId: string;
+          recordJson: string;
+        }>;
+        head: number;
+        hasMore: boolean;
+        nextSince: number | null;
       };
       return data;
     },
@@ -142,7 +164,7 @@ async function pullEvents(page: Page, storeId: string) {
   );
 }
 
-test.describe('Sync conflicts rebased via LiveStore', () => {
+test.describe('Sync conflicts rebased via sync protocol', () => {
   test.setTimeout(30_000);
 
   test('server-ahead conflict surfaces and sync recovers', async ({ page }) => {
@@ -154,85 +176,71 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
 
     // Pull to find current head
     const initial = await pullEvents(page, storeId);
-    const head = initial.headSeqNum ?? 0;
-
-    // Seed head with next seqNum
-    const firstSeq = head + 1;
+    const head = initial.head ?? 0;
     const aggregateId = randomUUID();
     const now = Date.now();
     const first = await pushEvents(page, {
       storeId,
+      expectedHead: head,
       events: [
         {
-          name: 'event.v1',
-          args: makeEventV1Args({
+          eventId: randomUUID(),
+          recordJson: makeRecordJson({
             id: randomUUID(),
+            aggregateType: 'project',
             aggregateId,
             eventType: 'ProjectCreated',
             version: 1,
             occurredAt: now,
             actorId,
+            payload: new Uint8Array([1, 2, 3]),
           }),
-          seqNum: firstSeq,
-          parentSeqNum: head,
-          clientId: 'client-test',
-          sessionId: 'session-test',
         },
       ],
     });
     expect(first.status, JSON.stringify(first.body)).toBe(201);
 
-    // Push stale seqNum 1 again -> expect ServerAheadError
+    // Push stale expectedHead again -> expect server ahead conflict
     const conflict = await pushEvents(page, {
       storeId,
+      expectedHead: head,
       events: [
         {
-          name: 'event.v1',
-          args: makeEventV1Args({
+          eventId: randomUUID(),
+          recordJson: makeRecordJson({
             id: randomUUID(),
+            aggregateType: 'project',
             aggregateId,
             eventType: 'ProjectCreated',
             version: 2,
             occurredAt: now + 1,
             actorId,
+            payload: new Uint8Array([4, 5, 6]),
           }),
-          seqNum: firstSeq,
-          parentSeqNum: head,
-          clientId: 'client-test',
-          sessionId: 'session-test',
         },
       ],
     });
-    expect(conflict.status).toBe(409);
-    const conflictBody =
-      typeof conflict.body === 'object' && conflict.body !== null
-        ? (conflict.body as {
-            minimumExpectedSeqNum?: number;
-            providedSeqNum?: number;
-          })
-        : {};
-    expect(conflictBody.minimumExpectedSeqNum).toBeDefined();
-    expect(conflictBody.providedSeqNum).toBeDefined();
+    expect(conflict.status, JSON.stringify(conflict.body)).toBe(409);
+    expect(getReason(conflict.body)).toBe('server_ahead');
 
-    // Push next seqNum to ensure sync still works
-    const nextSeq = firstSeq + 1;
+    // Push next with updated head to ensure sync still works
+    const nextHead = getHead(conflict.body) ?? head + 1;
     const second = await pushEvents(page, {
       storeId,
+      expectedHead: nextHead,
       events: [
         {
-          name: 'event.v1',
-          args: makeEventV1Args({
+          eventId: randomUUID(),
+          recordJson: makeRecordJson({
             id: randomUUID(),
+            aggregateType: 'project',
             aggregateId,
             eventType: 'ProjectRenamed',
             version: 3,
             occurredAt: now + 2,
             actorId,
+            payload: new Uint8Array([7, 8, 9]),
           }),
-          seqNum: nextSeq,
-          parentSeqNum: firstSeq,
-          clientId: 'client-test',
-          sessionId: 'session-test',
         },
       ],
     });
@@ -240,9 +248,9 @@ test.describe('Sync conflicts rebased via LiveStore', () => {
 
     // Pull to verify ordering and uniqueness
     const pulled = await pullEvents(page, storeId);
-    const seqNums = pulled.events.map((e) => e.seqNum);
-    expect(new Set(seqNums).size).toBe(seqNums.length);
-    expect(seqNums).toContain(firstSeq);
-    expect(seqNums).toContain(nextSeq);
+    const globalSeqs = pulled.events.map((e) => e.globalSequence);
+    expect(new Set(globalSeqs).size).toBe(globalSeqs.length);
+    expect(globalSeqs).toContain(nextHead);
+    expect(globalSeqs).toContain(nextHead + 1);
   });
 });

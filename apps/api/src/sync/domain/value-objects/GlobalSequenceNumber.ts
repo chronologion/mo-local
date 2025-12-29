@@ -1,5 +1,5 @@
 /**
- * Wrapper for the LiveStore global sequence number assigned by the sync backend.
+ * Wrapper for the server-assigned global sequence number.
  */
 export class GlobalSequenceNumber {
   private constructor(private readonly value: number) {}

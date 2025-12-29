@@ -1,29 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { KyselySyncEventRepository } from '../../sync/infrastructure/kysely-sync-event.repository';
+import { SyncRepositoryHeadMismatchError } from '../../sync/application/ports/sync-event-repository';
 import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
 import type { SyncDatabaseService } from '../../sync/infrastructure/database.service';
-import type { SyncEvent } from '../../sync/domain/SyncEvent';
 
 type EventRow = {
   owner_identity_id: string;
   store_id: string;
-  seq_num: number;
-  parent_seq_num: number;
-  name: string;
-  args: string;
-  client_id: string;
-  session_id: string;
+  global_seq: number;
+  event_id: string;
+  record_json: string;
   created_at: Date;
 };
 
-type StoreRow = { store_id: string };
+type StoreRow = {
+  store_id: string;
+  owner_identity_id: string;
+  head: number;
+};
 
 type WhereClause = {
   column: string;
-  op: '=' | '>';
-  value: string | number;
+  op: '=' | '>' | 'in';
+  value: string | number | ReadonlyArray<string>;
 };
 
 class FakeDb {
@@ -31,20 +32,10 @@ class FakeDb {
   stores: StoreRow[] = [];
 }
 
-type FakeTrx = {
-  selectFrom: (
-    table: 'sync.stores' | 'sync.events'
-  ) => FakeSelectBuilder<StoreRow | EventRow>;
-  insertInto: (table: 'sync.events') => {
-    values: (rows: EventRow[]) => { execute: () => Promise<void> };
-  };
-};
-
 class FakeSelectBuilder<T extends { [key: string]: unknown }> {
   constructor(
     private readonly rows: T[],
     private readonly clauses: WhereClause[] = [],
-    private readonly mode: 'rows' | 'head' = 'rows',
     private readonly limitValue?: number,
     private readonly orderByClause?: {
       column: string;
@@ -52,42 +43,39 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
     }
   ) {}
 
-  select(arg: unknown): FakeSelectBuilder<T> {
-    const nextMode = typeof arg === 'function' ? 'head' : 'rows';
+  select(): FakeSelectBuilder<T> {
     return new FakeSelectBuilder(
       this.rows,
       this.clauses,
-      nextMode,
       this.limitValue,
       this.orderByClause
     );
   }
 
-  where(column: string, op: '=' | '>', value: string | number): this {
+  where(
+    column: string,
+    op: '=' | '>' | 'in',
+    value: WhereClause['value']
+  ): this {
     return new FakeSelectBuilder(
       this.rows,
       [...this.clauses, { column, op, value }],
-      this.mode,
       this.limitValue,
       this.orderByClause
     ) as this;
   }
 
   orderBy(column: string, direction: 'asc' | 'desc'): this {
-    return new FakeSelectBuilder(
-      this.rows,
-      this.clauses,
-      this.mode,
-      this.limitValue,
-      { column, direction }
-    ) as this;
+    return new FakeSelectBuilder(this.rows, this.clauses, this.limitValue, {
+      column,
+      direction,
+    }) as this;
   }
 
   limit(value: number): this {
     return new FakeSelectBuilder(
       this.rows,
       this.clauses,
-      this.mode,
       value,
       this.orderByClause
     ) as this;
@@ -97,28 +85,12 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
     return this;
   }
 
-  executeTakeFirst(): T | { head: number } | undefined {
-    const filtered = this.applyClauses();
-    if (this.mode === 'head') {
-      const max = filtered.reduce((acc, row) => {
-        const seq = Number(row['seq_num']);
-        return Number.isNaN(seq) ? acc : Math.max(acc, seq);
-      }, 0);
-      return { head: max };
-    }
-    return filtered[0];
+  executeTakeFirst(): T | undefined {
+    return this.applyClauses()[0];
   }
 
-  execute(): T[] | { head: number }[] {
-    const filtered = this.applyClauses();
-    if (this.mode === 'head') {
-      const max = filtered.reduce((acc, row) => {
-        const seq = Number(row['seq_num']);
-        return Number.isNaN(seq) ? acc : Math.max(acc, seq);
-      }, 0);
-      return [{ head: max }];
-    }
-    return filtered;
+  execute(): T[] {
+    return this.applyClauses();
   }
 
   private applyClauses(): T[] {
@@ -127,6 +99,9 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
         const value = row[clause.column];
         if (clause.op === '=') {
           return value === clause.value;
+        }
+        if (clause.op === 'in' && Array.isArray(clause.value)) {
+          return clause.value.includes(String(value));
         }
         if (typeof value === 'number' && typeof clause.value === 'number') {
           return value > clause.value;
@@ -149,7 +124,30 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
   }
 }
 
-// SyncDatabaseService is a concrete class; use a minimal test double via cast.
+type FakeTrx = {
+  selectFrom: (
+    table: 'sync.stores' | 'sync.events'
+  ) => FakeSelectBuilder<StoreRow | EventRow>;
+  insertInto: (table: 'sync.events') => {
+    values: (row: EventRow) => {
+      onConflict: () => {
+        returning: () => {
+          executeTakeFirst: () => Promise<EventRow | undefined>;
+        };
+      };
+    };
+  };
+  updateTable: (table: 'sync.stores') => {
+    set: (values: Partial<StoreRow>) => {
+      where: (
+        column: string,
+        _op: '=',
+        value: string
+      ) => { execute: () => Promise<void> };
+    };
+  };
+};
+
 const makeDbService = (db: FakeDb): SyncDatabaseService =>
   ({
     getDb: () => ({
@@ -162,11 +160,36 @@ const makeDbService = (db: FakeDb): SyncDatabaseService =>
               }
               return new FakeSelectBuilder(db.events);
             },
-            insertInto: (_table: 'sync.events') => ({
-              values: (rows: EventRow[]) => ({
-                execute: async () => {
-                  db.events.push(...rows.map((row) => ({ ...row })));
-                },
+            insertInto: () => ({
+              values: (row: EventRow) => ({
+                onConflict: () => ({
+                  returning: () => ({
+                    executeTakeFirst: async () => {
+                      const exists = db.events.some(
+                        (event) =>
+                          event.owner_identity_id === row.owner_identity_id &&
+                          event.store_id === row.store_id &&
+                          event.event_id === row.event_id
+                      );
+                      if (exists) return undefined;
+                      db.events.push({ ...row });
+                      return row;
+                    },
+                  }),
+                }),
+              }),
+            }),
+            updateTable: () => ({
+              set: (values: Partial<StoreRow>) => ({
+                where: (_column: string, _op: '=', value: string) => ({
+                  execute: async () => {
+                    db.stores.forEach((store) => {
+                      if (store.store_id === value) {
+                        Object.assign(store, values);
+                      }
+                    });
+                  },
+                }),
               }),
             }),
           });
@@ -182,42 +205,81 @@ const makeDbService = (db: FakeDb): SyncDatabaseService =>
   }) as unknown as SyncDatabaseService;
 
 describe('KyselySyncEventRepository', () => {
-  it('preserves event args bytes through append and load', async () => {
+  it('assigns global sequences and updates head', async () => {
     const db = new FakeDb();
-    db.stores.push({ store_id: 'store-1' });
+    db.stores.push({
+      store_id: 'store-1',
+      owner_identity_id: 'owner-1',
+      head: 0,
+    });
     const repo = new KyselySyncEventRepository(makeDbService(db));
     const ownerId = SyncOwnerId.from('owner-1');
     const storeId = SyncStoreId.from('store-1');
 
-    const args = { z: 1, a: { b: 2, c: 3 } };
-    const event: SyncEvent = {
+    const result = await repo.appendBatch({
       ownerId,
       storeId,
-      seqNum: GlobalSequenceNumber.from(1),
-      parentSeqNum: GlobalSequenceNumber.from(0),
-      name: 'event.one',
-      args,
-      clientId: 'client-1',
-      sessionId: 'session-1',
-      createdAt: new Date('2025-01-01T00:00:00Z'),
-    };
+      expectedHead: GlobalSequenceNumber.from(0),
+      events: [
+        { eventId: 'e1', recordJson: '{"a":1}' },
+        { eventId: 'e2', recordJson: '{"b":2}' },
+      ],
+    });
 
-    await repo.appendBatch([event], GlobalSequenceNumber.from(0));
+    expect(result.head.unwrap()).toBe(2);
+    expect(result.assigned).toEqual([
+      { eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) },
+      { eventId: 'e2', globalSequence: GlobalSequenceNumber.from(2) },
+    ]);
+    expect(db.stores[0]?.head).toBe(2);
+  });
 
-    const stored = db.events[0];
-    expect(stored).toBeDefined();
-    const storedArgs = stored?.args ?? '';
-    expect(storedArgs).toBe(JSON.stringify(args));
+  it('returns existing assignments for idempotent events', async () => {
+    const db = new FakeDb();
+    db.stores.push({
+      store_id: 'store-1',
+      owner_identity_id: 'owner-1',
+      head: 1,
+    });
+    db.events.push({
+      owner_identity_id: 'owner-1',
+      store_id: 'store-1',
+      global_seq: 1,
+      event_id: 'e1',
+      record_json: '{"a":1}',
+      created_at: new Date(),
+    });
+    const repo = new KyselySyncEventRepository(makeDbService(db));
 
-    const loaded = await repo.loadSince(
-      ownerId,
-      storeId,
-      GlobalSequenceNumber.from(0),
-      10
-    );
+    const result = await repo.appendBatch({
+      ownerId: SyncOwnerId.from('owner-1'),
+      storeId: SyncStoreId.from('store-1'),
+      expectedHead: GlobalSequenceNumber.from(1),
+      events: [{ eventId: 'e1', recordJson: '{"a":1}' }],
+    });
 
-    expect(loaded).toHaveLength(1);
-    const loadedArgs = loaded[0]?.args ?? null;
-    expect(JSON.stringify(loadedArgs)).toBe(storedArgs);
+    expect(result.assigned).toEqual([
+      { eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) },
+    ]);
+    expect(result.head.unwrap()).toBe(1);
+  });
+
+  it('throws when head mismatches', async () => {
+    const db = new FakeDb();
+    db.stores.push({
+      store_id: 'store-1',
+      owner_identity_id: 'owner-1',
+      head: 2,
+    });
+    const repo = new KyselySyncEventRepository(makeDbService(db));
+
+    await expect(
+      repo.appendBatch({
+        ownerId: SyncOwnerId.from('owner-1'),
+        storeId: SyncStoreId.from('store-1'),
+        expectedHead: GlobalSequenceNumber.from(1),
+        events: [{ eventId: 'e1', recordJson: '{"a":1}' }],
+      })
+    ).rejects.toBeInstanceOf(SyncRepositoryHeadMismatchError);
   });
 });
