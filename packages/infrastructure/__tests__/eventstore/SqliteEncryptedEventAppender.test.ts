@@ -94,4 +94,36 @@ describe('SqliteEncryptedEventAppender', () => {
     expect(appended[0]?.commitSequence).toBe(1);
     expect(appended[1]?.commitSequence).toBe(2);
   });
+
+  it('throws ConcurrencyError on duplicate version inserts', async () => {
+    const db = new TestSqliteDb({
+      events: [
+        {
+          commit_sequence: 1,
+          id: 'event-1',
+          aggregate_type: AggregateTypes.goal,
+          aggregate_id: 'goal-1',
+          event_type: 'GoalCreated',
+          payload_encrypted: new Uint8Array([1]),
+          keyring_update: null,
+          version: 1,
+          occurred_at: 5,
+          actor_id: 'user-1',
+          causation_id: null,
+          correlation_id: null,
+          epoch: null,
+        },
+      ],
+    });
+    const appender = new SqliteEncryptedEventAppender();
+
+    await expect(
+      appender.appendForAggregate(
+        db,
+        spec,
+        { aggregateId: 'goal-1', version: null },
+        [buildEvent({ eventId: 'event-2', version: 1 })]
+      )
+    ).rejects.toBeInstanceOf(ConcurrencyError);
+  });
 });

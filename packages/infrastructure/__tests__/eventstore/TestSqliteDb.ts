@@ -188,6 +188,18 @@ export class TestSqliteDb implements SqliteDbPort {
         string | null,
         number | null,
       ];
+      const hasDuplicate = this.events.some(
+        (row) =>
+          row.aggregate_type === aggregateType &&
+          row.aggregate_id === aggregateId &&
+          row.version === Number(version)
+      );
+      if (hasDuplicate) {
+        const error = new Error('UNIQUE constraint failed');
+        (error as Error & { code?: string }).code = 'SQLITE_CONSTRAINT';
+        throw error;
+      }
+
       this.events.push({
         commit_sequence: this.nextCommitSequence,
         id,
