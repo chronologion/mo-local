@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KratosClient } from '../../access/infrastructure/kratos.client';
+import { KratosClient } from '../../src/access/infrastructure/kratos.client';
 
 type FetchResponse = {
   status: number;

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { KyselySyncEventRepository } from '../../sync/infrastructure/kysely-sync-event.repository';
-import { SyncRepositoryHeadMismatchError } from '../../sync/application/ports/sync-event-repository';
-import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
-import type { SyncDatabaseService } from '../../sync/infrastructure/database.service';
+import { KyselySyncEventRepository } from '../../src/sync/infrastructure/kysely-sync-event.repository';
+import { SyncRepositoryHeadMismatchError } from '../../src/sync/application/ports/sync-event-repository';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
+import type { SyncDatabaseService } from '../../src/sync/infrastructure/database.service';
 
 type EventRow = {
   owner_identity_id: string;

@@ -4,16 +4,16 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { SyncController } from '../../sync/presentation/sync.controller';
-import { SyncService } from '../../sync/application/sync.service';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
-import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
-import { SyncAccessDeniedError } from '../../sync/application/ports/sync-access-policy';
-import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
-import { SyncEventRepository } from '../../sync/application/ports/sync-event-repository';
-import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
-import type { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
+import { SyncController } from '../../src/sync/presentation/sync.controller';
+import { SyncService } from '../../src/sync/application/sync.service';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
+import { SyncAccessDeniedError } from '../../src/sync/application/ports/sync-access-policy';
+import { SyncAccessPolicy } from '../../src/sync/application/ports/sync-access-policy';
+import { SyncEventRepository } from '../../src/sync/application/ports/sync-event-repository';
+import { SyncStoreRepository } from '../../src/sync/application/ports/sync-store-repository';
+import type { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
 
 type PushEventDto = {
   eventId: string;
@@ -185,10 +185,9 @@ describe('SyncController', () => {
       expectedHead: 0,
       events: [],
     };
-    // @ts-expect-error - exercising runtime guard for missing identity
-    await expect(controller.push(dto, undefined)).rejects.toBeInstanceOf(
-      BadRequestException
-    );
+    await expect(
+      controller.push(dto, undefined as unknown as AuthenticatedIdentity)
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('pulls events and returns next cursor info', async () => {
@@ -261,9 +260,8 @@ describe('SyncController', () => {
     const dto: PullEventsDto = {
       storeId: 'store-1',
     };
-    // @ts-expect-error - exercising runtime guard for missing identity
-    await expect(controller.pull(dto, undefined)).rejects.toBeInstanceOf(
-      BadRequestException
-    );
+    await expect(
+      controller.pull(dto, undefined as unknown as AuthenticatedIdentity)
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

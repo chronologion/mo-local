@@ -7,20 +7,20 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { SyncController } from '../../sync/presentation/sync.controller';
-import { SyncService } from '../../sync/application/sync.service';
+import { SyncController } from '../../src/sync/presentation/sync.controller';
+import { SyncService } from '../../src/sync/application/sync.service';
 import {
   SyncEventRepository,
   SyncRepositoryHeadMismatchError,
-} from '../../sync/application/ports/sync-event-repository';
-import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
-import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
-import { SyncEvent, SyncIncomingEvent } from '../../sync/domain/SyncEvent';
-import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
-import { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
-import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
+} from '../../src/sync/application/ports/sync-event-repository';
+import { SyncStoreRepository } from '../../src/sync/application/ports/sync-store-repository';
+import { SyncAccessPolicy } from '../../src/sync/application/ports/sync-access-policy';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
+import { SyncEvent, SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
+import { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
+import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
 
 const TEST_STORE_ID_V7 = '019b5b7b-c8d0-7961-bb15-60fe00e4e145';
 

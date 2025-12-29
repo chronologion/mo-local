@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
-import { KratosPasswordService } from '../../access/infrastructure/kratos-password.service';
+import { KratosPasswordService } from '../../src/access/infrastructure/kratos-password.service';
 
 type FetchCall = {
   url: string;

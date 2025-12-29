@@ -1,14 +1,14 @@
 import {
   SyncEventRepository,
   SyncRepositoryHeadMismatchError,
-} from '../../sync/application/ports/sync-event-repository';
-import { SyncAccessPolicy } from '../../sync/application/ports/sync-access-policy';
-import { SyncStoreRepository } from '../../sync/application/ports/sync-store-repository';
-import { SyncService } from '../../sync/application/sync.service';
-import { SyncEvent, SyncIncomingEvent } from '../../sync/domain/SyncEvent';
-import { GlobalSequenceNumber } from '../../sync/domain/value-objects/GlobalSequenceNumber';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
+} from '../../src/sync/application/ports/sync-event-repository';
+import { SyncAccessPolicy } from '../../src/sync/application/ports/sync-access-policy';
+import { SyncStoreRepository } from '../../src/sync/application/ports/sync-store-repository';
+import { SyncService } from '../../src/sync/application/sync.service';
+import { SyncEvent, SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
 
 class InMemorySyncEventRepository extends SyncEventRepository {
   private events: SyncEvent[] = [];

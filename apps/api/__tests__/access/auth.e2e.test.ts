@@ -7,16 +7,16 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { IdentityRepository } from '../../access/application/ports/identity-repository';
-import { KratosPasswordService } from '../../access/infrastructure/kratos-password.service';
-import { KratosClient } from '../../access/infrastructure/kratos.client';
-import { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
-import { SESSION_COOKIE_NAME } from '../../access/presentation/session-cookie';
-import { AuthService } from '../../access/application/auth.service';
-import { SessionCache } from '../../access/application/session-cache';
-import { AuthController } from '../../access/presentation/controllers/auth.controller';
-import { MeController } from '../../access/presentation/controllers/me.controller';
-import { KratosSessionGuard } from '../../access/presentation/guards/kratos-session.guard';
+import { IdentityRepository } from '../../src/access/application/ports/identity-repository';
+import { KratosPasswordService } from '../../src/access/infrastructure/kratos-password.service';
+import { KratosClient } from '../../src/access/infrastructure/kratos.client';
+import { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
+import { SESSION_COOKIE_NAME } from '../../src/access/presentation/session-cookie';
+import { AuthService } from '../../src/access/application/auth.service';
+import { SessionCache } from '../../src/access/application/session-cache';
+import { AuthController } from '../../src/access/presentation/controllers/auth.controller';
+import { MeController } from '../../src/access/presentation/controllers/me.controller';
+import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
 
 class FakeIdentityRepository extends IdentityRepository {
   ids = new Set<string>();

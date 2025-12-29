@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import express, { type Request, type Response } from 'express';
 import { BadRequestException } from '@nestjs/common';
-import { AuthController } from '../../access/presentation/controllers/auth.controller';
-import { MeController } from '../../access/presentation/controllers/me.controller';
-import { AuthService } from '../../access/application/auth.service';
-import { SessionCache } from '../../access/application/session-cache';
-import { IdentityRepository } from '../../access/application/ports/identity-repository';
-import { KratosPasswordService } from '../../access/infrastructure/kratos-password.service';
-import { KratosClient } from '../../access/infrastructure/kratos.client';
+import { AuthController } from '../../src/access/presentation/controllers/auth.controller';
+import { MeController } from '../../src/access/presentation/controllers/me.controller';
+import { AuthService } from '../../src/access/application/auth.service';
+import { SessionCache } from '../../src/access/application/session-cache';
+import { IdentityRepository } from '../../src/access/application/ports/identity-repository';
+import { KratosPasswordService } from '../../src/access/infrastructure/kratos-password.service';
+import { KratosClient } from '../../src/access/infrastructure/kratos.client';
 import { ConfigService } from '@nestjs/config';
-import type { AuthenticatedIdentity } from '../../access/application/authenticated-identity';
-import { SESSION_COOKIE_NAME } from '../../access/presentation/session-cookie';
+import type { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
+import { SESSION_COOKIE_NAME } from '../../src/access/presentation/session-cookie';
 
 type Session = {
   sessionToken: string;

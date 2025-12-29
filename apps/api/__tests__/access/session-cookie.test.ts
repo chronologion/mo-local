@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCookies } from '../../access/presentation/session-cookie';
+import { parseCookies } from '../../src/access/presentation/session-cookie';
 
 describe('session cookies', () => {
   it('parses cookie header into key/value pairs', () => {

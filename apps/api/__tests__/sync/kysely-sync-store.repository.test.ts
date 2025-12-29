@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { KyselySyncStoreRepository } from '../../sync/infrastructure/kysely-sync-store.repository';
-import { SyncOwnerId } from '../../sync/domain/value-objects/SyncOwnerId';
-import { SyncStoreId } from '../../sync/domain/value-objects/SyncStoreId';
-import { SyncAccessDeniedError } from '../../sync/application/ports/sync-access-policy';
-import type { SyncDatabaseService } from '../../sync/infrastructure/database.service';
+import { KyselySyncStoreRepository } from '../../src/sync/infrastructure/kysely-sync-store.repository';
+import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
+import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
+import { SyncAccessDeniedError } from '../../src/sync/application/ports/sync-access-policy';
+import type { SyncDatabaseService } from '../../src/sync/infrastructure/database.service';
 
 type StoreRow = { store_id: string; owner_identity_id: string; head: number };
 type EventRow = { owner_identity_id: string; store_id: string };
