@@ -60,7 +60,7 @@ export class TestSqliteDb implements SqliteDbPort {
             row.aggregate_id === aggregateId
         )
         .reduce((max, row) => Math.max(max, row.version), 0);
-      return [{ version: maxVersion || null } as T];
+      return [{ version: maxVersion || null } as unknown as T];
     }
 
     if (this.isSelectEventsByIds(normalized)) {
@@ -68,7 +68,7 @@ export class TestSqliteDb implements SqliteDbPort {
       const rows = this.events
         .filter((row) => ids.includes(row.id))
         .sort((a, b) => a.commit_sequence - b.commit_sequence);
-      return rows as T[];
+      return rows as unknown as T[];
     }
 
     if (this.isSelectEventsForAggregate(normalized)) {
@@ -85,13 +85,13 @@ export class TestSqliteDb implements SqliteDbPort {
             row.version >= Number(fromVersion)
         )
         .sort((a, b) => a.version - b.version);
-      return rows as T[];
+      return rows as unknown as T[];
     }
 
     if (this.isSelectIdempotency(normalized)) {
       const key = params[0] as string;
       const row = this.idempotency.get(key);
-      return row ? ([row] as T[]) : [];
+      return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
     }
 
     throw new Error(`Unhandled query: ${sql}`);

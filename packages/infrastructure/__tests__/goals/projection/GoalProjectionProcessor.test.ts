@@ -122,10 +122,10 @@ class StoreStub {
     if (query.includes('FROM goal_snapshots WHERE aggregate_id')) {
       const id = bindValues[0] as string;
       const row = this.snapshots.get(id);
-      return (row ? [row] : []) as TResult;
+      return (row ? [row] : []) as unknown as TResult;
     }
     if (query.includes('FROM goal_analytics WHERE aggregate_id')) {
-      return (this.analytics ? [this.analytics] : []) as TResult;
+      return (this.analytics ? [this.analytics] : []) as unknown as TResult;
     }
     if (query.includes('INSERT INTO goal_analytics')) {
       const [, cipher, lastSequence, updatedAt] = bindValues as [
@@ -142,7 +142,9 @@ class StoreStub {
       return [] as unknown as TResult;
     }
     if (query.includes('FROM goal_search_index WHERE key')) {
-      return this.searchIndex ? [this.searchIndex] : ([] as unknown as TResult);
+      return this.searchIndex
+        ? ([this.searchIndex] as unknown as TResult)
+        : ([] as unknown as TResult);
     }
     if (query.includes('INSERT INTO goal_search_index')) {
       const [, cipher, lastSequence] = bindValues as [
@@ -160,7 +162,7 @@ class StoreStub {
     if (query.includes('FROM goal_projection_meta')) {
       const key = bindValues[0] as string;
       const value = this.meta.get(key);
-      return (value ? [{ value }] : []) as TResult;
+      return (value ? [{ value }] : []) as unknown as TResult;
     }
     if (query.includes('INSERT INTO goal_projection_meta')) {
       const [key, value] = bindValues as [string, string];

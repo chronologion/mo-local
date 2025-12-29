@@ -14,10 +14,21 @@ export type ProjectAchievementState = {
   status: ProjectStatusValue | null;
 };
 
+export type GoalAchievementCursor = {
+  globalSequence: number;
+  pendingCommitSequence: number;
+};
+
 export interface GoalAchievementStorePort {
   getGoalState(goalId: string): Promise<GoalAchievementState | null>;
-  saveGoalState(state: GoalAchievementState): Promise<void>;
+  saveGoalState(
+    state: GoalAchievementState,
+    cursor?: GoalAchievementCursor
+  ): Promise<void>;
   getProjectState(projectId: string): Promise<ProjectAchievementState | null>;
-  saveProjectState(state: ProjectAchievementState): Promise<void>;
+  saveProjectState(
+    state: ProjectAchievementState,
+    cursor?: GoalAchievementCursor
+  ): Promise<void>;
   removeProjectState(projectId: string): Promise<void>;
 }

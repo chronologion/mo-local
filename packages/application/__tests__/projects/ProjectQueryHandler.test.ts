@@ -88,8 +88,8 @@ describe('ProjectQueryHandler', () => {
     const readModel = new FakeProjectReadModel([sampleProject]);
     const handler = new ProjectQueryHandler(readModel);
 
-    // @ts-expect-error - exercising runtime guard for unsupported query
     await expect(
+      // @ts-expect-error Testing unsupported query
       handler.execute({ type: 'UnknownProjectQuery' })
     ).rejects.toThrow(/Unsupported project query type/);
   });

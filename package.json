@@ -25,7 +25,7 @@
     "e2e": "yarn workspace @mo/e2e test",
     "build": "yarn workspaces run build",
     "typecheck": "yarn workspaces run typecheck",
-    "typecheck:tests": "yarn workspaces run typecheck:test",
+    "typecheck:test": "yarn workspaces run typecheck:test",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",

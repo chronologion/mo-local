@@ -42,9 +42,7 @@ describe('IndexedDBKeyStore', () => {
 
   beforeEach(async () => {
     // Ensure indexedDB exists for tests
-    // @ts-expect-error fake indexeddb globals
     globalThis.indexedDB = indexedDB;
-    // @ts-expect-error fake indexeddb globals
     globalThis.IDBKeyRange = IDBKeyRange;
     await resetDb();
     masterKey = await crypto.generateKey();

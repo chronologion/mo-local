@@ -31,6 +31,7 @@ import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
 import { InMemoryKeyringStore } from '../../src/crypto/InMemoryKeyringStore';
 import { KeyringManager } from '../../src/crypto/KeyringManager';
 import { InMemoryKeyStore } from '../fixtures/InMemoryKeyStore';
+import type { BrowserLiveStoreEventStore } from '../../src/browser/LiveStoreEventStore';
 
 class EventStoreStub implements EventStorePort {
   constructor(private readonly events: EncryptedEvent[]) {}
@@ -182,7 +183,9 @@ describe('CommittedEventPublisher', () => {
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
     const encrypted = await buildEncrypted(event, 1, key);
-    const eventStore = new EventStoreStub([encrypted]);
+    const eventStore = new EventStoreStub([
+      encrypted,
+    ]) as unknown as BrowserLiveStoreEventStore;
 
     const publisher = new CommittedEventPublisher(
       store as unknown as Store,
@@ -205,7 +208,9 @@ describe('CommittedEventPublisher', () => {
     const event = buildGoalCreated();
     await keyStore.saveAggregateKey(event.aggregateId.value, key);
     const encrypted = await buildEncrypted(event, 1, key);
-    const eventStore = new EventStoreStub([encrypted]);
+    const eventStore = new EventStoreStub([
+      encrypted,
+    ]) as unknown as BrowserLiveStoreEventStore;
 
     const firstBus = new EventBusStub();
     const first = new CommittedEventPublisher(
@@ -238,7 +243,9 @@ describe('CommittedEventPublisher', () => {
     const key = new Uint8Array(32).fill(3);
     const event = buildGoalCreated();
     const encrypted = await buildEncrypted(event, 5, key);
-    const eventStore = new EventStoreStub([encrypted]);
+    const eventStore = new EventStoreStub([
+      encrypted,
+    ]) as unknown as BrowserLiveStoreEventStore;
 
     const publisher = new CommittedEventPublisher(
       store as unknown as Store,
@@ -263,7 +270,9 @@ describe('CommittedEventPublisher', () => {
     const bus = new EventBusStub();
     const keyStore = new InMemoryKeyStore();
     const keyringManager = buildKeyringManager(keyStore);
-    const eventStore = new EventStoreStub([]);
+    const eventStore = new EventStoreStub(
+      []
+    ) as unknown as BrowserLiveStoreEventStore;
 
     const publisher = new CommittedEventPublisher(
       store as unknown as Store,
@@ -293,8 +302,12 @@ describe('CommittedEventPublisher', () => {
     const goalEncrypted = await buildEncrypted(goalEvent, 1, keyA);
     const projectEncrypted = await buildEncrypted(projectEvent, 2, keyB);
 
-    const goalStore = new EventStoreStub([goalEncrypted]);
-    const projectStore = new EventStoreStub([projectEncrypted]);
+    const goalStore = new EventStoreStub([
+      goalEncrypted,
+    ]) as unknown as BrowserLiveStoreEventStore;
+    const projectStore = new EventStoreStub([
+      projectEncrypted,
+    ]) as unknown as BrowserLiveStoreEventStore;
 
     const publisher = new CommittedEventPublisher(
       store as unknown as Store,

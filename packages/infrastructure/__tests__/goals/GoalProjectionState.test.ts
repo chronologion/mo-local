@@ -168,7 +168,11 @@ describe('GoalProjectionState', () => {
       createdEvent,
       1
     ) as GoalSnapshotState;
-    const moved = { ...created, slice: 'Work', targetMonth: '2026-02' };
+    const moved: GoalSnapshotState = {
+      ...created,
+      slice: 'Work',
+      targetMonth: '2026-02',
+    };
 
     const deltas = buildAnalyticsDeltas(created, moved);
     expect(deltas.monthly).toEqual([
