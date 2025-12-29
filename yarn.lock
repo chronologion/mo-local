@@ -804,11 +804,6 @@
   resolved "https://registry.yarnpkg.com/@livestore/wa-sqlite/-/wa-sqlite-0.4.0-dev.21.tgz#a3be1592c6b4328acb5106d2b75e1658405495ff"
   integrity sha512-qNwB2Y05i8QoVSZhIFJVFvxrubKspFmmt7J+VScae2v2kkfWt3gBg8/9N2WMJy7BYo4Q8Cq2YzgMiQrA7A4tDA==
 
-"@livestore/wa-sqlite@1.0.5":
-  version "1.0.5"
-  resolved "https://registry.yarnpkg.com/@livestore/wa-sqlite/-/wa-sqlite-1.0.5.tgz#99d75bb87820166fc0d7536436d2b8ea789ad1fe"
-  integrity sha512-OIxBEtl027kSl/z3772YgYf7ZlkE8aDWvLmm+O/hbPJO/lubv9+2EaDpXeoxsyg2xIIpkpXXSreEzFckkT1/QQ==
-
 "@livestore/webmesh@0.4.0-dev.21":
   version "0.4.0-dev.21"
   resolved "https://registry.yarnpkg.com/@livestore/webmesh/-/webmesh-0.4.0-dev.21.tgz#fb9e59b9dd5d21fa1cb12b39d63cebdc70df4011"
@@ -4918,6 +4913,11 @@ w3c-xmlserializer@^5.0.0:
   integrity sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==
   dependencies:
     xml-name-validator "^5.0.0"
+
+wa-sqlite@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/wa-sqlite/-/wa-sqlite-1.0.0.tgz#84eb5071becb9ac6ae67cd97633db7fb345e1621"
+  integrity sha512-Kyybo5/BaJp76z7gDWGk2J6Hthl4NIPsE+swgraEjy3IY6r5zIR02wAs1OJH4XtJp1y3puj3Onp5eMGS0z7nUA==
 
 webidl-conversions@^8.0.0:
   version "8.0.0"
