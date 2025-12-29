@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   GoalAchievementSaga,
   type GoalAchievementState,
+  type GoalAchievementCursor,
   type GoalAchievementStorePort,
   type ProjectAchievementState,
 } from '../../src/sagas';
@@ -41,7 +42,10 @@ class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
     return this.goals.get(goalId) ?? null;
   }
 
-  async saveGoalState(state: GoalAchievementState): Promise<void> {
+  async saveGoalState(
+    state: GoalAchievementState,
+    _cursor?: GoalAchievementCursor
+  ): Promise<void> {
     this.goals.set(state.goalId, { ...state });
   }
 
@@ -51,7 +55,10 @@ class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
     return this.projects.get(projectId) ?? null;
   }
 
-  async saveProjectState(state: ProjectAchievementState): Promise<void> {
+  async saveProjectState(
+    state: ProjectAchievementState,
+    _cursor?: GoalAchievementCursor
+  ): Promise<void> {
     this.projects.set(state.projectId, { ...state });
   }
 

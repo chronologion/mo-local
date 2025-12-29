@@ -1,5 +1,6 @@
 import type { Store } from '@livestore/livestore';
 import type {
+  GoalAchievementCursor,
   GoalAchievementState,
   GoalAchievementStorePort,
   ProjectAchievementState,
@@ -56,7 +57,10 @@ export class GoalAchievementSagaStore implements GoalAchievementStorePort {
     };
   }
 
-  async saveGoalState(state: GoalAchievementState): Promise<void> {
+  async saveGoalState(
+    state: GoalAchievementState,
+    _cursor?: GoalAchievementCursor
+  ): Promise<void> {
     this.store.query({
       query: `
         INSERT INTO goal_achievement_state (
@@ -103,7 +107,10 @@ export class GoalAchievementSagaStore implements GoalAchievementStorePort {
     };
   }
 
-  async saveProjectState(state: ProjectAchievementState): Promise<void> {
+  async saveProjectState(
+    state: ProjectAchievementState,
+    _cursor?: GoalAchievementCursor
+  ): Promise<void> {
     this.store.query({
       query: `
         INSERT INTO goal_achievement_projects (project_id, goal_id, status)

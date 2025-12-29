@@ -1,6 +1,7 @@
 import type {
   CryptoServicePort,
   GoalAchievementState,
+  GoalAchievementCursor,
   GoalAchievementStorePort,
   KeyStorePort,
   ProjectAchievementState,
@@ -37,8 +38,11 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     return this.loadState<GoalAchievementState>(goalScope(goalId));
   }
 
-  async saveGoalState(state: GoalAchievementState): Promise<void> {
-    await this.saveState(goalScope(state.goalId), state);
+  async saveGoalState(
+    state: GoalAchievementState,
+    cursor?: GoalAchievementCursor
+  ): Promise<void> {
+    await this.saveState(goalScope(state.goalId), state, cursor);
   }
 
   async getProjectState(
@@ -47,8 +51,11 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     return this.loadState<ProjectAchievementState>(projectScope(projectId));
   }
 
-  async saveProjectState(state: ProjectAchievementState): Promise<void> {
-    await this.saveState(projectScope(state.projectId), state);
+  async saveProjectState(
+    state: ProjectAchievementState,
+    cursor?: GoalAchievementCursor
+  ): Promise<void> {
+    await this.saveState(projectScope(state.projectId), state, cursor);
   }
 
   async removeProjectState(projectId: string): Promise<void> {
@@ -78,14 +85,18 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     }
   }
 
-  private async saveState<T>(scopeKey: string, state: T): Promise<void> {
+  private async saveState<T>(
+    scopeKey: string,
+    state: T,
+    cursor?: GoalAchievementCursor
+  ): Promise<void> {
     const key = await this.ensureProcessManagerKey();
-    const cursor = ZERO_EFFECTIVE_CURSOR;
+    const effectiveCursor = cursor ?? ZERO_EFFECTIVE_CURSOR;
     const aad = buildProcessManagerStateAad(
       PROCESS_MANAGER_ID,
       scopeKey,
       STATE_VERSION,
-      cursor
+      effectiveCursor
     );
     const cipher = await this.crypto.encrypt(serializeState(state), key, aad);
     await this.store.put({
@@ -93,7 +104,7 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
       scopeKey,
       stateVersion: STATE_VERSION,
       stateEncrypted: cipher,
-      lastEffectiveCursor: cursor,
+      lastEffectiveCursor: effectiveCursor,
       updatedAt: Date.now(),
     });
   }

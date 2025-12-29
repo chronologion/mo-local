@@ -103,7 +103,7 @@ describe('CloudSyncBackend', () => {
       expect.objectContaining({ method: 'GET' })
     );
     expect(firstBatch).toHaveLength(1);
-    expect(firstBatch[0]?.eventEncoded.seqNum).toBe('e1');
+    expect(firstBatch[0]?.eventEncoded.seqNum).toBe(1);
   });
 
   it('maps server-ahead conflicts to InvalidPushError(ServerAheadError)', async () => {

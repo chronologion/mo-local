@@ -80,8 +80,11 @@ export class GoalSearchProjector {
     if (previousItem) {
       try {
         this.searchIndex.remove(previousItem);
-      } catch {
-        // Missing is fine.
+      } catch (error) {
+        console.debug('[GoalSearchProjector] search index missing item', {
+          goalId: previousItem.id,
+          error,
+        });
       }
     }
     if (nextItem && nextItem.archivedAt === null) {
