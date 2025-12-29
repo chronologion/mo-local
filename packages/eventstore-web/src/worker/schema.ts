@@ -88,6 +88,8 @@ const SCHEMA_V1: ReadonlyArray<string> = [
     global_seq INTEGER NOT NULL UNIQUE,
     inserted_at INTEGER NOT NULL
   )`,
+  'CREATE INDEX IF NOT EXISTS sync_event_map_global_seq ON sync_event_map (global_seq)',
+  'CREATE INDEX IF NOT EXISTS idempotency_keys_created_at ON idempotency_keys (created_at)',
 ];
 
 export async function applySchema(ctx: SqliteContext): Promise<void> {
