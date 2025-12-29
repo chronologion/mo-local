@@ -28,6 +28,8 @@
   "dependencies": {
     "@mo/application": "1.0.0",
     "@mo/domain": "1.0.0",
+    "@mo/eventstore-core": "1.0.0",
+    "@mo/eventstore-web": "1.0.0",
     "minisearch": "^7.2.0",
     "zod": "^4.1.13"
   },
