@@ -1,7 +1,6 @@
 import { ICommand } from './cqrsTypes';
 
 export type CommandMetadata = Readonly<{
-  actorId?: string | null;
   correlationId?: string | null;
   causationId?: string | null;
 }>;
@@ -17,13 +16,10 @@ export abstract class BaseCommand<TPayload extends object> implements ICommand {
   readonly causationId?: string | null;
 
   protected constructor(
-    payload: Partial<TPayload> = {},
+    _payload: Partial<TPayload> = {},
     meta?: CommandMetadata
   ) {
-    Object.assign(this, payload);
-    const payloadActorId = (payload as Partial<{ actorId?: string | null }>)
-      .actorId;
-    this.actorId = meta?.actorId ?? payloadActorId;
+    // Subclasses assign payload fields explicitly to keep commands strict.
     this.correlationId = meta?.correlationId;
     this.causationId = meta?.causationId;
   }
