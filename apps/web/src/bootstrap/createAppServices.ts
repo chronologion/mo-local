@@ -141,6 +141,16 @@ export const createAppServices = async ({
               .join(', ')}`
           );
         }
+      },
+      async (command) => {
+        const result = await ctx.goals!.goalCommandBus.dispatch(command);
+        if (!result.ok) {
+          throw new Error(
+            `Goal unachieve saga failed: ${result.errors
+              .map((e: ValidationError) => `${e.field}:${e.message}`)
+              .join(', ')}`
+          );
+        }
       }
     );
     sagas.goalAchievement = saga;
@@ -167,6 +177,7 @@ export const createAppServices = async ({
         ctx.goals?.goalProjection.onRebaseRequired(),
         ctx.projects?.projectProjection.onRebaseRequired(),
       ]);
+      await sagas.goalAchievement?.onRebaseRequired();
     },
   });
 
