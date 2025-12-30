@@ -205,7 +205,7 @@ test.describe('offline rebase goal edit', () => {
       const summaryB1 = `${goalSummary} (B1)`;
       await editGoalSummary(pageB, summaryB1);
 
-      // Device A reconnects -> LiveStore rebases pending event.
+      // Device A reconnects -> local pending event rebases.
       mark('online A');
       await ctxA.setOffline(false);
 
