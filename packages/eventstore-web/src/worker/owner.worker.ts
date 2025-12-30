@@ -92,16 +92,60 @@ class DbOwnerServer {
     if (!this.ctx) {
       this.storeId = message.storeId;
       this.dbName = message.dbName;
+      console.info('[DbOwnerServer] initializing', {
+        storeId: message.storeId,
+        dbName: message.dbName,
+        requireOpfs: message.requireOpfs,
+        ownershipMode: this.ownershipMode,
+      });
       if (message.requireOpfs) {
         await this.assertOpfsSupport();
       }
       if (this.ownershipMode.type === 'dedicatedWorker') {
         await this.acquireLock(message.storeId);
       }
-      this.ctx = await createSqliteContext({
-        storeId: message.storeId,
-        dbName: message.dbName,
-      });
+      try {
+        this.ctx = await createSqliteContext({
+          storeId: message.storeId,
+          dbName: message.dbName,
+          storage: 'opfs',
+        });
+      } catch (error) {
+        const name =
+          typeof error === 'object' && error && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError';
+        const messageText =
+          error instanceof Error ? error.message : String(error);
+        console.error('[DbOwnerServer] initialization failed', {
+          storeId: message.storeId,
+          dbName: message.dbName,
+          errorName: name,
+          errorMessage: messageText,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
+        if (name === 'InvalidStateError') {
+          const response: WorkerResponse = {
+            kind: 'error',
+            error: {
+              code: PlatformErrorCodes.DbInvalidStateError,
+              message:
+                'OPFS is in an invalid state. Use Reset Local State and restore from backup.',
+              context: { suggestedAction: 'reset' },
+            },
+          };
+          const envelope: WorkerEnvelope = {
+            v: 1,
+            kind: WorkerEnvelopeKinds.response,
+            requestId: crypto.randomUUID(),
+            payload: response,
+          };
+          connection.port.postMessage(envelope);
+          return;
+        }
+        this.sendInitError(connection, error);
+        return;
+      }
     }
 
     if (this.storeId !== message.storeId || this.dbName !== message.dbName) {
@@ -248,6 +292,20 @@ class DbOwnerServer {
       payload,
     };
     connection.port.postMessage(envelope, collectTransferables(payload));
+  }
+
+  private sendInitError(connection: Connection, error: unknown): void {
+    const response: WorkerResponse = {
+      kind: 'error',
+      error: toPlatformError(error),
+    };
+    const envelope: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: crypto.randomUUID(),
+      payload: response,
+    };
+    connection.port.postMessage(envelope);
   }
 
   private notifyTables(tables: ReadonlyArray<string>): void {

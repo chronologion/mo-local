@@ -111,6 +111,7 @@ export interface ReactiveQueryPort<T> {
 export const PlatformErrorCodes = {
   DbOwnershipError: 'DbOwnershipError',
   DbLockedError: 'DbLockedError',
+  DbInvalidStateError: 'DbInvalidStateError',
   WorkerProtocolError: 'WorkerProtocolError',
   CanceledError: 'CanceledError',
   TimeoutError: 'TimeoutError',
