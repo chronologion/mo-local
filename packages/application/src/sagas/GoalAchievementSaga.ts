@@ -355,6 +355,7 @@ export class GoalAchievementSaga {
       eventId: { value: string };
     }
   ): Promise<void> {
+    if (!state.achieved && !state.achievementRequested) return;
     if (state.linkedProjectIds.length === 0) return;
     const allCompleted = state.linkedProjectIds.every((projectId) =>
       state.completedProjectIds.includes(projectId)
