@@ -20,6 +20,7 @@ import { GoalAccessGranted } from './events/GoalAccessGranted';
 import { GoalAccessRevoked } from './events/GoalAccessRevoked';
 import { DomainEvent } from '../shared/DomainEvent';
 import { EventId } from '../shared/vos/EventId';
+import { CorrelationId } from '../shared/vos/CorrelationId';
 import { Permission } from './vos/Permission';
 
 export type GoalSnapshot = {
@@ -310,7 +311,12 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or already achieved
    */
-  achieve(params: { achievedAt: Timestamp; actorId: UserId }): void {
+  achieve(params: {
+    achievedAt: Timestamp;
+    actorId: UserId;
+    correlationId?: CorrelationId;
+    causationId?: EventId;
+  }): void {
     this.assertNotArchived();
     Assert.that(this.isAchieved, 'Goal already achieved').isFalse();
     this.apply(
@@ -319,7 +325,12 @@ export class Goal extends AggregateRoot<GoalId> {
           goalId: this.id,
           achievedAt: params.achievedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          eventId: EventId.create(),
+          actorId: params.actorId,
+          correlationId: params.correlationId,
+          causationId: params.causationId,
+        }
       )
     );
   }
@@ -329,7 +340,12 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or not achieved
    */
-  unachieve(params: { unachievedAt: Timestamp; actorId: UserId }): void {
+  unachieve(params: {
+    unachievedAt: Timestamp;
+    actorId: UserId;
+    correlationId?: CorrelationId;
+    causationId?: EventId;
+  }): void {
     this.assertNotArchived();
     Assert.that(this.isAchieved, 'Goal not achieved').isTrue();
     this.apply(
@@ -338,7 +354,12 @@ export class Goal extends AggregateRoot<GoalId> {
           goalId: this.id,
           unachievedAt: params.unachievedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          eventId: EventId.create(),
+          actorId: params.actorId,
+          correlationId: params.correlationId,
+          causationId: params.causationId,
+        }
       )
     );
   }

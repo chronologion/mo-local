@@ -6,6 +6,8 @@ export type AchieveGoalPayload = {
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
+  correlationId?: string | null;
+  causationId?: string | null;
 };
 
 export class AchieveGoal
@@ -18,6 +20,8 @@ export class AchieveGoal
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
+  readonly correlationId?: string | null;
+  readonly causationId?: string | null;
 
   constructor(payload: AchieveGoalPayload) {
     super(payload);
@@ -26,5 +30,7 @@ export class AchieveGoal
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;
+    this.correlationId = payload.correlationId;
+    this.causationId = payload.causationId;
   }
 }

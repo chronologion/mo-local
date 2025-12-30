@@ -345,6 +345,7 @@ export class GoalAchievementSaga {
       actorId: { value: string };
       occurredAt: { value: number };
       eventId: { value: string };
+      correlationId?: { value: string };
     },
     options?: { forceRetry?: boolean }
   ): Promise<void> {
@@ -358,12 +359,15 @@ export class GoalAchievementSaga {
     if (state.version <= 0) return;
     if (state.achievementRequested && !options?.forceRetry) return;
 
+    const correlationId = event.correlationId?.value ?? event.eventId.value;
     const command = new AchieveGoal({
       goalId: state.goalId,
       userId: event.actorId.value,
       timestamp: event.occurredAt.value,
       knownVersion: state.version,
       idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
+      correlationId,
+      causationId: event.eventId.value,
     });
 
     state.achievementRequested = true;
@@ -383,6 +387,7 @@ export class GoalAchievementSaga {
       actorId: { value: string };
       occurredAt: { value: number };
       eventId: { value: string };
+      correlationId?: { value: string };
     }
   ): Promise<void> {
     if (!state.achieved && !state.achievementRequested) return;
@@ -394,12 +399,15 @@ export class GoalAchievementSaga {
     if (allCompleted) return;
     if (state.version <= 0) return;
 
+    const correlationId = event.correlationId?.value ?? event.eventId.value;
     const command = new UnachieveGoal({
       goalId: state.goalId,
       userId: event.actorId.value,
       timestamp: event.occurredAt.value,
       knownVersion: state.version,
       idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,
+      correlationId,
+      causationId: event.eventId.value,
     });
 
     await this.dispatchUnachieveGoal(command);

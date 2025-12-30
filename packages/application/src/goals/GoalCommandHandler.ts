@@ -1,6 +1,8 @@
 import {
   Goal,
   GoalId,
+  EventId,
+  CorrelationId,
   Month,
   Priority,
   Slice,
@@ -323,6 +325,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
       });
+    const correlationId = command.correlationId
+      ? CorrelationId.from(command.correlationId)
+      : undefined;
+    const causationId = command.causationId
+      ? EventId.from(command.causationId)
+      : undefined;
 
     if (
       await this.isDuplicateCommand({
@@ -340,7 +348,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.achieve({ achievedAt: timestamp, actorId: userId });
+    goal.achieve({
+      achievedAt: timestamp,
+      actorId: userId,
+      correlationId,
+      causationId,
+    });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
@@ -357,6 +370,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
       });
+    const correlationId = command.correlationId
+      ? CorrelationId.from(command.correlationId)
+      : undefined;
+    const causationId = command.causationId
+      ? EventId.from(command.causationId)
+      : undefined;
 
     if (
       await this.isDuplicateCommand({
@@ -374,7 +393,12 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.unachieve({ unachievedAt: timestamp, actorId: userId });
+    goal.unachieve({
+      unachievedAt: timestamp,
+      actorId: userId,
+      correlationId,
+      causationId,
+    });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
