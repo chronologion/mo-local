@@ -21,7 +21,7 @@ const USER_META_KEY = 'mo-local-user';
 const RESET_FLAG_KEY = 'mo-local-reset-persistence';
 const STORE_ID_KEY = 'mo-local-store-id';
 const DB_FORMAT_KEY = 'mo-local-eventstore-format';
-const DB_FORMAT_VERSION = 'eventstore-v1';
+const DB_FORMAT_VERSION = 'eventstore-v2';
 
 const loadStoredStoreId = (): string | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -365,6 +365,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
     services.syncEngine.start();
+    void services.syncEngine.syncOnce().catch(() => undefined);
     return () => {
       services.syncEngine.stop();
     };
@@ -576,6 +577,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   if (!services || !servicesConfig || servicesConfig.storeId !== storeId) {
     return <div>Loading app...</div>;
+  }
+
+  if (import.meta.env.DEV) {
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncOnce = () => services.syncEngine.syncOnce();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moPendingCount = async () => {
+      const rows = await services.db.query<Readonly<{ count: number }>>(
+        'SELECT COUNT(*) as count FROM events e LEFT JOIN sync_event_map m ON m.event_id = e.id WHERE m.event_id IS NULL'
+      );
+      return Number(rows[0]?.count ?? 0);
+    };
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncStatus = () => services.syncEngine.getStatus();
   }
 
   const goalCtx = services.contexts.goals;
