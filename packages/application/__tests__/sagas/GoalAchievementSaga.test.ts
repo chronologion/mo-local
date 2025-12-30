@@ -11,6 +11,7 @@ import type { EventHandler } from '../../src/shared/ports/types';
 import type { GoalRepositoryPort } from '../../src/goals/ports/GoalRepositoryPort';
 import type { ProjectReadModelPort } from '../../src/projects/ports/ProjectReadModelPort';
 import type { ProjectListItemDto } from '../../src/projects/dtos';
+import { UnachieveGoal } from '../../src/goals/commands/UnachieveGoal';
 import {
   ActorId,
   DomainEvent,
@@ -65,6 +66,11 @@ class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
   async removeProjectState(projectId: string): Promise<void> {
     this.projects.delete(projectId);
   }
+
+  async resetAll(): Promise<void> {
+    this.goals.clear();
+    this.projects.clear();
+  }
 }
 
 class StubGoalRepository implements GoalRepositoryPort {
@@ -116,6 +122,8 @@ class InMemoryEventBus implements EventBusPort {
     this.handlers.set(eventType, existing);
   }
 }
+
+const dispatchNoop = async () => undefined;
 
 describe('GoalAchievementSaga', () => {
   it('dispatches AchieveGoal when all linked projects are completed on bootstrap', async () => {
@@ -176,7 +184,8 @@ describe('GoalAchievementSaga', () => {
       projectReadModel,
       async (command) => {
         dispatched.push(command.goalId);
-      }
+      },
+      dispatchNoop
     );
 
     await saga.bootstrap();
@@ -184,6 +193,59 @@ describe('GoalAchievementSaga', () => {
     expect(dispatched).toEqual([goalId]);
     const state = await store.getGoalState(goalId);
     expect(state?.achievementRequested).toBe(true);
+  });
+
+  it('reconciles achieved goals to unachieved when linked projects are incomplete', async () => {
+    const goalId = '00000000-0000-0000-0000-000000000050';
+    const goal = Goal.create({
+      id: GoalId.from(goalId),
+      slice: Slice.from('Work'),
+      summary: Summary.from('Complete projects'),
+      targetMonth: Month.from('2025-03'),
+      priority: Priority.from('must'),
+      createdBy: UserId.from('user-1'),
+      createdAt: Timestamp.fromMillis(1),
+    });
+    goal.achieve({
+      achievedAt: Timestamp.fromMillis(10),
+      actorId: UserId.from('user-1'),
+    });
+    const goals = new Map([[goalId, goal]]);
+    const store = new InMemoryGoalAchievementStore();
+    const goalRepo = new StubGoalRepository(goals);
+    const projects: ProjectListItemDto[] = [
+      {
+        id: 'project-1',
+        name: 'Project One',
+        status: 'in_progress',
+        startDate: '2025-01-01',
+        targetDate: '2025-02-01',
+        description: '',
+        goalId,
+        milestones: [],
+        createdAt: 1,
+        updatedAt: 1,
+        archivedAt: null,
+        version: 1,
+      },
+    ];
+    const projectReadModel = new StubProjectReadModel(projects);
+    const dispatchedUnachieve: UnachieveGoal[] = [];
+
+    const saga = new GoalAchievementSaga(
+      store,
+      goalRepo,
+      projectReadModel,
+      dispatchNoop,
+      async (command) => {
+        dispatchedUnachieve.push(command);
+      }
+    );
+
+    await saga.onRebaseRequired();
+
+    expect(dispatchedUnachieve).toHaveLength(1);
+    expect(dispatchedUnachieve[0]?.goalId).toBe(goalId);
   });
 
   it('dispatches AchieveGoal when a completed project is created with a goal', async () => {
@@ -214,7 +276,8 @@ describe('GoalAchievementSaga', () => {
       projectReadModel,
       async (command) => {
         dispatched.push(command.goalId);
-      }
+      },
+      dispatchNoop
     );
     saga.subscribe(eventBus);
 
@@ -271,7 +334,8 @@ describe('GoalAchievementSaga', () => {
             actorId: UserId.from(command.userId),
           });
         }
-      }
+      },
+      dispatchNoop
     );
     saga.subscribe(eventBus);
 
@@ -350,7 +414,8 @@ describe('GoalAchievementSaga', () => {
             actorId: UserId.from(command.userId),
           });
         }
-      }
+      },
+      dispatchNoop
     );
     saga.subscribe(eventBus);
 
@@ -464,7 +529,8 @@ describe('GoalAchievementSaga', () => {
       projectReadModel,
       async (command) => {
         dispatched.push(command.goalId);
-      }
+      },
+      dispatchNoop
     );
     saga.subscribe(eventBus);
 
@@ -517,7 +583,8 @@ describe('GoalAchievementSaga', () => {
       projectReadModel,
       async (command) => {
         dispatched.push(command.goalId);
-      }
+      },
+      dispatchNoop
     );
     saga.subscribe(eventBus);
 

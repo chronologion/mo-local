@@ -31,4 +31,5 @@ export interface GoalAchievementStorePort {
     cursor?: GoalAchievementCursor
   ): Promise<void>;
   removeProjectState(projectId: string): Promise<void>;
+  resetAll(): Promise<void>;
 }

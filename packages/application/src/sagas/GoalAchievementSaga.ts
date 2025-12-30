@@ -1,7 +1,7 @@
 import type { EventBusPort } from '../shared/ports/EventBusPort';
 import type { GoalRepositoryPort } from '../goals/ports/GoalRepositoryPort';
 import type { ProjectReadModelPort } from '../projects/ports/ProjectReadModelPort';
-import { AchieveGoal } from '../goals/commands';
+import { AchieveGoal, UnachieveGoal } from '../goals/commands';
 import {
   EventId,
   GoalAchieved,
@@ -22,6 +22,7 @@ import type {
 } from './ports/GoalAchievementStorePort';
 
 type DispatchAchieveGoal = (command: AchieveGoal) => Promise<void>;
+type DispatchUnachieveGoal = (command: UnachieveGoal) => Promise<void>;
 
 const emptyGoalState = (goalId: string): GoalAchievementState => ({
   goalId,
@@ -36,7 +37,8 @@ export class GoalAchievementSaga {
     private readonly store: GoalAchievementStorePort,
     private readonly goalRepo: GoalRepositoryPort,
     private readonly projectReadModel: ProjectReadModelPort,
-    private readonly dispatchAchieveGoal: DispatchAchieveGoal
+    private readonly dispatchAchieveGoal: DispatchAchieveGoal,
+    private readonly dispatchUnachieveGoal: DispatchUnachieveGoal
   ) {}
 
   async bootstrap(): Promise<void> {
@@ -74,7 +76,17 @@ export class GoalAchievementSaga {
         },
         { forceRetry: true }
       );
+      await this.maybeUnachieveGoal(state, {
+        actorId: { value: 'system' },
+        occurredAt: { value: Date.now() },
+        eventId: EventId.create(),
+      });
     }
+  }
+
+  async onRebaseRequired(): Promise<void> {
+    await this.store.resetAll();
+    await this.bootstrap();
   }
 
   subscribe(eventBus: EventBusPort): void {
@@ -119,6 +131,7 @@ export class GoalAchievementSaga {
     await this.maybeAchieveGoal(goalState, event, {
       forceRetry: goalState.achievementRequested,
     });
+    await this.maybeUnachieveGoal(goalState, event);
   }
 
   private async handleProjectGoalAdded(event: ProjectGoalAdded): Promise<void> {
@@ -143,6 +156,7 @@ export class GoalAchievementSaga {
     await this.maybeAchieveGoal(goalState, event, {
       forceRetry: goalState.achievementRequested,
     });
+    await this.maybeUnachieveGoal(goalState, event);
   }
 
   private async handleProjectGoalRemoved(
@@ -164,6 +178,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     this.removeLinkedProject(goalState, projectId);
     await this.store.saveGoalState(goalState);
+    await this.maybeUnachieveGoal(goalState, event);
   }
 
   private async handleProjectStatusTransitioned(
@@ -220,6 +235,7 @@ export class GoalAchievementSaga {
     await this.maybeAchieveGoal(goalState, event, {
       forceRetry: goalState.achievementRequested,
     });
+    await this.maybeUnachieveGoal(goalState, event);
   }
 
   private async handleGoalAchieved(event: GoalAchieved): Promise<void> {
@@ -329,5 +345,41 @@ export class GoalAchievementSaga {
       await this.store.saveGoalState(state);
       throw error;
     }
+  }
+
+  private async maybeUnachieveGoal(
+    state: GoalAchievementState,
+    event: {
+      actorId: { value: string };
+      occurredAt: { value: number };
+      eventId: { value: string };
+    }
+  ): Promise<void> {
+    if (state.linkedProjectIds.length === 0) return;
+    const allCompleted = state.linkedProjectIds.every((projectId) =>
+      state.completedProjectIds.includes(projectId)
+    );
+    if (allCompleted) return;
+
+    const goalOption = await this.goalRepo.load(GoalId.from(state.goalId));
+    if (goalOption.kind === 'none') return;
+    const goal = goalOption.value;
+    if (goal.isArchived) return;
+    if (!goal.isAchieved) {
+      state.achieved = false;
+      state.achievementRequested = false;
+      await this.store.saveGoalState(state);
+      return;
+    }
+
+    const command = new UnachieveGoal({
+      goalId: state.goalId,
+      userId: event.actorId.value,
+      timestamp: event.occurredAt.value,
+      knownVersion: goal.version,
+      idempotencyKey: `goal-unachieve:${state.goalId}:${goal.version}`,
+    });
+
+    await this.dispatchUnachieveGoal(command);
   }
 }
