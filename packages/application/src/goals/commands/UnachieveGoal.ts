@@ -5,7 +5,6 @@ import {
 
 export type UnachieveGoalPayload = {
   goalId: string;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -17,7 +16,6 @@ export class UnachieveGoal
 {
   readonly type = 'UnachieveGoal';
   readonly goalId: string;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -25,7 +23,6 @@ export class UnachieveGoal
   constructor(payload: UnachieveGoalPayload, meta?: CommandMetadata) {
     super(payload, meta);
     this.goalId = payload.goalId;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

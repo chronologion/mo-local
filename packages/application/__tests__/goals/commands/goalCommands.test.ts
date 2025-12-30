@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ChangeGoalSummary,
   CreateGoal,
+  type CreateGoalPayload,
   GrantGoalAccess,
 } from '../../../src/goals/commands';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
@@ -25,30 +26,31 @@ const makeHandler = () =>
     new InMemoryIdempotencyStore()
   );
 
-const createGoal = () =>
-  new CreateGoal({
-    goalId,
-    slice: 'Health',
-    summary: 'Run a marathon',
-    targetMonth: '2025-12',
-    priority: 'must',
-    actorId,
-    timestamp: now,
-    idempotencyKey: 'idem-create',
-  });
+const createGoalPayload: CreateGoalPayload = {
+  goalId,
+  slice: 'Health' as const,
+  summary: 'Run a marathon',
+  targetMonth: '2025-12',
+  priority: 'must' as const,
+  timestamp: now,
+  idempotencyKey: 'idem-create',
+};
+const createGoal = () => new CreateGoal(createGoalPayload, { actorId });
 
 describe('CreateGoal', () => {
   it('is a lean DTO with assigned payload', () => {
-    const cmd = new CreateGoal({
-      goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001',
-      slice: 'Health',
-      summary: 'Run a marathon',
-      targetMonth: '2025-12',
-      priority: 'must',
-      actorId: 'user-1',
-      timestamp: now,
-      idempotencyKey: 'idem-create-lean',
-    });
+    const cmd = new CreateGoal(
+      {
+        goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001',
+        slice: 'Health',
+        summary: 'Run a marathon',
+        targetMonth: '2025-12',
+        priority: 'must',
+        timestamp: now,
+        idempotencyKey: 'idem-create-lean',
+      },
+      { actorId: 'user-1' }
+    );
 
     expect(cmd.type).toBe('CreateGoal');
     expect(cmd.goalId).toBe('018f7b1a-7c8a-72c4-a0ab-8234c2d6f001');
@@ -64,14 +66,16 @@ describe('Goal command validation inside handler', () => {
 
     await expect(
       handler.handleChangeSummary(
-        new ChangeGoalSummary({
-          goalId,
-          summary: '',
-          actorId,
-          timestamp: now,
-          knownVersion: 1,
-          idempotencyKey: 'idem-summary-invalid',
-        })
+        new ChangeGoalSummary(
+          {
+            goalId,
+            summary: '',
+            timestamp: now,
+            knownVersion: 1,
+            idempotencyKey: 'idem-summary-invalid',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });
@@ -82,15 +86,17 @@ describe('Goal command validation inside handler', () => {
 
     await expect(
       handler.handleGrantAccess(
-        new GrantGoalAccess({
-          goalId,
-          grantToUserId: 'user-2',
-          permission: 'owner' as never,
-          actorId,
-          timestamp: now,
-          knownVersion: 1,
-          idempotencyKey: 'idem-grant-invalid',
-        })
+        new GrantGoalAccess(
+          {
+            goalId,
+            grantToUserId: 'user-2',
+            permission: 'owner' as never,
+            timestamp: now,
+            knownVersion: 1,
+            idempotencyKey: 'idem-grant-invalid',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });

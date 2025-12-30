@@ -6,7 +6,6 @@ import {
 export type AddProjectGoalPayload = {
   projectId: string;
   goalId: string;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -19,7 +18,6 @@ export class AddProjectGoal
   readonly type = 'AddProjectGoal';
   readonly projectId: string;
   readonly goalId: string;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -28,7 +26,6 @@ export class AddProjectGoal
     super(payload, meta);
     this.projectId = payload.projectId;
     this.goalId = payload.goalId;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

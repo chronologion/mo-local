@@ -7,7 +7,6 @@ export type ChangeProjectMilestoneNamePayload = {
   projectId: string;
   milestoneId: string;
   name: string;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -21,7 +20,6 @@ export class ChangeProjectMilestoneName
   readonly projectId: string;
   readonly milestoneId: string;
   readonly name: string;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -34,7 +32,6 @@ export class ChangeProjectMilestoneName
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
     this.name = payload.name;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

@@ -4,6 +4,7 @@ import {
   ChangeProjectStatus,
   AddProjectMilestone,
   ArchiveProject,
+  type CreateProjectPayload,
 } from '../../../src/projects/commands';
 import { ProjectCommandHandler } from '../../../src/projects/ProjectCommandHandler';
 import {
@@ -26,19 +27,19 @@ const makeHandler = () =>
     new InMemoryIdempotencyStore()
   );
 
+const createProjectPayload: CreateProjectPayload = {
+  projectId,
+  name: 'Project Alpha',
+  status: 'planned',
+  startDate: '2025-01-01',
+  targetDate: '2025-02-01',
+  description: 'desc',
+  goalId: null,
+  timestamp: now,
+  idempotencyKey: 'idem-create',
+};
 const createProject = () =>
-  new CreateProject({
-    projectId,
-    name: 'Project Alpha',
-    status: 'planned',
-    startDate: '2025-01-01',
-    targetDate: '2025-02-01',
-    description: 'desc',
-    goalId: null,
-    actorId,
-    timestamp: now,
-    idempotencyKey: 'idem-create',
-  });
+  new CreateProject(createProjectPayload, { actorId });
 
 describe('Project commands', () => {
   it('are lean DTOs with payload assigned', () => {
@@ -53,14 +54,16 @@ describe('Project commands', () => {
     await handler.handleCreate(createProject());
     await expect(
       handler.handleChangeStatus(
-        new ChangeProjectStatus({
-          projectId,
-          status: 'invalid' as never,
-          actorId,
-          timestamp: now,
-          knownVersion: 1,
-          idempotencyKey: 'idem-invalid-status',
-        })
+        new ChangeProjectStatus(
+          {
+            projectId,
+            status: 'invalid' as never,
+            timestamp: now,
+            knownVersion: 1,
+            idempotencyKey: 'idem-invalid-status',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(Error);
   });
@@ -71,16 +74,18 @@ describe('Project commands', () => {
 
     await expect(
       handler.handleAddMilestone(
-        new AddProjectMilestone({
-          projectId,
-          milestoneId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f202',
-          name: '',
-          targetDate: '2025-01-02',
-          actorId,
-          timestamp: now,
-          knownVersion: 1,
-          idempotencyKey: 'idem-milestone',
-        })
+        new AddProjectMilestone(
+          {
+            projectId,
+            milestoneId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f202',
+            name: '',
+            targetDate: '2025-01-02',
+            timestamp: now,
+            knownVersion: 1,
+            idempotencyKey: 'idem-milestone',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(Error);
   });
@@ -90,13 +95,15 @@ describe('Project commands', () => {
     await handler.handleCreate(createProject());
     await expect(
       handler.handleArchive(
-        new ArchiveProject({
-          projectId: 'not-a-uuid',
-          actorId,
-          timestamp: now,
-          knownVersion: 1,
-          idempotencyKey: 'idem-archive-bad-id',
-        })
+        new ArchiveProject(
+          {
+            projectId: 'not-a-uuid',
+            timestamp: now,
+            knownVersion: 1,
+            idempotencyKey: 'idem-archive-bad-id',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });

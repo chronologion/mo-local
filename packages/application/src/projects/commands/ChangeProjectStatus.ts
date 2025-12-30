@@ -7,7 +7,6 @@ import {
 export type ChangeProjectStatusPayload = {
   projectId: string;
   status: ProjectStatusValue;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -20,7 +19,6 @@ export class ChangeProjectStatus
   readonly type = 'ChangeProjectStatus';
   readonly projectId: string;
   readonly status: ProjectStatusValue;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -29,7 +27,6 @@ export class ChangeProjectStatus
     super(payload, meta);
     this.projectId = payload.projectId;
     this.status = payload.status;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

@@ -5,7 +5,6 @@ import {
 
 export type ArchiveProjectPayload = {
   projectId: string;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -17,7 +16,6 @@ export class ArchiveProject
 {
   readonly type = 'ArchiveProject';
   readonly projectId: string;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -25,7 +23,6 @@ export class ArchiveProject
   constructor(payload: ArchiveProjectPayload, meta?: CommandMetadata) {
     super(payload, meta);
     this.projectId = payload.projectId;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

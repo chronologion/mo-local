@@ -6,7 +6,6 @@ import {
 export type ChangeGoalTargetMonthPayload = {
   goalId: string;
   targetMonth: string;
-  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -19,7 +18,6 @@ export class ChangeGoalTargetMonth
   readonly type = 'ChangeGoalTargetMonth';
   readonly goalId: string;
   readonly targetMonth: string;
-  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -28,7 +26,6 @@ export class ChangeGoalTargetMonth
     super(payload, meta);
     this.goalId = payload.goalId;
     this.targetMonth = payload.targetMonth;
-    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

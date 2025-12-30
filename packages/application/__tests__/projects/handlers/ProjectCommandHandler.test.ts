@@ -14,6 +14,7 @@ import {
   ChangeProjectName,
   ChangeProjectDescription,
   ChangeProjectDates,
+  type CreateProjectPayload,
 } from '../../../src/projects/commands';
 import { ValidationException } from '../../../src/errors/ValidationError';
 
@@ -28,19 +29,18 @@ class CountingCryptoService extends MockCryptoService {
 
 const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
 const actorId = 'user-1';
-const baseCreate = () =>
-  new CreateProject({
-    projectId,
-    name: 'Project Alpha',
-    status: 'planned',
-    startDate: '2025-01-01',
-    targetDate: '2025-02-01',
-    description: 'desc',
-    goalId: null,
-    actorId,
-    timestamp: Date.now(),
-    idempotencyKey: 'idem-create',
-  });
+const baseCreatePayload: CreateProjectPayload = {
+  projectId,
+  name: 'Project Alpha',
+  status: 'planned',
+  startDate: '2025-01-01',
+  targetDate: '2025-02-01',
+  description: 'desc',
+  goalId: null,
+  timestamp: Date.now(),
+  idempotencyKey: 'idem-create',
+};
+const baseCreate = () => new CreateProject(baseCreatePayload, { actorId });
 
 const setup = () => {
   const repo = new InMemoryProjectRepository();
@@ -87,14 +87,16 @@ describe('ProjectCommandHandler', () => {
     const { handler } = setup();
     await handler.handleCreate(baseCreate());
 
-    const original = baseCreate();
     await expect(
       handler.handleCreate(
-        new CreateProject({
-          ...original,
-          projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f299',
-          idempotencyKey: original.idempotencyKey,
-        })
+        new CreateProject(
+          {
+            ...baseCreatePayload,
+            projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f299',
+            idempotencyKey: baseCreatePayload.idempotencyKey,
+          },
+          { actorId }
+        )
       )
     ).rejects.toThrow(/Idempotency key reuse detected/);
   });
@@ -114,14 +116,16 @@ describe('ProjectCommandHandler', () => {
     await handler.handleCreate(baseCreate());
 
     await handler.handleChangeStatus(
-      new ChangeProjectStatus({
-        projectId,
-        status: 'in_progress',
-        actorId,
-        timestamp: Date.now(),
-        knownVersion: 1,
-        idempotencyKey: 'idem-status',
-      })
+      new ChangeProjectStatus(
+        {
+          projectId,
+          status: 'in_progress',
+          timestamp: Date.now(),
+          knownVersion: 1,
+          idempotencyKey: 'idem-status',
+        },
+        { actorId }
+      )
     );
   });
 
@@ -132,14 +136,16 @@ describe('ProjectCommandHandler', () => {
 
     await expect(
       handler.handleChangeName(
-        new ChangeProjectName({
-          projectId,
-          name: 'New name',
-          actorId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-name-missing-key',
-        })
+        new ChangeProjectName(
+          {
+            projectId,
+            name: 'New name',
+            timestamp: Date.now(),
+            knownVersion: 1,
+            idempotencyKey: 'idem-name-missing-key',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(Error);
   });
@@ -151,14 +157,16 @@ describe('ProjectCommandHandler', () => {
 
     await expect(
       handler.handleChangeDescription(
-        new ChangeProjectDescription({
-          projectId,
-          description: 'New desc',
-          actorId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-desc-fail',
-        })
+        new ChangeProjectDescription(
+          {
+            projectId,
+            description: 'New desc',
+            timestamp: Date.now(),
+            knownVersion: 1,
+            idempotencyKey: 'idem-desc-fail',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(Error);
   });
@@ -170,15 +178,17 @@ describe('ProjectCommandHandler', () => {
 
     await expect(
       handler.handleChangeDates(
-        new ChangeProjectDates({
-          projectId,
-          startDate: '2025-01-02',
-          targetDate: '2025-03-01',
-          actorId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-dates-concurrency',
-        })
+        new ChangeProjectDates(
+          {
+            projectId,
+            startDate: '2025-01-02',
+            targetDate: '2025-03-01',
+            timestamp: Date.now(),
+            knownVersion: 1,
+            idempotencyKey: 'idem-dates-concurrency',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
@@ -188,14 +198,16 @@ describe('ProjectCommandHandler', () => {
     await handler.handleCreate(baseCreate());
     await expect(
       handler.handleChangeStatus(
-        new ChangeProjectStatus({
-          projectId,
-          status: 'not-a-status' as never,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-invalid-status',
-        })
+        new ChangeProjectStatus(
+          {
+            projectId,
+            status: 'not-a-status' as never,
+            timestamp: Date.now(),
+            knownVersion: 1,
+            idempotencyKey: 'idem-invalid-status',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ValidationException);
   });
@@ -206,14 +218,16 @@ describe('ProjectCommandHandler', () => {
 
     await expect(
       handler.handleChangeStatus(
-        new ChangeProjectStatus({
-          projectId,
-          status: 'in_progress',
-          actorId,
-          timestamp: Date.now(),
-          knownVersion: 0,
-          idempotencyKey: 'idem-status-mismatch',
-        })
+        new ChangeProjectStatus(
+          {
+            projectId,
+            status: 'in_progress',
+            timestamp: Date.now(),
+            knownVersion: 0,
+            idempotencyKey: 'idem-status-mismatch',
+          },
+          { actorId }
+        )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });

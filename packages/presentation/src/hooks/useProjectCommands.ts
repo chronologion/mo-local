@@ -1,6 +1,21 @@
 import { useCallback, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
-import { GetProjectByIdQuery, type ProjectCommand } from '@mo/application';
+import {
+  AddProjectGoal,
+  AddProjectMilestone,
+  ArchiveProject,
+  ArchiveProjectMilestone,
+  ChangeProjectDates,
+  ChangeProjectDescription,
+  ChangeProjectMilestoneName,
+  ChangeProjectMilestoneTargetDate,
+  ChangeProjectName,
+  ChangeProjectStatus,
+  CreateProject,
+  GetProjectByIdQuery,
+  RemoveProjectGoal,
+  type ProjectCommand,
+} from '@mo/application';
 import { useInterface } from '../context';
 
 export type CreateProjectParams = {
@@ -79,19 +94,22 @@ export const useProjectCommands = () => {
   const createProject = useCallback(
     async (params: CreateProjectParams) => {
       const actorId = ensureUserId();
-      return dispatch({
-        type: 'CreateProject',
-        projectId: uuidv7(),
-        name: params.name,
-        status: 'planned',
-        startDate: params.startDate,
-        targetDate: params.targetDate,
-        description: params.description,
-        goalId: params.goalId ?? null,
-        actorId,
-        timestamp: Date.now(),
-        idempotencyKey: uuidv7(),
-      });
+      return dispatch(
+        new CreateProject(
+          {
+            projectId: uuidv7(),
+            name: params.name,
+            status: 'planned',
+            startDate: params.startDate,
+            targetDate: params.targetDate,
+            description: params.description,
+            goalId: params.goalId ?? null,
+            timestamp: Date.now(),
+            idempotencyKey: uuidv7(),
+          },
+          { actorId }
+        )
+      );
     },
     [dispatch, ensureUserId]
   );
@@ -101,39 +119,48 @@ export const useProjectCommands = () => {
       const actorId = ensureUserId();
       let knownVersion = await loadKnownVersion(params.projectId);
       if (params.status) {
-        await dispatch({
-          type: 'ChangeProjectStatus',
-          projectId: params.projectId,
-          status: params.status,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectStatus(
+            {
+              projectId: params.projectId,
+              status: params.status,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
       if (params.name) {
-        await dispatch({
-          type: 'ChangeProjectName',
-          projectId: params.projectId,
-          name: params.name,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectName(
+            {
+              projectId: params.projectId,
+              name: params.name,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
       if (params.description) {
-        await dispatch({
-          type: 'ChangeProjectDescription',
-          projectId: params.projectId,
-          description: params.description,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectDescription(
+            {
+              projectId: params.projectId,
+              description: params.description,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
       if (params.startDate !== undefined || params.targetDate !== undefined) {
@@ -142,38 +169,47 @@ export const useProjectCommands = () => {
             'Both start and target dates are required to change project dates'
           );
         }
-        await dispatch({
-          type: 'ChangeProjectDates',
-          projectId: params.projectId,
-          startDate: params.startDate,
-          targetDate: params.targetDate,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectDates(
+            {
+              projectId: params.projectId,
+              startDate: params.startDate,
+              targetDate: params.targetDate,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
       if (params.goalId !== undefined) {
         if (params.goalId) {
-          await dispatch({
-            type: 'AddProjectGoal',
-            projectId: params.projectId,
-            goalId: params.goalId,
-            actorId,
-            timestamp: Date.now(),
-            knownVersion,
-            idempotencyKey: uuidv7(),
-          });
+          await dispatch(
+            new AddProjectGoal(
+              {
+                projectId: params.projectId,
+                goalId: params.goalId,
+                timestamp: Date.now(),
+                knownVersion,
+                idempotencyKey: uuidv7(),
+              },
+              { actorId }
+            )
+          );
         } else {
-          await dispatch({
-            type: 'RemoveProjectGoal',
-            projectId: params.projectId,
-            actorId,
-            timestamp: Date.now(),
-            knownVersion,
-            idempotencyKey: uuidv7(),
-          });
+          await dispatch(
+            new RemoveProjectGoal(
+              {
+                projectId: params.projectId,
+                timestamp: Date.now(),
+                knownVersion,
+                idempotencyKey: uuidv7(),
+              },
+              { actorId }
+            )
+          );
         }
         knownVersion += 1;
       }
@@ -185,14 +221,17 @@ export const useProjectCommands = () => {
     async (projectId: string) => {
       const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
-      return dispatch({
-        type: 'ArchiveProject',
-        projectId,
-        actorId,
-        timestamp: Date.now(),
-        knownVersion,
-        idempotencyKey: uuidv7(),
-      });
+      return dispatch(
+        new ArchiveProject(
+          {
+            projectId,
+            timestamp: Date.now(),
+            knownVersion,
+            idempotencyKey: uuidv7(),
+          },
+          { actorId }
+        )
+      );
     },
     [dispatch, ensureUserId, loadKnownVersion]
   );
@@ -204,17 +243,20 @@ export const useProjectCommands = () => {
     ) => {
       const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
-      return dispatch({
-        type: 'AddProjectMilestone',
-        projectId,
-        milestoneId: uuidv7(),
-        name: milestone.name,
-        targetDate: milestone.targetDate,
-        actorId,
-        timestamp: Date.now(),
-        knownVersion,
-        idempotencyKey: uuidv7(),
-      });
+      return dispatch(
+        new AddProjectMilestone(
+          {
+            projectId,
+            milestoneId: uuidv7(),
+            name: milestone.name,
+            targetDate: milestone.targetDate,
+            timestamp: Date.now(),
+            knownVersion,
+            idempotencyKey: uuidv7(),
+          },
+          { actorId }
+        )
+      );
     },
     [dispatch, ensureUserId, loadKnownVersion]
   );
@@ -228,29 +270,35 @@ export const useProjectCommands = () => {
       const actorId = ensureUserId();
       let knownVersion = await loadKnownVersion(projectId);
       if (changes.name) {
-        await dispatch({
-          type: 'ChangeProjectMilestoneName',
-          projectId,
-          milestoneId,
-          name: changes.name,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectMilestoneName(
+            {
+              projectId,
+              milestoneId,
+              name: changes.name,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
       if (changes.targetDate) {
-        await dispatch({
-          type: 'ChangeProjectMilestoneTargetDate',
-          projectId,
-          milestoneId,
-          targetDate: changes.targetDate,
-          actorId,
-          timestamp: Date.now(),
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        await dispatch(
+          new ChangeProjectMilestoneTargetDate(
+            {
+              projectId,
+              milestoneId,
+              targetDate: changes.targetDate,
+              timestamp: Date.now(),
+              knownVersion,
+              idempotencyKey: uuidv7(),
+            },
+            { actorId }
+          )
+        );
         knownVersion += 1;
       }
     },
@@ -261,15 +309,18 @@ export const useProjectCommands = () => {
     async (projectId: string, milestoneId: string) => {
       const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
-      return dispatch({
-        type: 'ArchiveProjectMilestone',
-        projectId,
-        milestoneId,
-        actorId,
-        timestamp: Date.now(),
-        knownVersion,
-        idempotencyKey: uuidv7(),
-      });
+      return dispatch(
+        new ArchiveProjectMilestone(
+          {
+            projectId,
+            milestoneId,
+            timestamp: Date.now(),
+            knownVersion,
+            idempotencyKey: uuidv7(),
+          },
+          { actorId }
+        )
+      );
     },
     [dispatch, ensureUserId, loadKnownVersion]
   );
