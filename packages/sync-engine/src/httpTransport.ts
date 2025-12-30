@@ -33,7 +33,7 @@ export class HttpSyncTransport implements SyncTransportPort {
 
   constructor(options: HttpSyncTransportOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl);
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
     this.credentials = options.credentials ?? 'include';
   }
 

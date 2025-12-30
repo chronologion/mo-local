@@ -103,15 +103,21 @@ export class SyncController {
     });
 
     if (events.length === 0 && waitMs > 0) {
-      await delay(waitMs);
-      const next = await this.syncService.pullEvents({
-        ownerId,
-        storeId,
-        since,
-        limit,
-      });
-      events = next.events;
-      head = next.head;
+      const deadline = Date.now() + waitMs;
+      const pollIntervalMs = Math.min(1_000, waitMs);
+      while (events.length === 0 && Date.now() < deadline) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await delay(Math.min(pollIntervalMs, remaining));
+        const next = await this.syncService.pullEvents({
+          ownerId,
+          storeId,
+          since,
+          limit,
+        });
+        events = next.events;
+        head = next.head;
+      }
     }
 
     const responseEvents = events.map((event) => ({
