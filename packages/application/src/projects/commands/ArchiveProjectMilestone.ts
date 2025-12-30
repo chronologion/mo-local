@@ -8,19 +8,16 @@ export type ArchiveProjectMilestonePayload = {
   milestoneId: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ArchiveProjectMilestone
   extends BaseCommand<ArchiveProjectMilestonePayload>
   implements Readonly<ArchiveProjectMilestonePayload>
 {
-  readonly type = 'ArchiveProjectMilestone';
   readonly projectId: string;
   readonly milestoneId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: ArchiveProjectMilestonePayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -28,6 +25,5 @@ export class ArchiveProjectMilestone
     this.milestoneId = payload.milestoneId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

@@ -105,9 +105,8 @@ export const useProjectCommands = () => {
             description: params.description,
             goalId: params.goalId ?? null,
             timestamp: Date.now(),
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         )
       );
     },
@@ -126,9 +125,8 @@ export const useProjectCommands = () => {
               status: params.status,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -141,9 +139,8 @@ export const useProjectCommands = () => {
               name: params.name,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -156,9 +153,8 @@ export const useProjectCommands = () => {
               description: params.description,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -177,9 +173,8 @@ export const useProjectCommands = () => {
               targetDate: params.targetDate,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -193,9 +188,8 @@ export const useProjectCommands = () => {
                 goalId: params.goalId,
                 timestamp: Date.now(),
                 knownVersion,
-                idempotencyKey: uuidv7(),
               },
-              { actorId }
+              { actorId, idempotencyKey: uuidv7() }
             )
           );
         } else {
@@ -205,9 +199,8 @@ export const useProjectCommands = () => {
                 projectId: params.projectId,
                 timestamp: Date.now(),
                 knownVersion,
-                idempotencyKey: uuidv7(),
               },
-              { actorId }
+              { actorId, idempotencyKey: uuidv7() }
             )
           );
         }
@@ -227,9 +220,8 @@ export const useProjectCommands = () => {
             projectId,
             timestamp: Date.now(),
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         )
       );
     },
@@ -252,9 +244,8 @@ export const useProjectCommands = () => {
             targetDate: milestone.targetDate,
             timestamp: Date.now(),
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         )
       );
     },
@@ -278,9 +269,8 @@ export const useProjectCommands = () => {
               name: changes.name,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -294,9 +284,8 @@ export const useProjectCommands = () => {
               targetDate: changes.targetDate,
               timestamp: Date.now(),
               knownVersion,
-              idempotencyKey: uuidv7(),
             },
-            { actorId }
+            { actorId, idempotencyKey: uuidv7() }
           )
         );
         knownVersion += 1;
@@ -316,9 +305,8 @@ export const useProjectCommands = () => {
             milestoneId,
             timestamp: Date.now(),
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         )
       );
     },

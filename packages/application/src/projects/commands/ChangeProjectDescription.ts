@@ -8,19 +8,16 @@ export type ChangeProjectDescriptionPayload = {
   description: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ChangeProjectDescription
   extends BaseCommand<ChangeProjectDescriptionPayload>
   implements Readonly<ChangeProjectDescriptionPayload>
 {
-  readonly type = 'ChangeProjectDescription';
   readonly projectId: string;
   readonly description: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(
     payload: ChangeProjectDescriptionPayload,
@@ -31,6 +28,5 @@ export class ChangeProjectDescription
     this.description = payload.description;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

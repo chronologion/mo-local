@@ -38,9 +38,12 @@ const baseCreatePayload: CreateProjectPayload = {
   description: 'desc',
   goalId: null,
   timestamp: Date.now(),
-  idempotencyKey: 'idem-create',
 };
-const baseCreate = () => new CreateProject(baseCreatePayload, { actorId });
+const baseCreate = () =>
+  new CreateProject(baseCreatePayload, {
+    actorId,
+    idempotencyKey: 'idem-create',
+  });
 
 const setup = () => {
   const repo = new InMemoryProjectRepository();
@@ -93,9 +96,8 @@ describe('ProjectCommandHandler', () => {
           {
             ...baseCreatePayload,
             projectId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f299',
-            idempotencyKey: baseCreatePayload.idempotencyKey,
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-create' }
         )
       )
     ).rejects.toThrow(/Idempotency key reuse detected/);
@@ -122,9 +124,8 @@ describe('ProjectCommandHandler', () => {
           status: 'in_progress',
           timestamp: Date.now(),
           knownVersion: 1,
-          idempotencyKey: 'idem-status',
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-status' }
       )
     );
   });
@@ -142,9 +143,8 @@ describe('ProjectCommandHandler', () => {
             name: 'New name',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-name-missing-key',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-name-missing-key' }
         )
       )
     ).rejects.toBeInstanceOf(Error);
@@ -163,9 +163,8 @@ describe('ProjectCommandHandler', () => {
             description: 'New desc',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-desc-fail',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-desc-fail' }
         )
       )
     ).rejects.toBeInstanceOf(Error);
@@ -185,9 +184,8 @@ describe('ProjectCommandHandler', () => {
             targetDate: '2025-03-01',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-dates-concurrency',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-dates-concurrency' }
         )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -204,9 +202,8 @@ describe('ProjectCommandHandler', () => {
             status: 'not-a-status' as never,
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-invalid-status',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-invalid-status' }
         )
       )
     ).rejects.toBeInstanceOf(ValidationException);
@@ -224,9 +221,8 @@ describe('ProjectCommandHandler', () => {
             status: 'in_progress',
             timestamp: Date.now(),
             knownVersion: 0,
-            idempotencyKey: 'idem-status-mismatch',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-status-mismatch' }
         )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);

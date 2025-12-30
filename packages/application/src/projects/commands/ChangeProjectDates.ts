@@ -9,20 +9,17 @@ export type ChangeProjectDatesPayload = {
   targetDate: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ChangeProjectDates
   extends BaseCommand<ChangeProjectDatesPayload>
   implements Readonly<ChangeProjectDatesPayload>
 {
-  readonly type = 'ChangeProjectDates';
   readonly projectId: string;
   readonly startDate: string;
   readonly targetDate: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: ChangeProjectDatesPayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -31,6 +28,5 @@ export class ChangeProjectDates
     this.targetDate = payload.targetDate;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

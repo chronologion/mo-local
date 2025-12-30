@@ -2,6 +2,7 @@ import { ICommand } from './cqrsTypes';
 
 export type CommandMetadata = Readonly<{
   actorId: string;
+  idempotencyKey: string;
   correlationId?: string | null;
   causationId?: string | null;
 }>;
@@ -10,8 +11,8 @@ export type CommandMetadata = Readonly<{
  * Minimal base command with optional metadata.
  */
 export abstract class BaseCommand<TPayload extends object> implements ICommand {
-  abstract readonly type: string;
   readonly actorId: string;
+  readonly idempotencyKey: string;
   readonly correlationId?: string | null;
   readonly causationId?: string | null;
 
@@ -23,7 +24,11 @@ export abstract class BaseCommand<TPayload extends object> implements ICommand {
     if (!meta?.actorId) {
       throw new Error('Command requires actorId');
     }
+    if (!meta?.idempotencyKey) {
+      throw new Error('Command requires idempotencyKey');
+    }
     this.actorId = meta.actorId;
+    this.idempotencyKey = meta.idempotencyKey;
     this.correlationId = meta?.correlationId;
     this.causationId = meta?.causationId;
   }

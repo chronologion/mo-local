@@ -8,19 +8,16 @@ export type RevokeGoalAccessPayload = {
   revokeUserId: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class RevokeGoalAccess
   extends BaseCommand<RevokeGoalAccessPayload>
   implements Readonly<RevokeGoalAccessPayload>
 {
-  readonly type = 'RevokeGoalAccess';
   readonly goalId: string;
   readonly revokeUserId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: RevokeGoalAccessPayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -28,6 +25,5 @@ export class RevokeGoalAccess
     this.revokeUserId = payload.revokeUserId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

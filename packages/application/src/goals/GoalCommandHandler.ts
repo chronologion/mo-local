@@ -72,7 +72,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
 
     const isDuplicate = await this.isDuplicateCommand({
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       aggregateId: goalId.value,
     });
     if (isDuplicate) {
@@ -110,7 +110,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
 
     await this.idempotencyStore.record({
       key: idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       aggregateId: goalId.value,
       createdAt: timestamp.value,
     });
@@ -140,7 +140,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -156,7 +156,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.changeSummary({ summary, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -177,7 +177,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -193,7 +193,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.changeSlice({ slice, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -220,7 +220,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -240,7 +240,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -267,7 +267,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -283,7 +283,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.changePriority({ priority, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -301,7 +301,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -317,7 +317,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.archive({ archivedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -341,7 +341,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -362,7 +362,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -386,7 +386,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -407,7 +407,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -436,7 +436,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -457,7 +457,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }
@@ -484,7 +484,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     if (
       await this.isDuplicateCommand({
         idempotencyKey,
-        commandType: command.type,
+        commandType: this.commandName(command),
         aggregateId: goalId.value,
       })
     ) {
@@ -504,7 +504,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     return this.persist(goal, {
       idempotencyKey,
-      commandType: command.type,
+      commandType: this.commandName(command),
       createdAt: timestamp.value,
     });
   }

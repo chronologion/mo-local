@@ -22,6 +22,9 @@ type ParsedFromSpec<
  * value objects while collecting structured validation errors.
  */
 export abstract class BaseCommandHandler {
+  protected commandName(command: object): string {
+    return command.constructor.name;
+  }
   /**
    * Parse a command according to a field specification.
    *

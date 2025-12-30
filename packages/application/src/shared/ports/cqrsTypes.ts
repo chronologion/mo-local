@@ -1,6 +1,6 @@
-export interface ICommand<TType extends string = string> {
-  readonly type: TType;
+export interface ICommand {
   readonly actorId: string;
+  readonly idempotencyKey: string;
   readonly correlationId?: string | null;
   readonly causationId?: string | null;
 }

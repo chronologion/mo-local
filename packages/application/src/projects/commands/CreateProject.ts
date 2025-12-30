@@ -13,14 +13,12 @@ export type CreateProjectPayload = {
   description?: string;
   goalId?: string | null;
   timestamp: number;
-  idempotencyKey: string;
 };
 
 export class CreateProject
   extends BaseCommand<CreateProjectPayload>
   implements Readonly<CreateProjectPayload>
 {
-  readonly type = 'CreateProject';
   readonly projectId: string;
   readonly name: string;
   readonly status: ProjectStatusValue;
@@ -29,7 +27,6 @@ export class CreateProject
   readonly description?: string;
   readonly goalId?: string | null;
   readonly timestamp: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: CreateProjectPayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -41,6 +38,5 @@ export class CreateProject
     this.description = payload.description;
     this.goalId = payload.goalId;
     this.timestamp = payload.timestamp;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

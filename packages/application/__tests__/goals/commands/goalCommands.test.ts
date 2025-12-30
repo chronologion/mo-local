@@ -33,9 +33,9 @@ const createGoalPayload: CreateGoalPayload = {
   targetMonth: '2025-12',
   priority: 'must' as const,
   timestamp: now,
-  idempotencyKey: 'idem-create',
 };
-const createGoal = () => new CreateGoal(createGoalPayload, { actorId });
+const createGoal = () =>
+  new CreateGoal(createGoalPayload, { actorId, idempotencyKey: 'idem-create' });
 
 describe('CreateGoal', () => {
   it('is a lean DTO with assigned payload', () => {
@@ -47,12 +47,10 @@ describe('CreateGoal', () => {
         targetMonth: '2025-12',
         priority: 'must',
         timestamp: now,
-        idempotencyKey: 'idem-create-lean',
       },
-      { actorId: 'user-1' }
+      { actorId: 'user-1', idempotencyKey: 'idem-create-lean' }
     );
 
-    expect(cmd.type).toBe('CreateGoal');
     expect(cmd.goalId).toBe('018f7b1a-7c8a-72c4-a0ab-8234c2d6f001');
     expect(cmd.slice).toBe('Health');
     expect(cmd.priority).toBe('must');
@@ -72,9 +70,8 @@ describe('Goal command validation inside handler', () => {
             summary: '',
             timestamp: now,
             knownVersion: 1,
-            idempotencyKey: 'idem-summary-invalid',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-summary-invalid' }
         )
       )
     ).rejects.toBeInstanceOf(ValidationException);
@@ -93,9 +90,8 @@ describe('Goal command validation inside handler', () => {
             permission: 'owner' as never,
             timestamp: now,
             knownVersion: 1,
-            idempotencyKey: 'idem-grant-invalid',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-grant-invalid' }
         )
       )
     ).rejects.toBeInstanceOf(ValidationException);

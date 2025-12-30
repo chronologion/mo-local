@@ -354,10 +354,10 @@ export class GoalAchievementSaga {
         goalId: state.goalId,
         timestamp: event.occurredAt.value,
         knownVersion: state.version,
-        idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
       },
       {
         actorId: event.actorId.value,
+        idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
         correlationId,
         causationId: event.eventId.value,
       }
@@ -393,10 +393,10 @@ export class GoalAchievementSaga {
         goalId: state.goalId,
         timestamp: event.occurredAt.value,
         knownVersion: state.version,
-        idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,
       },
       {
         actorId: event.actorId.value,
+        idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,
         correlationId,
         causationId: event.eventId.value,
       }

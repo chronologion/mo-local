@@ -35,9 +35,11 @@ const baseCreatePayload = {
   targetMonth: '2025-12',
   priority: 'must' as const,
   timestamp: Date.now(),
-  idempotencyKey: 'idem-create',
 };
-const baseCreate = new CreateGoal(baseCreatePayload, { actorId });
+const baseCreate = new CreateGoal(baseCreatePayload, {
+  actorId,
+  idempotencyKey: 'idem-create',
+});
 
 const setup = () => {
   const repo = new InMemoryGoalRepository();
@@ -73,7 +75,7 @@ describe('GoalCommandHandler', () => {
           ...baseCreatePayload,
           timestamp: Date.now(),
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-create' }
       )
     );
 
@@ -98,9 +100,8 @@ describe('GoalCommandHandler', () => {
           {
             ...baseCreatePayload,
             goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f999',
-            idempotencyKey: baseCreatePayload.idempotencyKey,
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-create' }
         )
       )
     ).rejects.toThrow(/Idempotency key reuse detected/);
@@ -126,9 +127,8 @@ describe('GoalCommandHandler', () => {
           summary: 'Run a faster marathon',
           timestamp: Date.now(),
           knownVersion: 1,
-          idempotencyKey: 'idem-summary',
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-summary' }
       )
     );
   });
@@ -143,9 +143,8 @@ describe('GoalCommandHandler', () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: 1,
-          idempotencyKey: 'idem-achieve',
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-achieve' }
       )
     );
   });
@@ -160,9 +159,8 @@ describe('GoalCommandHandler', () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: 1,
-          idempotencyKey: 'idem-achieve-unachieve',
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-achieve-unachieve' }
       )
     );
 
@@ -172,9 +170,8 @@ describe('GoalCommandHandler', () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: 2,
-          idempotencyKey: 'idem-unachieve',
         },
-        { actorId }
+        { actorId, idempotencyKey: 'idem-unachieve' }
       )
     );
   });
@@ -192,9 +189,8 @@ describe('GoalCommandHandler', () => {
             summary: 'Another summary',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-summary-missing-key',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-summary-missing-key' }
         )
       )
     ).rejects.toThrow();
@@ -213,9 +209,8 @@ describe('GoalCommandHandler', () => {
             priority: 'should',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-priority-fail',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-priority-fail' }
         )
       )
     ).rejects.toThrow();
@@ -234,9 +229,8 @@ describe('GoalCommandHandler', () => {
             slice: 'Work',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-slice-concurrency',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-slice-concurrency' }
         )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
@@ -254,9 +248,8 @@ describe('GoalCommandHandler', () => {
             targetMonth: '2026-01',
             timestamp: Date.now(),
             knownVersion: 1,
-            idempotencyKey: 'idem-target-month',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-target-month' }
         )
       )
     ).resolves.toBeDefined();
@@ -274,9 +267,8 @@ describe('GoalCommandHandler', () => {
             summary: 'Run a faster marathon',
             timestamp: Date.now(),
             knownVersion: 0,
-            idempotencyKey: 'idem-summary-mismatch',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-summary-mismatch' }
         )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);

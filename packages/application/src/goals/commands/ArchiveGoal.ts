@@ -7,24 +7,20 @@ export type ArchiveGoalPayload = {
   goalId: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ArchiveGoal
   extends BaseCommand<ArchiveGoalPayload>
   implements Readonly<ArchiveGoalPayload>
 {
-  readonly type = 'ArchiveGoal';
   readonly goalId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: ArchiveGoalPayload, meta?: CommandMetadata) {
     super(payload, meta);
     this.goalId = payload.goalId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

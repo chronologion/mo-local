@@ -9,20 +9,17 @@ export type ChangeProjectMilestoneTargetDatePayload = {
   targetDate: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ChangeProjectMilestoneTargetDate
   extends BaseCommand<ChangeProjectMilestoneTargetDatePayload>
   implements Readonly<ChangeProjectMilestoneTargetDatePayload>
 {
-  readonly type = 'ChangeProjectMilestoneTargetDate';
   readonly projectId: string;
   readonly milestoneId: string;
   readonly targetDate: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(
     payload: ChangeProjectMilestoneTargetDatePayload,
@@ -34,6 +31,5 @@ export class ChangeProjectMilestoneTargetDate
     this.targetDate = payload.targetDate;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

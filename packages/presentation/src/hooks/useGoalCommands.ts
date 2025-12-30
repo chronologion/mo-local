@@ -47,9 +47,8 @@ export const useGoalCommands = () => {
           targetMonth: params.targetMonth,
           priority: params.priority,
           timestamp: Date.now(),
-          idempotencyKey: uuidv7(),
         },
-        { actorId }
+        { actorId, idempotencyKey: uuidv7() }
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
@@ -94,9 +93,8 @@ export const useGoalCommands = () => {
             summary: params.summary,
             timestamp,
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -116,9 +114,8 @@ export const useGoalCommands = () => {
             slice: params.slice,
             timestamp,
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -141,9 +138,8 @@ export const useGoalCommands = () => {
             priority: params.priority,
             timestamp,
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -166,9 +162,8 @@ export const useGoalCommands = () => {
             targetMonth: params.targetMonth,
             timestamp,
             knownVersion,
-            idempotencyKey: uuidv7(),
           },
-          { actorId }
+          { actorId, idempotencyKey: uuidv7() }
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
@@ -212,9 +207,8 @@ export const useGoalCommands = () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: current.version,
-          idempotencyKey: uuidv7(),
         },
-        { actorId }
+        { actorId, idempotencyKey: uuidv7() }
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
@@ -253,9 +247,8 @@ export const useGoalCommands = () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: current.version,
-          idempotencyKey: uuidv7(),
         },
-        { actorId }
+        { actorId, idempotencyKey: uuidv7() }
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
@@ -294,9 +287,8 @@ export const useGoalCommands = () => {
           goalId,
           timestamp: Date.now(),
           knownVersion: current.version,
-          idempotencyKey: uuidv7(),
         },
-        { actorId }
+        { actorId, idempotencyKey: uuidv7() }
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {

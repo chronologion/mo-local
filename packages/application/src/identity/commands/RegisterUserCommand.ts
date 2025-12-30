@@ -8,7 +8,6 @@ import {
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface RegisterUserCommand {
-  readonly type: 'RegisterUser';
   readonly actorId: string;
   readonly signingPublicKey: Uint8Array;
   readonly encryptionPublicKey: Uint8Array;

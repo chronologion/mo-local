@@ -9,19 +9,16 @@ export type ChangeGoalSlicePayload = {
   slice: SliceValue;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ChangeGoalSlice
   extends BaseCommand<ChangeGoalSlicePayload>
   implements Readonly<ChangeGoalSlicePayload>
 {
-  readonly type = 'ChangeGoalSlice';
   readonly goalId: string;
   readonly slice: SliceValue;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: ChangeGoalSlicePayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -29,6 +26,5 @@ export class ChangeGoalSlice
     this.slice = payload.slice;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

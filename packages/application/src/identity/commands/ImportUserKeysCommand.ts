@@ -9,7 +9,6 @@ import {
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface ImportUserKeysCommand {
-  readonly type: 'ImportUserKeys';
   readonly actorId: string;
   readonly backup: KeyBackup;
   readonly timestamp: number;

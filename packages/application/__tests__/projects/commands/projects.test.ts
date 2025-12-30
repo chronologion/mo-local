@@ -36,15 +36,16 @@ const createProjectPayload: CreateProjectPayload = {
   description: 'desc',
   goalId: null,
   timestamp: now,
-  idempotencyKey: 'idem-create',
 };
 const createProject = () =>
-  new CreateProject(createProjectPayload, { actorId });
+  new CreateProject(createProjectPayload, {
+    actorId,
+    idempotencyKey: 'idem-create',
+  });
 
 describe('Project commands', () => {
   it('are lean DTOs with payload assigned', () => {
     const cmd = createProject();
-    expect(cmd.type).toBe('CreateProject');
     expect(cmd.projectId).toBe(projectId);
     expect(cmd.status).toBe('planned');
   });
@@ -60,9 +61,8 @@ describe('Project commands', () => {
             status: 'invalid' as never,
             timestamp: now,
             knownVersion: 1,
-            idempotencyKey: 'idem-invalid-status',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-invalid-status' }
         )
       )
     ).rejects.toBeInstanceOf(Error);
@@ -82,9 +82,8 @@ describe('Project commands', () => {
             targetDate: '2025-01-02',
             timestamp: now,
             knownVersion: 1,
-            idempotencyKey: 'idem-milestone',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-milestone' }
         )
       )
     ).rejects.toBeInstanceOf(Error);
@@ -100,9 +99,8 @@ describe('Project commands', () => {
             projectId: 'not-a-uuid',
             timestamp: now,
             knownVersion: 1,
-            idempotencyKey: 'idem-archive-bad-id',
           },
-          { actorId }
+          { actorId, idempotencyKey: 'idem-archive-bad-id' }
         )
       )
     ).rejects.toBeInstanceOf(ValidationException);

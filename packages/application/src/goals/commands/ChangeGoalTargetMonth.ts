@@ -8,19 +8,16 @@ export type ChangeGoalTargetMonthPayload = {
   targetMonth: string;
   timestamp: number;
   knownVersion: number;
-  idempotencyKey: string;
 };
 
 export class ChangeGoalTargetMonth
   extends BaseCommand<ChangeGoalTargetMonthPayload>
   implements Readonly<ChangeGoalTargetMonthPayload>
 {
-  readonly type = 'ChangeGoalTargetMonth';
   readonly goalId: string;
   readonly targetMonth: string;
   readonly timestamp: number;
   readonly knownVersion: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: ChangeGoalTargetMonthPayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -28,6 +25,5 @@ export class ChangeGoalTargetMonth
     this.targetMonth = payload.targetMonth;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }

@@ -11,21 +11,18 @@ export type CreateGoalPayload = {
   targetMonth: string;
   priority: PriorityLevel;
   timestamp: number;
-  idempotencyKey: string;
 };
 
 export class CreateGoal
   extends BaseCommand<CreateGoalPayload>
   implements Readonly<CreateGoalPayload>
 {
-  readonly type = 'CreateGoal';
   readonly goalId: string;
   readonly slice: SliceValue;
   readonly summary: string;
   readonly targetMonth: string;
   readonly priority: PriorityLevel;
   readonly timestamp: number;
-  readonly idempotencyKey: string;
 
   constructor(payload: CreateGoalPayload, meta?: CommandMetadata) {
     super(payload, meta);
@@ -35,6 +32,5 @@ export class CreateGoal
     this.targetMonth = payload.targetMonth;
     this.priority = payload.priority;
     this.timestamp = payload.timestamp;
-    this.idempotencyKey = payload.idempotencyKey;
   }
 }
