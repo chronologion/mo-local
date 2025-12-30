@@ -18,10 +18,7 @@ import { useRemoteAuth } from './RemoteAuthProvider';
 import { wipeEventStoreDb } from '../utils/resetEventStoreDb';
 
 const USER_META_KEY = 'mo-local-user';
-const RESET_FLAG_KEY = 'mo-local-reset-persistence';
 const STORE_ID_KEY = 'mo-local-store-id';
-const DB_FORMAT_KEY = 'mo-local-eventstore-format';
-const DB_FORMAT_VERSION = 'eventstore-v2';
 
 const loadStoredStoreId = (): string | null => {
   if (typeof localStorage === 'undefined') return null;
@@ -168,18 +165,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (async () => {
       try {
         setInitError(null);
-        if (typeof localStorage !== 'undefined') {
-          const storedFormat = localStorage.getItem(DB_FORMAT_KEY);
-          const needsReset =
-            storedFormat !== DB_FORMAT_VERSION ||
-            localStorage.getItem(RESET_FLAG_KEY) === '1';
-          if (needsReset) {
-            await wipeEventStoreDb(storeId);
-            localStorage.setItem(DB_FORMAT_KEY, DB_FORMAT_VERSION);
-            localStorage.removeItem(RESET_FLAG_KEY);
-          }
-        }
-
         const svc = await createAppServices({
           storeId,
           contexts: ['goals', 'projects'],
@@ -449,7 +434,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem(USER_META_KEY);
     const nextStoreId = uuidv7();
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
-    localStorage.removeItem(RESET_FLAG_KEY);
     window.location.reload();
   };
 
