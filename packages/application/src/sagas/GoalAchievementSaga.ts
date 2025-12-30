@@ -204,7 +204,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
 
     if (derivedFromReadModel) {
-      const projects = await this.projectReadModel.list();
+      const projects = await this.projectReadModel.list({ goalId });
       const linked = projects
         .filter((p) => p.archivedAt === null)
         .filter((p) => p.goalId === goalId);
