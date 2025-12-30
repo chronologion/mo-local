@@ -30,9 +30,20 @@ type IdempotencyRow = {
   created_at: number;
 };
 
+type ProjectionMetaRow = {
+  projection_id: string;
+  ordering: string;
+  last_global_seq: number;
+  last_pending_commit_seq: number;
+  last_commit_sequence: number;
+  phase: string;
+  updated_at: number;
+};
+
 export class TestSqliteDb implements SqliteDbPort {
   private readonly events: TestEventRow[] = [];
   private readonly idempotency = new Map<string, IdempotencyRow>();
+  private readonly projectionMeta = new Map<string, ProjectionMetaRow>();
   private nextCommitSequence = 1;
 
   constructor(seed?: { events?: ReadonlyArray<TestEventRow> }) {
@@ -94,6 +105,15 @@ export class TestSqliteDb implements SqliteDbPort {
       return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
     }
 
+    if (this.isSelectProjectionMeta(normalized)) {
+      if (normalized.includes('WHERE PROJECTION_ID = ?')) {
+        const id = params[0] as string;
+        const row = this.projectionMeta.get(id);
+        return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
+      }
+      return Array.from(this.projectionMeta.values()) as unknown as T[];
+    }
+
     throw new Error(`Unhandled query: ${sql}`);
   }
 
@@ -114,6 +134,27 @@ export class TestSqliteDb implements SqliteDbPort {
         command_type: commandType,
         aggregate_id: aggregateId,
         created_at: Number(createdAt),
+      });
+      return;
+    }
+    if (this.isUpsertProjectionMeta(normalized)) {
+      const [
+        projectionId,
+        ordering,
+        lastGlobalSeq,
+        lastPendingCommitSeq,
+        lastCommitSequence,
+        phase,
+        updatedAt,
+      ] = params as [string, string, number, number, number, string, number];
+      this.projectionMeta.set(projectionId, {
+        projection_id: projectionId,
+        ordering,
+        last_global_seq: Number(lastGlobalSeq),
+        last_pending_commit_seq: Number(lastPendingCommitSeq),
+        last_commit_sequence: Number(lastCommitSequence),
+        phase,
+        updated_at: Number(updatedAt),
       });
       return;
     }
@@ -219,6 +260,14 @@ export class TestSqliteDb implements SqliteDbPort {
       return;
     }
     throw new Error(`Unhandled batch execute: ${sql}`);
+  }
+
+  private isSelectProjectionMeta(sql: string): boolean {
+    return sql.includes('FROM PROJECTION_META');
+  }
+
+  private isUpsertProjectionMeta(sql: string): boolean {
+    return sql.includes('INSERT INTO PROJECTION_META');
   }
 
   getEvents(): ReadonlyArray<TestEventRow> {

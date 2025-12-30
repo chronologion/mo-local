@@ -1,6 +1,6 @@
 import type { GoalReadModelPort, GoalListFilter } from '@mo/application';
 import type { GoalListItemDto } from '@mo/application';
-import type { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
+import type { GoalProjectionProcessor } from './derived-state/GoalProjectionProcessor';
 
 /**
  * Thin adapter exposing GoalProjectionProcessor as an application read model.

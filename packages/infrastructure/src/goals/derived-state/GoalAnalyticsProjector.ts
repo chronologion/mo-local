@@ -12,7 +12,7 @@ import {
   applyCategoryDelta,
   applyMonthlyDelta,
   createEmptyAnalytics,
-} from '../projections/runtime/GoalAnalyticsState';
+} from './GoalAnalyticsState';
 import {
   buildProjectionCacheAad,
   ProjectionCacheStore,
