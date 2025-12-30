@@ -23,9 +23,24 @@ type StreamState = {
   lastSequence: number;
   runner: ProjectionTaskRunner;
   projectionId: string;
+  lastTrace: StreamTrace | null;
 };
 
 const META_LAST_PUBLISHED_PREFIX = 'committed_publisher';
+
+type StreamTrace = {
+  eventsCount: number;
+  readMs: number;
+  keyringMs: number;
+  decodeMs: number;
+  publishMs: number;
+  metaWriteMs: number;
+};
+
+const nowMs = (): number =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
 
 export class CommittedEventPublisher {
   private readonly streams: StreamState[];
@@ -41,15 +56,38 @@ export class CommittedEventPublisher {
     configs: StreamConfig[]
   ) {
     this.metaStore = new ProjectionMetaStore(db);
-    this.streams = configs.map((config) => ({
-      config,
-      lastSequence: 0,
-      projectionId: `${META_LAST_PUBLISHED_PREFIX}:${config.name}`,
-      runner: new ProjectionTaskRunner(
+    this.streams = configs.map((config) => {
+      const projectionId = `${META_LAST_PUBLISHED_PREFIX}:${config.name}`;
+      let stream: StreamState | null = null;
+      const runner = new ProjectionTaskRunner(
         `CommittedEventPublisher:${config.name}`,
-        50
-      ),
-    }));
+        50,
+        ({ durationMs, budgetMs }) => {
+          const trace = stream?.lastTrace ?? null;
+          console.warn(
+            `[CommittedEventPublisher:${config.name}] Task processing exceeded budget`,
+            {
+              durationMs,
+              budgetMs,
+              eventsCount: trace?.eventsCount ?? 0,
+              readMs: trace?.readMs ?? 0,
+              keyringMs: trace?.keyringMs ?? 0,
+              decodeMs: trace?.decodeMs ?? 0,
+              publishMs: trace?.publishMs ?? 0,
+              metaWriteMs: trace?.metaWriteMs ?? 0,
+            }
+          );
+        }
+      );
+      stream = {
+        config,
+        lastSequence: 0,
+        projectionId,
+        runner,
+        lastTrace: null,
+      };
+      return stream;
+    });
   }
 
   async start(): Promise<void> {
@@ -84,21 +122,27 @@ export class CommittedEventPublisher {
   }
 
   private async runProcessStream(stream: StreamState): Promise<void> {
+    const readStart = nowMs();
     const events = await stream.config.eventStore.getAllEvents({
       since: stream.lastSequence,
     });
+    const readMs = nowMs() - readStart;
     if (events.length === 0) return;
 
     let processedMax = stream.lastSequence;
     const toPublish = [];
+    let keyringMs = 0;
+    let decodeMs = 0;
     for (const event of events) {
       if (!event.sequence) {
         throw new Error(`Event ${event.id} missing sequence`);
       }
       let kAggregate: Uint8Array;
+      const keyStart = nowMs();
       try {
         kAggregate = await this.keyringManager.resolveKeyForEvent(event);
       } catch (err) {
+        keyringMs += nowMs() - keyStart;
         if (err instanceof Error && err.message === 'Master key not set') {
           console.warn(
             '[CommittedEventPublisher] Master key not set; deferring publish'
@@ -117,21 +161,37 @@ export class CommittedEventPublisher {
         }
         throw err;
       }
+      keyringMs += nowMs() - keyStart;
+      const decodeStart = nowMs();
       const domainEvent = await this.toDomain.toDomain(event, kAggregate);
+      decodeMs += nowMs() - decodeStart;
       toPublish.push(domainEvent);
       if (event.sequence > processedMax) {
         processedMax = event.sequence;
       }
     }
 
+    const publishStart = nowMs();
     if (toPublish.length > 0) {
       await this.eventBus.publish(toPublish);
     }
+    const publishMs = nowMs() - publishStart;
 
+    const metaStart = nowMs();
     if (processedMax > stream.lastSequence) {
       stream.lastSequence = processedMax;
       await this.saveLastSequence(stream.projectionId, processedMax);
     }
+    const metaWriteMs = nowMs() - metaStart;
+
+    stream.lastTrace = {
+      eventsCount: events.length,
+      readMs,
+      keyringMs,
+      decodeMs,
+      publishMs,
+      metaWriteMs,
+    };
   }
 
   private async loadLastSequence(projectionId: string): Promise<number> {
