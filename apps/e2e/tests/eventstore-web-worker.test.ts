@@ -30,7 +30,8 @@ const serveStatic = (root: string): Promise<ServerHandle> => {
         res.end('<!doctype html><html><body>eventstore-web</body></html>');
         return;
       }
-      const filePath = path.join(root, decodeURIComponent(url));
+      const relativePath = decodeURIComponent(url).replace(/^\//, '');
+      const filePath = path.join(root, relativePath);
       try {
         const data = await fs.readFile(filePath);
         const ext = path.extname(filePath);
