@@ -6,7 +6,7 @@ import { ProjectId } from './vos/ProjectId';
 import { ProjectName } from './vos/ProjectName';
 import { ProjectStatus } from './vos/ProjectStatus';
 import { ProjectDescription } from './vos/ProjectDescription';
-import { Milestone } from './Milestone';
+import { Milestone, MilestoneRecord } from './Milestone';
 import { MilestoneId } from './vos/MilestoneId';
 import { MilestoneName } from './vos/MilestoneName';
 import { GoalId } from '../goals/vos/GoalId';
@@ -141,8 +141,8 @@ export class Project extends AggregateRoot<ProjectId> {
     return this._goalId;
   }
 
-  get milestones(): ReadonlyArray<Milestone> {
-    return this._milestones;
+  get milestones(): ReadonlyArray<MilestoneRecord> {
+    return this._milestones.map((m) => m.asRecord());
   }
 
   get createdBy(): UserId {
