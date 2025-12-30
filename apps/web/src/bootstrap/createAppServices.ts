@@ -173,6 +173,7 @@ export const createAppServices = async ({
     storeId,
     transport: new HttpSyncTransport({ baseUrl: apiBaseUrl }),
     onRebaseRequired: async () => {
+      // Rebuild projections first so saga reconciliation reads consistent views.
       await Promise.all([
         ctx.goals?.goalProjection.onRebaseRequired(),
         ctx.projects?.projectProjection.onRebaseRequired(),

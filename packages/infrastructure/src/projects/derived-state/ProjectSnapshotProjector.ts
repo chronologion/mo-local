@@ -256,6 +256,15 @@ export class ProjectSnapshotProjector {
     previous: ProjectSnapshotState | null,
     nextItem: ProjectListItem | null
   ): void {
+    if (
+      previous &&
+      previous.archivedAt === null &&
+      nextItem &&
+      nextItem.archivedAt === null &&
+      previous.goalId === nextItem.goalId
+    ) {
+      return;
+    }
     if (previous && previous.archivedAt === null) {
       this.unindexGoal(previous.goalId, previous.id);
     }
