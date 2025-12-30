@@ -70,12 +70,16 @@ class FakeDb implements SqliteDbPort {
     }
 
     if (normalized.includes('FROM EVENTS E')) {
-      const [aggregateType, sinceGlobal, sincePending, limit] = params as [
-        string,
-        number,
-        number,
-        number,
-      ];
+      const [aggregateType, sinceGlobal, sincePending, syncedMinCommit, limit] =
+        params.length >= 5
+          ? (params as [string, number, number, number, number])
+          : ([params[0], params[1], params[2], params[2], params[3]] as [
+              string,
+              number,
+              number,
+              number,
+              number,
+            ]);
       const rows = this.events
         .filter((row) => row.aggregate_type === aggregateType)
         .map((row) => ({
@@ -84,7 +88,10 @@ class FakeDb implements SqliteDbPort {
         }))
         .filter((row) => {
           if (row.global_seq !== null) {
-            return row.global_seq > Number(sinceGlobal);
+            return (
+              row.global_seq > Number(sinceGlobal) &&
+              row.commit_sequence > Number(syncedMinCommit)
+            );
           }
           return row.commit_sequence > Number(sincePending);
         })

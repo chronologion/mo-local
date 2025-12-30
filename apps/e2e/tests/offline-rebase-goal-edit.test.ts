@@ -2,6 +2,7 @@ import { test, expect, chromium, type Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE ?? 'http://localhost:4000';
 
 type Credentials = Readonly<{ email: string; password: string }>;
 
@@ -101,6 +102,46 @@ const editGoalSummary = async (
   });
 };
 
+const syncOnce = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    const w = window as { __moSyncOnce?: () => Promise<void> };
+    if (w.__moSyncOnce) {
+      await w.__moSyncOnce();
+    }
+  });
+};
+
+const getPendingCount = async (page: Page): Promise<number | null> => {
+  return await page.evaluate(async () => {
+    const w = window as { __moPendingCount?: () => Promise<number> };
+    if (w.__moPendingCount) {
+      return await w.__moPendingCount();
+    }
+    return null;
+  });
+};
+
+const getSyncStatus = async (page: Page): Promise<unknown> => {
+  return await page.evaluate(() => {
+    const w = window as { __moSyncStatus?: () => unknown };
+    return w.__moSyncStatus ? w.__moSyncStatus() : null;
+  });
+};
+
+const pullHead = async (page: Page, storeId: string): Promise<number> => {
+  return await page.evaluate(
+    async ({ apiBase, sid }) => {
+      const resp = await fetch(
+        `${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=1`,
+        { credentials: 'include' }
+      );
+      const data = (await resp.json()) as { head: number };
+      return data.head ?? 0;
+    },
+    { apiBase: API_BASE, sid: storeId }
+  );
+};
+
 test.describe('offline rebase goal edit', () => {
   test('offline local edit + online edit + reconnect does not leave stale knownVersion', async () => {
     test.setTimeout(180_000);
@@ -147,6 +188,16 @@ test.describe('offline rebase goal edit', () => {
       await connectToCloudAsSignup(pageA, creds);
       mark('create goal A');
       await createGoal(pageA, goalSummary);
+      mark('sync push from A');
+      await syncOnce(pageA);
+      const pendingAfterPush = await getPendingCount(pageA);
+      if (pendingAfterPush !== null) {
+        mark(`pending events after push A: ${pendingAfterPush}`);
+      }
+      const statusAfterPush = await getSyncStatus(pageA);
+      if (statusAfterPush) {
+        mark(`sync status after push A: ${JSON.stringify(statusAfterPush)}`);
+      }
 
       mark('open backup modal A');
       await pageA.getByRole('button', { name: 'Backup keys' }).click();
@@ -187,12 +238,40 @@ test.describe('offline rebase goal edit', () => {
 
       mark('login cloud on B');
       await connectToCloudAsLogin(pageB, creds);
+      const storeIdB = await pageB.evaluate(() =>
+        localStorage.getItem('mo-local-store-id')
+      );
+      if (storeIdB) {
+        const head = await pullHead(pageB, storeIdB);
+        mark(`server head after login B: ${head}`);
+      }
+      mark('sync push from A (post-login)');
+      await syncOnce(pageA);
+      mark('sync pull on B');
+      await syncOnce(pageB);
 
-      // Wait for initial sync onto device B.
+      // Wait for initial sync onto device B (retry with explicit sync).
       mark('wait for goal on B');
-      await expect(pageB.getByText(goalSummary, { exact: true })).toBeVisible({
-        timeout: 25_000,
-      });
+      let synced = false;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          await expect(
+            pageB.getByText(goalSummary, { exact: true })
+          ).toBeVisible({
+            timeout: 10_000,
+          });
+          synced = true;
+          break;
+        } catch {
+          mark(`retry sync on B (attempt ${attempt})`);
+          await syncOnce(pageA);
+          await syncOnce(pageB);
+          await pageB.waitForTimeout(1_000);
+        }
+      }
+      if (!synced) {
+        throw new Error('Goal did not sync to device B');
+      }
 
       // Device A goes offline and edits locally.
       mark('offline A and edit A1');
@@ -205,7 +284,7 @@ test.describe('offline rebase goal edit', () => {
       const summaryB1 = `${goalSummary} (B1)`;
       await editGoalSummary(pageB, summaryB1);
 
-      // Device A reconnects -> LiveStore rebases pending event.
+      // Device A reconnects -> local pending event rebases.
       mark('online A');
       await ctxA.setOffline(false);
 

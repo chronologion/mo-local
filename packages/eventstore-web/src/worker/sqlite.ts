@@ -1,4 +1,5 @@
 import SQLiteESMFactory from 'wa-sqlite/dist/wa-sqlite.mjs';
+import wasmUrl from 'wa-sqlite/dist/wa-sqlite.wasm?url';
 import * as SQLite from 'wa-sqlite';
 import * as SQLiteConstants from 'wa-sqlite/src/sqlite-constants.js';
 import { AccessHandlePoolVFS } from 'wa-sqlite/src/examples/AccessHandlePoolVFS.js';
@@ -27,16 +28,30 @@ export async function createSqliteContext(options: {
   storeId: string;
   dbName: string;
 }): Promise<SqliteContext> {
-  const module = await SQLiteESMFactory();
+  const { url: resolvedWasmUrl, bytes: wasmBinary } = await loadWasmBinary([
+    wasmUrl,
+    new URL('wa-sqlite.wasm', import.meta.url).toString(),
+  ]);
+  const module = await SQLiteESMFactory({
+    locateFile: () => resolvedWasmUrl,
+    wasmBinary,
+  });
   const sqlite3 = SQLite.Factory(module);
+  void options.storeId;
   const vfsSeed = `mo-eventstore-${options.storeId}`;
   const vfs = new AccessHandlePoolVFS(vfsSeed) as VfsWithClose;
   if (vfs.isReady) {
     await vfs.isReady;
   }
+  if ('addCapacity' in vfs && typeof vfs.addCapacity === 'function') {
+    await vfs.addCapacity(12);
+  }
   sqlite3.vfs_register(vfs, true);
+  const dbPath = options.dbName.startsWith('/')
+    ? options.dbName
+    : `/${options.dbName}`;
   const db = await sqlite3.open_v2(
-    options.dbName,
+    dbPath,
     SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
   );
   await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
@@ -50,6 +65,28 @@ export async function createSqliteContext(options: {
   };
   await applySchema(ctx);
   return ctx;
+}
+
+async function loadWasmBinary(
+  candidates: ReadonlyArray<string>
+): Promise<{ url: string; bytes: Uint8Array }> {
+  let lastError: unknown = null;
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        lastError = new Error(
+          `Failed to load wa-sqlite wasm: ${response.status}`
+        );
+        continue;
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { url, bytes };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error('Failed to load wa-sqlite wasm');
 }
 
 export async function closeSqliteContext(ctx: SqliteContext): Promise<void> {
@@ -214,7 +251,9 @@ export function toPlatformError(error: unknown): PlatformError {
 export function extractTableNames(sql: string): ReadonlyArray<string> {
   const normalized = sql.trim().replace(/\s+/g, ' ').toUpperCase();
   const matches: string[] = [];
-  const insertMatch = /INSERT\s+INTO\s+([A-Z0-9_]+)/.exec(normalized);
+  const insertMatch = /INSERT(?:\s+OR\s+[A-Z_]+)?\s+INTO\s+([A-Z0-9_]+)/.exec(
+    normalized
+  );
   if (insertMatch) matches.push(insertMatch[1]);
   const updateMatch = /UPDATE\s+([A-Z0-9_]+)/.exec(normalized);
   if (updateMatch) matches.push(updateMatch[1]);

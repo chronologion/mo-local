@@ -5,7 +5,7 @@ import { encodePersisted } from '../../eventing/registry';
 import { buildEventAad } from '../../eventing/aad';
 
 /**
- * Converts domain events to encrypted LiveStore events.
+ * Converts domain events to encrypted event records for persistence.
  *
  * NOTE ON EVENT VERSIONING
  *
@@ -14,18 +14,18 @@ import { buildEventAad } from '../../eventing/aad';
  * version. This keeps the domain model clean and focused on invariants.
  *
  * Payload versioning is handled exclusively at the persistence boundary, via
- * EncryptedEvent envelopes and the LiveStore adapters. Any future upcasting or
+ * EncryptedEvent envelopes and the infra adapters. Any future upcasting or
  * downgrading between payload versions must happen in infra (here and in the
- * LiveStoreToDomainAdapter) before constructing domain events, never inside the
+ * EncryptedEventToDomainAdapter) before constructing domain events, never inside the
  * domain layer itself.
  */
-export class DomainToLiveStoreAdapter {
+export class DomainToEncryptedEventAdapter {
   constructor(private readonly crypto: CryptoServicePort) {}
 
   async toEncrypted(
     domainEvent: DomainEvent,
     version: number,
-    kGoal: Uint8Array,
+    aggregateKey: Uint8Array,
     options?: { epoch?: number; keyringUpdate?: Uint8Array }
   ): Promise<EncryptedEvent> {
     const serialized = encodePersisted(domainEvent);
@@ -41,7 +41,11 @@ export class DomainToLiveStoreAdapter {
 
     let encryptedPayload: Uint8Array;
     try {
-      encryptedPayload = await this.crypto.encrypt(payloadBytes, kGoal, aad);
+      encryptedPayload = await this.crypto.encrypt(
+        payloadBytes,
+        aggregateKey,
+        aad
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown encryption error';
@@ -69,11 +73,11 @@ export class DomainToLiveStoreAdapter {
   async toEncryptedBatch(
     domainEvents: DomainEvent[],
     startVersion: number,
-    kGoal: Uint8Array
+    aggregateKey: Uint8Array
   ): Promise<EncryptedEvent[]> {
     return Promise.all(
       domainEvents.map((event, idx) =>
-        this.toEncrypted(event, startVersion + idx, kGoal)
+        this.toEncrypted(event, startVersion + idx, aggregateKey)
       )
     );
   }

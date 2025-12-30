@@ -1,46 +1,50 @@
-import type { EventBusPort } from '@mo/application';
-import type { Store } from '@livestore/livestore';
-import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
-import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import type { EventBusPort, EventStorePort } from '@mo/application';
+import type { SqliteDbPort } from '@mo/eventstore-web';
+import {
+  AggregateTypes,
+  ProjectionOrderings,
+  ZERO_EFFECTIVE_CURSOR,
+} from '@mo/eventstore-core';
 import { ProjectionTaskRunner } from '../projection/ProjectionTaskRunner';
-import { tables } from '../livestore/schema';
+import { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { MissingKeyError } from '../errors';
-
-type CountQuery = () =>
-  | ReturnType<typeof tables.goal_events.count>
-  | ReturnType<typeof tables.project_events.count>;
+import { ProjectionMetaStore } from '../platform/derived-state/stores/ProjectionMetaStore';
+import { ProjectionPhases } from '../platform/derived-state/types';
+import { SqliteEventStore } from '../eventstore/SqliteEventStore';
 
 type StreamConfig = Readonly<{
   name: 'goals' | 'projects';
-  eventStore: BrowserLiveStoreEventStore;
-  metaTable: 'goal_projection_meta' | 'project_projection_meta';
-  countQuery: CountQuery;
+  eventStore: EventStorePort;
 }>;
 
 type StreamState = {
   config: StreamConfig;
   lastSequence: number;
   runner: ProjectionTaskRunner;
+  projectionId: string;
 };
 
-const META_LAST_PUBLISHED_KEY = 'last_published_sequence';
+const META_LAST_PUBLISHED_PREFIX = 'committed_publisher';
 
 export class CommittedEventPublisher {
   private readonly streams: StreamState[];
   private readonly unsubscribers: Array<() => void> = [];
+  private readonly metaStore: ProjectionMetaStore;
   private started = false;
 
   constructor(
-    private readonly store: Store,
+    private readonly db: SqliteDbPort,
     private readonly eventBus: EventBusPort,
-    private readonly toDomain: LiveStoreToDomainAdapter,
+    private readonly toDomain: EncryptedEventToDomainAdapter,
     private readonly keyringManager: KeyringManager,
     configs: StreamConfig[]
   ) {
+    this.metaStore = new ProjectionMetaStore(db);
     this.streams = configs.map((config) => ({
       config,
       lastSequence: 0,
+      projectionId: `${META_LAST_PUBLISHED_PREFIX}:${config.name}`,
       runner: new ProjectionTaskRunner(
         `CommittedEventPublisher:${config.name}`,
         50
@@ -52,14 +56,16 @@ export class CommittedEventPublisher {
     if (this.started) return;
     this.started = true;
     for (const stream of this.streams) {
-      stream.lastSequence = await this.loadLastSequence(
-        stream.config.metaTable
-      );
-      this.unsubscribers.push(
-        this.store.subscribe(stream.config.countQuery(), () => {
+      stream.lastSequence = await this.loadLastSequence(stream.projectionId);
+    }
+    this.unsubscribers.push(
+      this.db.subscribeToTables(['events'], () => {
+        for (const stream of this.streams) {
           void this.processStream(stream);
-        })
-      );
+        }
+      })
+    );
+    for (const stream of this.streams) {
       await this.processStream(stream);
     }
   }
@@ -124,57 +130,60 @@ export class CommittedEventPublisher {
 
     if (processedMax > stream.lastSequence) {
       stream.lastSequence = processedMax;
-      await this.saveLastSequence(stream.config.metaTable, processedMax);
+      await this.saveLastSequence(stream.projectionId, processedMax);
     }
   }
 
-  private async loadLastSequence(metaTable: StreamConfig['metaTable']) {
-    const rows = this.store.query<{ value: string }[]>({
-      query: `SELECT value FROM ${metaTable} WHERE key = ?`,
-      bindValues: [META_LAST_PUBLISHED_KEY],
-    });
-    const value = rows[0]?.value;
-    if (!value) return 0;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+  private async loadLastSequence(projectionId: string): Promise<number> {
+    const record = await this.metaStore.get(projectionId);
+    if (!record) {
+      await this.metaStore.upsert({
+        projectionId,
+        ordering: ProjectionOrderings.commitSequence,
+        lastEffectiveCursor: ZERO_EFFECTIVE_CURSOR,
+        lastCommitSequence: 0,
+        phase: ProjectionPhases.idle,
+        updatedAt: Date.now(),
+      });
+      return 0;
+    }
+    return record.lastCommitSequence;
   }
 
   private async saveLastSequence(
-    metaTable: StreamConfig['metaTable'],
+    projectionId: string,
     value: number
-  ) {
-    this.store.query({
-      query: `
-        INSERT INTO ${metaTable} (key, value)
-        VALUES (?, ?)
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value
-      `,
-      bindValues: [META_LAST_PUBLISHED_KEY, String(value)],
+  ): Promise<void> {
+    await this.metaStore.upsert({
+      projectionId,
+      ordering: ProjectionOrderings.commitSequence,
+      lastEffectiveCursor: ZERO_EFFECTIVE_CURSOR,
+      lastCommitSequence: value,
+      phase: ProjectionPhases.idle,
+      updatedAt: Date.now(),
     });
   }
 
   static buildStreams({
-    goalEventStore,
-    projectEventStore,
+    db,
+    includeGoals,
+    includeProjects,
   }: Readonly<{
-    goalEventStore?: BrowserLiveStoreEventStore;
-    projectEventStore?: BrowserLiveStoreEventStore;
+    db: SqliteDbPort;
+    includeGoals: boolean;
+    includeProjects: boolean;
   }>): StreamConfig[] {
     const streams: StreamConfig[] = [];
-    if (goalEventStore) {
+    if (includeGoals) {
       streams.push({
         name: 'goals',
-        eventStore: goalEventStore,
-        metaTable: 'goal_projection_meta',
-        countQuery: () => tables.goal_events.count(),
+        eventStore: new SqliteEventStore(db, AggregateTypes.goal),
       });
     }
-    if (projectEventStore) {
+    if (includeProjects) {
       streams.push({
         name: 'projects',
-        eventStore: projectEventStore,
-        metaTable: 'project_projection_meta',
-        countQuery: () => tables.project_events.count(),
+        eventStore: new SqliteEventStore(db, AggregateTypes.project),
       });
     }
     return streams;

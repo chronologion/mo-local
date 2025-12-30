@@ -1,6 +1,6 @@
 import type { ProjectReadModelPort, ProjectListFilter } from '@mo/application';
 import type { ProjectListItemDto } from '@mo/application';
-import type { ProjectProjectionProcessor } from './projections/runtime/ProjectProjectionProcessor';
+import type { ProjectProjectionProcessor } from './derived-state/ProjectProjectionProcessor';
 
 /**
  * Adapter that exposes ProjectProjectionProcessor caches via the application read model port.

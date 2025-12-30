@@ -2,7 +2,7 @@ import MiniSearch, { type SearchResult } from 'minisearch';
 import type { KeyStorePort } from '@mo/application';
 import type { EffectiveCursor } from '@mo/eventstore-core';
 import type { WebCryptoService } from '../../crypto/WebCryptoService';
-import { GOAL_SEARCH_CONFIG } from '../projections/runtime/GoalSearchConfig';
+import { GOAL_SEARCH_CONFIG } from './GoalSearchConfig';
 import type { GoalListItem } from '../projections/model/GoalProjectionState';
 import {
   buildIndexArtifactAad,

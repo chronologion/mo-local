@@ -11,6 +11,7 @@ import {
   type SyncPullResponseV1,
 } from './types';
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
+import type { Unsubscribe } from '@mo/eventstore-core';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import {
   parseRecordJson,
@@ -29,6 +30,9 @@ const DEFAULT_PULL_INTERVAL_MS = 0;
 const DEFAULT_PUSH_INTERVAL_MS = 2_000;
 const DEFAULT_PUSH_BATCH_SIZE = 100;
 const DEFAULT_MAX_PUSH_RETRIES = 2;
+const MIN_PULL_BACKOFF_MS = 1_000;
+const MAX_PULL_BACKOFF_MS = 20_000;
+const DEFAULT_PUSH_DEBOUNCE_MS = 100;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,12 +64,17 @@ export class SyncEngine {
   private readonly maxPushRetries: number;
   private readonly onStatusChange?: (status: SyncStatus) => void;
   private running = false;
+  private pullInFlight = false;
+  private pushInFlight = false;
+  private pushUnsubscribe: Unsubscribe | null = null;
+  private pushTimer: ReturnType<typeof setTimeout> | null = null;
   private status: SyncStatus = {
     kind: SyncStatusKinds.idle,
     lastSuccessAt: null,
     lastError: null,
   };
   private lastKnownHead: number | null = null;
+  private pullBackoffMs = 0;
 
   constructor(options: SyncEngineOptions) {
     this.db = options.db;
@@ -85,6 +94,7 @@ export class SyncEngine {
     if (this.running) return;
     this.running = true;
     void this.ensureSyncMetaRow().then(() => {
+      this.subscribeToPushSignals();
       void this.pullLoop();
       void this.pushLoop();
     });
@@ -92,6 +102,12 @@ export class SyncEngine {
 
   stop(): void {
     this.running = false;
+    this.pushUnsubscribe?.();
+    this.pushUnsubscribe = null;
+    if (this.pushTimer) {
+      clearTimeout(this.pushTimer);
+      this.pushTimer = null;
+    }
   }
 
   getStatus(): SyncStatus {
@@ -108,7 +124,9 @@ export class SyncEngine {
     while (this.running) {
       await this.pullOnce({ waitMs: this.pullWaitMs });
       if (!this.running) return;
-      if (this.pullIntervalMs > 0) {
+      if (this.pullBackoffMs > 0) {
+        await sleep(this.pullBackoffMs);
+      } else if (this.pullIntervalMs > 0) {
         await sleep(this.pullIntervalMs);
       }
     }
@@ -156,6 +174,8 @@ export class SyncEngine {
   }
 
   private async pullOnce(options: { waitMs: number }): Promise<void> {
+    if (this.pullInFlight) return;
+    this.pullInFlight = true;
     this.setSyncing(SyncDirections.pull);
     try {
       const hadPending = await this.hasPendingEvents();
@@ -201,12 +221,17 @@ export class SyncEngine {
         }
       }
 
+      this.pullBackoffMs = 0;
       this.setStatus({
         kind: SyncStatusKinds.idle,
         lastSuccessAt: nowMs(),
         lastError: null,
       });
     } catch (error) {
+      this.pullBackoffMs =
+        this.pullBackoffMs === 0
+          ? MIN_PULL_BACKOFF_MS
+          : Math.min(this.pullBackoffMs * 2, MAX_PULL_BACKOFF_MS);
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.server,
@@ -215,13 +240,19 @@ export class SyncEngine {
         ),
         null
       );
+    } finally {
+      this.pullInFlight = false;
     }
   }
 
   private async pushOnce(): Promise<void> {
+    if (this.pushInFlight) return;
+    this.pushInFlight = true;
     this.setSyncing(SyncDirections.push);
     try {
-      await this.pullOnce({ waitMs: 0 });
+      if (!this.pullInFlight) {
+        await this.pullOnce({ waitMs: 0 });
+      }
       const pending = await this.loadPendingEvents(this.pushBatchSize);
       if (pending.length === 0) {
         this.setIdle();
@@ -267,6 +298,8 @@ export class SyncEngine {
         ),
         null
       );
+    } finally {
+      this.pushInFlight = false;
     }
   }
 
@@ -302,8 +335,27 @@ export class SyncEngine {
     if (this.lastKnownHead !== null) {
       return this.lastKnownHead;
     }
-    await this.pullOnce({ waitMs: 0 });
+    if (!this.pullInFlight && !(this.running && this.pullWaitMs > 0)) {
+      await this.pullOnce({ waitMs: 0 });
+    }
     return this.lastKnownHead ?? (await this.readLastPulledGlobalSeq());
+  }
+
+  private subscribeToPushSignals(): void {
+    if (this.pushUnsubscribe) return;
+    this.pushUnsubscribe = this.db.subscribeToTables(['events'], () => {
+      if (!this.running) return;
+      this.schedulePush();
+    });
+  }
+
+  private schedulePush(): void {
+    if (this.pushTimer) return;
+    this.pushTimer = setTimeout(() => {
+      this.pushTimer = null;
+      if (!this.running) return;
+      void this.pushOnce();
+    }, DEFAULT_PUSH_DEBOUNCE_MS);
   }
 
   private async ensureSyncMetaRow(): Promise<void> {

@@ -35,6 +35,21 @@ export type WebSqliteOptions = Readonly<{
   requireOpfs: boolean;
 }>;
 
+type SharedWorkerLike = {
+  port: MessagePortLike & { close?: () => void };
+};
+
+type SharedWorkerConstructor = new (
+  url: URL,
+  options: { type: 'module'; name?: string }
+) => SharedWorkerLike;
+
+const tryInvoke = (value: unknown): void => {
+  if (typeof value === 'function') {
+    value();
+  }
+};
+
 export async function createWebSqliteDb(
   options: WebSqliteOptions
 ): Promise<{ db: SqliteDbPort; shutdown: () => Promise<void> }> {
@@ -48,17 +63,20 @@ export async function createWebSqliteDb(
   const clientInstanceId = crypto.randomUUID();
   const sharedWorkerSupported = typeof SharedWorker !== 'undefined';
   let worker: Worker | null = null;
+  let closeSharedPort: (() => void) | null = null;
   let port: MessagePortLike;
 
-  if (sharedWorkerSupported) {
-    const sharedWorker = new SharedWorker(
+  const createSharedWorkerPort = (): MessagePortLike => {
+    const SharedWorkerCtor = SharedWorker as SharedWorkerConstructor;
+    const sharedWorker = new SharedWorkerCtor(
       new URL('./worker/owner.worker.ts', import.meta.url),
       {
         type: 'module',
         name: `mo-eventstore:${options.storeId}`,
       }
     );
-    port = {
+    closeSharedPort = () => sharedWorker.port.close?.();
+    return {
       postMessage: (message, transfer) => {
         if (transfer && transfer.length > 0) {
           sharedWorker.port.postMessage(message, transfer);
@@ -70,13 +88,15 @@ export async function createWebSqliteDb(
         sharedWorker.port.addEventListener(type, listener),
       removeEventListener: (type, listener) =>
         sharedWorker.port.removeEventListener(type, listener),
-      start: () => sharedWorker.port.start(),
+      start: () => sharedWorker.port.start?.(),
     };
-  } else {
+  };
+
+  const createDedicatedWorkerPort = (): MessagePortLike => {
     worker = new Worker(new URL('./worker/owner.worker.ts', import.meta.url), {
       type: 'module',
     });
-    port = {
+    return {
       postMessage: (message, transfer) => {
         if (transfer && transfer.length > 0) {
           worker?.postMessage(message, transfer);
@@ -89,6 +109,15 @@ export async function createWebSqliteDb(
       removeEventListener: (type, listener) =>
         worker?.removeEventListener(type, listener as EventListener),
     };
+  };
+
+  try {
+    port = sharedWorkerSupported
+      ? createSharedWorkerPort()
+      : createDedicatedWorkerPort();
+  } catch {
+    closeSharedPort = null;
+    port = createDedicatedWorkerPort();
   }
 
   const hello: WorkerHello = {
@@ -99,7 +128,25 @@ export async function createWebSqliteDb(
     dbName: options.dbName,
     requireOpfs: options.requireOpfs,
   };
-  const _helloOk = await sendHello(port, hello);
+  try {
+    const _helloOk = await sendHello(port, hello);
+    void _helloOk;
+  } catch (error) {
+    const canFallback = closeSharedPort !== null;
+    if (canFallback) {
+      try {
+        tryInvoke(closeSharedPort);
+      } catch {
+        // ignore
+      }
+      closeSharedPort = null;
+      port = createDedicatedWorkerPort();
+      const _helloOk = await sendHello(port, hello);
+      void _helloOk;
+    } else {
+      throw error;
+    }
+  }
   const client = new DbClient(port);
 
   return {
@@ -109,6 +156,7 @@ export async function createWebSqliteDb(
       if (worker) {
         worker.terminate();
       }
+      tryInvoke(closeSharedPort);
     },
   };
 }

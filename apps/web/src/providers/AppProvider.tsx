@@ -2,8 +2,6 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
 import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
-import { adapter } from './LiveStoreAdapter';
-import { tables } from '@mo/infrastructure/browser';
 import {
   decodeSalt,
   encodeSalt,
@@ -16,12 +14,10 @@ import {
   type InterfaceContextValue,
   type InterfaceServices,
 } from '@mo/presentation/react';
-import { setSyncGateEnabled } from '@mo/infrastructure/livestore/sync/syncGate';
 import { useRemoteAuth } from './RemoteAuthProvider';
-import { resetSyncHeadInOpfs } from '../utils/resetSyncHead';
+import { wipeEventStoreDb } from '../utils/resetEventStoreDb';
 
 const USER_META_KEY = 'mo-local-user';
-const RESET_FLAG_KEY = 'mo-local-reset-persistence';
 const STORE_ID_KEY = 'mo-local-store-id';
 
 const loadStoredStoreId = (): string | null => {
@@ -47,15 +43,6 @@ type SessionState =
     };
 
 type Services = Awaited<ReturnType<typeof createAppServices>>;
-
-const getStoreShutdownPromise = (
-  store: Services['store']
-): (() => Promise<void>) | null => {
-  const candidate = store as { shutdownPromise?: unknown };
-  return typeof candidate.shutdownPromise === 'function'
-    ? (candidate.shutdownPromise as () => Promise<void>)
-    : null;
-};
 
 type AppContextValue = {
   services: Services;
@@ -123,18 +110,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     aggregateCount?: number;
     tables?: string[];
     onRebuild?: () => void;
-    onResetSyncHead?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
   const sagaBootstrappedRef = useRef<Set<string>>(new Set());
   const publisherStartedRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const enabled =
-      session.status === 'ready' && remoteAuthState.status === 'connected';
-    setSyncGateEnabled(enabled);
-  }, [remoteAuthState.status, session.status]);
 
   useEffect(() => {
     const meta = loadMeta();
@@ -186,42 +166,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         setInitError(null);
         const svc = await createAppServices({
-          adapter,
           storeId,
           contexts: ['goals', 'projects'],
         });
-        const updateDebug = () => {
-          const tablesList = (() => {
+        const updateDebug = async () => {
+          const tablesList = await (async () => {
             try {
-              const res = svc.store.query<{ name: string }[]>({
-                query: "SELECT name FROM sqlite_master WHERE type = 'table'",
-                bindValues: [],
-              });
+              const res = await svc.db.query<Readonly<{ name: string }>>(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+              );
               return res.map((row) => row.name);
             } catch {
               return [];
             }
           })();
-          const eventCount = (() => {
+          const eventCount = await (async () => {
             try {
-              const res = svc.store.query<{ count: number }[]>({
-                // Total events in the canonical LiveStore log.
-                query:
-                  'SELECT COUNT(*) as count FROM __livestore_session_changeset WHERE (? IS NULL OR 1 = 1)',
-                bindValues: [Date.now()],
-              });
+              const res = await svc.db.query<Readonly<{ count: number }>>(
+                'SELECT COUNT(*) as count FROM events'
+              );
               return Number(res?.[0]?.count ?? 0);
             } catch {
               return 0;
             }
           })();
-          const aggregateCount = (() => {
+          const aggregateCount = await (async () => {
             try {
-              const res = svc.store.query<{ count: number }[]>({
-                query:
-                  'SELECT COUNT(DISTINCT aggregate_id) as count FROM goal_events',
-                bindValues: [],
-              });
+              const res = await svc.db.query<Readonly<{ count: number }>>(
+                'SELECT COUNT(DISTINCT aggregate_id) as count FROM events'
+              );
               return Number(res?.[0]?.count ?? 0);
             } catch {
               return 0;
@@ -229,13 +202,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })();
 
           setDebugInfo({
-            storeId: svc.store.storeId,
+            storeId,
             opfsAvailable:
               typeof navigator !== 'undefined' &&
               !!navigator.storage &&
               typeof navigator.storage.getDirectory === 'function',
             storage: 'opfs',
-            note: 'LiveStore adapter (opfs)',
+            note: 'eventstore-web (opfs)',
             eventCount,
             aggregateCount,
             tables: tablesList,
@@ -250,51 +223,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 await projectCtx.projectProjection.resetAndRebuild();
               })();
             },
-            onResetSyncHead: () => {
-              void (async () => {
-                try {
-                  try {
-                    svc.contexts.goals?.goalProjection.stop();
-                    svc.contexts.projects?.projectProjection.stop();
-                    const maybeShutdown = getStoreShutdownPromise(svc.store);
-                    if (maybeShutdown) {
-                      await maybeShutdown();
-                    }
-                  } catch (error) {
-                    console.warn(
-                      'LiveStore shutdown failed before reset',
-                      error
-                    );
-                  }
-                  const ok = await resetSyncHeadInOpfs(svc.store.storeId);
-                  if (!ok) {
-                    alert(
-                      'Unable to find eventlog DB with __livestore_sync_status; sync head not reset.'
-                    );
-                    return;
-                  }
-                  alert('Sync head reset to 0. Reloading to trigger re-push.');
-                  window.location.reload();
-                } catch (error) {
-                  console.error('Failed to reset sync head', error);
-                  alert(
-                    error instanceof Error
-                      ? error.message
-                      : 'Failed to reset sync head'
-                  );
-                }
-              })();
-            },
           });
         };
 
-        unsubscribe = svc.store.subscribe(tables.goal_events.count(), () =>
-          updateDebug()
-        );
-        updateDebug();
+        unsubscribe = svc.db.subscribeToTables(['events'], () => {
+          void updateDebug();
+        });
+        void updateDebug();
         if (import.meta.env.DEV) {
           intervalId = window.setInterval(() => {
-            updateDebug();
+            void updateDebug();
           }, 1000);
         }
 
@@ -334,12 +272,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         createdServices?.contexts.goals?.goalProjection.stop();
         createdServices?.contexts.projects?.projectProjection.stop();
         createdServices?.publisher.stop();
-        const maybeShutdown = createdServices
-          ? getStoreShutdownPromise(createdServices.store)
-          : null;
-        void maybeShutdown?.();
+        createdServices?.syncEngine.stop();
+        void createdServices?.dbShutdown();
       } catch (error) {
-        console.warn('Failed to shutdown LiveStore cleanly', error);
+        console.warn('Failed to shutdown event store cleanly', error);
       }
       if (
         pendingInitResolver.current &&
@@ -406,6 +342,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [services, masterKey, session.status]);
+
+  useEffect(() => {
+    if (!services || session.status !== 'ready' || !masterKey) return;
+    if (remoteAuthState.status !== 'connected') {
+      services.syncEngine.stop();
+      return;
+    }
+    services.syncEngine.start();
+    void services.syncEngine.syncOnce().catch(() => undefined);
+    return () => {
+      services.syncEngine.stop();
+    };
+  }, [services, masterKey, session.status, remoteAuthState.status]);
 
   const completeOnboarding = async ({ password }: { password: string }) => {
     if (!services) {
@@ -474,16 +423,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const projectCtx = services.contexts.projects;
       goalCtx?.goalProjection.stop();
       projectCtx?.projectProjection.stop();
-      const maybeShutdown = getStoreShutdownPromise(services.store);
-      await maybeShutdown?.();
+      services.syncEngine.stop();
+      services.publisher.stop();
+      await services.dbShutdown();
+      await wipeEventStoreDb(services.storeId);
     } catch (error) {
-      console.warn('LiveStore shutdown failed', error);
+      console.warn('Event store shutdown failed', error);
     }
     indexedDB.deleteDatabase('mo-local-keys');
     localStorage.removeItem(USER_META_KEY);
     const nextStoreId = uuidv7();
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
-    localStorage.removeItem(RESET_FLAG_KEY);
     window.location.reload();
   };
 
@@ -606,11 +556,40 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   if (initError) {
-    return <div>Failed to initialize LiveStore: {initError}</div>;
+    return <div>Failed to initialize event store: {initError}</div>;
   }
 
   if (!services || !servicesConfig || servicesConfig.storeId !== storeId) {
     return <div>Loading app...</div>;
+  }
+
+  if (import.meta.env.DEV) {
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncOnce = () => services.syncEngine.syncOnce();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moPendingCount = async () => {
+      const rows = await services.db.query<Readonly<{ count: number }>>(
+        'SELECT COUNT(*) as count FROM events e LEFT JOIN sync_event_map m ON m.event_id = e.id WHERE m.event_id IS NULL'
+      );
+      return Number(rows[0]?.count ?? 0);
+    };
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncStatus = () => services.syncEngine.getStatus();
   }
 
   const goalCtx = services.contexts.goals;
@@ -655,14 +634,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       {debugInfo && import.meta.env.DEV && session.status === 'ready' ? (
         <DebugPanel
           info={{
-            vfsName: 'adapter-web',
             opfsAvailable: debugInfo.opfsAvailable,
-            syncAccessHandle:
-              typeof (
-                globalThis as {
-                  FileSystemSyncAccessHandle?: unknown;
-                }
-              ).FileSystemSyncAccessHandle !== 'undefined',
             tables: debugInfo.tables ?? [],
             note: debugInfo.note,
             storeId: debugInfo.storeId,
@@ -670,7 +642,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
             onRebuild: debugInfo.onRebuild,
-            onResetSyncHead: debugInfo.onResetSyncHead,
           }}
         />
       ) : null}

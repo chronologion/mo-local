@@ -2,7 +2,7 @@ import type { KeyStorePort, EncryptedEvent } from '@mo/application';
 import { ProjectionOrderings } from '@mo/eventstore-core';
 import type { SqliteDbPort } from '@mo/eventstore-web';
 import { MissingKeyError } from '../../errors';
-import { LiveStoreToDomainAdapter } from '../../livestore/adapters/LiveStoreToDomainAdapter';
+import { EncryptedEventToDomainAdapter } from '../../eventstore/adapters/EncryptedEventToDomainAdapter';
 import type { WebCryptoService } from '../../crypto/WebCryptoService';
 import { KeyringManager } from '../../crypto/KeyringManager';
 import {
@@ -52,7 +52,7 @@ export class GoalProjectionProcessor
     crypto: WebCryptoService,
     keyStore: KeyStorePort,
     private readonly keyringManager: KeyringManager,
-    private readonly toDomain: LiveStoreToDomainAdapter
+    private readonly toDomain: EncryptedEventToDomainAdapter
   ) {
     this.cacheStore = new ProjectionCacheStore(db);
     this.indexStore = new IndexArtifactStore(db);

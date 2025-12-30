@@ -198,6 +198,7 @@ export async function sendHello(
   message: WorkerHello,
   timeoutMs = 5000
 ): Promise<Extract<WorkerHello, { kind: typeof WorkerHelloKinds.helloOk }>> {
+  port.start?.();
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       port.removeEventListener('message', handler);

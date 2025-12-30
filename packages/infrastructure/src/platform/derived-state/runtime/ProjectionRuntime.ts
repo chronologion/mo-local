@@ -362,7 +362,7 @@ export class ProjectionRuntime {
         LEFT JOIN sync_event_map m ON m.event_id = e.id
         WHERE e.aggregate_type = ?
           AND (
-            (m.global_seq IS NOT NULL AND m.global_seq > ?)
+            (m.global_seq IS NOT NULL AND m.global_seq > ? AND e.commit_sequence > ?)
             OR (m.global_seq IS NULL AND e.commit_sequence > ?)
           )
         ORDER BY
@@ -374,6 +374,7 @@ export class ProjectionRuntime {
       [
         this.aggregateType,
         cursor.globalSequence,
+        cursor.pendingCommitSequence,
         cursor.pendingCommitSequence,
         this.scheduler.batchSize,
       ]
