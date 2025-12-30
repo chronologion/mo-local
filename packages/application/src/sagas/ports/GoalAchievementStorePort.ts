@@ -5,7 +5,9 @@ export type GoalAchievementState = {
   linkedProjectIds: string[];
   completedProjectIds: string[];
   achieved: boolean;
+  archived: boolean;
   achievementRequested: boolean;
+  version: number;
 };
 
 export type ProjectAchievementState = {

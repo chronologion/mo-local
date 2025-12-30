@@ -130,7 +130,7 @@ export const createAppServices = async ({
     );
     const saga = new GoalAchievementSaga(
       sagaStore,
-      ctx.goals.goalRepo,
+      ctx.goals.goalReadModel,
       ctx.projects.projectReadModel,
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
