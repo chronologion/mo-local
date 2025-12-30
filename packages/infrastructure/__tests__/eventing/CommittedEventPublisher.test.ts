@@ -108,8 +108,8 @@ const buildEncryptedEvent = (params: {
   actorId: params.actorId,
   causationId: null,
   correlationId: null,
-  epoch: null,
-  keyringUpdate: null,
+  epoch: undefined,
+  keyringUpdate: undefined,
 });
 
 describe('CommittedEventPublisher', () => {
