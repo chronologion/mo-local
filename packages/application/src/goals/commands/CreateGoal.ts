@@ -1,5 +1,8 @@
 import { PriorityLevel, SliceValue } from '@mo/domain';
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type CreateGoalPayload = {
   goalId: string;
@@ -26,8 +29,8 @@ export class CreateGoal
   readonly timestamp: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: CreateGoalPayload) {
-    super(payload);
+  constructor(payload: CreateGoalPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.goalId = payload.goalId;
     this.slice = payload.slice;
     this.summary = payload.summary;

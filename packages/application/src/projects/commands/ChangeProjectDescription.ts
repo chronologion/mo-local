@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type ChangeProjectDescriptionPayload = {
   projectId: string;
@@ -21,8 +24,11 @@ export class ChangeProjectDescription
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: ChangeProjectDescriptionPayload) {
-    super(payload);
+  constructor(
+    payload: ChangeProjectDescriptionPayload,
+    meta?: CommandMetadata
+  ) {
+    super(payload, meta);
     this.projectId = payload.projectId;
     this.description = payload.description;
     this.userId = payload.userId;

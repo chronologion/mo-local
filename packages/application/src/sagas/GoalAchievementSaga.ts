@@ -3,6 +3,9 @@ import type { GoalReadModelPort } from '../goals/ports/GoalReadModelPort';
 import type { ProjectReadModelPort } from '../projects/ports/ProjectReadModelPort';
 import { AchieveGoal, UnachieveGoal } from '../goals/commands';
 import {
+  ActorId,
+  CorrelationId,
+  DomainEvent,
   EventId,
   GoalArchived,
   GoalAchieved,
@@ -14,10 +17,12 @@ import {
   GoalRefined,
   GoalRescheduled,
   GoalUnachieved,
+  GoalId,
   ProjectCreated,
   ProjectGoalAdded,
   ProjectGoalRemoved,
   ProjectStatusTransitioned,
+  Timestamp,
   projectEventTypes,
   goalEventTypes,
   type ProjectStatusValue,
@@ -86,22 +91,11 @@ export class GoalAchievementSaga {
       goalStates.set(goalId, goalState);
     }
 
-    for (const [, state] of goalStates.entries()) {
+    for (const [goalId, state] of goalStates.entries()) {
       await this.store.saveGoalState(state);
-      await this.maybeAchieveGoal(
-        state,
-        {
-          actorId: { value: 'system' },
-          occurredAt: { value: Date.now() },
-          eventId: EventId.create(),
-        },
-        { forceRetry: true }
-      );
-      await this.maybeUnachieveGoal(state, {
-        actorId: { value: 'system' },
-        occurredAt: { value: Date.now() },
-        eventId: EventId.create(),
-      });
+      const systemEvent = this.systemEvent(goalId);
+      await this.maybeAchieveGoal(state, systemEvent, { forceRetry: true });
+      await this.maybeUnachieveGoal(state, systemEvent);
     }
   }
 
@@ -341,12 +335,7 @@ export class GoalAchievementSaga {
 
   private async maybeAchieveGoal(
     state: GoalAchievementState,
-    event: {
-      actorId: { value: string };
-      occurredAt: { value: number };
-      eventId: { value: string };
-      correlationId?: { value: string };
-    },
+    event: DomainEvent,
     options?: { forceRetry?: boolean }
   ): Promise<void> {
     if (state.achieved) return;
@@ -360,15 +349,16 @@ export class GoalAchievementSaga {
     if (state.achievementRequested && !options?.forceRetry) return;
 
     const correlationId = event.correlationId?.value ?? event.eventId.value;
-    const command = new AchieveGoal({
-      goalId: state.goalId,
-      userId: event.actorId.value,
-      timestamp: event.occurredAt.value,
-      knownVersion: state.version,
-      idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
-      correlationId,
-      causationId: event.eventId.value,
-    });
+    const command = new AchieveGoal(
+      {
+        goalId: state.goalId,
+        userId: event.actorId.value,
+        timestamp: event.occurredAt.value,
+        knownVersion: state.version,
+        idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
+      },
+      { correlationId, causationId: event.eventId.value }
+    );
 
     state.achievementRequested = true;
     await this.store.saveGoalState(state);
@@ -383,12 +373,7 @@ export class GoalAchievementSaga {
 
   private async maybeUnachieveGoal(
     state: GoalAchievementState,
-    event: {
-      actorId: { value: string };
-      occurredAt: { value: number };
-      eventId: { value: string };
-      correlationId?: { value: string };
-    }
+    event: DomainEvent
   ): Promise<void> {
     if (!state.achieved && !state.achievementRequested) return;
     if (state.archived) return;
@@ -400,20 +385,36 @@ export class GoalAchievementSaga {
     if (state.version <= 0) return;
 
     const correlationId = event.correlationId?.value ?? event.eventId.value;
-    const command = new UnachieveGoal({
-      goalId: state.goalId,
-      userId: event.actorId.value,
-      timestamp: event.occurredAt.value,
-      knownVersion: state.version,
-      idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,
-      correlationId,
-      causationId: event.eventId.value,
-    });
+    const command = new UnachieveGoal(
+      {
+        goalId: state.goalId,
+        userId: event.actorId.value,
+        timestamp: event.occurredAt.value,
+        knownVersion: state.version,
+        idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,
+      },
+      { correlationId, causationId: event.eventId.value }
+    );
 
     await this.dispatchUnachieveGoal(command);
   }
 
   private nextVersion(current: number): number {
     return current + 1;
+  }
+
+  private systemEvent(goalId: string): DomainEvent {
+    const actorId = ActorId.from('system');
+    const occurredAt = Timestamp.fromMillis(Date.now());
+    const eventId = EventId.create();
+    return {
+      eventType: 'SystemReconciliation',
+      aggregateId: GoalId.from(goalId),
+      actorId,
+      occurredAt,
+      eventId,
+      correlationId: CorrelationId.from(eventId.value),
+      causationId: eventId,
+    };
   }
 }

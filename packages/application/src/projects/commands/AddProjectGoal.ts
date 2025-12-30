@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type AddProjectGoalPayload = {
   projectId: string;
@@ -21,8 +24,8 @@ export class AddProjectGoal
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: AddProjectGoalPayload) {
-    super(payload);
+  constructor(payload: AddProjectGoalPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.projectId = payload.projectId;
     this.goalId = payload.goalId;
     this.userId = payload.userId;

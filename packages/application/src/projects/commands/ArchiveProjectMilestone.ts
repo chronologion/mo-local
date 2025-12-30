@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type ArchiveProjectMilestonePayload = {
   projectId: string;
@@ -21,8 +24,8 @@ export class ArchiveProjectMilestone
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: ArchiveProjectMilestonePayload) {
-    super(payload);
+  constructor(payload: ArchiveProjectMilestonePayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
     this.userId = payload.userId;

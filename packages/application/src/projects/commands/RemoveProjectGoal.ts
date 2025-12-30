@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type RemoveProjectGoalPayload = {
   projectId: string;
@@ -19,8 +22,8 @@ export class RemoveProjectGoal
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: RemoveProjectGoalPayload) {
-    super(payload);
+  constructor(payload: RemoveProjectGoalPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.projectId = payload.projectId;
     this.userId = payload.userId;
     this.timestamp = payload.timestamp;

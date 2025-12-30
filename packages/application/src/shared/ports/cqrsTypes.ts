@@ -1,5 +1,7 @@
 export interface ICommand<TType extends string = string> {
   readonly type: TType;
+  readonly correlationId?: string | null;
+  readonly causationId?: string | null;
 }
 
 export interface IQuery<TType extends string = string> {

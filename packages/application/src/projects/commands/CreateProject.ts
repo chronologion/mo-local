@@ -1,5 +1,8 @@
 import { ProjectStatusValue } from '@mo/domain';
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type CreateProjectPayload = {
   projectId: string;
@@ -30,8 +33,8 @@ export class CreateProject
   readonly timestamp: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: CreateProjectPayload) {
-    super(payload);
+  constructor(payload: CreateProjectPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.projectId = payload.projectId;
     this.name = payload.name;
     this.status = payload.status;

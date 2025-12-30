@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type RevokeGoalAccessPayload = {
   goalId: string;
@@ -21,8 +24,8 @@ export class RevokeGoalAccess
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: RevokeGoalAccessPayload) {
-    super(payload);
+  constructor(payload: RevokeGoalAccessPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.goalId = payload.goalId;
     this.revokeUserId = payload.revokeUserId;
     this.userId = payload.userId;

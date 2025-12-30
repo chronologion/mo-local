@@ -1,4 +1,7 @@
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type AccessPermission = 'view' | 'edit';
 
@@ -25,8 +28,8 @@ export class GrantGoalAccess
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: GrantGoalAccessPayload) {
-    super(payload);
+  constructor(payload: GrantGoalAccessPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.goalId = payload.goalId;
     this.grantToUserId = payload.grantToUserId;
     this.permission = payload.permission;

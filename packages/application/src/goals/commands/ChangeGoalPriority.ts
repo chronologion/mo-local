@@ -1,5 +1,8 @@
 import { PriorityLevel } from '@mo/domain';
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type ChangeGoalPriorityPayload = {
   goalId: string;
@@ -22,8 +25,8 @@ export class ChangeGoalPriority
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: ChangeGoalPriorityPayload) {
-    super(payload);
+  constructor(payload: ChangeGoalPriorityPayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.goalId = payload.goalId;
     this.priority = payload.priority;
     this.userId = payload.userId;

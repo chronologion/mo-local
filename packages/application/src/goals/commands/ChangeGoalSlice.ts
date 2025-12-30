@@ -1,5 +1,8 @@
 import { SliceValue } from '@mo/domain';
-import { BaseCommand } from '../../shared/ports/BaseCommand';
+import {
+  BaseCommand,
+  type CommandMetadata,
+} from '../../shared/ports/BaseCommand';
 
 export type ChangeGoalSlicePayload = {
   goalId: string;
@@ -22,8 +25,8 @@ export class ChangeGoalSlice
   readonly knownVersion: number;
   readonly idempotencyKey: string;
 
-  constructor(payload: ChangeGoalSlicePayload) {
-    super(payload);
+  constructor(payload: ChangeGoalSlicePayload, meta?: CommandMetadata) {
+    super(payload, meta);
     this.goalId = payload.goalId;
     this.slice = payload.slice;
     this.userId = payload.userId;
