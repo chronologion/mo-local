@@ -7,7 +7,7 @@ export type ChangeProjectDatesPayload = {
   projectId: string;
   startDate: string;
   targetDate: string;
-  userId: string;
+  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -21,7 +21,7 @@ export class ChangeProjectDates
   readonly projectId: string;
   readonly startDate: string;
   readonly targetDate: string;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -31,7 +31,7 @@ export class ChangeProjectDates
     this.projectId = payload.projectId;
     this.startDate = payload.startDate;
     this.targetDate = payload.targetDate;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

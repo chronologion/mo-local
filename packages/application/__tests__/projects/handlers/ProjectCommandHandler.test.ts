@@ -27,7 +27,7 @@ class CountingCryptoService extends MockCryptoService {
 }
 
 const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
-const userId = 'user-1';
+const actorId = 'user-1';
 const baseCreate = () =>
   new CreateProject({
     projectId,
@@ -37,7 +37,7 @@ const baseCreate = () =>
     targetDate: '2025-02-01',
     description: 'desc',
     goalId: null,
-    userId,
+    actorId,
     timestamp: Date.now(),
     idempotencyKey: 'idem-create',
   });
@@ -117,7 +117,7 @@ describe('ProjectCommandHandler', () => {
       new ChangeProjectStatus({
         projectId,
         status: 'in_progress',
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion: 1,
         idempotencyKey: 'idem-status',
@@ -135,7 +135,7 @@ describe('ProjectCommandHandler', () => {
         new ChangeProjectName({
           projectId,
           name: 'New name',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-name-missing-key',
@@ -154,7 +154,7 @@ describe('ProjectCommandHandler', () => {
         new ChangeProjectDescription({
           projectId,
           description: 'New desc',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-desc-fail',
@@ -174,7 +174,7 @@ describe('ProjectCommandHandler', () => {
           projectId,
           startDate: '2025-01-02',
           targetDate: '2025-03-01',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-dates-concurrency',
@@ -191,7 +191,7 @@ describe('ProjectCommandHandler', () => {
         new ChangeProjectStatus({
           projectId,
           status: 'not-a-status' as never,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-invalid-status',
@@ -209,7 +209,7 @@ describe('ProjectCommandHandler', () => {
         new ChangeProjectStatus({
           projectId,
           status: 'in_progress',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 0,
           idempotencyKey: 'idem-status-mismatch',

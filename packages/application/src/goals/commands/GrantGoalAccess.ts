@@ -9,7 +9,7 @@ export type GrantGoalAccessPayload = {
   goalId: string;
   grantToUserId: string;
   permission: AccessPermission;
-  userId: string;
+  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -23,7 +23,7 @@ export class GrantGoalAccess
   readonly goalId: string;
   readonly grantToUserId: string;
   readonly permission: AccessPermission;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -33,7 +33,7 @@ export class GrantGoalAccess
     this.goalId = payload.goalId;
     this.grantToUserId = payload.grantToUserId;
     this.permission = payload.permission;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

@@ -27,14 +27,14 @@ class CountingCryptoService extends MockCryptoService {
 }
 
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
-const userId = 'user-1';
+const actorId = 'user-1';
 const baseCreate = new CreateGoal({
   goalId,
   slice: 'Health' as const,
   summary: 'Run a marathon',
   targetMonth: '2025-12',
   priority: 'must' as const,
-  userId,
+  actorId,
   timestamp: Date.now(),
   idempotencyKey: 'idem-create',
 });
@@ -117,7 +117,7 @@ describe('GoalCommandHandler', () => {
       new ChangeGoalSummary({
         goalId,
         summary: 'Run a faster marathon',
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion: 1,
         idempotencyKey: 'idem-summary',
@@ -132,7 +132,7 @@ describe('GoalCommandHandler', () => {
     await handler.handleAchieve(
       new AchieveGoal({
         goalId,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion: 1,
         idempotencyKey: 'idem-achieve',
@@ -147,7 +147,7 @@ describe('GoalCommandHandler', () => {
     await handler.handleAchieve(
       new AchieveGoal({
         goalId,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion: 1,
         idempotencyKey: 'idem-achieve-unachieve',
@@ -157,7 +157,7 @@ describe('GoalCommandHandler', () => {
     await handler.handleUnachieve(
       new UnachieveGoal({
         goalId,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion: 2,
         idempotencyKey: 'idem-unachieve',
@@ -175,7 +175,7 @@ describe('GoalCommandHandler', () => {
         new ChangeGoalSummary({
           goalId,
           summary: 'Another summary',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-summary-missing-key',
@@ -194,7 +194,7 @@ describe('GoalCommandHandler', () => {
         new ChangeGoalPriority({
           goalId,
           priority: 'should',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-priority-fail',
@@ -213,7 +213,7 @@ describe('GoalCommandHandler', () => {
         new ChangeGoalSlice({
           goalId,
           slice: 'Work',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-slice-concurrency',
@@ -231,7 +231,7 @@ describe('GoalCommandHandler', () => {
         new ChangeGoalTargetMonth({
           goalId,
           targetMonth: '2026-01',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 1,
           idempotencyKey: 'idem-target-month',
@@ -249,7 +249,7 @@ describe('GoalCommandHandler', () => {
         new ChangeGoalSummary({
           goalId,
           summary: 'Run a faster marathon',
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion: 0,
           idempotencyKey: 'idem-summary-mismatch',

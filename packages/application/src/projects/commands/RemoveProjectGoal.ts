@@ -5,7 +5,7 @@ import {
 
 export type RemoveProjectGoalPayload = {
   projectId: string;
-  userId: string;
+  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -17,7 +17,7 @@ export class RemoveProjectGoal
 {
   readonly type = 'RemoveProjectGoal';
   readonly projectId: string;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -25,7 +25,7 @@ export class RemoveProjectGoal
   constructor(payload: RemoveProjectGoalPayload, meta?: CommandMetadata) {
     super(payload, meta);
     this.projectId = payload.projectId;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

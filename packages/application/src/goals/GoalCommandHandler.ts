@@ -56,7 +56,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       summary,
       targetMonth,
       priority,
-      userId,
+      actorId,
       timestamp,
       idempotencyKey,
     } = this.parseCommand(command, {
@@ -65,7 +65,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       summary: (c) => Summary.from(c.summary),
       targetMonth: (c) => Month.from(c.targetMonth),
       priority: (c) => Priority.from(c.priority),
-      userId: (c) => UserId.from(c.userId),
+      actorId: (c) => UserId.from(c.actorId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
     });
@@ -98,7 +98,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       summary,
       targetMonth,
       priority,
-      createdBy: userId,
+      createdBy: actorId,
       createdAt: timestamp,
     });
 
@@ -121,15 +121,21 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSummary(
     command: ChangeGoalSummary
   ): Promise<GoalCommandResult> {
-    const { goalId, summary, userId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        summary: (c) => Summary.from(c.summary),
-        userId: (c) => UserId.from(c.userId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
+    const {
+      goalId,
+      summary,
+      actorId,
+      timestamp,
+      knownVersion,
+      idempotencyKey,
+    } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      summary: (c) => Summary.from(c.summary),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
     if (
       await this.isDuplicateCommand({
@@ -147,7 +153,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.changeSummary({ summary, changedAt: timestamp, actorId: userId });
+    goal.changeSummary({ summary, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
@@ -158,11 +164,11 @@ export class GoalCommandHandler extends BaseCommandHandler {
   async handleChangeSlice(
     command: ChangeGoalSlice
   ): Promise<GoalCommandResult> {
-    const { goalId, slice, userId, timestamp, knownVersion, idempotencyKey } =
+    const { goalId, slice, actorId, timestamp, knownVersion, idempotencyKey } =
       this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
         slice: (c) => Slice.from(c.slice),
-        userId: (c) => UserId.from(c.userId),
+        actorId: (c) => UserId.from(c.actorId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -184,7 +190,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.changeSlice({ slice, changedAt: timestamp, actorId: userId });
+    goal.changeSlice({ slice, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
@@ -198,14 +204,14 @@ export class GoalCommandHandler extends BaseCommandHandler {
     const {
       goalId,
       targetMonth,
-      userId,
+      actorId,
       timestamp,
       knownVersion,
       idempotencyKey,
     } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       targetMonth: (c) => Month.from(c.targetMonth),
-      userId: (c) => UserId.from(c.userId),
+      actorId: (c) => UserId.from(c.actorId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
       idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -230,7 +236,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.changeTargetMonth({
       targetMonth,
       changedAt: timestamp,
-      actorId: userId,
+      actorId: actorId,
     });
     return this.persist(goal, {
       idempotencyKey,
@@ -245,14 +251,14 @@ export class GoalCommandHandler extends BaseCommandHandler {
     const {
       goalId,
       priority,
-      userId,
+      actorId,
       timestamp,
       knownVersion,
       idempotencyKey,
     } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       priority: (c) => Priority.from(c.priority),
-      userId: (c) => UserId.from(c.userId),
+      actorId: (c) => UserId.from(c.actorId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
       idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -274,7 +280,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.changePriority({ priority, changedAt: timestamp, actorId: userId });
+    goal.changePriority({ priority, changedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
@@ -283,10 +289,10 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleArchive(command: ArchiveGoal): Promise<GoalCommandResult> {
-    const { goalId, userId, timestamp, knownVersion, idempotencyKey } =
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
       this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
-        userId: (c) => UserId.from(c.userId),
+        actorId: (c) => UserId.from(c.actorId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -308,7 +314,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       aggregateType: 'Goal',
       aggregateId: goal.id.value,
     });
-    goal.archive({ archivedAt: timestamp, actorId: userId });
+    goal.archive({ archivedAt: timestamp, actorId: actorId });
     return this.persist(goal, {
       idempotencyKey,
       commandType: command.type,
@@ -317,10 +323,10 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleAchieve(command: AchieveGoal): Promise<GoalCommandResult> {
-    const { goalId, userId, timestamp, knownVersion, idempotencyKey } =
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
       this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
-        userId: (c) => UserId.from(c.userId),
+        actorId: (c) => UserId.from(c.actorId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -350,7 +356,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     goal.achieve({
       achievedAt: timestamp,
-      actorId: userId,
+      actorId: actorId,
       correlationId,
       causationId,
     });
@@ -362,10 +368,10 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleUnachieve(command: UnachieveGoal): Promise<GoalCommandResult> {
-    const { goalId, userId, timestamp, knownVersion, idempotencyKey } =
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
       this.parseCommand(command, {
         goalId: (c) => GoalId.from(c.goalId),
-        userId: (c) => UserId.from(c.userId),
+        actorId: (c) => UserId.from(c.actorId),
         timestamp: (c) => this.parseTimestamp(c.timestamp),
         knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
         idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -395,7 +401,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
     goal.unachieve({
       unachievedAt: timestamp,
-      actorId: userId,
+      actorId: actorId,
       correlationId,
       causationId,
     });
@@ -413,7 +419,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       goalId,
       grantToUserId,
       permission,
-      userId,
+      actorId,
       timestamp,
       knownVersion,
       idempotencyKey,
@@ -421,7 +427,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       goalId: (c) => GoalId.from(c.goalId),
       grantToUserId: (c) => UserId.from(c.grantToUserId),
       permission: (c) => Permission.from(c.permission),
-      userId: (c) => UserId.from(c.userId),
+      actorId: (c) => UserId.from(c.actorId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
       idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -447,7 +453,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
       userId: grantToUserId,
       permission,
       grantedAt: timestamp,
-      actorId: userId,
+      actorId: actorId,
     });
     return this.persist(goal, {
       idempotencyKey,
@@ -462,14 +468,14 @@ export class GoalCommandHandler extends BaseCommandHandler {
     const {
       goalId,
       revokeUserId,
-      userId,
+      actorId,
       timestamp,
       knownVersion,
       idempotencyKey,
     } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       revokeUserId: (c) => UserId.from(c.revokeUserId),
-      userId: (c) => UserId.from(c.userId),
+      actorId: (c) => UserId.from(c.actorId),
       timestamp: (c) => this.parseTimestamp(c.timestamp),
       knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
       idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
@@ -494,7 +500,7 @@ export class GoalCommandHandler extends BaseCommandHandler {
     goal.revokeAccess({
       userId: revokeUserId,
       revokedAt: timestamp,
-      actorId: userId,
+      actorId: actorId,
     });
     return this.persist(goal, {
       idempotencyKey,

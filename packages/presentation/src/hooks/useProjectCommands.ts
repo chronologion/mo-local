@@ -78,7 +78,7 @@ export const useProjectCommands = () => {
 
   const createProject = useCallback(
     async (params: CreateProjectParams) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       return dispatch({
         type: 'CreateProject',
         projectId: uuidv7(),
@@ -88,7 +88,7 @@ export const useProjectCommands = () => {
         targetDate: params.targetDate,
         description: params.description,
         goalId: params.goalId ?? null,
-        userId,
+        actorId,
         timestamp: Date.now(),
         idempotencyKey: uuidv7(),
       });
@@ -98,14 +98,14 @@ export const useProjectCommands = () => {
 
   const updateProject = useCallback(
     async (params: UpdateProjectParams) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       let knownVersion = await loadKnownVersion(params.projectId);
       if (params.status) {
         await dispatch({
           type: 'ChangeProjectStatus',
           projectId: params.projectId,
           status: params.status,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -117,7 +117,7 @@ export const useProjectCommands = () => {
           type: 'ChangeProjectName',
           projectId: params.projectId,
           name: params.name,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -129,7 +129,7 @@ export const useProjectCommands = () => {
           type: 'ChangeProjectDescription',
           projectId: params.projectId,
           description: params.description,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -147,7 +147,7 @@ export const useProjectCommands = () => {
           projectId: params.projectId,
           startDate: params.startDate,
           targetDate: params.targetDate,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -160,7 +160,7 @@ export const useProjectCommands = () => {
             type: 'AddProjectGoal',
             projectId: params.projectId,
             goalId: params.goalId,
-            userId,
+            actorId,
             timestamp: Date.now(),
             knownVersion,
             idempotencyKey: uuidv7(),
@@ -169,7 +169,7 @@ export const useProjectCommands = () => {
           await dispatch({
             type: 'RemoveProjectGoal',
             projectId: params.projectId,
-            userId,
+            actorId,
             timestamp: Date.now(),
             knownVersion,
             idempotencyKey: uuidv7(),
@@ -183,12 +183,12 @@ export const useProjectCommands = () => {
 
   const archiveProject = useCallback(
     async (projectId: string) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'ArchiveProject',
         projectId,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion,
         idempotencyKey: uuidv7(),
@@ -202,7 +202,7 @@ export const useProjectCommands = () => {
       projectId: string,
       milestone: { name: string; targetDate: string }
     ) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'AddProjectMilestone',
@@ -210,7 +210,7 @@ export const useProjectCommands = () => {
         milestoneId: uuidv7(),
         name: milestone.name,
         targetDate: milestone.targetDate,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion,
         idempotencyKey: uuidv7(),
@@ -225,7 +225,7 @@ export const useProjectCommands = () => {
       milestoneId: string,
       changes: { name?: string; targetDate?: string }
     ) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       let knownVersion = await loadKnownVersion(projectId);
       if (changes.name) {
         await dispatch({
@@ -233,7 +233,7 @@ export const useProjectCommands = () => {
           projectId,
           milestoneId,
           name: changes.name,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -246,7 +246,7 @@ export const useProjectCommands = () => {
           projectId,
           milestoneId,
           targetDate: changes.targetDate,
-          userId,
+          actorId,
           timestamp: Date.now(),
           knownVersion,
           idempotencyKey: uuidv7(),
@@ -259,13 +259,13 @@ export const useProjectCommands = () => {
 
   const archiveMilestone = useCallback(
     async (projectId: string, milestoneId: string) => {
-      const userId = ensureUserId();
+      const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
       return dispatch({
         type: 'ArchiveProjectMilestone',
         projectId,
         milestoneId,
-        userId,
+        actorId,
         timestamp: Date.now(),
         knownVersion,
         idempotencyKey: uuidv7(),

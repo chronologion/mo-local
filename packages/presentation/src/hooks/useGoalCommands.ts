@@ -38,14 +38,14 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const cmd = new CreateGoal({
         goalId: uuidv7(),
         slice: params.slice,
         summary: params.summary,
         targetMonth: params.targetMonth,
         priority: params.priority,
-        userId,
+        actorId,
         timestamp: Date.now(),
         idempotencyKey: uuidv7(),
       });
@@ -71,7 +71,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const timestamp = Date.now();
       const result = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(params.goalId)
@@ -90,7 +90,7 @@ export const useGoalCommands = () => {
           goalId: params.goalId,
           summary: params.summary,
           timestamp,
-          userId,
+          actorId,
           knownVersion,
           idempotencyKey: uuidv7(),
         });
@@ -110,7 +110,7 @@ export const useGoalCommands = () => {
           goalId: params.goalId,
           slice: params.slice,
           timestamp,
-          userId,
+          actorId,
           knownVersion,
           idempotencyKey: uuidv7(),
         });
@@ -133,7 +133,7 @@ export const useGoalCommands = () => {
           goalId: params.goalId,
           priority: params.priority,
           timestamp,
-          userId,
+          actorId,
           knownVersion,
           idempotencyKey: uuidv7(),
         });
@@ -156,7 +156,7 @@ export const useGoalCommands = () => {
           goalId: params.goalId,
           targetMonth: params.targetMonth,
           timestamp,
-          userId,
+          actorId,
           knownVersion,
           idempotencyKey: uuidv7(),
         });
@@ -187,7 +187,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -200,7 +200,7 @@ export const useGoalCommands = () => {
       const cmd = new ArchiveGoal({
         goalId,
         timestamp: Date.now(),
-        userId,
+        actorId,
         knownVersion: current.version,
         idempotencyKey: uuidv7(),
       });
@@ -226,7 +226,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -239,7 +239,7 @@ export const useGoalCommands = () => {
       const cmd = new AchieveGoal({
         goalId,
         timestamp: Date.now(),
-        userId,
+        actorId,
         knownVersion: current.version,
         idempotencyKey: uuidv7(),
       });
@@ -265,7 +265,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -278,7 +278,7 @@ export const useGoalCommands = () => {
       const cmd = new UnachieveGoal({
         goalId,
         timestamp: Date.now(),
-        userId,
+        actorId,
         knownVersion: current.version,
         idempotencyKey: uuidv7(),
       });

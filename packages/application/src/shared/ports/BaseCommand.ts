@@ -1,6 +1,7 @@
 import { ICommand } from './cqrsTypes';
 
 export type CommandMetadata = Readonly<{
+  actorId?: string | null;
   correlationId?: string | null;
   causationId?: string | null;
 }>;
@@ -11,6 +12,7 @@ export type CommandMetadata = Readonly<{
  */
 export abstract class BaseCommand<TPayload extends object> implements ICommand {
   abstract readonly type: string;
+  readonly actorId?: string | null;
   readonly correlationId?: string | null;
   readonly causationId?: string | null;
 
@@ -19,6 +21,9 @@ export abstract class BaseCommand<TPayload extends object> implements ICommand {
     meta?: CommandMetadata
   ) {
     Object.assign(this, payload);
+    const payloadActorId = (payload as Partial<{ actorId?: string | null }>)
+      .actorId;
+    this.actorId = meta?.actorId ?? payloadActorId;
     this.correlationId = meta?.correlationId;
     this.causationId = meta?.causationId;
   }

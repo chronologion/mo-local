@@ -9,7 +9,7 @@ describe('RegisterUserCommand validation', () => {
   it('ensures public keys are present', () => {
     const result = validateRegisterUserCommand({
       type: 'RegisterUser',
-      userId: 'user-1',
+      actorId: 'user-1',
       signingPublicKey: new Uint8Array(),
       encryptionPublicKey: new Uint8Array([1, 2]),
       timestamp: now,
@@ -27,7 +27,7 @@ describe('RegisterUserCommand validation', () => {
 describe('ImportUserKeysCommand validation', () => {
   it('validates backup contents', () => {
     const backup: KeyBackup = {
-      userId: 'user-1',
+      actorId: 'user-1',
       identityKeys: {
         signingPrivateKey: new Uint8Array(),
         signingPublicKey: new Uint8Array([1]),
@@ -41,7 +41,7 @@ describe('ImportUserKeysCommand validation', () => {
 
     const result = validateImportUserKeysCommand({
       type: 'ImportUserKeys',
-      userId: 'user-1',
+      actorId: 'user-1',
       backup,
       timestamp: now,
     });

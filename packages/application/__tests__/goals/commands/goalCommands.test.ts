@@ -15,7 +15,7 @@ import { ValidationException } from '../../../src/errors/ValidationError';
 
 const now = Date.now();
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f001';
-const userId = 'user-1';
+const actorId = 'user-1';
 
 const makeHandler = () =>
   new GoalCommandHandler(
@@ -32,7 +32,7 @@ const createGoal = () =>
     summary: 'Run a marathon',
     targetMonth: '2025-12',
     priority: 'must',
-    userId,
+    actorId,
     timestamp: now,
     idempotencyKey: 'idem-create',
   });
@@ -45,7 +45,7 @@ describe('CreateGoal', () => {
       summary: 'Run a marathon',
       targetMonth: '2025-12',
       priority: 'must',
-      userId: 'user-1',
+      actorId: 'user-1',
       timestamp: now,
       idempotencyKey: 'idem-create-lean',
     });
@@ -67,7 +67,7 @@ describe('Goal command validation inside handler', () => {
         new ChangeGoalSummary({
           goalId,
           summary: '',
-          userId,
+          actorId,
           timestamp: now,
           knownVersion: 1,
           idempotencyKey: 'idem-summary-invalid',
@@ -86,7 +86,7 @@ describe('Goal command validation inside handler', () => {
           goalId,
           grantToUserId: 'user-2',
           permission: 'owner' as never,
-          userId,
+          actorId,
           timestamp: now,
           knownVersion: 1,
           idempotencyKey: 'idem-grant-invalid',

@@ -352,7 +352,7 @@ export class GoalAchievementSaga {
     const command = new AchieveGoal(
       {
         goalId: state.goalId,
-        userId: event.actorId.value,
+        actorId: event.actorId.value,
         timestamp: event.occurredAt.value,
         knownVersion: state.version,
         idempotencyKey: `goal-achieve:${state.goalId}:${event.eventId.value}`,
@@ -388,7 +388,7 @@ export class GoalAchievementSaga {
     const command = new UnachieveGoal(
       {
         goalId: state.goalId,
-        userId: event.actorId.value,
+        actorId: event.actorId.value,
         timestamp: event.occurredAt.value,
         knownVersion: state.version,
         idempotencyKey: `goal-unachieve:${state.goalId}:${state.version}`,

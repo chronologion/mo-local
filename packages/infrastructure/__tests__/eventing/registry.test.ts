@@ -53,8 +53,7 @@ describe('eventing registry + runtime', () => {
     const milestoneId = MilestoneId.from(
       '00000000-0000-0000-0000-000000000301'
     );
-    const userId = UserId.from('user-1');
-
+    const createdBy = UserId.from('user-1');
     const actorId = ActorId.from('user-1');
     const meta = () => ({ eventId: EventId.create(), actorId });
     const events = [
@@ -65,7 +64,7 @@ describe('eventing registry + runtime', () => {
           summary: Summary.from('Goal created'),
           targetMonth: Month.from('2025-12'),
           priority: Priority.from('must'),
-          createdBy: userId,
+          createdBy,
           createdAt: ts('2025-01-01T00:00:00Z'),
         },
         meta()
@@ -149,7 +148,7 @@ describe('eventing registry + runtime', () => {
           targetDate: LocalDate.fromString('2025-06-01'),
           description: ProjectDescription.from('Rebuild platform'),
           goalId: null,
-          createdBy: userId,
+          createdBy,
           createdAt: ts('2025-01-09T00:00:00Z'),
         },
         meta()

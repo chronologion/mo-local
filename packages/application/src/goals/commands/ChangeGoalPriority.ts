@@ -7,7 +7,7 @@ import {
 export type ChangeGoalPriorityPayload = {
   goalId: string;
   priority: PriorityLevel;
-  userId: string;
+  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -20,7 +20,7 @@ export class ChangeGoalPriority
   readonly type = 'ChangeGoalPriority';
   readonly goalId: string;
   readonly priority: PriorityLevel;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -29,7 +29,7 @@ export class ChangeGoalPriority
     super(payload, meta);
     this.goalId = payload.goalId;
     this.priority = payload.priority;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

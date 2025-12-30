@@ -16,7 +16,7 @@ import { ValidationException } from '../../../src/errors/ValidationError';
 
 const now = Date.now();
 const projectId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f201';
-const userId = 'user-1';
+const actorId = 'user-1';
 
 const makeHandler = () =>
   new ProjectCommandHandler(
@@ -35,7 +35,7 @@ const createProject = () =>
     targetDate: '2025-02-01',
     description: 'desc',
     goalId: null,
-    userId,
+    actorId,
     timestamp: now,
     idempotencyKey: 'idem-create',
   });
@@ -56,7 +56,7 @@ describe('Project commands', () => {
         new ChangeProjectStatus({
           projectId,
           status: 'invalid' as never,
-          userId,
+          actorId,
           timestamp: now,
           knownVersion: 1,
           idempotencyKey: 'idem-invalid-status',
@@ -76,7 +76,7 @@ describe('Project commands', () => {
           milestoneId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f202',
           name: '',
           targetDate: '2025-01-02',
-          userId,
+          actorId,
           timestamp: now,
           knownVersion: 1,
           idempotencyKey: 'idem-milestone',
@@ -92,7 +92,7 @@ describe('Project commands', () => {
       handler.handleArchive(
         new ArchiveProject({
           projectId: 'not-a-uuid',
-          userId,
+          actorId,
           timestamp: now,
           knownVersion: 1,
           idempotencyKey: 'idem-archive-bad-id',

@@ -17,21 +17,22 @@ export class UserCommandHandler {
   async handleRegister(
     command: ValidatedRegisterUserCommand
   ): Promise<{ userId: string }> {
+    const userId = command.actorId;
     const registrationEvent = new UserRegistered(
       {
-        userId: command.userId,
+        userId,
         registeredAt: Timestamp.fromMillis(command.timestamp),
       },
-      { eventId: EventId.create(), actorId: command.userId }
+      { eventId: EventId.create(), actorId: userId }
     );
     await this.eventBus.publish([registrationEvent]);
-    return { userId: command.userId.value };
+    return { userId: userId.value };
   }
 
   async handleImportKeys(
     command: ValidatedImportUserKeysCommand
   ): Promise<{ userId: string }> {
     await this.keyStore.importKeys(command.backup);
-    return { userId: command.userId.value };
+    return { userId: command.actorId.value };
   }
 }

@@ -6,7 +6,7 @@ import {
 export type ArchiveProjectMilestonePayload = {
   projectId: string;
   milestoneId: string;
-  userId: string;
+  actorId: string;
   timestamp: number;
   knownVersion: number;
   idempotencyKey: string;
@@ -19,7 +19,7 @@ export class ArchiveProjectMilestone
   readonly type = 'ArchiveProjectMilestone';
   readonly projectId: string;
   readonly milestoneId: string;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly knownVersion: number;
   readonly idempotencyKey: string;
@@ -28,7 +28,7 @@ export class ArchiveProjectMilestone
     super(payload, meta);
     this.projectId = payload.projectId;
     this.milestoneId = payload.milestoneId;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.knownVersion = payload.knownVersion;
     this.idempotencyKey = payload.idempotencyKey;

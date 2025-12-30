@@ -10,7 +10,7 @@ export type CreateGoalPayload = {
   summary: string;
   targetMonth: string;
   priority: PriorityLevel;
-  userId: string;
+  actorId: string;
   timestamp: number;
   idempotencyKey: string;
 };
@@ -25,7 +25,7 @@ export class CreateGoal
   readonly summary: string;
   readonly targetMonth: string;
   readonly priority: PriorityLevel;
-  readonly userId: string;
+  readonly actorId: string;
   readonly timestamp: number;
   readonly idempotencyKey: string;
 
@@ -36,7 +36,7 @@ export class CreateGoal
     this.summary = payload.summary;
     this.targetMonth = payload.targetMonth;
     this.priority = payload.priority;
-    this.userId = payload.userId;
+    this.actorId = payload.actorId;
     this.timestamp = payload.timestamp;
     this.idempotencyKey = payload.idempotencyKey;
   }
