@@ -46,7 +46,7 @@ export class ProjectionTaskRunner {
               const durationMs = end - start;
               if (durationMs > this.warnThresholdMs) {
                 console.warn(
-                  `[${this.label}] Projection processing exceeded budget`,
+                  `[${this.label}] Task processing exceeded budget`,
                   {
                     durationMs,
                     budgetMs: this.warnThresholdMs,
