@@ -19,6 +19,7 @@ export * from './eventstore/persistence/SnapshotStore';
 export * from './eventstore/persistence/types';
 export * from './platform/derived-state';
 export * from './idempotency';
+export * from './errors';
 export * from './goals';
 export * from './projects';
 export * from './sagas/SqliteGoalAchievementSagaStore';

@@ -1,6 +1,4 @@
 import type { EventBusPort } from '../shared/ports/EventBusPort';
-import type { GoalReadModelPort } from '../goals/ports/GoalReadModelPort';
-import type { ProjectReadModelPort } from '../projects/ports/ProjectReadModelPort';
 import { AchieveGoal, UnachieveGoal } from '../goals/commands';
 import {
   ActorId,
@@ -47,52 +45,29 @@ const emptyGoalState = (goalId: string): GoalAchievementState => ({
 });
 
 export class GoalAchievementSaga {
+  private replaying = false;
+  private readonly seenGoalIds = new Set<string>();
+
   constructor(
     private readonly store: GoalAchievementStorePort,
-    private readonly goalReadModel: GoalReadModelPort,
-    private readonly projectReadModel: ProjectReadModelPort,
+    private readonly seedEvents: () => Promise<DomainEvent[]>,
     private readonly dispatchAchieveGoal: DispatchAchieveGoal,
     private readonly dispatchUnachieveGoal: DispatchUnachieveGoal
   ) {}
 
   async bootstrap(): Promise<void> {
-    const goals = await this.goalReadModel.list();
-    const goalStates = new Map<string, GoalAchievementState>();
-    for (const goal of goals) {
-      goalStates.set(goal.id, {
-        goalId: goal.id,
-        linkedProjectIds: [],
-        completedProjectIds: [],
-        achieved: goal.achievedAt !== null,
-        archived: goal.archivedAt !== null,
-        achievementRequested: false,
-        version: goal.version,
-      });
-    }
-    const projects = await this.projectReadModel.list();
+    const events = await this.seedEvents();
+    this.seenGoalIds.clear();
+    this.replaying = true;
 
-    for (const project of projects) {
-      if (project.archivedAt !== null) continue;
-      const goalId = project.goalId;
-      const projectState: ProjectAchievementState = {
-        projectId: project.id,
-        goalId,
-        status: project.status,
-      };
-      await this.store.saveProjectState(projectState);
-      if (!goalId) continue;
-
-      const goalState =
-        goalStates.get(goalId) ?? (await this.ensureGoalState(goalId));
-      this.addLinkedProject(goalState, project.id);
-      if (project.status === 'completed') {
-        this.addCompletedProject(goalState, project.id);
-      }
-      goalStates.set(goalId, goalState);
+    for (const event of events) {
+      await this.handleEvent(event);
     }
 
-    for (const [goalId, state] of goalStates.entries()) {
-      await this.store.saveGoalState(state);
+    this.replaying = false;
+    for (const goalId of this.seenGoalIds) {
+      const state = await this.store.getGoalState(goalId);
+      if (!state) continue;
       const systemEvent = this.systemEvent(goalId);
       await this.maybeAchieveGoal(state, systemEvent, { forceRetry: true });
       await this.maybeUnachieveGoal(state, systemEvent);
@@ -106,47 +81,92 @@ export class GoalAchievementSaga {
 
   subscribe(eventBus: EventBusPort): void {
     eventBus.subscribe(projectEventTypes.projectCreated, (event) =>
-      this.handleProjectCreated(event as ProjectCreated)
+      this.handleEvent(event as ProjectCreated)
     );
     eventBus.subscribe(projectEventTypes.projectGoalAdded, (event) =>
-      this.handleProjectGoalAdded(event as ProjectGoalAdded)
+      this.handleEvent(event as ProjectGoalAdded)
     );
     eventBus.subscribe(projectEventTypes.projectGoalRemoved, (event) =>
-      this.handleProjectGoalRemoved(event as ProjectGoalRemoved)
+      this.handleEvent(event as ProjectGoalRemoved)
     );
     eventBus.subscribe(projectEventTypes.projectStatusTransitioned, (event) =>
-      this.handleProjectStatusTransitioned(event as ProjectStatusTransitioned)
+      this.handleEvent(event as ProjectStatusTransitioned)
     );
     eventBus.subscribe(goalEventTypes.goalAchieved, (event) =>
-      this.handleGoalAchieved(event as GoalAchieved)
+      this.handleEvent(event as GoalAchieved)
     );
     eventBus.subscribe(goalEventTypes.goalUnachieved, (event) =>
-      this.handleGoalUnachieved(event as GoalUnachieved)
+      this.handleEvent(event as GoalUnachieved)
     );
     eventBus.subscribe(goalEventTypes.goalArchived, (event) =>
-      this.handleGoalArchived(event as GoalArchived)
+      this.handleEvent(event as GoalArchived)
     );
     eventBus.subscribe(goalEventTypes.goalCreated, (event) =>
-      this.handleGoalEvent(event as GoalCreated)
+      this.handleEvent(event as GoalCreated)
     );
     eventBus.subscribe(goalEventTypes.goalRefined, (event) =>
-      this.handleGoalEvent(event as GoalRefined)
+      this.handleEvent(event as GoalRefined)
     );
     eventBus.subscribe(goalEventTypes.goalRecategorized, (event) =>
-      this.handleGoalEvent(event as GoalRecategorized)
+      this.handleEvent(event as GoalRecategorized)
     );
     eventBus.subscribe(goalEventTypes.goalRescheduled, (event) =>
-      this.handleGoalEvent(event as GoalRescheduled)
+      this.handleEvent(event as GoalRescheduled)
     );
     eventBus.subscribe(goalEventTypes.goalPrioritized, (event) =>
-      this.handleGoalEvent(event as GoalPrioritized)
+      this.handleEvent(event as GoalPrioritized)
     );
     eventBus.subscribe(goalEventTypes.goalAccessGranted, (event) =>
-      this.handleGoalEvent(event as GoalAccessGranted)
+      this.handleEvent(event as GoalAccessGranted)
     );
     eventBus.subscribe(goalEventTypes.goalAccessRevoked, (event) =>
-      this.handleGoalEvent(event as GoalAccessRevoked)
+      this.handleEvent(event as GoalAccessRevoked)
     );
+  }
+
+  private async handleEvent(event: DomainEvent): Promise<void> {
+    switch (event.eventType) {
+      case projectEventTypes.projectCreated:
+        await this.handleProjectCreated(event as ProjectCreated);
+        return;
+      case projectEventTypes.projectGoalAdded:
+        await this.handleProjectGoalAdded(event as ProjectGoalAdded);
+        return;
+      case projectEventTypes.projectGoalRemoved:
+        await this.handleProjectGoalRemoved(event as ProjectGoalRemoved);
+        return;
+      case projectEventTypes.projectStatusTransitioned:
+        await this.handleProjectStatusTransitioned(
+          event as ProjectStatusTransitioned
+        );
+        return;
+      case goalEventTypes.goalAchieved:
+        await this.handleGoalAchieved(event as GoalAchieved);
+        return;
+      case goalEventTypes.goalUnachieved:
+        await this.handleGoalUnachieved(event as GoalUnachieved);
+        return;
+      case goalEventTypes.goalArchived:
+        await this.handleGoalArchived(event as GoalArchived);
+        return;
+      case goalEventTypes.goalCreated:
+      case goalEventTypes.goalRefined:
+      case goalEventTypes.goalRecategorized:
+      case goalEventTypes.goalRescheduled:
+      case goalEventTypes.goalPrioritized:
+      case goalEventTypes.goalAccessGranted:
+      case goalEventTypes.goalAccessRevoked:
+        await this.handleGoalEvent(
+          event as
+            | GoalCreated
+            | GoalRefined
+            | GoalRecategorized
+            | GoalRescheduled
+            | GoalPrioritized
+            | GoalAccessGranted
+            | GoalAccessRevoked
+        );
+    }
   }
 
   private async handleProjectCreated(event: ProjectCreated): Promise<void> {
@@ -161,16 +181,19 @@ export class GoalAchievementSaga {
     await this.store.saveProjectState(projectState);
 
     if (!goalId) return;
+    this.seenGoalIds.add(goalId);
     const goalState = await this.ensureGoalState(goalId);
     this.addLinkedProject(goalState, projectId);
     if (status === 'completed') {
       this.addCompletedProject(goalState, projectId);
     }
     await this.store.saveGoalState(goalState);
-    await this.maybeAchieveGoal(goalState, event, {
-      forceRetry: goalState.achievementRequested,
-    });
-    await this.maybeUnachieveGoal(goalState, event);
+    if (!this.replaying) {
+      await this.maybeAchieveGoal(goalState, event, {
+        forceRetry: goalState.achievementRequested,
+      });
+      await this.maybeUnachieveGoal(goalState, event);
+    }
   }
 
   private async handleProjectGoalAdded(event: ProjectGoalAdded): Promise<void> {
@@ -188,10 +211,13 @@ export class GoalAchievementSaga {
       this.addCompletedProject(goalState, projectId);
     }
     await this.store.saveGoalState(goalState);
-    await this.maybeAchieveGoal(goalState, event, {
-      forceRetry: goalState.achievementRequested,
-    });
-    await this.maybeUnachieveGoal(goalState, event);
+    this.seenGoalIds.add(goalId);
+    if (!this.replaying) {
+      await this.maybeAchieveGoal(goalState, event, {
+        forceRetry: goalState.achievementRequested,
+      });
+      await this.maybeUnachieveGoal(goalState, event);
+    }
   }
 
   private async handleProjectGoalRemoved(
@@ -213,7 +239,10 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     this.removeLinkedProject(goalState, projectId);
     await this.store.saveGoalState(goalState);
-    await this.maybeUnachieveGoal(goalState, event);
+    this.seenGoalIds.add(goalId);
+    if (!this.replaying) {
+      await this.maybeUnachieveGoal(goalState, event);
+    }
   }
 
   private async handleProjectStatusTransitioned(
@@ -229,6 +258,7 @@ export class GoalAchievementSaga {
 
     if (!projectState.goalId) return;
     const goalId = projectState.goalId;
+    this.seenGoalIds.add(goalId);
     const goalState = await this.ensureGoalState(goalId);
     this.addLinkedProject(goalState, projectId);
     if (status === 'completed') {
@@ -237,10 +267,12 @@ export class GoalAchievementSaga {
       this.removeCompletedProject(goalState, projectId);
     }
     await this.store.saveGoalState(goalState);
-    await this.maybeAchieveGoal(goalState, event, {
-      forceRetry: goalState.achievementRequested,
-    });
-    await this.maybeUnachieveGoal(goalState, event);
+    if (!this.replaying) {
+      await this.maybeAchieveGoal(goalState, event, {
+        forceRetry: goalState.achievementRequested,
+      });
+      await this.maybeUnachieveGoal(goalState, event);
+    }
   }
 
   private async handleGoalEvent(
@@ -257,6 +289,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     goalState.version = this.nextVersion(goalState.version);
     await this.store.saveGoalState(goalState);
+    this.seenGoalIds.add(goalId);
   }
 
   private async handleGoalAchieved(event: GoalAchieved): Promise<void> {
@@ -266,6 +299,7 @@ export class GoalAchievementSaga {
     goalState.achievementRequested = false;
     goalState.version = this.nextVersion(goalState.version);
     await this.store.saveGoalState(goalState);
+    this.seenGoalIds.add(goalId);
   }
 
   private async handleGoalUnachieved(event: GoalUnachieved): Promise<void> {
@@ -275,6 +309,7 @@ export class GoalAchievementSaga {
     goalState.achievementRequested = false;
     goalState.version = this.nextVersion(goalState.version);
     await this.store.saveGoalState(goalState);
+    this.seenGoalIds.add(goalId);
   }
 
   private async handleGoalArchived(event: GoalArchived): Promise<void> {
@@ -284,6 +319,7 @@ export class GoalAchievementSaga {
     goalState.achievementRequested = false;
     goalState.version = this.nextVersion(goalState.version);
     await this.store.saveGoalState(goalState);
+    this.seenGoalIds.add(goalId);
   }
 
   private async ensureGoalState(goalId: string): Promise<GoalAchievementState> {

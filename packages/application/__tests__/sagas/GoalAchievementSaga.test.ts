@@ -8,16 +8,13 @@ import {
 } from '../../src/sagas';
 import type { EventBusPort } from '../../src/shared/ports/EventBusPort';
 import type { EventHandler } from '../../src/shared/ports/types';
-import type { GoalReadModelPort } from '../../src/goals/ports/GoalReadModelPort';
-import type { ProjectReadModelPort } from '../../src/projects/ports/ProjectReadModelPort';
-import type { ProjectListItemDto } from '../../src/projects/dtos';
-import type { GoalListItemDto } from '../../src/goals/dtos';
 import { UnachieveGoal } from '../../src/goals/commands/UnachieveGoal';
 import {
   ActorId,
   DomainEvent,
   EventId,
   GoalId,
+  GoalAchieved,
   GoalCreated,
   GoalUnachieved,
   LocalDate,
@@ -73,38 +70,6 @@ class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
   }
 }
 
-class StubGoalReadModel implements GoalReadModelPort {
-  constructor(private readonly goals: GoalListItemDto[]) {}
-
-  async list(): Promise<GoalListItemDto[]> {
-    return this.goals;
-  }
-
-  async getById(id: string): Promise<GoalListItemDto | null> {
-    return this.goals.find((goal) => goal.id === id) ?? null;
-  }
-
-  async search(): Promise<GoalListItemDto[]> {
-    return [];
-  }
-}
-
-class StubProjectReadModel implements ProjectReadModelPort {
-  constructor(private readonly projects: ProjectListItemDto[]) {}
-
-  async list(): Promise<ProjectListItemDto[]> {
-    return this.projects;
-  }
-
-  async getById(id: string): Promise<ProjectListItemDto | null> {
-    return this.projects.find((project) => project.id === id) ?? null;
-  }
-
-  async search(): Promise<ProjectListItemDto[]> {
-    return [];
-  }
-}
-
 class InMemoryEventBus implements EventBusPort {
   private readonly handlers = new Map<string, EventHandler[]>();
 
@@ -122,62 +87,62 @@ class InMemoryEventBus implements EventBusPort {
   }
 }
 
+const seedEvents =
+  (events: DomainEvent[]) => async (): Promise<DomainEvent[]> => {
+    return events;
+  };
+
 const dispatchNoop = async () => undefined;
 
 describe('GoalAchievementSaga', () => {
   it('dispatches AchieveGoal when all linked projects are completed on bootstrap', async () => {
     const goalId = '00000000-0000-0000-0000-000000000001';
-    const projects: ProjectListItemDto[] = [
-      {
-        id: 'project-1',
-        name: 'Project One',
-        status: 'completed',
-        startDate: '2025-01-01',
-        targetDate: '2025-02-01',
-        description: '',
-        goalId,
-        milestones: [],
-        createdAt: 1,
-        updatedAt: 1,
-        archivedAt: null,
-        version: 2,
-      },
-      {
-        id: 'project-2',
-        name: 'Project Two',
-        status: 'completed',
-        startDate: '2025-01-01',
-        targetDate: '2025-02-01',
-        description: '',
-        goalId,
-        milestones: [],
-        createdAt: 1,
-        updatedAt: 1,
-        archivedAt: null,
-        version: 2,
-      },
-    ];
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([
+    const goalCreated = new GoalCreated(
       {
-        id: goalId,
-        summary: 'Complete projects',
-        slice: 'Work',
-        priority: 'must',
-        targetMonth: '2025-03',
-        createdAt: 1,
-        achievedAt: null,
-        archivedAt: null,
-        version: 1,
+        goalId: GoalId.from(goalId),
+        slice: Slice.from('Work'),
+        summary: Summary.from('Complete projects'),
+        targetMonth: Month.from('2025-03'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(1),
       },
-    ]);
-    const projectReadModel = new StubProjectReadModel(projects);
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
+    const projectOne = new ProjectCreated(
+      {
+        projectId: ProjectId.from('project-1'),
+        name: ProjectName.from('Project One'),
+        status: ProjectStatus.Completed,
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.empty(),
+        goalId: GoalId.from(goalId),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(1),
+      },
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
+    const projectTwo = new ProjectCreated(
+      {
+        projectId: ProjectId.from('project-2'),
+        name: ProjectName.from('Project Two'),
+        status: ProjectStatus.Completed,
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.empty(),
+        goalId: GoalId.from(goalId),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(1),
+      },
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
     const dispatched: string[] = [];
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([goalCreated, projectOne, projectTwo]),
       async (command) => {
         dispatched.push(command.goalId);
       },
@@ -194,42 +159,44 @@ describe('GoalAchievementSaga', () => {
   it('reconciles achieved goals to unachieved when linked projects are incomplete', async () => {
     const goalId = '00000000-0000-0000-0000-000000000050';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([
+    const goalCreated = new GoalCreated(
       {
-        id: goalId,
-        summary: 'Complete projects',
-        slice: 'Work',
-        priority: 'must',
-        targetMonth: '2025-03',
-        createdAt: 1,
-        achievedAt: 10,
-        archivedAt: null,
-        version: 2,
+        goalId: GoalId.from(goalId),
+        slice: Slice.from('Work'),
+        summary: Summary.from('Complete projects'),
+        targetMonth: Month.from('2025-03'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(1),
       },
-    ]);
-    const projects: ProjectListItemDto[] = [
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
+    const projectCreated = new ProjectCreated(
       {
-        id: 'project-1',
-        name: 'Project One',
-        status: 'in_progress',
-        startDate: '2025-01-01',
-        targetDate: '2025-02-01',
-        description: '',
-        goalId,
-        milestones: [],
-        createdAt: 1,
-        updatedAt: 1,
-        archivedAt: null,
-        version: 1,
+        projectId: ProjectId.from('project-1'),
+        name: ProjectName.from('Project One'),
+        status: ProjectStatus.InProgress,
+        startDate: LocalDate.fromString('2025-01-01'),
+        targetDate: LocalDate.fromString('2025-02-01'),
+        description: ProjectDescription.empty(),
+        goalId: GoalId.from(goalId),
+        createdBy: UserId.from('user-1'),
+        createdAt: Timestamp.fromMillis(1),
       },
-    ];
-    const projectReadModel = new StubProjectReadModel(projects);
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
+    const goalAchieved = new GoalAchieved(
+      {
+        goalId: GoalId.from(goalId),
+        achievedAt: Timestamp.fromMillis(10),
+      },
+      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+    );
     const dispatchedUnachieve: UnachieveGoal[] = [];
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([goalCreated, projectCreated, goalAchieved]),
       dispatchNoop,
       async (command) => {
         dispatchedUnachieve.push(command);
@@ -245,15 +212,12 @@ describe('GoalAchievementSaga', () => {
   it('dispatches AchieveGoal when a completed project is created with a goal', async () => {
     const goalId = '00000000-0000-0000-0000-000000000001';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([]);
-    const projectReadModel = new StubProjectReadModel([]);
     const dispatched: string[] = [];
     const eventBus = new InMemoryEventBus();
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([]),
       async (command) => {
         dispatched.push(command.goalId);
       },
@@ -300,15 +264,12 @@ describe('GoalAchievementSaga', () => {
   it('re-achieves after manual unachieve when all linked projects are completed', async () => {
     const goalId = '00000000-0000-0000-0000-000000000010';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([]);
-    const projectReadModel = new StubProjectReadModel([]);
     const dispatched: string[] = [];
     const eventBus = new InMemoryEventBus();
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([]),
       async (command) => {
         dispatched.push(command.goalId);
       },
@@ -377,15 +338,12 @@ describe('GoalAchievementSaga', () => {
   it('achieves after linking and later completing a second project', async () => {
     const goalId = '00000000-0000-0000-0000-000000000020';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([]);
-    const projectReadModel = new StubProjectReadModel([]);
     const dispatched: string[] = [];
     const eventBus = new InMemoryEventBus();
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([]),
       async (command) => {
         dispatched.push(command.goalId);
       },
@@ -466,15 +424,12 @@ describe('GoalAchievementSaga', () => {
     const projectOneId = '00000000-0000-0000-0000-000000000041';
     const projectTwoId = '00000000-0000-0000-0000-000000000042';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([]);
-    const projectReadModel = new StubProjectReadModel([]);
     const dispatched: string[] = [];
     const eventBus = new InMemoryEventBus();
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([]),
       async (command) => {
         dispatched.push(command.goalId);
       },
@@ -556,15 +511,12 @@ describe('GoalAchievementSaga', () => {
   it('retries achievement when previously requested but goal is still unachieved', async () => {
     const goalId = '00000000-0000-0000-0000-000000000030';
     const store = new InMemoryGoalAchievementStore();
-    const goalReadModel = new StubGoalReadModel([]);
-    const projectReadModel = new StubProjectReadModel([]);
     const dispatched: string[] = [];
     const eventBus = new InMemoryEventBus();
 
     const saga = new GoalAchievementSaga(
       store,
-      goalReadModel,
-      projectReadModel,
+      seedEvents([]),
       async (command) => {
         dispatched.push(command.goalId);
       },
