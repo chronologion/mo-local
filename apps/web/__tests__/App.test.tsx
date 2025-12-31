@@ -38,7 +38,7 @@ const makeContext = (session: ReturnType<typeof useApp>['session']) => ({
   resetLocalState: vi.fn(async () => {}),
   rebuildProjections: vi.fn(async () => {}),
   masterKey: null,
-  restoreBackup: vi.fn(async () => {}),
+  restoreBackup: vi.fn(async (_params) => {}),
 });
 
 describe('App', () => {
