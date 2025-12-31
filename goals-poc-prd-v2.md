@@ -178,9 +178,10 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
   - `GoalProjectionProcessor` / `ProjectProjectionProcessor` consume encrypted events from the BC event stores, maintain encrypted snapshots + analytics/search tables in LiveStore, and expose in-memory projections.
   - `GoalReadModel` / `ProjectReadModel` wrap those processors and implement the `GoalReadModelPort` / `ProjectReadModelPort` ports consumed by the application query handlers.
 - **Sync (browser + API)**:
-  - LiveStore’s `ClientSessionSyncProcessor` orchestrates push/pull against a `SyncBackend` implementation.
-  - `CloudSyncBackend` implements that contract in the browser and calls the NestJS sync API (`POST /sync/push`, `GET /sync/pull`), mapping HTTP 409 responses into LiveStore’s `InvalidPushError` so the client can rebase when the server is ahead.
-  - On the server, `SyncController` delegates to `SyncService`, which persists events and store ownership via `KyselySyncEventRepository` / `KyselySyncStoreRepository` into the `sync.events` and `sync.stores` tables.
+- LiveStore’s `ClientSessionSyncProcessor` orchestrates push/pull against a `SyncBackend` implementation.
+- `CloudSyncBackend` implements that contract in the browser and calls the NestJS sync API (`POST /sync/push`, `GET /sync/pull`), mapping HTTP 409 responses into LiveStore’s `InvalidPushError` so the client can rebase when the server is ahead.
+- On the server, `SyncController` delegates to `SyncService`, which persists events and store ownership via `KyselySyncEventRepository` / `KyselySyncStoreRepository` into the `sync.events` and `sync.stores` tables.
+- Sync scheduling is reactive and bounded: long-poll pull runs as a single loop, push is event-driven with debounced invalidation signals, and both directions apply capped exponential backoff with jitter under error conditions, with a low-frequency interval fallback if reactive signals go silent.
 - **BC wiring**:
   - `packages/infrastructure/src/browser/wiring/store.ts` configures the LiveStore `Store` and per-BC event stores from a browser adapter.
   - `bootstrapGoalBoundedContext` / `bootstrapProjectBoundedContext` (under `packages/infrastructure/src/goals` and `.../projects`) compose repositories, projection processors, read models, and command/query buses for each BC.
