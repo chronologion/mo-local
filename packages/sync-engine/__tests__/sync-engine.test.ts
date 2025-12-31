@@ -351,6 +351,114 @@ describe('SyncEngine', () => {
     expect(pushCalls).toBeGreaterThan(0);
   });
 
+  it('honors pull backoff retryAt before retrying', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const randomMock = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    let pullCalls = 0;
+
+    transport.pull = async () => {
+      pullCalls += 1;
+      if (pullCalls === 1) {
+        throw new Error('pull failed');
+      }
+      return { head: 1, events: [], hasMore: false, nextSince: null };
+    };
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-backoff',
+      onRebaseRequired,
+      pullIntervalMs: 0,
+      pullWaitMs: 0,
+    });
+
+    engine.start();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(pullCalls).toBe(1);
+    expect(engine.getStatus().kind).toBe('error');
+
+    await vi.advanceTimersByTimeAsync(998);
+    expect(pullCalls).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(2);
+    await Promise.resolve();
+    expect(pullCalls).toBeGreaterThanOrEqual(2);
+
+    engine.stop();
+    randomMock.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('honors push backoff retryAt before retrying', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const randomMock = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    let pushCalls = 0;
+
+    transport.pullResponses.push({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.push = async () => {
+      pushCalls += 1;
+      if (pushCalls === 1) {
+        throw new Error('push failed');
+      }
+      return { ok: true, head: 1, assigned: [] };
+    };
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-push-backoff',
+      onRebaseRequired,
+      pushIntervalMs: 0,
+      pullIntervalMs: 0,
+      pullWaitMs: 0,
+    });
+
+    engine.start();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(pushCalls).toBe(1);
+    expect(engine.getStatus().kind).toBe('error');
+
+    await vi.advanceTimersByTimeAsync(998);
+    expect(pushCalls).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(2);
+    await Promise.resolve();
+    expect(pushCalls).toBeGreaterThanOrEqual(2);
+
+    engine.stop();
+    randomMock.mockRestore();
+    vi.useRealTimers();
+  });
+
   it('pulls remote events, writes mappings, and triggers rebase when pending exists', async () => {
     const db = new MemoryDb();
     const transport = new FakeTransport();
