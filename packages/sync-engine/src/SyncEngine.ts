@@ -26,18 +26,62 @@ type PendingEventRow = LocalEventRow & Readonly<{ commit_sequence: number }>;
 
 const DEFAULT_PULL_LIMIT = 200;
 const DEFAULT_PULL_WAIT_MS = 20_000;
-const DEFAULT_PULL_INTERVAL_MS = 0;
+const DEFAULT_PULL_INTERVAL_MS = 1_000;
 const DEFAULT_PUSH_INTERVAL_MS = 2_000;
 const DEFAULT_PUSH_BATCH_SIZE = 100;
 const DEFAULT_MAX_PUSH_RETRIES = 2;
 const MIN_PULL_BACKOFF_MS = 1_000;
 const MAX_PULL_BACKOFF_MS = 20_000;
+const MIN_PUSH_BACKOFF_MS = 1_000;
+const MAX_PUSH_BACKOFF_MS = 20_000;
 const DEFAULT_PUSH_DEBOUNCE_MS = 100;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+const sleepWithCancel = (
+  ms: number
+): Readonly<{ promise: Promise<void>; cancel: () => void }> => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const promise = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  const cancel = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+  };
+  return { promise, cancel };
+};
+
 const nowMs = (): number => Date.now();
+
+type DeferredSignal = Readonly<{
+  promise: Promise<void>;
+  resolve: () => void;
+}>;
+
+const createDeferredSignal = (): DeferredSignal => {
+  let resolve: (() => void) | null = null;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  if (!resolve) {
+    throw new Error('Failed to create deferred signal');
+  }
+  return { promise, resolve };
+};
+
+const applyJitter = (value: number): number => {
+  const jitterRatio = 0.5 + Math.random();
+  return Math.round(value * jitterRatio);
+};
+
+const nextBackoffMs = (current: number, min: number, max: number): number => {
+  const base = current === 0 ? min : Math.min(current * 2, max);
+  const jittered = applyJitter(base);
+  return Math.min(Math.max(jittered, min), max);
+};
 
 const createSyncError = (
   code: SyncError['code'],
@@ -68,6 +112,15 @@ export class SyncEngine {
   private pushInFlight = false;
   private pushUnsubscribe: Unsubscribe | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
+  private pushRequested = false;
+  private pushQueued = false;
+  private pullRequested = false;
+  private pushSignalsSeen = false;
+  private pushBackoffMs = 0;
+  private pullSignal: DeferredSignal | null = null;
+  private pushSignal: DeferredSignal | null = null;
+  private pullInFlightPromise: Promise<void> | null = null;
+  private pullWaiters: Array<() => void> = [];
   private status: SyncStatus = {
     kind: SyncStatusKinds.idle,
     lastSuccessAt: null,
@@ -95,6 +148,7 @@ export class SyncEngine {
     this.running = true;
     void this.ensureSyncMetaRow().then(() => {
       this.subscribeToPushSignals();
+      this.requestInitialPush();
       void this.pullLoop();
       void this.pushLoop();
     });
@@ -108,6 +162,9 @@ export class SyncEngine {
       clearTimeout(this.pushTimer);
       this.pushTimer = null;
     }
+    this.signalPull();
+    this.signalPush();
+    this.resolvePullWaiters();
   }
 
   getStatus(): SyncStatus {
@@ -122,23 +179,41 @@ export class SyncEngine {
 
   private async pullLoop(): Promise<void> {
     while (this.running) {
-      await this.pullOnce({ waitMs: this.pullWaitMs });
+      const waitMs = this.consumePullRequest()
+        ? 0
+        : this.pullWaitMs > 0
+          ? this.pullWaitMs
+          : 0;
+      await this.pullOnce({ waitMs });
       if (!this.running) return;
-      if (this.pullBackoffMs > 0) {
-        await sleep(this.pullBackoffMs);
-      } else if (this.pullIntervalMs > 0) {
-        await sleep(this.pullIntervalMs);
+      const delay = this.getPullDelayMs();
+      if (delay > 0) {
+        if (this.pullBackoffMs > 0) {
+          await sleep(delay);
+        } else {
+          await this.waitForPullSignalOrDelay(delay);
+        }
       }
     }
   }
 
   private async pushLoop(): Promise<void> {
     while (this.running) {
-      await this.pushOnce();
-      if (!this.running) return;
-      if (this.pushIntervalMs > 0) {
-        await sleep(this.pushIntervalMs);
+      if (!this.pushRequested) {
+        const delay = this.getPushDelayMs();
+        if (delay > 0) {
+          if (this.pushBackoffMs > 0) {
+            await sleep(delay);
+          } else {
+            await this.waitForPushSignalOrDelay(delay);
+          }
+        } else {
+          await this.waitForPushSignal();
+        }
       }
+      if (!this.running) return;
+      this.pushRequested = false;
+      await this.pushOnce();
     }
   }
 
@@ -176,6 +251,15 @@ export class SyncEngine {
   private async pullOnce(options: { waitMs: number }): Promise<void> {
     if (this.pullInFlight) return;
     this.pullInFlight = true;
+    this.pullInFlightPromise = this.pullOnceInternal(options);
+    try {
+      await this.pullInFlightPromise;
+    } finally {
+      this.pullInFlightPromise = null;
+    }
+  }
+
+  private async pullOnceInternal(options: { waitMs: number }): Promise<void> {
     this.setSyncing(SyncDirections.pull);
     try {
       const hadPending = await this.hasPendingEvents();
@@ -228,20 +312,23 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
-      this.pullBackoffMs =
-        this.pullBackoffMs === 0
-          ? MIN_PULL_BACKOFF_MS
-          : Math.min(this.pullBackoffMs * 2, MAX_PULL_BACKOFF_MS);
+      this.pullBackoffMs = nextBackoffMs(
+        this.pullBackoffMs,
+        MIN_PULL_BACKOFF_MS,
+        MAX_PULL_BACKOFF_MS
+      );
+      const retryAt = nowMs() + this.pullBackoffMs;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.server,
           'Sync pull failed',
           error instanceof Error ? { message: error.message } : undefined
         ),
-        null
+        retryAt
       );
     } finally {
       this.pullInFlight = false;
+      this.resolvePullWaiters();
     }
   }
 
@@ -250,12 +337,11 @@ export class SyncEngine {
     this.pushInFlight = true;
     this.setSyncing(SyncDirections.push);
     try {
-      if (!this.pullInFlight) {
-        await this.pullOnce({ waitMs: 0 });
-      }
       const pending = await this.loadPendingEvents(this.pushBatchSize);
       if (pending.length === 0) {
         this.setIdle();
+        this.pushBackoffMs = 0;
+        this.pushRequested = false;
         return;
       }
 
@@ -284,20 +370,32 @@ export class SyncEngine {
             lastSuccessAt: nowMs(),
             lastError: null,
           });
+          this.pushBackoffMs = 0;
+          const stillPending = await this.hasPendingEvents();
+          if (stillPending && response.assigned.length > 0) {
+            this.requestPush();
+          }
           return;
         }
 
         await this.handleConflict(response, expectedHead);
       }
     } catch (error) {
+      this.pushBackoffMs = nextBackoffMs(
+        this.pushBackoffMs,
+        MIN_PUSH_BACKOFF_MS,
+        MAX_PUSH_BACKOFF_MS
+      );
+      const retryAt = nowMs() + this.pushBackoffMs;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.network,
           'Sync push failed',
           error instanceof Error ? { message: error.message } : undefined
         ),
-        null
+        retryAt
       );
+      this.requestPush();
     } finally {
       this.pushInFlight = false;
     }
@@ -324,8 +422,12 @@ export class SyncEngine {
       return;
     }
 
-    await this.pullOnce({ waitMs: 0 });
-    const current = await this.readLastPulledGlobalSeq();
+    await this.awaitPullIfInFlight();
+    let current = await this.readLastPulledGlobalSeq();
+    if (current <= expectedHead) {
+      await this.requestImmediatePull();
+      current = await this.readLastPulledGlobalSeq();
+    }
     if (current <= expectedHead) {
       throw new Error('Sync conflict did not advance cursor');
     }
@@ -334,9 +436,6 @@ export class SyncEngine {
   private async getExpectedHead(): Promise<number> {
     if (this.lastKnownHead !== null) {
       return this.lastKnownHead;
-    }
-    if (!this.pullInFlight && !(this.running && this.pullWaitMs > 0)) {
-      await this.pullOnce({ waitMs: 0 });
     }
     return this.lastKnownHead ?? (await this.readLastPulledGlobalSeq());
   }
@@ -350,12 +449,143 @@ export class SyncEngine {
   }
 
   private schedulePush(): void {
+    this.pushSignalsSeen = true;
+    this.pushQueued = true;
     if (this.pushTimer) return;
     this.pushTimer = setTimeout(() => {
       this.pushTimer = null;
       if (!this.running) return;
-      void this.pushOnce();
+      if (!this.pushQueued) return;
+      this.pushQueued = false;
+      this.requestPush();
     }, DEFAULT_PUSH_DEBOUNCE_MS);
+  }
+
+  private requestInitialPush(): void {
+    if (!this.running) return;
+    this.requestPush();
+  }
+
+  private requestPush(): void {
+    this.pushRequested = true;
+    this.signalPush();
+  }
+
+  private consumePullRequest(): boolean {
+    if (!this.pullRequested) return false;
+    this.pullRequested = false;
+    return true;
+  }
+
+  private async requestImmediatePull(): Promise<void> {
+    if (!this.running) {
+      await this.pullOnce({ waitMs: 0 });
+      return;
+    }
+    if (this.pullInFlightPromise) {
+      await this.pullInFlightPromise;
+      return;
+    }
+    this.pullRequested = true;
+    this.signalPull();
+    await new Promise<void>((resolve) => {
+      this.pullWaiters.push(resolve);
+    });
+  }
+
+  private async awaitPullIfInFlight(): Promise<void> {
+    if (this.pullInFlightPromise) {
+      await this.pullInFlightPromise;
+    }
+  }
+
+  private resolvePullWaiters(): void {
+    if (this.pullWaiters.length === 0) return;
+    const waiters = this.pullWaiters;
+    this.pullWaiters = [];
+    for (const resolve of waiters) {
+      resolve();
+    }
+  }
+
+  private signalPull(): void {
+    if (!this.pullSignal) return;
+    this.pullSignal.resolve();
+    this.pullSignal = null;
+  }
+
+  private signalPush(): void {
+    if (!this.pushSignal) return;
+    this.pushSignal.resolve();
+    this.pushSignal = null;
+  }
+
+  private async waitForPushSignal(): Promise<void> {
+    if (!this.pushSignal) {
+      this.pushSignal = createDeferredSignal();
+    }
+    await this.pushSignal.promise;
+  }
+
+  private async waitForPullSignalOrDelay(delayMs: number): Promise<void> {
+    if (delayMs <= 0) return;
+    if (!this.pullSignal) {
+      this.pullSignal = createDeferredSignal();
+    }
+    const currentSignal = this.pullSignal;
+    const sleeper = sleepWithCancel(delayMs);
+    const winner = await Promise.race([
+      currentSignal.promise.then(() => 'signal' as const),
+      sleeper.promise.then(() => 'sleep' as const),
+    ]);
+    if (winner === 'signal') {
+      sleeper.cancel();
+    }
+    if (this.pullSignal === currentSignal) {
+      this.pullSignal = null;
+    }
+  }
+
+  private async waitForPushSignalOrDelay(delayMs: number): Promise<void> {
+    if (delayMs <= 0) return;
+    if (!this.pushSignal) {
+      this.pushSignal = createDeferredSignal();
+    }
+    const currentSignal = this.pushSignal;
+    const sleeper = sleepWithCancel(delayMs);
+    const winner = await Promise.race([
+      currentSignal.promise.then(() => 'signal' as const),
+      sleeper.promise.then(() => 'sleep' as const),
+    ]);
+    if (winner === 'signal') {
+      sleeper.cancel();
+    }
+    if (this.pushSignal === currentSignal) {
+      this.pushSignal = null;
+    }
+  }
+
+  private getPullDelayMs(): number {
+    if (this.pullBackoffMs > 0) {
+      return this.pullBackoffMs;
+    }
+    if (this.pullRequested) {
+      return 0;
+    }
+    if (this.pullWaitMs > 0) {
+      return 0;
+    }
+    return this.pullIntervalMs;
+  }
+
+  private getPushDelayMs(): number {
+    if (this.pushBackoffMs > 0) {
+      return this.pushBackoffMs;
+    }
+    if (this.pushSignalsSeen) {
+      return 0;
+    }
+    return this.pushIntervalMs;
   }
 
   private async ensureSyncMetaRow(): Promise<void> {
