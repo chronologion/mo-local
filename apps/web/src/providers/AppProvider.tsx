@@ -226,13 +226,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               })();
             },
             onDownloadDb: () => {
-              const exporter = svc.db.exportMainDatabase;
-              if (!exporter) {
+              if (!svc.db.exportMainDatabase) {
                 console.warn('[DebugPanel] DB export not supported by adapter');
                 return;
               }
               void (async () => {
-                const bytes = await exporter();
+                const bytes = await svc.db.exportMainDatabase?.();
+                if (!bytes) {
+                  console.warn('[DebugPanel] DB export returned no bytes');
+                  return;
+                }
                 const stableBytes = new Uint8Array(bytes);
                 const blob = new Blob([stableBytes], {
                   type: 'application/x-sqlite3',

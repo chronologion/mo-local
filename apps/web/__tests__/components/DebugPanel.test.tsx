@@ -5,6 +5,7 @@ import { DebugPanel } from '../../src/components/DebugPanel';
 describe('DebugPanel', () => {
   it('renders debug info and actions', () => {
     const onRebuild = vi.fn();
+    const onDownloadDb = vi.fn();
     render(
       <DebugPanel
         info={{
@@ -14,6 +15,7 @@ describe('DebugPanel', () => {
           aggregateCount: 2,
           note: 'note',
           onRebuild,
+          onDownloadDb,
         }}
       />
     );
@@ -23,5 +25,8 @@ describe('DebugPanel', () => {
 
     fireEvent.click(screen.getByText('Rebuild Projections'));
     expect(onRebuild).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('Download DB'));
+    expect(onDownloadDb).toHaveBeenCalledTimes(1);
   });
 });
