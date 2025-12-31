@@ -93,7 +93,7 @@ export function Onboarding() {
         backup: restoreInput,
       };
       if (restoreDbBytes && selectedDbFile) {
-        params.db = { fileName: selectedDbFile, bytes: restoreDbBytes };
+        params.db = { bytes: restoreDbBytes };
       }
       await restoreBackup(params);
     } catch (err) {
@@ -241,8 +241,8 @@ export function Onboarding() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Use the `.db` file downloaded from the debug panel. Filename
-                must match `mo-eventstore-&lt;storeId&gt;.db`.
+                Use the `.db` file downloaded from the debug panel (optional).
+                It should correspond to the same identity as the key backup.
               </p>
             </div>
             <div className="space-y-2">

@@ -62,7 +62,6 @@ type AppContextValue = {
     password: string;
     backup: string;
     db?: Readonly<{
-      fileName: string;
       bytes: Uint8Array;
     }>;
   }) => Promise<void>;
@@ -494,7 +493,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     password: string;
     backup: string;
     db?: Readonly<{
-      fileName: string;
       bytes: Uint8Array;
     }>;
   }) => {
@@ -521,25 +519,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const payload = parseBackupPayload(
       JSON.parse(new TextDecoder().decode(decrypted))
     );
-
-    if (db) {
-      const match = /^mo-eventstore-(.+)\\.db$/i.exec(db.fileName);
-      if (!match) {
-        throw new Error(
-          'DB filename must be of the form mo-eventstore-<storeId>.db'
-        );
-      }
-      const inferredStoreId = match[1] ?? '';
-      const parsed = storeIdSchema.safeParse(inferredStoreId);
-      if (!parsed.success) {
-        throw new Error('DB filename does not contain a valid storeId');
-      }
-      if (parsed.data !== payload.userId) {
-        throw new Error(
-          'Selected DB file does not match the backup (storeId mismatch)'
-        );
-      }
-    }
 
     const aggregateEntries: Array<[string, string]> = Object.entries(
       payload.aggregateKeys
