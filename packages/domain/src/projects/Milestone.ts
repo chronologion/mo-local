@@ -1,10 +1,16 @@
 import { Assert } from '../shared/Assert';
-import { Entity } from '../shared/Entity';
+import { ChildEntity } from '../shared/ChildEntity';
 import { LocalDate } from '../shared/vos/LocalDate';
 import { MilestoneId } from './vos/MilestoneId';
 import { MilestoneName } from './vos/MilestoneName';
 
-export class Milestone extends Entity<MilestoneId> {
+export type MilestoneRecord = Readonly<{
+  id: MilestoneId;
+  name: MilestoneName;
+  targetDate: LocalDate;
+}>;
+
+export class Milestone extends ChildEntity<MilestoneId, MilestoneRecord> {
   private _name: MilestoneName;
   private _targetDate: LocalDate;
 
@@ -42,5 +48,13 @@ export class Milestone extends Entity<MilestoneId> {
 
   changeTargetDate(date: LocalDate): void {
     this._targetDate = date;
+  }
+
+  asRecord(): MilestoneRecord {
+    return {
+      id: this.id,
+      name: this._name,
+      targetDate: this._targetDate,
+    };
   }
 }

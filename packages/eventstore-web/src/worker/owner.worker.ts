@@ -1,0 +1,717 @@
+import { PlatformErrorCodes, type PlatformError } from '@mo/eventstore-core';
+import {
+  WorkerEnvelopeKinds,
+  WorkerHelloKinds,
+  WorkerNotifyKinds,
+  WorkerRequestKinds,
+  type DbOwnershipMode,
+  type WorkerEnvelope,
+  type WorkerHello,
+  type WorkerNotify,
+  type WorkerRequest,
+  type WorkerResponse,
+} from '../protocol/types';
+import {
+  createSqliteContext,
+  closeSqliteContext,
+  executeStatements,
+  exportVfsFileBytes,
+  extractTableNames,
+  runExecute,
+  runQuery,
+  SqliteInitError,
+  toPlatformError,
+  type SqliteContext,
+} from './sqlite';
+
+type PortLike = {
+  postMessage: (message: unknown, transfer?: Transferable[]) => void;
+  addEventListener: (
+    type: 'message',
+    listener: (event: MessageEvent) => void
+  ) => void;
+  removeEventListener: (
+    type: 'message',
+    listener: (event: MessageEvent) => void
+  ) => void;
+  start?: () => void;
+};
+
+type Subscription = {
+  tables: ReadonlyArray<string>;
+};
+
+type Connection = {
+  port: PortLike;
+  subscriptions: Map<string, Subscription>;
+};
+
+type OpfsDiagnostics = Readonly<{
+  secureContext: boolean | null;
+  hasStorage: boolean;
+  hasGetDirectory: boolean;
+  hasLocks: boolean;
+  estimate?: Readonly<{ usage: number | null; quota: number | null }>;
+  persisted?: boolean;
+  rootEntries?: ReadonlyArray<string>;
+  vfsDirEntries?: ReadonlyArray<string>;
+  errors?: ReadonlyArray<
+    Readonly<{ step: string; name: string; message: string }>
+  >;
+}>;
+
+type DirectoryHandleWithEntries = FileSystemDirectoryHandle & {
+  entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
+};
+
+const hasDirectoryEntries = (
+  dir: FileSystemDirectoryHandle
+): dir is DirectoryHandleWithEntries => {
+  // eslint-disable-next-line no-restricted-syntax -- TS lib typing for FileSystemDirectoryHandle iteration is incomplete here; runtime supports `entries()` where available.
+  const entries = (dir as unknown as { entries?: unknown }).entries;
+  return typeof entries === 'function';
+};
+
+const collectOpfsDiagnostics = async (
+  storeId: string
+): Promise<OpfsDiagnostics> => {
+  const errors: Array<{ step: string; name: string; message: string }> = [];
+  const vfsDir = `mo-eventstore-${storeId}`;
+  const rootEntries: string[] = [];
+  const vfsDirEntries: string[] = [];
+
+  let secureContext: boolean | null = null;
+  if (typeof self !== 'undefined' && 'isSecureContext' in self) {
+    const value = (self as { isSecureContext: unknown }).isSecureContext;
+    secureContext = typeof value === 'boolean' ? value : null;
+  }
+
+  const hasStorage = typeof navigator !== 'undefined' && 'storage' in navigator;
+  const hasGetDirectory =
+    hasStorage && typeof navigator.storage.getDirectory === 'function';
+  const hasLocks = typeof navigator !== 'undefined' && 'locks' in navigator;
+
+  const estimate = await (async () => {
+    try {
+      if (!hasStorage || typeof navigator.storage.estimate !== 'function') {
+        return undefined;
+      }
+      const res = await navigator.storage.estimate();
+      return {
+        usage: typeof res.usage === 'number' ? res.usage : null,
+        quota: typeof res.quota === 'number' ? res.quota : null,
+      };
+    } catch (error) {
+      errors.push({
+        step: 'storage.estimate',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  })();
+
+  const persisted = await (async () => {
+    try {
+      if (!hasStorage || typeof navigator.storage.persisted !== 'function') {
+        return undefined;
+      }
+      return await navigator.storage.persisted();
+    } catch (error) {
+      errors.push({
+        step: 'storage.persisted',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  })();
+
+  const root = await (async () => {
+    try {
+      if (!hasGetDirectory) return null;
+      return await navigator.storage.getDirectory();
+    } catch (error) {
+      errors.push({
+        step: 'storage.getDirectory',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  })();
+
+  if (root) {
+    try {
+      if (hasDirectoryEntries(root)) {
+        let count = 0;
+        for await (const [name, handle] of root.entries()) {
+          const kind =
+            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          rootEntries.push(`${kind}:${name}`);
+          count += 1;
+          if (count >= 50) break;
+        }
+      }
+    } catch (error) {
+      errors.push({
+        step: 'root.entries',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      const dir = await root.getDirectoryHandle(vfsDir, { create: false });
+      if (hasDirectoryEntries(dir)) {
+        let count = 0;
+        for await (const [name, handle] of dir.entries()) {
+          const kind =
+            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          vfsDirEntries.push(`${kind}:${name}`);
+          count += 1;
+          if (count >= 200) break;
+        }
+      }
+    } catch (error) {
+      errors.push({
+        step: `vfsDir.entries:${vfsDir}`,
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (errors.length === 0) {
+    return {
+      secureContext,
+      hasStorage,
+      hasGetDirectory,
+      hasLocks,
+      estimate,
+      persisted,
+      rootEntries,
+      vfsDirEntries,
+    };
+  }
+
+  return {
+    secureContext,
+    hasStorage,
+    hasGetDirectory,
+    hasLocks,
+    estimate,
+    persisted,
+    rootEntries: rootEntries.length > 0 ? rootEntries : undefined,
+    vfsDirEntries: vfsDirEntries.length > 0 ? vfsDirEntries : undefined,
+    errors,
+  };
+};
+
+class DbOwnerServer {
+  private readonly connections = new Set<Connection>();
+  private readonly canceledRequests = new Set<string>();
+  private readonly serverInstanceId = crypto.randomUUID();
+
+  private ctx: SqliteContext | null = null;
+  private storeId: string | null = null;
+  private dbName: string | null = null;
+  private ownershipMode: DbOwnershipMode;
+  private releaseLock: (() => void) | null = null;
+
+  constructor(ownershipMode: DbOwnershipMode) {
+    this.ownershipMode = ownershipMode;
+  }
+
+  attachPort(port: PortLike): void {
+    const connection: Connection = {
+      port,
+      subscriptions: new Map(),
+    };
+    const handler = (event: MessageEvent) => {
+      const data = event.data as WorkerHello | WorkerEnvelope | undefined;
+      if (!data || typeof data !== 'object') return;
+      if ('kind' in data && data.kind === WorkerHelloKinds.hello) {
+        void this.handleHello(connection, data as WorkerHello);
+        return;
+      }
+      if ('kind' in data && data.kind === WorkerEnvelopeKinds.cancel) {
+        this.canceledRequests.add(data.targetRequestId);
+        return;
+      }
+      if ('kind' in data && data.kind === WorkerEnvelopeKinds.request) {
+        void this.handleRequest(connection, data as WorkerEnvelope);
+      }
+    };
+    port.addEventListener('message', handler);
+    port.start?.();
+    this.connections.add(connection);
+  }
+
+  private async handleHello(
+    connection: Connection,
+    message: WorkerHello
+  ): Promise<void> {
+    if (message.kind !== WorkerHelloKinds.hello) return;
+
+    if (!this.ctx) {
+      console.info('[DbOwnerServer] initializing', {
+        storeId: message.storeId,
+        dbName: message.dbName,
+        requireOpfs: message.requireOpfs,
+        ownershipMode: this.ownershipMode,
+      });
+      try {
+        this.storeId = message.storeId;
+        this.dbName = message.dbName;
+        if (message.requireOpfs) {
+          await this.assertOpfsSupport();
+        }
+        if (this.ownershipMode.type === 'dedicatedWorker') {
+          await this.acquireLock(message.storeId);
+        }
+        this.ctx = await createSqliteContext({
+          storeId: message.storeId,
+          dbName: message.dbName,
+        });
+      } catch (error) {
+        this.storeId = null;
+        this.dbName = null;
+        if (this.releaseLock) {
+          try {
+            this.releaseLock();
+          } catch {
+            // ignore lock release errors
+          }
+          this.releaseLock = null;
+        }
+        const name =
+          typeof error === 'object' && error && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError';
+        const messageText =
+          error instanceof Error ? error.message : String(error);
+        const initStage =
+          error instanceof SqliteInitError ? error.stage : undefined;
+        const cause = error instanceof SqliteInitError ? error.cause : error;
+        const causeName =
+          typeof cause === 'object' && cause && 'name' in cause
+            ? String((cause as { name?: unknown }).name)
+            : null;
+        const causeMessage =
+          cause instanceof Error ? cause.message : String(cause);
+        const causeCode =
+          cause instanceof DOMException && typeof cause.code === 'number'
+            ? cause.code
+            : null;
+
+        const opfsDiagnostics = await collectOpfsDiagnostics(message.storeId);
+        const isInvalidStateError =
+          name === 'InvalidStateError' || causeName === 'InvalidStateError';
+        console.error('[DbOwnerServer] initialization failed', {
+          storeId: message.storeId,
+          dbName: message.dbName,
+          errorName: name,
+          errorMessage: messageText,
+          errorStack: error instanceof Error ? error.stack : undefined,
+          initStage,
+          causeName,
+          causeMessage,
+          causeCode,
+          opfsDiagnostics,
+        });
+        let platformError: PlatformError;
+        if (isInvalidStateError) {
+          platformError = {
+            code: PlatformErrorCodes.DbInvalidStateError,
+            message:
+              'OPFS returned InvalidStateError while opening the SQLite file. This can happen if another context still holds an exclusive access handle. Try closing other tabs and reloading; if it persists, use Reset Local State.',
+            context: {
+              errorName: name,
+              errorMessage: messageText,
+              storeId: message.storeId,
+              dbName: message.dbName,
+              initStage,
+              causeName,
+              causeMessage,
+              causeCode,
+              opfsDiagnostics,
+              suggestedAction: 'reset',
+            },
+          };
+        } else if (error instanceof SqliteInitError) {
+          platformError = {
+            code: PlatformErrorCodes.WorkerProtocolError,
+            message: error.message,
+            context: {
+              storeId: message.storeId,
+              dbName: message.dbName,
+              initStage,
+              causeName,
+              causeMessage,
+              causeCode,
+              opfsDiagnostics,
+            },
+          };
+        } else {
+          platformError = toPlatformError(error);
+        }
+
+        const helloError: WorkerHello = {
+          v: 1,
+          kind: WorkerHelloKinds.helloError,
+          error: platformError,
+        };
+        connection.port.postMessage(helloError);
+        return;
+      }
+    }
+
+    if (this.storeId !== message.storeId || this.dbName !== message.dbName) {
+      const error: PlatformError = {
+        code: PlatformErrorCodes.DbOwnershipError,
+        message: 'Worker already initialized for a different storeId or dbName',
+      };
+      const response: WorkerResponse = { kind: 'error', error };
+      const envelope: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: crypto.randomUUID(),
+        payload: response,
+      };
+      connection.port.postMessage(envelope);
+      return;
+    }
+
+    const helloOk: WorkerHello = {
+      v: 1,
+      kind: WorkerHelloKinds.helloOk,
+      protocolVersion: 1,
+      ownershipMode: this.ownershipMode,
+      serverInstanceId: this.serverInstanceId,
+    };
+    connection.port.postMessage(helloOk);
+  }
+
+  private async handleRequest(
+    connection: Connection,
+    envelope: WorkerEnvelope
+  ): Promise<void> {
+    if (envelope.kind !== WorkerEnvelopeKinds.request) return;
+
+    if (this.canceledRequests.has(envelope.requestId)) {
+      this.canceledRequests.delete(envelope.requestId);
+      const response: WorkerResponse = {
+        kind: 'error',
+        error: {
+          code: PlatformErrorCodes.CanceledError,
+          message: 'Request was canceled',
+        },
+      };
+      this.sendResponse(connection, envelope.requestId, response);
+      return;
+    }
+
+    const payload = envelope.payload as WorkerRequest;
+    try {
+      if (payload.kind === WorkerRequestKinds.dbShutdown) {
+        const ctx = this.ctx;
+        this.ctx = null;
+        this.storeId = null;
+        this.dbName = null;
+        if (this.releaseLock) {
+          try {
+            this.releaseLock();
+          } catch {
+            // ignore lock release errors
+          }
+          this.releaseLock = null;
+        }
+        if (ctx) {
+          await closeSqliteContext(ctx);
+        }
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbExportMain) {
+        if (!this.ctx || !this.dbName) {
+          const error: PlatformError = {
+            code: PlatformErrorCodes.DbOwnershipError,
+            message: 'DB is not initialized',
+          };
+          this.sendResponse(connection, envelope.requestId, {
+            kind: 'error',
+            error,
+          });
+          return;
+        }
+        const bytes = exportVfsFileBytes(this.ctx, this.dbName);
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: bytes,
+        });
+        return;
+      }
+
+      if (!this.ctx) {
+        const error: PlatformError = {
+          code: PlatformErrorCodes.DbOwnershipError,
+          message: 'DB is not initialized',
+        };
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'error',
+          error,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbQuery) {
+        const rows = await runQuery(
+          this.ctx.sqlite3,
+          this.ctx.db,
+          payload.sql,
+          payload.params
+        );
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: rows,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbExecute) {
+        await runExecute(
+          this.ctx.sqlite3,
+          this.ctx.db,
+          payload.sql,
+          payload.params
+        );
+        const tables = extractTableNames(payload.sql).map((t) =>
+          t.toLowerCase()
+        );
+        this.notifyTables(tables);
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbBatch) {
+        const results = await executeStatements(this.ctx, payload.statements);
+        const tables = payload.statements
+          .map((statement) => extractTableNames(statement.sql))
+          .flat()
+          .map((t) => t.toLowerCase());
+        this.notifyTables(tables);
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: results,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbSubscribeTables) {
+        connection.subscriptions.set(payload.subscriptionId, {
+          tables: payload.tables.map((t) => t.toLowerCase()),
+        });
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbUnsubscribeTables) {
+        connection.subscriptions.delete(payload.subscriptionId);
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
+        });
+        return;
+      }
+
+      const error: PlatformError = {
+        code: PlatformErrorCodes.WorkerProtocolError,
+        message: `Unsupported request kind: ${payload.kind}`,
+      };
+      this.sendResponse(connection, envelope.requestId, {
+        kind: 'error',
+        error,
+      });
+    } catch (error) {
+      this.sendResponse(connection, envelope.requestId, {
+        kind: 'error',
+        error: toPlatformError(error),
+      });
+    }
+  }
+
+  private sendResponse(
+    connection: Connection,
+    requestId: string,
+    payload: WorkerResponse
+  ): void {
+    const envelope: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId,
+      payload,
+    };
+    connection.port.postMessage(envelope, collectTransferables(payload));
+  }
+
+  private sendInitError(connection: Connection, error: unknown): void {
+    const response: WorkerResponse = {
+      kind: 'error',
+      error: toPlatformError(error),
+    };
+    const envelope: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: crypto.randomUUID(),
+      payload: response,
+    };
+    connection.port.postMessage(envelope);
+  }
+
+  private notifyTables(tables: ReadonlyArray<string>): void {
+    if (tables.length === 0) return;
+    for (const connection of this.connections) {
+      const shouldNotify = Array.from(connection.subscriptions.values()).some(
+        (subscription) =>
+          subscription.tables.some((table) => tables.includes(table))
+      );
+      if (!shouldNotify) continue;
+      const message: WorkerNotify = {
+        v: 1,
+        kind: WorkerNotifyKinds.tablesChanged,
+        tables,
+      };
+      connection.port.postMessage(message, collectTransferables(message));
+    }
+  }
+
+  private async assertOpfsSupport(): Promise<void> {
+    if (
+      typeof navigator === 'undefined' ||
+      !('storage' in navigator) ||
+      typeof navigator.storage.getDirectory !== 'function'
+    ) {
+      throw new Error('OPFS is not available in this environment');
+    }
+  }
+
+  private async acquireLock(storeId: string): Promise<void> {
+    if (!('locks' in navigator)) {
+      throw new Error('Web Locks API is not available');
+    }
+    const lockName = `mo-eventstore:${storeId}`;
+    await new Promise<void>((resolve) => {
+      const release = new Promise<void>((releaseResolve) => {
+        this.releaseLock = releaseResolve;
+      });
+      void navigator.locks.request(
+        lockName,
+        { mode: 'exclusive' },
+        async () => {
+          resolve();
+          await release;
+        }
+      );
+    });
+  }
+}
+
+function collectTransferables(value: unknown): Transferable[] {
+  const transferables: Transferable[] = [];
+  const seen = new Set<unknown>();
+
+  const visit = (item: unknown) => {
+    if (!item || typeof item !== 'object' || seen.has(item)) return;
+    seen.add(item);
+    if (item instanceof Uint8Array) {
+      transferables.push(item.buffer);
+      return;
+    }
+    if (Array.isArray(item)) {
+      for (const entry of item) visit(entry);
+      return;
+    }
+    for (const entry of Object.values(item as Record<string, unknown>)) {
+      visit(entry);
+    }
+  };
+
+  visit(value);
+  return transferables;
+}
+
+const isSharedWorker = 'onconnect' in self;
+
+const ownershipMode: DbOwnershipMode = isSharedWorker
+  ? { type: 'sharedWorker', workerId: crypto.randomUUID() }
+  : { type: 'dedicatedWorker', tabId: crypto.randomUUID(), lockHeld: true };
+
+const server = new DbOwnerServer(ownershipMode);
+
+if (isSharedWorker && 'onconnect' in self) {
+  const sharedScope = self as SharedWorkerGlobalScope;
+  sharedScope.onconnect = (event) => {
+    const port = (event as MessageEvent & { ports: readonly MessagePort[] })
+      .ports[0];
+    server.attachPort(wrapPort(port));
+  };
+} else {
+  const port: PortLike = {
+    postMessage: (message, transfer) => {
+      if (transfer && transfer.length > 0) {
+        (self as DedicatedWorkerGlobalScope).postMessage(message, transfer);
+      } else {
+        (self as DedicatedWorkerGlobalScope).postMessage(message);
+      }
+    },
+    addEventListener: (type, listener) => {
+      self.addEventListener(type, listener as EventListener);
+    },
+    removeEventListener: (type, listener) => {
+      self.removeEventListener(type, listener as EventListener);
+    },
+  };
+  server.attachPort(port);
+}
+
+function wrapPort(port: MessagePort): PortLike {
+  return {
+    postMessage: (message, transfer) => {
+      if (transfer && transfer.length > 0) {
+        port.postMessage(message, transfer);
+      } else {
+        port.postMessage(message);
+      }
+    },
+    addEventListener: (type, listener) => port.addEventListener(type, listener),
+    removeEventListener: (type, listener) =>
+      port.removeEventListener(type, listener),
+    start: () => port.start(),
+  };
+}

@@ -14,7 +14,9 @@ export const makeServices = (
   eventBus: {} as AppServices['eventBus'],
   publisher: {} as AppServices['publisher'],
   storeId: 'test-store',
-  store: {} as AppServices['store'],
+  db: {} as AppServices['db'],
+  dbShutdown: async () => {},
+  syncEngine: {} as AppServices['syncEngine'],
   contexts: {},
   ...overrides,
 });

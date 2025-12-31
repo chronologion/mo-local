@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { IKeyStore } from '@mo/application';
+import { KeyStorePort } from '@mo/application';
 import { NodeCryptoService } from '../../src/crypto/NodeCryptoService';
 import { SharingCrypto } from '../../src/crypto/SharingCrypto';
+import type { IdentityKeys, KeyBackup } from '@mo/application';
 import { AggregateKeyManager } from '../../src/crypto/AggregateKeyManager';
 
 describe('NodeCryptoService', () => {
@@ -165,20 +166,52 @@ describe('AggregateKeyManager', () => {
     const crypto = new NodeCryptoService();
     const sharing = new SharingCrypto(crypto);
 
-    class InMemoryKeyStoreStub implements IKeyStore {
+    class InMemoryKeyStoreStub implements KeyStorePort {
       private readonly keys = new Map<string, Uint8Array>();
+      private readonly identityKeys = new Map<string, IdentityKeys>();
       private masterKey: Uint8Array | null = null;
+
       setMasterKey(key: Uint8Array): void {
         this.masterKey = new Uint8Array(key);
       }
       getMasterKey(): Uint8Array | null {
         return this.masterKey ? new Uint8Array(this.masterKey) : null;
       }
+      async saveIdentityKeys(
+        userId: string,
+        keys: IdentityKeys
+      ): Promise<void> {
+        this.identityKeys.set(userId, keys);
+      }
+      async getIdentityKeys(userId: string): Promise<IdentityKeys | null> {
+        return this.identityKeys.get(userId) ?? null;
+      }
       async saveAggregateKey(id: string, key: Uint8Array): Promise<void> {
         this.keys.set(id, key);
       }
       async getAggregateKey(id: string): Promise<Uint8Array | null> {
         return this.keys.get(id) ?? null;
+      }
+      async exportKeys(): Promise<KeyBackup> {
+        const firstIdentity = this.identityKeys.values().next().value ?? null;
+        return {
+          identityKeys: firstIdentity,
+          aggregateKeys: Object.fromEntries(this.keys.entries()),
+        };
+      }
+      async importKeys(backup: KeyBackup): Promise<void> {
+        if (backup.identityKeys) {
+          const userId = backup.userId ?? 'import';
+          this.identityKeys.set(userId, backup.identityKeys);
+        }
+        Object.entries(backup.aggregateKeys).forEach(([key, value]) => {
+          this.keys.set(key, value);
+        });
+      }
+      async clearAll(): Promise<void> {
+        this.keys.clear();
+        this.identityKeys.clear();
+        this.masterKey = null;
       }
     }
 

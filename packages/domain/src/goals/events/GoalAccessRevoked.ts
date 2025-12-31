@@ -21,25 +21,19 @@ export class GoalAccessRevoked
   readonly revokedFrom: UserId;
   readonly revokedAt: Timestamp;
 
-  constructor(payload: GoalAccessRevokedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.revokedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalAccessRevokedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.revokedFrom = payload.revokedFrom;
-    this.revokedAt = payload.revokedAt;
+    this.revokedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalAccessRevokedSpec = payloadEventSpec<
   GoalAccessRevoked,
-  GoalAccessRevokedPayload
+  GoalAccessRevokedPayload,
+  GoalId
 >(
   goalEventTypes.goalAccessRevoked,
   (p, meta) => new GoalAccessRevoked(p, meta),

@@ -1,23 +1,23 @@
-import type { BusEnvelope, IBus } from '@mo/application';
+import type { BusEnvelope, BusPort } from '@mo/application';
 
-export class SimpleBus<TEnvelope extends BusEnvelope, TResult> implements IBus<
-  TEnvelope,
-  TResult
-> {
+export class SimpleBus<
+  TEnvelope extends BusEnvelope,
+  TResult,
+> implements BusPort<TEnvelope, TResult> {
   private readonly handlers = new Map<
     string,
     (message: TEnvelope) => Promise<TResult>
   >();
 
   register<TMessage extends TEnvelope>(
-    type: TMessage['type'],
+    name: string,
     handler: (message: TMessage) => Promise<TResult>
   ): void {
-    if (this.handlers.has(type)) {
-      throw new Error(`Handler already registered for type ${type}`);
+    if (this.handlers.has(name)) {
+      throw new Error(`Handler already registered for name ${name}`);
     }
     this.handlers.set(
-      type,
+      name,
       handler as (message: TEnvelope) => Promise<TResult>
     );
   }
@@ -25,9 +25,14 @@ export class SimpleBus<TEnvelope extends BusEnvelope, TResult> implements IBus<
   async dispatch<TMessage extends TEnvelope>(
     message: TMessage
   ): Promise<TResult> {
-    const handler = this.handlers.get(message.type);
+    const envelope = message as {
+      type?: string;
+      constructor: { name: string };
+    };
+    const name = envelope.type ?? envelope.constructor.name;
+    const handler = this.handlers.get(name);
     if (!handler) {
-      throw new Error(`No handler registered for type ${message.type}`);
+      throw new Error(`No handler registered for name ${name}`);
     }
     return handler(message);
   }

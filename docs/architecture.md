@@ -1,7 +1,7 @@
 # MO Local Architecture
 
 **Status**: living document  
-**Last Updated**: 2025-12-25
+**Last Updated**: 2025-12-28
 
 This document is the long-lived reference for the architecture implemented so far in this monorepo. It is intentionally grounded in what exists today and captures the key architecture decisions (ADRs) that shaped the current implementation.
 
@@ -86,7 +86,7 @@ Hard rules:
 ### 5.3 Publication path (post-commit → event bus)
 
 1. `CommittedEventPublisher` streams **committed** events from materialized tables ordered by `sequence`.
-2. It decrypts and rehydrates domain events and publishes them on `IEventBus`.
+2. It decrypts and rehydrates domain events and publishes them on `EventBusPort`.
 3. It persists a cursor per stream to guarantee replayability and avoid double-publish on reload.
 
 **Contract**
@@ -247,7 +247,7 @@ This document does not enumerate every domain event type (that list becomes stal
 ### 7.1 Responsibilities
 
 - Define use-case contracts (commands/queries) and their handlers.
-- Define outbound ports (`IEventStore`, `IKeyStore`, `ICryptoService`, `IEventBus`, read model ports, sync provider ports).
+- Define outbound ports (`EventStorePort`, `KeyStorePort`, `CryptoServicePort`, `EventBusPort`, read model ports, sync provider ports).
 - Enforce the local OCC contract via `knownVersion`.
 
 ### 7.2 Local conflict UX contract (OCC)
@@ -263,7 +263,7 @@ Sagas coordinate behavior across bounded contexts without collapsing them into o
 
 Contracts:
 
-- Sagas subscribe to **committed** domain events via `IEventBus` (which is fed by post-commit streaming).
+- Sagas subscribe to **committed** domain events via `EventBusPort` (which is fed by post-commit streaming).
 - Sagas keep their own minimal state (not projection state) and persist it independently.
 - Sagas dispatch commands to other BCs and must be idempotent:
   - idempotency keys should include the **triggering event ID** to allow safe re-runs.
@@ -453,6 +453,26 @@ The ADRs below capture the decisions that define the “frozen contracts” for 
 - **Rationale**: Crash-safety and replayability.
 - **Consequences**: Publication is eventually consistent and requires dedupe/checkpointing.
 
+### ADR ALC-307-01 — Replace LiveStore runtime with MO EventStore + Sync Engine (Approved)
+
+- **Reference**: ALC-307 (`docs/prd-eventstore-replacement.md`)
+- **Context**: LiveStore’s leader/session/rebase semantics have repeatedly conflicted with our durability + projection cursor requirements (e.g., non-durable `store.query(...)` writes and rebase-driven cursor divergence; see ALC-306). LiveStore also couples durability, reactivity, and sync semantics in ways that are structurally at odds with our E2EE constraint (ciphertext bytes must remain opaque and keys cannot be required “inside DB execution”). React Native support is also not currently covered by LiveStore in a way we want to rely on.
+- **Decision**: Replace LiveStore with a platform substrate composed of:
+  - a small, explicit SQLite runtime (`ISqliteDb`) with single-writer DB ownership (SharedWorker per `storeId` by default, with explicit fallbacks),
+  - an explicit sync engine (`@mo/sync-engine`) and a **replacement sync contract** that is breaking for this milestone (pre-production; no backward compat required):
+    - server-assigned `globalSequence` (no client `seqNum/parentSeqNum`),
+    - idempotent `eventId` de-duplication on the server,
+    - canonical byte encoding across JSON boundaries (base64url strings; never JSON “numeric-key byte objects”),
+  - an explicit projection/indexing runtime that is **eventually consistent** and rebuildable under an explicit rebase trigger (deterministic rebuild in a converged effective order when remote arrives while local pending exists).
+
+- **Rationale**: Make durability, ordering/cursoring, and rebase behavior explicit and testable; remove hidden rollback semantics; enforce separation of concerns so the substrate can remain reusable while product policies stay in the application/infrastructure composition roots.
+- **Consequences**:
+  - Infrastructure migrates from LiveStore’s `Store.commit/query/subscribe` to worker-friendly async DB calls + table-level invalidation.
+  - “Events commit independently; projections are eventually consistent” becomes an explicit contract: derived-state compute must never block event commits and must be safe to rebuild.
+  - Sync endpoints and server persistence must change to the replacement contract (server-assigned ordering + idempotent events + base64url bytes) to eliminate the “guess → 409 → retry” pathologies and the JSON byte bloat class we have already hit.
+  - React Native implementation is explicitly out of scope for this milestone; we only keep contracts capability-based so a native implementation can be added later without changing Domain/Application.
+  - Current-state note: until ALC-307 ships, §§5.3–5.4 and parts of §12 still describe the existing LiveStore-based behavior; update them as part of the LiveStore removal work.
+
 ## 12. Failure modes and recovery
 
 ### 12.1 Key loss
@@ -555,7 +575,7 @@ packages/<pkg>/
 
 ```typescript
 // __tests__/fixtures/InMemoryKeyStore.ts
-export class InMemoryKeyStore implements IKeyStore {
+export class InMemoryKeyStore implements KeyStorePort {
   private readonly keys = new Map<string, Uint8Array>();
   // ... implement interface
 }
@@ -672,14 +692,14 @@ flowchart TB
   end
 
   subgraph Application["Application Layer (Goals BC)<br>CQRS + Ports"]
-    CmdBus["Command Bus (IBus&lt;GoalCommand&gt;)"]
-    QryBus["Query Bus (IBus&lt;GoalQuery&gt;)"]
+    CmdBus["Command Bus (BusPort&lt;GoalCommand&gt;)"]
+    QryBus["Query Bus (BusPort&lt;GoalQuery&gt;)"]
     CmdHandler["GoalCommandHandler"]
     QryHandler["GoalQueryHandler"]
     Saga["GoalAchievementSaga<br>(cross-BC)"]
-    RepoPort["IGoalRepository (port)"]
-    ReadModelPort["IGoalReadModel (port)"]
-    EventBus["IEventBus (port)"]
+    RepoPort["GoalRepositoryPort (port)"]
+    ReadModelPort["GoalReadModelPort (port)"]
+    EventBus["EventBusPort (port)"]
   end
 
   subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]

@@ -1,0 +1,24 @@
+{
+  "name": "@mo/eventstore-web",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest --no-watch",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@mo/eventstore-core": "1.0.0",
+    "wa-sqlite": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.16"
+  }
+}

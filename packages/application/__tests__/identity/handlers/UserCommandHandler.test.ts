@@ -10,7 +10,7 @@ describe('UserCommandHandler', () => {
     const handler = new UserCommandHandler(keyStore, bus);
 
     await handler.handleRegister({
-      userId: UserId.from('user-1'),
+      actorId: UserId.from('user-1'),
       signingPublicKey: new Uint8Array([1]),
       encryptionPublicKey: new Uint8Array([2]),
       timestamp: Date.now(),
@@ -27,7 +27,7 @@ describe('UserCommandHandler', () => {
     const handler = new UserCommandHandler(keyStore, bus);
 
     await handler.handleImportKeys({
-      userId: UserId.from('user-1'),
+      actorId: UserId.from('user-1'),
       backup: {
         identityKeys: {
           signingPrivateKey: new Uint8Array([1]),

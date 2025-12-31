@@ -2,38 +2,46 @@ import { Goal, GoalId, Timestamp, UserId, goalEventTypes } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
-  IEventStore,
-  IGoalRepository,
-  IKeyStore,
+  EventStorePort,
+  GoalRepositoryPort,
+  KeyStorePort,
   none,
   Option,
   some,
 } from '@mo/application';
-import type { Store } from '@livestore/livestore';
-import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
-import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import type { SqliteDbPort } from '@mo/eventstore-web';
+import { AggregateTypes } from '@mo/eventstore-core';
+import { DomainToEncryptedEventAdapter } from '../eventstore/adapters/DomainToEncryptedEventAdapter';
+import { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { MissingKeyError, PersistenceError } from '../errors';
 import { decodeGoalSnapshotDomain } from './snapshots/GoalSnapshotCodec';
 import { buildSnapshotAad } from '../eventing/aad';
+import {
+  SqliteSnapshotStore,
+  type SnapshotStore,
+} from '../eventstore/persistence/SnapshotStore';
 
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
  */
-export class GoalRepository implements IGoalRepository {
-  private readonly toEncrypted: DomainToLiveStoreAdapter;
-  private readonly toDomain: LiveStoreToDomainAdapter;
+export class GoalRepository implements GoalRepositoryPort {
+  private readonly toEncrypted: DomainToEncryptedEventAdapter;
+  private readonly toDomain: EncryptedEventToDomainAdapter;
+  private readonly snapshotStore: SnapshotStore;
 
   constructor(
-    private readonly eventStore: IEventStore,
-    private readonly store: Store,
+    private readonly eventStore: EventStorePort,
+    private readonly db: SqliteDbPort,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore,
-    private readonly keyringManager: KeyringManager
+    private readonly keyStore: KeyStorePort,
+    private readonly keyringManager: KeyringManager,
+    snapshotStore: SnapshotStore = new SqliteSnapshotStore()
   ) {
-    this.toEncrypted = new DomainToLiveStoreAdapter(crypto);
-    this.toDomain = new LiveStoreToDomainAdapter(crypto);
+    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    this.toDomain = new EncryptedEventToDomainAdapter(crypto);
+    this.snapshotStore = snapshotStore;
   }
 
   async load(id: GoalId): Promise<Option<Goal>> {
@@ -42,11 +50,11 @@ export class GoalRepository implements IGoalRepository {
       ? await this.loadSnapshot(id.value, snapshotKey)
       : null;
     const tailEvents = loadedSnapshot
-      ? await this.eventStore.getAllEvents({
-          aggregateId: id.value,
-          since: loadedSnapshot.lastSequence,
-        })
-      : await this.eventStore.getAllEvents({ aggregateId: id.value });
+      ? await this.eventStore.getEvents(
+          id.value,
+          loadedSnapshot.snapshot.version + 1
+        )
+      : await this.eventStore.getEvents(id.value, 1);
     if (!loadedSnapshot && tailEvents.length === 0) return none();
 
     const domainTail = [];
@@ -68,11 +76,16 @@ export class GoalRepository implements IGoalRepository {
     if (pending.length === 0) return;
 
     const snapshot = await this.loadSnapshot(goal.id.value, encryptionKey);
-    const eventVersionRows = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT MAX(version) as version FROM goal_events WHERE aggregate_id = ?',
-      bindValues: [goal.id.value],
-    });
+    const eventVersionRows = await this.db.query<
+      Readonly<{ version: number | null }>
+    >(
+      `
+        SELECT MAX(version) as version
+        FROM events
+        WHERE aggregate_type = ? AND aggregate_id = ?
+      `,
+      [AggregateTypes.goal, goal.id.value]
+    );
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
     const baseVersion = Math.max(
       maxEventVersion,
@@ -115,29 +128,21 @@ export class GoalRepository implements IGoalRepository {
   private async loadSnapshot(
     aggregateId: string,
     kGoal: Uint8Array
-  ): Promise<{ snapshot: GoalSnapshot; lastSequence: number } | null> {
-    const rows = this.store.query<
-      {
-        payload_encrypted: Uint8Array;
-        version: number;
-        last_sequence: number;
-      }[]
-    >({
-      query:
-        'SELECT payload_encrypted, version, last_sequence FROM goal_snapshots WHERE aggregate_id = ? LIMIT 1',
-      bindValues: [aggregateId],
-    });
-    if (!rows.length) return null;
-    const row = rows[0];
-    const aad = buildSnapshotAad(aggregateId, row.version);
+  ): Promise<{ snapshot: GoalSnapshot } | null> {
+    const record = await this.snapshotStore.get(
+      this.db,
+      { table: 'events', aggregateType: AggregateTypes.goal },
+      aggregateId
+    );
+    if (!record) return null;
+    const aad = buildSnapshotAad(aggregateId, record.snapshotVersion);
     const plaintext = await this.crypto.decrypt(
-      row.payload_encrypted,
+      record.snapshotEncrypted,
       kGoal,
       aad
     );
     return {
-      snapshot: decodeGoalSnapshotDomain(plaintext, row.version),
-      lastSequence: Number(row.last_sequence),
+      snapshot: decodeGoalSnapshotDomain(plaintext, record.snapshotVersion),
     };
   }
 

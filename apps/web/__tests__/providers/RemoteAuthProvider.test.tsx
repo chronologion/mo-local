@@ -5,11 +5,11 @@ import {
   RemoteAuthProvider,
   useRemoteAuth,
 } from '../../src/providers/RemoteAuthProvider';
-import type { ICloudAccessClient } from '@mo/application';
+import type { CloudAccessClientPort } from '@mo/application';
 
 const createClient = (
-  overrides: Partial<ICloudAccessClient> = {}
-): ICloudAccessClient => ({
+  overrides: Partial<CloudAccessClientPort> = {}
+): CloudAccessClientPort => ({
   whoAmI: vi.fn(async () => null),
   register: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
   login: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
@@ -18,7 +18,7 @@ const createClient = (
 });
 
 const createWrapper =
-  (client: ICloudAccessClient) =>
+  (client: CloudAccessClientPort) =>
   ({ children }: { children: React.ReactNode }) => (
     <RemoteAuthProvider client={client}>{children}</RemoteAuthProvider>
   );

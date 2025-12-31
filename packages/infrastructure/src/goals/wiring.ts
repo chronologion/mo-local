@@ -21,18 +21,19 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IKeyStore,
+  KeyStorePort,
 } from '@mo/application';
-import type { Store } from '@livestore/livestore';
+import type { SqliteDbPort } from '@mo/eventstore-web';
+import { AggregateTypes } from '@mo/eventstore-core';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { GoalRepository } from './GoalRepository';
-import { GoalProjectionProcessor } from './projections/runtime/GoalProjectionProcessor';
+import { GoalProjectionProcessor } from './derived-state/GoalProjectionProcessor';
 import { GoalReadModel } from './GoalReadModel';
-import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
-import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import { SqliteEventStore } from '../eventstore/SqliteEventStore';
+import type { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
-import { LiveStoreIdempotencyStore } from '../idempotency';
+import { SqliteIdempotencyStore } from '../idempotency';
 
 export type GoalBoundedContextServices = {
   goalRepo: GoalRepository;
@@ -43,12 +44,11 @@ export type GoalBoundedContextServices = {
 };
 
 export type GoalBootstrapDeps = {
-  store: Store;
-  eventStore: BrowserLiveStoreEventStore;
+  db: SqliteDbPort;
   crypto: WebCryptoService;
-  keyStore: IKeyStore;
+  keyStore: KeyStorePort;
   keyringManager: KeyringManager;
-  toDomain: LiveStoreToDomainAdapter;
+  toDomain: EncryptedEventToDomainAdapter;
 };
 
 const toGoalFailure = (error: unknown): CommandResult<GoalCommandResult> => {
@@ -60,21 +60,21 @@ const toGoalFailure = (error: unknown): CommandResult<GoalCommandResult> => {
 };
 
 export const bootstrapGoalBoundedContext = ({
-  store,
-  eventStore,
+  db,
   crypto,
   keyStore,
   keyringManager,
   toDomain,
 }: GoalBootstrapDeps): GoalBoundedContextServices => {
+  const eventStore = new SqliteEventStore(db, AggregateTypes.goal);
   const goalRepo = new GoalRepository(
     eventStore,
-    store,
+    db,
     crypto,
     keyStore,
     keyringManager
   );
-  const idempotencyStore = new LiveStoreIdempotencyStore(store);
+  const idempotencyStore = new SqliteIdempotencyStore(db);
   const goalHandler = new GoalCommandHandler(
     goalRepo,
     keyStore,
@@ -82,8 +82,7 @@ export const bootstrapGoalBoundedContext = ({
     idempotencyStore
   );
   const goalProjection = new GoalProjectionProcessor(
-    store,
-    eventStore,
+    db,
     crypto,
     keyStore,
     keyringManager,

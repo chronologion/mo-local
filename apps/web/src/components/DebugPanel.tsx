@@ -1,7 +1,5 @@
 type DebugInfo = {
-  vfsName: string;
   opfsAvailable: boolean;
-  syncAccessHandle: boolean;
   tables?: string[];
   note?: string;
   storeId?: string;
@@ -9,7 +7,7 @@ type DebugInfo = {
   eventCount?: number;
   aggregateCount?: number;
   onRebuild?: () => void;
-  onResetSyncHead?: () => Promise<void> | void;
+  onDownloadDb?: () => void;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -32,12 +30,10 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
         boxShadow: '0 8px 20px rgba(0,0,0,0.35)',
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>LiveStore Debug</div>
-      <div>VFS: {info.vfsName}</div>
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>EventStore Debug</div>
       {info.storage ? <div>Storage: {info.storage}</div> : null}
       {info.storeId ? <div>StoreId: {info.storeId}</div> : null}
       <div>OPFS: {info.opfsAvailable ? 'yes' : 'no'}</div>
-      <div>Sync Access Handle: {info.syncAccessHandle ? 'yes' : 'no'}</div>
       {typeof info.eventCount === 'number' ? (
         <div>Events: {info.eventCount}</div>
       ) : null}
@@ -62,21 +58,21 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
           Rebuild Projections
         </button>
       ) : null}
-      {info.onResetSyncHead ? (
+      {info.onDownloadDb ? (
         <button
           style={{
-            marginTop: 6,
+            marginTop: 8,
+            marginLeft: 8,
             padding: '4px 8px',
             borderRadius: 4,
             border: '1px solid #6b7280',
             background: '#111827',
             color: '#e5e7eb',
             cursor: 'pointer',
-            display: 'block',
           }}
-          onClick={() => info.onResetSyncHead?.()}
+          onClick={info.onDownloadDb}
         >
-          Reset Sync Head (reseed)
+          Download DB
         </button>
       ) : null}
     </div>

@@ -1,4 +1,4 @@
-import { IKeyStore, IdentityKeys, KeyBackup } from '@mo/application';
+import { KeyStorePort, IdentityKeys, KeyBackup } from '@mo/application';
 import { WebCryptoService } from './WebCryptoService';
 
 type IDBTransactionMode = 'readonly' | 'readwrite';
@@ -72,7 +72,7 @@ const openDb = (): Promise<IDBDatabaseLike> =>
     req.onerror = () => reject(req.error);
   });
 
-export class IndexedDBKeyStore implements IKeyStore {
+export class IndexedDBKeyStore implements KeyStorePort {
   private readonly dbPromise: Promise<IDBDatabaseLike>;
   private readonly crypto = new WebCryptoService();
   private masterKey: Uint8Array | null = null;

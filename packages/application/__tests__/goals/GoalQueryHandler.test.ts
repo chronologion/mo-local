@@ -5,7 +5,7 @@ import {
   ListGoalsQuery,
   SearchGoalsQuery,
 } from '../../src/goals/queries';
-import type { IGoalReadModel } from '../../src/goals/ports/IGoalReadModel';
+import type { GoalReadModelPort } from '../../src/goals/ports/GoalReadModelPort';
 import type { GoalListItemDto } from '../../src/goals/dtos';
 
 const sampleGoal: GoalListItemDto = {
@@ -20,7 +20,7 @@ const sampleGoal: GoalListItemDto = {
   version: 1,
 };
 
-class FakeGoalReadModel implements IGoalReadModel {
+class FakeGoalReadModel implements GoalReadModelPort {
   listCalls: Array<{ filter?: { slice?: string } }> = [];
   getByIdCalls: string[] = [];
   searchCalls: Array<{ term: string; filter?: { slice?: string } }> = [];

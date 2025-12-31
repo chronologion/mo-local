@@ -8,15 +8,14 @@ import {
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface RegisterUserCommand {
-  readonly type: 'RegisterUser';
-  readonly userId: string;
+  readonly actorId: string;
   readonly signingPublicKey: Uint8Array;
   readonly encryptionPublicKey: Uint8Array;
   readonly timestamp: number;
 }
 
 export interface ValidatedRegisterUserCommand {
-  readonly userId: UserId;
+  readonly actorId: UserId;
   readonly signingPublicKey: Uint8Array;
   readonly encryptionPublicKey: Uint8Array;
   readonly timestamp: number;
@@ -27,9 +26,9 @@ export function validateRegisterUserCommand(
 ): CommandResult<ValidatedRegisterUserCommand> {
   const errors: ValidationError[] = [];
 
-  const userId = safeConvert(
-    () => UserId.from(command.userId),
-    'userId',
+  const actorId = safeConvert(
+    () => UserId.from(command.actorId),
+    'actorId',
     errors
   );
   const signingPublicKey = validateBytes(
@@ -46,7 +45,7 @@ export function validateRegisterUserCommand(
 
   if (
     errors.length > 0 ||
-    !userId ||
+    !actorId ||
     !signingPublicKey ||
     !encryptionPublicKey ||
     !timestamp
@@ -54,7 +53,7 @@ export function validateRegisterUserCommand(
     return failure(errors);
   }
 
-  return success({ userId, signingPublicKey, encryptionPublicKey, timestamp });
+  return success({ actorId, signingPublicKey, encryptionPublicKey, timestamp });
 }
 
 const validateBytes = (

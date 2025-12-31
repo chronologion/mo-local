@@ -1,6 +1,6 @@
-import type { IKeyringStore, KeyringState } from '@mo/application';
+import type { KeyringStorePort, KeyringState } from '@mo/application';
 
-export class InMemoryKeyringStore implements IKeyringStore {
+export class InMemoryKeyringStore implements KeyringStorePort {
   private readonly keyrings = new Map<string, KeyringState>();
 
   async getKeyring(aggregateId: string): Promise<KeyringState | null> {

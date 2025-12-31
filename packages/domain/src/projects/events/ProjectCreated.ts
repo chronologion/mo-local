@@ -43,16 +43,9 @@ export class ProjectCreated
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(payload: ProjectCreatedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.createdAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(payload: ProjectCreatedPayload, meta: EventMetadata<ProjectId>) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.name = payload.name;
     this.status = payload.status;
     this.startDate = payload.startDate;
@@ -60,14 +53,15 @@ export class ProjectCreated
     this.description = payload.description;
     this.goalId = payload.goalId;
     this.createdBy = payload.createdBy;
-    this.createdAt = payload.createdAt;
+    this.createdAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectCreatedSpec = payloadEventSpec<
   ProjectCreated,
-  ProjectCreatedPayload
+  ProjectCreatedPayload,
+  ProjectId
 >(projectEventTypes.projectCreated, (p, meta) => new ProjectCreated(p, meta), {
   projectId: voString(ProjectId.from),
   name: voString(ProjectName.from),

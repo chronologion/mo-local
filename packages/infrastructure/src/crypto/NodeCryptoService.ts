@@ -6,7 +6,7 @@ import {
   randomBytes,
   webcrypto,
 } from 'node:crypto';
-import { ICryptoService, KeyPair, SymmetricKey } from '@mo/application';
+import { CryptoServicePort, KeyPair, SymmetricKey } from '@mo/application';
 import {
   decodeEnvelope,
   encodeEnvelope,
@@ -40,7 +40,7 @@ const assertKeyLength = (key: Uint8Array): void => {
  * Node-backed crypto service using AES-GCM for payloads and HKDF for derivation.
  * AES-KW is only used in KeyWrapping; this service keeps to AES-GCM.
  */
-export class NodeCryptoService implements ICryptoService {
+export class NodeCryptoService implements CryptoServicePort {
   async generateKey(): Promise<SymmetricKey> {
     return new Uint8Array(randomBytes(DERIVE_LENGTH));
   }

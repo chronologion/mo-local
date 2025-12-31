@@ -21,25 +21,19 @@ export class GoalRescheduled
   readonly targetMonth: Month;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalRescheduledPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalRescheduledPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.targetMonth = payload.targetMonth;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalRescheduledSpec = payloadEventSpec<
   GoalRescheduled,
-  GoalRescheduledPayload
+  GoalRescheduledPayload,
+  GoalId
 >(goalEventTypes.goalRescheduled, (p, meta) => new GoalRescheduled(p, meta), {
   goalId: voString(GoalId.from),
   targetMonth: voString(Month.from),

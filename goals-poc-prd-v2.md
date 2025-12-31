@@ -86,7 +86,7 @@ Infrastructure (LiveStore, crypto, key store implementations, projections)
 ```
 
 - **Domain** has zero external dependencies. All invariants rely on the internal `Assert` DSL, and we keep the "no primitive types" obsession across Goals and Projects.
-- **Application** depends on Domain only and defines CQRS types and ports: generic `Repository` / `ReadModel` plus per-BC ports such as `IGoalRepository`, `IGoalReadModel`, `IProjectRepository`, `IProjectReadModel`, alongside `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
+- **Application** depends on Domain only and defines CQRS types and ports: generic `Repository` / `ReadModel` plus per-BC ports such as `GoalRepositoryPort`, `GoalReadModelPort`, `ProjectRepositoryPort`, `ProjectReadModelPort`, alongside `CryptoServicePort`, `KeyStorePort`, `EventStorePort`, `EventBusPort`, and `SyncProviderPort`.
 - **Infrastructure** implements those ports, translates domain events to encrypted LiveStore payloads, runs projection processors and read models per BC, and exposes browser-friendly wiring functions (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`) instead of owning a global composition root.
 - **Presentation** is split between `packages/presentation` (BC-agnostic React context/hooks over command/query buses + projection ports) and `apps/web` (composition root + screens).
 
@@ -143,16 +143,16 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
 ## 5. Application Layer
 
 - **CQRS primitives** (`packages/application/src/shared/ports`):
-  - `BaseCommand`, `BaseCommandHandler`, `IBus`, `CommandResult`, `Repository<TAggregate, TId>`, and `ReadModel<TDto, TFilter, TSearchFilter>`.
-  - Cross-cutting ports: `ICryptoService`, `IKeyStore`, `IEventStore`, `IEventBus`, and `ISyncProvider`.
+  - `BaseCommand`, `BaseCommandHandler`, `BusPort`, `CommandResult`, `Repository<TAggregate, TId>`, and `ReadModel<TDto, TFilter, TSearchFilter>`.
+  - Cross-cutting ports: `CryptoServicePort`, `KeyStorePort`, `EventStorePort`, `EventBusPort`, and `SyncProviderPort`.
 - **Goal BC** (`packages/application/src/goals`):
   - Commands (`.../goals/commands`): `CreateGoal`, `ChangeGoalSummary`, `ChangeGoalSlice`, `ChangeGoalTargetMonth`, `ChangeGoalPriority`, `AchieveGoal`, `UnachieveGoal`, `ArchiveGoal`, `GrantGoalAccess`, `RevokeGoalAccess`.
   - `GoalCommandHandler` (extends `BaseCommandHandler`) orchestrates loading, domain mutations, persistence, and key lookups; publication is treated as a post-commit concern driven from LiveStore (see commit boundary rules below).
-  - `GoalQueryHandler` depends only on the `IGoalReadModel` port, which is implemented in infrastructure.
+  - `GoalQueryHandler` depends only on the `GoalReadModelPort` port, which is implemented in infrastructure.
 - **Project BC** (`packages/application/src/projects`):
   - Commands (`.../projects/commands`): `CreateProject`, `ChangeProjectStatus`, `ChangeProjectDates`, `ChangeProjectName`, `ChangeProjectDescription`, `AddProjectGoal`, `RemoveProjectGoal`, `AddProjectMilestone`, `ChangeProjectMilestoneTargetDate`, `ChangeProjectMilestoneName`, `ArchiveProjectMilestone`, `ArchiveProject`.
-  - `ProjectCommandHandler` mirrors the goals pattern (extends `BaseCommandHandler`, uses `IProjectRepository`, `IKeyStore`, `ICryptoService`; publication is post-commit).
-  - `ProjectQueryHandler` depends on `IProjectReadModel`.
+  - `ProjectCommandHandler` mirrors the goals pattern (extends `BaseCommandHandler`, uses `ProjectRepositoryPort`, `KeyStorePort`, `CryptoServicePort`; publication is post-commit).
+  - `ProjectQueryHandler` depends on `ProjectReadModelPort`.
 - **Identity** (`packages/application/src/identity`):
   - Commands: `RegisterUserCommand`, `ImportUserKeysCommand`.
   - `UserCommandHandler` drives onboarding/backup import and will publish identity events when the backend exists.
@@ -168,19 +168,20 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
   - `LiveStoreToDomainAdapter` decrypts payload envelopes and hydrates domain events.
   - Serialization/versioning/upcasting rules are standardized into a single `packages/infrastructure/src/eventing/` runtime + registry (replacing per-BC codecs).
 - **Event stores**:
-  - `BrowserLiveStoreEventStore` is a LiveStore-backed implementation of `IEventStore` with optimistic concurrency checks and retry logic; it is instantiated twice in browser wiring: once for `goal_events` / `goal_snapshots` and once for `project_events` / `project_snapshots`.
+  - `BrowserLiveStoreEventStore` is a LiveStore-backed implementation of `EventStorePort` with optimistic concurrency checks and retry logic; it is instantiated twice in browser wiring: once for `goal_events` / `goal_snapshots` and once for `project_events` / `project_snapshots`.
 - **Crypto**:
-  - `WebCryptoService` implements `ICryptoService` for browsers (AES-GCM, PBKDF2 (600k iterations), HKDF, ECDH/ECDSA helpers, ECIES envelope helpers).
+  - `WebCryptoService` implements `CryptoServicePort` for browsers (AES-GCM, PBKDF2 (600k iterations), HKDF, ECDH/ECDSA helpers, ECIES envelope helpers).
   - `NodeCryptoService` mirrors functionality for future backend services.
   - `SharingCrypto` and `AggregateKeyManager` are ready for invite flows but not exposed in UI yet.
 - **Key storage**: `IndexedDBKeyStore` stores identity + aggregate keys encrypted with the passphrase-derived KEK. Export/import helpers enable backups.
 - **Projections & read models**:
   - `GoalProjectionProcessor` / `ProjectProjectionProcessor` consume encrypted events from the BC event stores, maintain encrypted snapshots + analytics/search tables in LiveStore, and expose in-memory projections.
-  - `GoalReadModel` / `ProjectReadModel` wrap those processors and implement the `IGoalReadModel` / `IProjectReadModel` ports consumed by the application query handlers.
+  - `GoalReadModel` / `ProjectReadModel` wrap those processors and implement the `GoalReadModelPort` / `ProjectReadModelPort` ports consumed by the application query handlers.
 - **Sync (browser + API)**:
-  - LiveStore’s `ClientSessionSyncProcessor` orchestrates push/pull against a `SyncBackend` implementation.
-  - `CloudSyncBackend` implements that contract in the browser and calls the NestJS sync API (`POST /sync/push`, `GET /sync/pull`), mapping HTTP 409 responses into LiveStore’s `InvalidPushError` so the client can rebase when the server is ahead.
-  - On the server, `SyncController` delegates to `SyncService`, which persists events and store ownership via `KyselySyncEventRepository` / `KyselySyncStoreRepository` into the `sync.events` and `sync.stores` tables.
+- LiveStore’s `ClientSessionSyncProcessor` orchestrates push/pull against a `SyncBackend` implementation.
+- `CloudSyncBackend` implements that contract in the browser and calls the NestJS sync API (`POST /sync/push`, `GET /sync/pull`), mapping HTTP 409 responses into LiveStore’s `InvalidPushError` so the client can rebase when the server is ahead.
+- On the server, `SyncController` delegates to `SyncService`, which persists events and store ownership via `KyselySyncEventRepository` / `KyselySyncStoreRepository` into the `sync.events` and `sync.stores` tables.
+- Sync scheduling is reactive and bounded: long-poll pull runs as a single loop, push is event-driven with debounced invalidation signals, and both directions apply capped exponential backoff with jitter under error conditions, with a low-frequency interval fallback if reactive signals go silent.
 - **BC wiring**:
   - `packages/infrastructure/src/browser/wiring/store.ts` configures the LiveStore `Store` and per-BC event stores from a browser adapter.
   - `bootstrapGoalBoundedContext` / `bootstrapProjectBoundedContext` (under `packages/infrastructure/src/goals` and `.../projects`) compose repositories, projection processors, read models, and command/query buses for each BC.
@@ -343,7 +344,7 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 
 1. **Backups do not include event logs**: Export/restore flows only move identity + aggregate keys (`apps/web/src/components/goals/BackupModal.tsx`). Event logs live in LiveStore (`__livestore_session_changeset` + BC tables) and, when sync is enabled, in the `sync.events` table; the backup format does not include either, so restoring a backup does not by itself replay past goal/project history.
 2. **Legacy backups without salt**: Old `.backup` files lacking a `salt` still need existing metadata to derive the legacy deterministic salt; first unlock/restore now rewraps keys with a random per-user salt and saves it to metadata/backups.
-3. **Sharing + wrapped key distribution**: Sync APIs (`/sync/push`, `/sync/pull`) and server-side persistence (`sync.events`, `sync.stores`) are implemented and exercised by integration + Playwright tests, but cross-user sharing and wrapped key distribution are not. `AggregateKeyManager`, `SharingCrypto`, and the application-level `ISyncProvider` port are defined for future flows but not yet wired into the UI or backend.
+3. **Sharing + wrapped key distribution**: Sync APIs (`/sync/push`, `/sync/pull`) and server-side persistence (`sync.events`, `sync.stores`) are implemented and exercised by integration + Playwright tests, but cross-user sharing and wrapped key distribution are not. `AggregateKeyManager`, `SharingCrypto`, and the application-level `SyncProviderPort` port are defined for future flows but not yet wired into the UI or backend.
 4. **Store identity vs. user identity**: `storeId` is now derived from `userId` (local-first root of trust) on onboarding/unlock/restore, so the same user syncs to the same logical store across devices. Existing per-device stores created before this change are not auto-migrated; restoring a key backup on a fresh device will bind sync to the `userId`-based `storeId`.
 5. **Projection runtime still runs on the main thread**: `GoalProjectionProcessor` / `ProjectProjectionProcessor` are main-thread consumers triggered by LiveStore subscriptions. Worker-based execution and cross-tab coordination are future work.
 6. **Docker stack docs need consolidation**: the Docker Compose dev stack exists (`docker-compose.yml`, `yarn dev:stack`), but documentation still lives across README/scripts and should be consolidated as the stack grows.
@@ -371,14 +372,14 @@ flowchart TB
   end
 
   subgraph Application["Application Layer (Goals BC)<br>CQRS + Ports"]
-    CmdBus["Command Bus (IBus&lt;GoalCommand&gt;)"]
-    QryBus["Query Bus (IBus&lt;GoalQuery&gt;)"]
+    CmdBus["Command Bus (BusPort&lt;GoalCommand&gt;)"]
+    QryBus["Query Bus (BusPort&lt;GoalQuery&gt;)"]
     CmdHandler["GoalCommandHandler"]
     QryHandler["GoalQueryHandler"]
     Saga["GoalAchievementSaga<br>(cross-BC)"]
-    RepoPort["IGoalRepository (port)"]
-    ReadModelPort["IGoalReadModel (port)"]
-    EventBus["IEventBus (port)"]
+    RepoPort["GoalRepositoryPort (port)"]
+    ReadModelPort["GoalReadModelPort (port)"]
+    EventBus["EventBusPort (port)"]
   end
 
   subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]

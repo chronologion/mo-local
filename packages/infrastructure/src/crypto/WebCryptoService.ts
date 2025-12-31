@@ -1,4 +1,4 @@
-import { ICryptoService, KeyPair, SymmetricKey } from '@mo/application';
+import { CryptoServicePort, KeyPair, SymmetricKey } from '@mo/application';
 import {
   decodeEnvelope,
   encodeEnvelope,
@@ -55,11 +55,11 @@ const ensureKeyLength = (key: Uint8Array): void => {
 };
 
 /**
- * WebCrypto-based implementation of ICryptoService.
+ * WebCrypto-based implementation of CryptoServicePort.
  * AES-GCM for payloads, HKDF (SHA-256) for derivation, ECDH P-256 for keypairs.
  * Wrapping uses AES-GCM with caller-provided symmetric key (e.g., derived from password).
  */
-export class WebCryptoService implements ICryptoService {
+export class WebCryptoService implements CryptoServicePort {
   async generateKey(): Promise<SymmetricKey> {
     const key = await subtle.generateKey(
       { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },

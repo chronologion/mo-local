@@ -23,18 +23,19 @@ import {
   CommandResult,
   ValidationException,
   failure,
-  IKeyStore,
+  KeyStorePort,
 } from '@mo/application';
-import type { Store } from '@livestore/livestore';
+import type { SqliteDbPort } from '@mo/eventstore-web';
+import { AggregateTypes } from '@mo/eventstore-core';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { ProjectRepository } from './ProjectRepository';
-import { ProjectProjectionProcessor } from './projections/runtime/ProjectProjectionProcessor';
+import { ProjectProjectionProcessor } from './derived-state/ProjectProjectionProcessor';
 import { ProjectReadModel } from './ProjectReadModel';
-import type { BrowserLiveStoreEventStore } from '../browser/LiveStoreEventStore';
-import type { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import { SqliteEventStore } from '../eventstore/SqliteEventStore';
+import type { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { SimpleBus } from '../bus/SimpleBus';
-import { LiveStoreIdempotencyStore } from '../idempotency';
+import { SqliteIdempotencyStore } from '../idempotency';
 
 export type ProjectBoundedContextServices = {
   projectRepo: ProjectRepository;
@@ -48,12 +49,11 @@ export type ProjectBoundedContextServices = {
 };
 
 export type ProjectBootstrapDeps = {
-  store: Store;
-  eventStore: BrowserLiveStoreEventStore;
+  db: SqliteDbPort;
   crypto: WebCryptoService;
-  keyStore: IKeyStore;
+  keyStore: KeyStorePort;
   keyringManager: KeyringManager;
-  toDomain: LiveStoreToDomainAdapter;
+  toDomain: EncryptedEventToDomainAdapter;
 };
 
 const toProjectFailure = (
@@ -67,21 +67,21 @@ const toProjectFailure = (
 };
 
 export const bootstrapProjectBoundedContext = ({
-  store,
-  eventStore,
+  db,
   crypto,
   keyStore,
   keyringManager,
   toDomain,
 }: ProjectBootstrapDeps): ProjectBoundedContextServices => {
+  const eventStore = new SqliteEventStore(db, AggregateTypes.project);
   const projectRepo = new ProjectRepository(
     eventStore,
-    store,
+    db,
     crypto,
     keyStore,
     keyringManager
   );
-  const idempotencyStore = new LiveStoreIdempotencyStore(store);
+  const idempotencyStore = new SqliteIdempotencyStore(db);
   const projectHandler = new ProjectCommandHandler(
     projectRepo,
     keyStore,
@@ -89,8 +89,7 @@ export const bootstrapProjectBoundedContext = ({
     idempotencyStore
   );
   const projectProjection = new ProjectProjectionProcessor(
-    store,
-    eventStore,
+    db,
     crypto,
     keyStore,
     keyringManager,

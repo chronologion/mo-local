@@ -1,5 +1,5 @@
 /**
- * Wrapper for the LiveStore store identifier used to partition sync streams.
+ * Wrapper for the store identifier used to partition sync streams.
  */
 export class SyncStoreId {
   private constructor(private readonly value: string) {}

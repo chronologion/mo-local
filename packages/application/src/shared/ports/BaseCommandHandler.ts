@@ -1,7 +1,7 @@
 import { ValidationError } from './CommandResult';
 import { ValidationException } from '../../errors/ValidationError';
 import { ConcurrencyError } from '../../errors/ConcurrencyError';
-import type { IdempotencyRecord } from './IIdempotencyStore';
+import type { IdempotencyRecord } from './IdempotencyStorePort';
 
 type FieldParser<TCommand, TResult> = (command: TCommand) => TResult;
 
@@ -22,6 +22,9 @@ type ParsedFromSpec<
  * value objects while collecting structured validation errors.
  */
 export abstract class BaseCommandHandler {
+  protected commandName(command: object): string {
+    return command.constructor.name;
+  }
   /**
    * Parse a command according to a field specification.
    *

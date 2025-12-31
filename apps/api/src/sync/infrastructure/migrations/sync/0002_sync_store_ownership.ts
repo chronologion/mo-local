@@ -6,6 +6,7 @@ export async function up(db: Kysely<SyncDatabase>): Promise<void> {
     .createTable('sync.stores')
     .addColumn('store_id', 'varchar', (col) => col.primaryKey())
     .addColumn('owner_identity_id', 'uuid', (col) => col.notNull())
+    .addColumn('head', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('created_at', 'timestamptz', (col) =>
       col.notNull().defaultTo(sql`now()`)
     )

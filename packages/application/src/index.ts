@@ -11,5 +11,5 @@ export * from './ports';
 export * from './shared/ports/cqrsTypes';
 export * from './shared/ports/BaseCommand';
 export * from './shared/ports/BaseCommandHandler';
-export * from './shared/ports/Bus';
+export * from './shared/ports/BusPort';
 export * from './shared/ports/CommandResult';

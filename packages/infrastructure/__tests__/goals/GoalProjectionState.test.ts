@@ -32,6 +32,8 @@ const baseDate = Timestamp.fromMillis(
 );
 const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000001');
 const meta = () => ({
+  aggregateId,
+  occurredAt: baseDate,
   eventId: EventId.create(),
   actorId: ActorId.from('user-1'),
 });
@@ -168,7 +170,11 @@ describe('GoalProjectionState', () => {
       createdEvent,
       1
     ) as GoalSnapshotState;
-    const moved = { ...created, slice: 'Work', targetMonth: '2026-02' };
+    const moved: GoalSnapshotState = {
+      ...created,
+      slice: 'Work',
+      targetMonth: '2026-02',
+    };
 
     const deltas = buildAnalyticsDeltas(created, moved);
     expect(deltas.monthly).toEqual([

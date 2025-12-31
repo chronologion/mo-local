@@ -3,7 +3,7 @@ import { ProjectQueryHandler } from '../../src/projects/ProjectQueryHandler';
 import { ListProjectsQuery } from '../../src/projects/queries/ListProjectsQuery';
 import { GetProjectByIdQuery } from '../../src/projects/queries/GetProjectByIdQuery';
 import { SearchProjectsQuery } from '../../src/projects/queries/SearchProjectsQuery';
-import type { IProjectReadModel } from '../../src/projects/ports/IProjectReadModel';
+import type { ProjectReadModelPort } from '../../src/projects/ports/ProjectReadModelPort';
 import type { ProjectListItemDto } from '../../src/projects/dtos';
 
 const sampleProject: ProjectListItemDto = {
@@ -21,7 +21,7 @@ const sampleProject: ProjectListItemDto = {
   version: 1,
 };
 
-class FakeProjectReadModel implements IProjectReadModel {
+class FakeProjectReadModel implements ProjectReadModelPort {
   listCalls: Array<{ filter?: { status?: string } }> = [];
   getByIdCalls: string[] = [];
   searchCalls: Array<{ term: string; filter?: { status?: string } }> = [];
@@ -88,8 +88,8 @@ describe('ProjectQueryHandler', () => {
     const readModel = new FakeProjectReadModel([sampleProject]);
     const handler = new ProjectQueryHandler(readModel);
 
-    // @ts-expect-error - exercising runtime guard for unsupported query
     await expect(
+      // @ts-expect-error Testing unsupported query
       handler.execute({ type: 'UnknownProjectQuery' })
     ).rejects.toThrow(/Unsupported project query type/);
   });

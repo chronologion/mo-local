@@ -16,7 +16,11 @@ export class ProjectionTaskRunner {
 
   constructor(
     private readonly label: string,
-    private readonly warnThresholdMs: number
+    private readonly warnThresholdMs: number,
+    private readonly onBudgetExceeded?: (params: {
+      durationMs: number;
+      budgetMs: number;
+    }) => void
   ) {}
 
   async run(task: () => Promise<void>): Promise<void> {
@@ -45,13 +49,20 @@ export class ProjectionTaskRunner {
             if (end !== null) {
               const durationMs = end - start;
               if (durationMs > this.warnThresholdMs) {
-                console.warn(
-                  `[${this.label}] Projection processing exceeded budget`,
-                  {
+                if (this.onBudgetExceeded) {
+                  this.onBudgetExceeded({
                     durationMs,
                     budgetMs: this.warnThresholdMs,
-                  }
-                );
+                  });
+                } else {
+                  console.warn(
+                    `[${this.label}] Task processing exceeded budget`,
+                    {
+                      durationMs,
+                      budgetMs: this.warnThresholdMs,
+                    }
+                  );
+                }
               }
             }
           }

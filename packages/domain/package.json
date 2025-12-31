@@ -11,12 +11,13 @@
   },
   "scripts": {
     "test": "vitest --no-watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^24.10.1",
     "typescript": "^5.3.3",
-    "vitest": "^4.0.14"
+    "vitest": "^4.0.16"
   }
 }

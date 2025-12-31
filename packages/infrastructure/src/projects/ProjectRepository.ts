@@ -8,16 +8,17 @@ import {
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
-  IEventStore,
-  IProjectRepository,
-  IKeyStore,
+  EventStorePort,
+  ProjectRepositoryPort,
+  KeyStorePort,
   none,
   Option,
   some,
 } from '@mo/application';
-import type { Store } from '@livestore/livestore';
-import { DomainToLiveStoreAdapter } from '../livestore/adapters/DomainToLiveStoreAdapter';
-import { LiveStoreToDomainAdapter } from '../livestore/adapters/LiveStoreToDomainAdapter';
+import type { SqliteDbPort } from '@mo/eventstore-web';
+import { AggregateTypes, ZERO_EFFECTIVE_CURSOR } from '@mo/eventstore-core';
+import { DomainToEncryptedEventAdapter } from '../eventstore/adapters/DomainToEncryptedEventAdapter';
+import { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { PersistenceError } from '../errors';
@@ -26,31 +27,31 @@ import {
   encodeProjectSnapshotPayload,
 } from './snapshots/ProjectSnapshotCodec';
 import { buildSnapshotAad } from '../eventing/aad';
-
-type SnapshotRow = {
-  payload_encrypted: Uint8Array;
-  version: number;
-  last_sequence: number;
-};
+import {
+  SqliteSnapshotStore,
+  type SnapshotStore,
+} from '../eventstore/persistence/SnapshotStore';
 
 /**
- * Browser-friendly project repository that uses LiveStore tables with encryption.
- * Browser-friendly project repository that uses LiveStore tables with encryption.
+ * Browser-friendly project repository that uses encrypted event persistence.
  * Persists encrypted snapshots to speed reconstitution.
  */
-export class ProjectRepository implements IProjectRepository {
-  private readonly toEncrypted: DomainToLiveStoreAdapter;
-  private readonly toDomain: LiveStoreToDomainAdapter;
+export class ProjectRepository implements ProjectRepositoryPort {
+  private readonly toEncrypted: DomainToEncryptedEventAdapter;
+  private readonly toDomain: EncryptedEventToDomainAdapter;
+  private readonly snapshotStore: SnapshotStore;
 
   constructor(
-    private readonly eventStore: IEventStore,
-    private readonly store: Store,
+    private readonly eventStore: EventStorePort,
+    private readonly db: SqliteDbPort,
     private readonly crypto: WebCryptoService,
-    private readonly keyStore: IKeyStore,
-    private readonly keyringManager: KeyringManager
+    private readonly keyStore: KeyStorePort,
+    private readonly keyringManager: KeyringManager,
+    snapshotStore: SnapshotStore = new SqliteSnapshotStore()
   ) {
-    this.toEncrypted = new DomainToLiveStoreAdapter(crypto);
-    this.toDomain = new LiveStoreToDomainAdapter(crypto);
+    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    this.toDomain = new EncryptedEventToDomainAdapter(crypto);
+    this.snapshotStore = snapshotStore;
   }
 
   async load(id: ProjectId): Promise<Option<Project>> {
@@ -59,11 +60,11 @@ export class ProjectRepository implements IProjectRepository {
       ? await this.loadSnapshot(id.value, snapshotKey)
       : null;
     const tailEvents = loadedSnapshot
-      ? await this.eventStore.getAllEvents({
-          aggregateId: id.value,
-          since: loadedSnapshot.lastSequence,
-        })
-      : await this.eventStore.getAllEvents({ aggregateId: id.value });
+      ? await this.eventStore.getEvents(
+          id.value,
+          loadedSnapshot.snapshot.version + 1
+        )
+      : await this.eventStore.getEvents(id.value, 1);
     if (!loadedSnapshot && tailEvents.length === 0) return none();
 
     const domainTail = [];
@@ -85,11 +86,16 @@ export class ProjectRepository implements IProjectRepository {
     if (pending.length === 0) return;
 
     const snapshot = await this.loadSnapshot(project.id.value, encryptionKey);
-    const eventVersionRows = this.store.query<{ version: number | null }[]>({
-      query:
-        'SELECT MAX(version) as version FROM project_events WHERE aggregate_id = ?',
-      bindValues: [project.id.value],
-    });
+    const eventVersionRows = await this.db.query<
+      Readonly<{ version: number | null }>
+    >(
+      `
+        SELECT MAX(version) as version
+        FROM events
+        WHERE aggregate_type = ? AND aggregate_id = ?
+      `,
+      [AggregateTypes.project, project.id.value]
+    );
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
     const baseVersion = Math.max(
       maxEventVersion,
@@ -192,67 +198,49 @@ export class ProjectRepository implements IProjectRepository {
       encryptionKey,
       aad
     );
-    const storedCipherBuffer = new ArrayBuffer(cipher.byteLength);
-    const storedCipher = new Uint8Array(storedCipherBuffer);
-    storedCipher.set(cipher);
-    const maxSequenceRows = this.store.query<{ sequence: number | null }[]>({
-      query:
-        'SELECT MAX(sequence) as sequence FROM project_events WHERE aggregate_id = ?',
-      bindValues: [project.id.value],
-    });
-    const lastSequence = Number(maxSequenceRows[0]?.sequence ?? 0);
-    this.store.query({
-      query: `
-        INSERT INTO project_snapshots (aggregate_id, payload_encrypted, version, last_sequence, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(aggregate_id) DO UPDATE SET
-          payload_encrypted = excluded.payload_encrypted,
-          version = excluded.version,
-          last_sequence = excluded.last_sequence,
-          updated_at = excluded.updated_at
-      `,
-      bindValues: [
-        project.id.value,
-        storedCipher,
+    await this.snapshotStore.put(
+      this.db,
+      { table: 'events', aggregateType: AggregateTypes.project },
+      {
+        aggregateId: project.id.value,
         snapshotVersion,
-        lastSequence,
-        project.updatedAt.value,
-      ],
-    });
+        snapshotEncrypted: cipher,
+        lastEffectiveCursor: ZERO_EFFECTIVE_CURSOR,
+        writtenAt: project.updatedAt.value,
+      }
+    );
   }
 
   private async loadSnapshot(
     aggregateId: string,
     key: Uint8Array
-  ): Promise<{
-    snapshot: ProjectSnapshot;
-    lastSequence: number;
-  } | null> {
-    const rows = this.store.query<SnapshotRow[]>({
-      query:
-        'SELECT payload_encrypted, version, last_sequence FROM project_snapshots WHERE aggregate_id = ? LIMIT 1',
-      bindValues: [aggregateId],
-    });
-    if (!rows.length) return null;
-    const row = rows[0];
-    const aad = buildSnapshotAad(aggregateId, row.version);
+  ): Promise<{ snapshot: ProjectSnapshot } | null> {
+    const record = await this.snapshotStore.get(
+      this.db,
+      { table: 'events', aggregateType: AggregateTypes.project },
+      aggregateId
+    );
+    if (!record) return null;
+    const aad = buildSnapshotAad(aggregateId, record.snapshotVersion);
     let plaintext: Uint8Array;
     try {
-      plaintext = await this.crypto.decrypt(row.payload_encrypted, key, aad);
+      plaintext = await this.crypto.decrypt(record.snapshotEncrypted, key, aad);
     } catch (error) {
       if (this.isCryptoOperationError(error)) {
-        this.purgeCorruptSnapshot(aggregateId);
+        await this.purgeCorruptSnapshot(aggregateId);
         return null;
       }
       throw error;
     }
     try {
       return {
-        snapshot: decodeProjectSnapshotDomain(plaintext, row.version),
-        lastSequence: Number(row.last_sequence),
+        snapshot: decodeProjectSnapshotDomain(
+          plaintext,
+          record.snapshotVersion
+        ),
       };
     } catch {
-      this.purgeCorruptSnapshot(aggregateId);
+      await this.purgeCorruptSnapshot(aggregateId);
       return null;
     }
   }
@@ -267,14 +255,14 @@ export class ProjectRepository implements IProjectRepository {
     );
   }
 
-  private purgeCorruptSnapshot(aggregateId: string): void {
+  private async purgeCorruptSnapshot(aggregateId: string): Promise<void> {
     console.warn(
       '[ProjectRepository] Corrupt snapshot detected; removing',
       aggregateId
     );
-    this.store.query({
-      query: 'DELETE FROM project_snapshots WHERE aggregate_id = ?',
-      bindValues: [aggregateId],
-    });
+    await this.db.execute(
+      'DELETE FROM snapshots WHERE aggregate_type = ? AND aggregate_id = ?',
+      [AggregateTypes.project, aggregateId]
+    );
   }
 }

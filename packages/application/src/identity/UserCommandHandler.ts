@@ -2,7 +2,7 @@ import {
   ValidatedRegisterUserCommand,
   ValidatedImportUserKeysCommand,
 } from './commands';
-import { IKeyStore, IEventBus } from '../ports';
+import { KeyStorePort, EventBusPort } from '../ports';
 import { EventId, Timestamp, UserRegistered } from '@mo/domain';
 
 /**
@@ -10,28 +10,35 @@ import { EventId, Timestamp, UserRegistered } from '@mo/domain';
  */
 export class UserCommandHandler {
   constructor(
-    private readonly keyStore: IKeyStore,
-    private readonly eventBus: IEventBus
+    private readonly keyStore: KeyStorePort,
+    private readonly eventBus: EventBusPort
   ) {}
 
   async handleRegister(
     command: ValidatedRegisterUserCommand
   ): Promise<{ userId: string }> {
+    const actorId = command.actorId;
+    const registeredAt = Timestamp.fromMillis(command.timestamp);
     const registrationEvent = new UserRegistered(
       {
-        userId: command.userId,
-        registeredAt: Timestamp.fromMillis(command.timestamp),
+        userId: actorId,
+        registeredAt,
       },
-      { eventId: EventId.create(), actorId: command.userId }
+      {
+        aggregateId: actorId,
+        occurredAt: registeredAt,
+        eventId: EventId.create(),
+        actorId,
+      }
     );
     await this.eventBus.publish([registrationEvent]);
-    return { userId: command.userId.value };
+    return { userId: actorId.value };
   }
 
   async handleImportKeys(
     command: ValidatedImportUserKeysCommand
   ): Promise<{ userId: string }> {
     await this.keyStore.importKeys(command.backup);
-    return { userId: command.userId.value };
+    return { userId: command.actorId.value };
   }
 }

@@ -27,15 +27,17 @@ class CountingCryptoService extends MockCryptoService {
 }
 
 const goalId = '018f7b1a-7c8a-72c4-a0ab-8234c2d6f101';
-const userId = 'user-1';
-const baseCreate = new CreateGoal({
+const actorId = 'user-1';
+const baseCreatePayload = {
   goalId,
   slice: 'Health' as const,
   summary: 'Run a marathon',
   targetMonth: '2025-12',
   priority: 'must' as const,
-  userId,
   timestamp: Date.now(),
+};
+const baseCreate = new CreateGoal(baseCreatePayload, {
+  actorId,
   idempotencyKey: 'idem-create',
 });
 
@@ -68,10 +70,13 @@ describe('GoalCommandHandler', () => {
 
     const first = await handler.handleCreate(baseCreate);
     const second = await handler.handleCreate(
-      new CreateGoal({
-        ...baseCreate,
-        timestamp: Date.now(),
-      })
+      new CreateGoal(
+        {
+          ...baseCreatePayload,
+          timestamp: Date.now(),
+        },
+        { actorId, idempotencyKey: 'idem-create' }
+      )
     );
 
     expect(first.goalId).toBe(goalId);
@@ -91,11 +96,13 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleCreate(
-        new CreateGoal({
-          ...baseCreate,
-          goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f999',
-          idempotencyKey: baseCreate.idempotencyKey,
-        })
+        new CreateGoal(
+          {
+            ...baseCreatePayload,
+            goalId: '018f7b1a-7c8a-72c4-a0ab-8234c2d6f999',
+          },
+          { actorId, idempotencyKey: 'idem-create' }
+        )
       )
     ).rejects.toThrow(/Idempotency key reuse detected/);
   });
@@ -114,14 +121,15 @@ describe('GoalCommandHandler', () => {
     await handler.handleCreate(baseCreate);
 
     await handler.handleChangeSummary(
-      new ChangeGoalSummary({
-        goalId,
-        summary: 'Run a faster marathon',
-        userId,
-        timestamp: Date.now(),
-        knownVersion: 1,
-        idempotencyKey: 'idem-summary',
-      })
+      new ChangeGoalSummary(
+        {
+          goalId,
+          summary: 'Run a faster marathon',
+          timestamp: Date.now(),
+          knownVersion: 1,
+        },
+        { actorId, idempotencyKey: 'idem-summary' }
+      )
     );
   });
 
@@ -130,13 +138,14 @@ describe('GoalCommandHandler', () => {
     await handler.handleCreate(baseCreate);
 
     await handler.handleAchieve(
-      new AchieveGoal({
-        goalId,
-        userId,
-        timestamp: Date.now(),
-        knownVersion: 1,
-        idempotencyKey: 'idem-achieve',
-      })
+      new AchieveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: 1,
+        },
+        { actorId, idempotencyKey: 'idem-achieve' }
+      )
     );
   });
 
@@ -145,23 +154,25 @@ describe('GoalCommandHandler', () => {
     await handler.handleCreate(baseCreate);
 
     await handler.handleAchieve(
-      new AchieveGoal({
-        goalId,
-        userId,
-        timestamp: Date.now(),
-        knownVersion: 1,
-        idempotencyKey: 'idem-achieve-unachieve',
-      })
+      new AchieveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: 1,
+        },
+        { actorId, idempotencyKey: 'idem-achieve-unachieve' }
+      )
     );
 
     await handler.handleUnachieve(
-      new UnachieveGoal({
-        goalId,
-        userId,
-        timestamp: Date.now(),
-        knownVersion: 2,
-        idempotencyKey: 'idem-unachieve',
-      })
+      new UnachieveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: 2,
+        },
+        { actorId, idempotencyKey: 'idem-unachieve' }
+      )
     );
   });
 
@@ -172,14 +183,15 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeSummary(
-        new ChangeGoalSummary({
-          goalId,
-          summary: 'Another summary',
-          userId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-summary-missing-key',
-        })
+        new ChangeGoalSummary(
+          {
+            goalId,
+            summary: 'Another summary',
+            timestamp: Date.now(),
+            knownVersion: 1,
+          },
+          { actorId, idempotencyKey: 'idem-summary-missing-key' }
+        )
       )
     ).rejects.toThrow();
   });
@@ -191,14 +203,15 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangePriority(
-        new ChangeGoalPriority({
-          goalId,
-          priority: 'should',
-          userId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-priority-fail',
-        })
+        new ChangeGoalPriority(
+          {
+            goalId,
+            priority: 'should',
+            timestamp: Date.now(),
+            knownVersion: 1,
+          },
+          { actorId, idempotencyKey: 'idem-priority-fail' }
+        )
       )
     ).rejects.toThrow();
   });
@@ -210,14 +223,15 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeSlice(
-        new ChangeGoalSlice({
-          goalId,
-          slice: 'Work',
-          userId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-slice-concurrency',
-        })
+        new ChangeGoalSlice(
+          {
+            goalId,
+            slice: 'Work',
+            timestamp: Date.now(),
+            knownVersion: 1,
+          },
+          { actorId, idempotencyKey: 'idem-slice-concurrency' }
+        )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
@@ -228,14 +242,15 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeTargetMonth(
-        new ChangeGoalTargetMonth({
-          goalId,
-          targetMonth: '2026-01',
-          userId,
-          timestamp: Date.now(),
-          knownVersion: 1,
-          idempotencyKey: 'idem-target-month',
-        })
+        new ChangeGoalTargetMonth(
+          {
+            goalId,
+            targetMonth: '2026-01',
+            timestamp: Date.now(),
+            knownVersion: 1,
+          },
+          { actorId, idempotencyKey: 'idem-target-month' }
+        )
       )
     ).resolves.toBeDefined();
   });
@@ -246,14 +261,15 @@ describe('GoalCommandHandler', () => {
 
     await expect(
       handler.handleChangeSummary(
-        new ChangeGoalSummary({
-          goalId,
-          summary: 'Run a faster marathon',
-          userId,
-          timestamp: Date.now(),
-          knownVersion: 0,
-          idempotencyKey: 'idem-summary-mismatch',
-        })
+        new ChangeGoalSummary(
+          {
+            goalId,
+            summary: 'Run a faster marathon',
+            timestamp: Date.now(),
+            knownVersion: 0,
+          },
+          { actorId, idempotencyKey: 'idem-summary-mismatch' }
+        )
       )
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });

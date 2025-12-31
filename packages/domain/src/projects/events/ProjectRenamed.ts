@@ -21,25 +21,19 @@ export class ProjectRenamed
   readonly name: ProjectName;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectRenamedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(payload: ProjectRenamedPayload, meta: EventMetadata<ProjectId>) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.name = payload.name;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectRenamedSpec = payloadEventSpec<
   ProjectRenamed,
-  ProjectRenamedPayload
+  ProjectRenamedPayload,
+  ProjectId
 >(projectEventTypes.projectRenamed, (p, meta) => new ProjectRenamed(p, meta), {
   projectId: voString(ProjectId.from),
   name: voString(ProjectName.from),

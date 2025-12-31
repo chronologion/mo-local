@@ -2,6 +2,7 @@ import { test, expect, chromium, type Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE ?? 'http://localhost:4000';
 
 type Credentials = Readonly<{ email: string; password: string }>;
 
@@ -68,6 +69,65 @@ const createGoal = async (page: Page, summary: string): Promise<void> => {
   });
 };
 
+const createLinkedProject = async (
+  page: Page,
+  params: { name: string; goalSummary: string }
+): Promise<void> => {
+  const { name, goalSummary } = params;
+  await page.getByRole('tab', { name: 'Projects' }).click();
+  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByPlaceholder('Project name').fill(name);
+  const dialog = page.getByRole('dialog', { name: 'Create project' });
+  await dialog.waitFor({ timeout: 25_000 });
+  const goalSelect = dialog
+    .getByText('Linked Goal (optional)')
+    .locator('..')
+    .getByRole('combobox');
+  await goalSelect.click();
+  await page.getByRole('option', { name: goalSummary }).click();
+  await page.getByRole('button', { name: 'Create Project' }).click();
+  await expect(dialog).toBeHidden({ timeout: 25_000 });
+  await expect(page.getByText(name, { exact: true })).toBeVisible({
+    timeout: 25_000,
+  });
+};
+
+const setProjectStatus = async (
+  page: Page,
+  projectName: string,
+  status: 'Planned' | 'In progress' | 'Completed' | 'Canceled'
+): Promise<void> => {
+  const card = page.locator('div.rounded-xl', {
+    has: page.getByText(projectName, { exact: true }),
+  });
+  const trigger = card.getByRole('combobox');
+  await trigger.click();
+  const listbox = page.getByRole('listbox');
+  await expect(listbox).toBeVisible();
+  await listbox.getByRole('option', { name: status }).click();
+  await expect(trigger).toContainText(status, { timeout: 10_000 });
+};
+
+const expectGoalAchieved = async (
+  page: Page,
+  summary: string,
+  expected: boolean
+): Promise<void> => {
+  await page.getByRole('tab', { name: 'Goals' }).click();
+  const goalCard = page.locator('div.rounded-xl', {
+    has: page.getByText(summary, { exact: true }),
+  });
+  if (expected) {
+    await expect(goalCard.getByText('Achieved')).toBeVisible({
+      timeout: 25_000,
+    });
+  } else {
+    await expect(goalCard.getByText('Achieved')).toBeHidden({
+      timeout: 25_000,
+    });
+  }
+};
+
 const editGoalSummary = async (
   page: Page,
   nextSummary: string
@@ -99,6 +159,46 @@ const editGoalSummary = async (
   await expect(page.getByText(nextSummary, { exact: true })).toBeVisible({
     timeout: 25_000,
   });
+};
+
+const syncOnce = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    const w = window as { __moSyncOnce?: () => Promise<void> };
+    if (w.__moSyncOnce) {
+      await w.__moSyncOnce();
+    }
+  });
+};
+
+const getPendingCount = async (page: Page): Promise<number | null> => {
+  return await page.evaluate(async () => {
+    const w = window as { __moPendingCount?: () => Promise<number> };
+    if (w.__moPendingCount) {
+      return await w.__moPendingCount();
+    }
+    return null;
+  });
+};
+
+const getSyncStatus = async (page: Page): Promise<unknown> => {
+  return await page.evaluate(() => {
+    const w = window as { __moSyncStatus?: () => unknown };
+    return w.__moSyncStatus ? w.__moSyncStatus() : null;
+  });
+};
+
+const pullHead = async (page: Page, storeId: string): Promise<number> => {
+  return await page.evaluate(
+    async ({ apiBase, sid }) => {
+      const resp = await fetch(
+        `${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=1`,
+        { credentials: 'include' }
+      );
+      const data = (await resp.json()) as { head: number };
+      return data.head ?? 0;
+    },
+    { apiBase: API_BASE, sid: storeId }
+  );
 };
 
 test.describe('offline rebase goal edit', () => {
@@ -147,6 +247,16 @@ test.describe('offline rebase goal edit', () => {
       await connectToCloudAsSignup(pageA, creds);
       mark('create goal A');
       await createGoal(pageA, goalSummary);
+      mark('sync push from A');
+      await syncOnce(pageA);
+      const pendingAfterPush = await getPendingCount(pageA);
+      if (pendingAfterPush !== null) {
+        mark(`pending events after push A: ${pendingAfterPush}`);
+      }
+      const statusAfterPush = await getSyncStatus(pageA);
+      if (statusAfterPush) {
+        mark(`sync status after push A: ${JSON.stringify(statusAfterPush)}`);
+      }
 
       mark('open backup modal A');
       await pageA.getByRole('button', { name: 'Backup keys' }).click();
@@ -187,12 +297,40 @@ test.describe('offline rebase goal edit', () => {
 
       mark('login cloud on B');
       await connectToCloudAsLogin(pageB, creds);
+      const storeIdB = await pageB.evaluate(() =>
+        localStorage.getItem('mo-local-store-id')
+      );
+      if (storeIdB) {
+        const head = await pullHead(pageB, storeIdB);
+        mark(`server head after login B: ${head}`);
+      }
+      mark('sync push from A (post-login)');
+      await syncOnce(pageA);
+      mark('sync pull on B');
+      await syncOnce(pageB);
 
-      // Wait for initial sync onto device B.
+      // Wait for initial sync onto device B (retry with explicit sync).
       mark('wait for goal on B');
-      await expect(pageB.getByText(goalSummary, { exact: true })).toBeVisible({
-        timeout: 25_000,
-      });
+      let synced = false;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          await expect(
+            pageB.getByText(goalSummary, { exact: true })
+          ).toBeVisible({
+            timeout: 10_000,
+          });
+          synced = true;
+          break;
+        } catch {
+          mark(`retry sync on B (attempt ${attempt})`);
+          await syncOnce(pageA);
+          await syncOnce(pageB);
+          await pageB.waitForTimeout(1_000);
+        }
+      }
+      if (!synced) {
+        throw new Error('Goal did not sync to device B');
+      }
 
       // Device A goes offline and edits locally.
       mark('offline A and edit A1');
@@ -205,7 +343,7 @@ test.describe('offline rebase goal edit', () => {
       const summaryB1 = `${goalSummary} (B1)`;
       await editGoalSummary(pageB, summaryB1);
 
-      // Device A reconnects -> LiveStore rebases pending event.
+      // Device A reconnects -> local pending event rebases.
       mark('online A');
       await ctxA.setOffline(false);
 
@@ -262,6 +400,129 @@ test.describe('offline rebase goal edit', () => {
     } finally {
       await ctxA.close();
       await ctxB.close();
+    }
+  });
+
+  test('rebase reconciliation unachieves goal when a new incomplete project appears', async () => {
+    test.setTimeout(180_000);
+    const mark = (label: string) => {
+      console.log(`[rebase-unachieve] ${label}`);
+    };
+
+    const creds: Credentials = {
+      email: `sync-${Date.now()}-${randomUUID()}@example.com`,
+      password: `Pass-${randomUUID()}-${Date.now()}`,
+    };
+    const goalSummary = `Goal-${Date.now()}`;
+    const projectOne = `Project-${Date.now()}-A`;
+    const projectTwo = `Project-${Date.now()}-B`;
+
+    const userDataDirA = test.info().outputPath('profile-a-rebase');
+    const userDataDirB = test.info().outputPath('profile-b-rebase');
+
+    const ctxA = await chromium.launchPersistentContext(userDataDirA, {
+      acceptDownloads: true,
+      viewport: { width: 1280, height: 720 },
+    });
+    const ctxB = await chromium.launchPersistentContext(userDataDirB, {
+      acceptDownloads: true,
+      viewport: { width: 1280, height: 720 },
+    });
+
+    const errorsA: string[] = [];
+    const errorsB: string[] = [];
+
+    try {
+      mark('creating pages');
+      const pageA = await ctxA.newPage();
+      const pageB = await ctxB.newPage();
+      attachConsoleErrorTrap(pageA, errorsA);
+      attachConsoleErrorTrap(pageB, errorsB);
+      await ctxA.grantPermissions(['clipboard-read', 'clipboard-write']);
+      pageA.setDefaultTimeout(25_000);
+      pageB.setDefaultTimeout(25_000);
+
+      mark('onboard A');
+      await onboard(pageA, creds.password);
+      mark('signup cloud A');
+      await connectToCloudAsSignup(pageA, creds);
+      mark('create goal A');
+      await createGoal(pageA, goalSummary);
+      mark('sync goal A');
+      await syncOnce(pageA);
+
+      mark('backup keys from A');
+      await pageA.getByRole('button', { name: 'Backup keys' }).click();
+      const backupDialog = pageA.getByRole('dialog', {
+        name: 'Backup identity keys (not goal data)',
+      });
+      await backupDialog.waitFor();
+      await backupDialog.getByRole('button', { name: 'Copy' }).click();
+      const backupCipher = await pageA.evaluate(async () => {
+        return navigator.clipboard.readText();
+      });
+      await pageA.keyboard.press('Escape');
+      await expect(backupDialog).toBeHidden({ timeout: 25_000 });
+
+      mark('restore backup on B');
+      await pageB.goto(url('/'));
+      await pageB.getByText('Set up your local identity').waitFor({
+        timeout: 25_000,
+      });
+      await pageB.locator('input[type="file"]').setInputFiles({
+        name: `mo-local-backup-${Date.now()}.json`,
+        mimeType: 'application/json',
+        buffer: Buffer.from(backupCipher, 'utf8'),
+      });
+      await pageB
+        .getByPlaceholder('Passphrase used for backup')
+        .fill(creds.password);
+      await pageB.getByRole('button', { name: 'Restore backup' }).click();
+      await pageB.getByRole('tab', { name: 'Goals' }).waitFor({
+        timeout: 25_000,
+      });
+
+      mark('login cloud on B');
+      await connectToCloudAsLogin(pageB, creds);
+      await syncOnce(pageB);
+      await expect(pageB.getByText(goalSummary, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+
+      mark('A creates completed project linked to goal');
+      await createLinkedProject(pageA, {
+        name: projectOne,
+        goalSummary,
+      });
+      await setProjectStatus(pageA, projectOne, 'Completed');
+      await expectGoalAchieved(pageA, goalSummary, true);
+      mark('sync achieved state from A');
+      await syncOnce(pageA);
+
+      mark('B links incomplete project to goal');
+      await createLinkedProject(pageB, {
+        name: projectTwo,
+        goalSummary,
+      });
+      await setProjectStatus(pageB, projectTwo, 'In progress');
+      await syncOnce(pageB);
+
+      mark('A pulls new project and reconciles');
+      await syncOnce(pageA);
+      await expectGoalAchieved(pageA, goalSummary, false);
+    } finally {
+      await ctxA.close();
+      await ctxB.close();
+      if (errorsA.length > 0) {
+        console.error(
+          `[rebase-unachieve] console errors A:\\n${errorsA.join('\\n')}`
+        );
+      }
+      if (errorsB.length > 0) {
+        console.error(
+          `[rebase-unachieve] console errors B:\\n${errorsB.join('\\n')}`
+        );
+      }
     }
   });
 });
