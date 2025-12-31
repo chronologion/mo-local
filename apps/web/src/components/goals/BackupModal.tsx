@@ -168,17 +168,13 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             </div>
           ) : backupError ? (
             <p className="text-sm text-destructive">{backupError}</p>
-          ) : backupCipher ? (
-            <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
-              Encrypted backup ready. Use Download or Copy to save it securely.
-            </div>
           ) : null}
 
           <div className="flex items-center gap-2">
             <Button
               onClick={downloadBackup}
               disabled={!backupCipher || backupLoading}
-              variant="secondary"
+              variant="outline"
             >
               Download keys
             </Button>
