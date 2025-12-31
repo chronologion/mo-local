@@ -24,6 +24,8 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
   const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [dbBackupError, setDbBackupError] = useState<string | null>(null);
+  const [dbBackupLoading, setDbBackupLoading] = useState(false);
 
   const userId = useMemo(
     () => (session.status === 'ready' ? session.userId : undefined),
@@ -111,6 +113,36 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadDb = async (): Promise<void> => {
+    setDbBackupError(null);
+    if (!services.db.exportMainDatabase) {
+      setDbBackupError('DB export is not supported in this build.');
+      return;
+    }
+    setDbBackupLoading(true);
+    try {
+      const bytes = await services.db.exportMainDatabase();
+      const stableBytes = new Uint8Array(bytes);
+      const blob = new Blob([stableBytes], {
+        type: 'application/x-sqlite3',
+      });
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mo-eventstore-${userId ?? 'store'}.db`;
+        a.rel = 'noopener';
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setDbBackupError(err instanceof Error ? err.message : 'DB export failed');
+    } finally {
+      setDbBackupLoading(false);
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -120,11 +152,11 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Backup identity keys (not goal data)</DialogTitle>
+          <DialogTitle>Backup</DialogTitle>
           <DialogDescription>
-            Save this file securely. It contains your identity keys; it does not
-            include your goals or event history. Per-goal keys are recovered
-            from synced event history after restore.
+            Download an encrypted key backup (required to unlock this identity
+            on another device) and optionally export your local event store DB
+            (goal/project data + event history).
           </DialogDescription>
         </DialogHeader>
 
@@ -148,7 +180,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               disabled={!backupCipher || backupLoading}
               variant="secondary"
             >
-              Download .json
+              Download keys
             </Button>
             <Button
               onClick={() => {
@@ -161,12 +193,23 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             >
               Copy
             </Button>
+            <Button
+              onClick={() => void downloadDb()}
+              disabled={dbBackupLoading}
+              variant="outline"
+            >
+              {dbBackupLoading ? 'Exporting DB…' : 'Backup DB'}
+            </Button>
           </div>
 
+          {dbBackupError ? (
+            <p className="text-sm text-destructive">{dbBackupError}</p>
+          ) : null}
+
           <p className="text-xs text-muted-foreground">
-            Keep backups offline. Anyone with this file can impersonate you. To
-            see your goals on another device you will also need their event data
-            (future sync/export), not just this key backup.
+            Keep key backups offline. Anyone with the key backup can impersonate
+            you. The DB file contains your local event history (still encrypted
+            per-aggregate), and can be restored via the onboarding restore flow.
           </p>
         </div>
       </DialogContent>
