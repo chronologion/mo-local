@@ -15,7 +15,10 @@ import {
   type InterfaceServices,
 } from '@mo/presentation/react';
 import { useRemoteAuth } from './RemoteAuthProvider';
-import { wipeEventStoreDb } from '../utils/resetEventStoreDb';
+import {
+  wipeAllMoLocalOpfs,
+  wipeEventStoreDb,
+} from '../utils/resetEventStoreDb';
 import { Button } from '../components/ui/button';
 
 const USER_META_KEY = 'mo-local-user';
@@ -458,6 +461,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (currentStoreId) {
         await wipeEventStoreDb(currentStoreId);
       }
+      await wipeAllMoLocalOpfs();
     } catch (error) {
       console.warn('Event store shutdown failed', error);
     }
