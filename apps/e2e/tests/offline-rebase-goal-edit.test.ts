@@ -259,9 +259,9 @@ test.describe('offline rebase goal edit', () => {
       }
 
       mark('open backup modal A');
-      await pageA.getByRole('button', { name: 'Backup keys' }).click();
+      await pageA.getByRole('button', { name: 'Backup' }).click();
       const backupDialog = pageA.getByRole('dialog', {
-        name: 'Backup identity keys (not goal data)',
+        name: 'Backup',
       });
       await backupDialog.waitFor();
       await expect(
@@ -452,9 +452,9 @@ test.describe('offline rebase goal edit', () => {
       await syncOnce(pageA);
 
       mark('backup keys from A');
-      await pageA.getByRole('button', { name: 'Backup keys' }).click();
+      await pageA.getByRole('button', { name: 'Backup' }).click();
       const backupDialog = pageA.getByRole('dialog', {
-        name: 'Backup identity keys (not goal data)',
+        name: 'Backup',
       });
       await backupDialog.waitFor();
       await backupDialog.getByRole('button', { name: 'Copy' }).click();
