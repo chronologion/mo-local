@@ -9,14 +9,13 @@ import {
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface ImportUserKeysCommand {
-  readonly type: 'ImportUserKeys';
-  readonly userId: string;
+  readonly actorId: string;
   readonly backup: KeyBackup;
   readonly timestamp: number;
 }
 
 export interface ValidatedImportUserKeysCommand {
-  readonly userId: UserId;
+  readonly actorId: UserId;
   readonly backup: KeyBackup;
   readonly timestamp: number;
 }
@@ -26,19 +25,19 @@ export function validateImportUserKeysCommand(
 ): CommandResult<ValidatedImportUserKeysCommand> {
   const errors: ValidationError[] = [];
 
-  const userId = safeConvert(
-    () => UserId.from(command.userId),
-    'userId',
+  const actorId = safeConvert(
+    () => UserId.from(command.actorId),
+    'actorId',
     errors
   );
   const backup = validateBackup(command.backup, 'backup', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 
-  if (errors.length > 0 || !userId || !backup || !timestamp) {
+  if (errors.length > 0 || !actorId || !backup || !timestamp) {
     return failure(errors);
   }
 
-  return success({ userId, backup, timestamp });
+  return success({ actorId, backup, timestamp });
 }
 
 const validateBackup = (

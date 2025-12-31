@@ -21,25 +21,19 @@ export class GoalPrioritized
   readonly priority: Priority;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalPrioritizedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalPrioritizedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.priority = payload.priority;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalPrioritizedSpec = payloadEventSpec<
   GoalPrioritized,
-  GoalPrioritizedPayload
+  GoalPrioritizedPayload,
+  GoalId
 >(goalEventTypes.goalPrioritized, (p, meta) => new GoalPrioritized(p, meta), {
   goalId: voString(GoalId.from),
   priority: voString(Priority.from),

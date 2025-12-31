@@ -18,24 +18,18 @@ export class GoalUnachieved
   readonly goalId: GoalId;
   readonly unachievedAt: Timestamp;
 
-  constructor(payload: GoalUnachievedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.unachievedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
-    this.unachievedAt = payload.unachievedAt;
+  constructor(payload: GoalUnachievedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
+    this.unachievedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalUnachievedSpec = payloadEventSpec<
   GoalUnachieved,
-  GoalUnachievedPayload
+  GoalUnachievedPayload,
+  GoalId
 >(goalEventTypes.goalUnachieved, (p, meta) => new GoalUnachieved(p, meta), {
   goalId: voString(GoalId.from),
   unachievedAt: voNumber(Timestamp.fromMillis),

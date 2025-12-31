@@ -18,24 +18,18 @@ export class GoalArchived
   readonly goalId: GoalId;
   readonly archivedAt: Timestamp;
 
-  constructor(payload: GoalArchivedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.archivedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
-    this.archivedAt = payload.archivedAt;
+  constructor(payload: GoalArchivedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
+    this.archivedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalArchivedSpec = payloadEventSpec<
   GoalArchived,
-  GoalArchivedPayload
+  GoalArchivedPayload,
+  GoalId
 >(goalEventTypes.goalArchived, (p, meta) => new GoalArchived(p, meta), {
   goalId: voString(GoalId.from),
   archivedAt: voNumber(Timestamp.fromMillis),

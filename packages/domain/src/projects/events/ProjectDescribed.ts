@@ -21,25 +21,22 @@ export class ProjectDescribed
   readonly description: ProjectDescription;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectDescribedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectDescribedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.description = payload.description;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectDescribedSpec = payloadEventSpec<
   ProjectDescribed,
-  ProjectDescribedPayload
+  ProjectDescribedPayload,
+  ProjectId
 >(
   projectEventTypes.projectDescribed,
   (p, meta) => new ProjectDescribed(p, meta),

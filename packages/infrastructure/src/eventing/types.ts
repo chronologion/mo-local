@@ -1,4 +1,9 @@
-import type { DomainEvent, EventMetadata, FieldMapper } from '@mo/domain';
+import type {
+  AggregateId,
+  DomainEvent,
+  EventMetadata,
+  FieldMapper,
+} from '@mo/domain';
 
 export type PersistedEvent = Readonly<{
   type: string;
@@ -9,5 +14,8 @@ export type PersistedEvent = Readonly<{
 export type RuntimeEventSpec = Readonly<{
   type: string;
   fields: Readonly<Record<string, FieldMapper<unknown>>>;
-  ctor: (p: Record<string, unknown>, meta: EventMetadata) => DomainEvent;
+  ctor: (
+    p: Record<string, unknown>,
+    meta: EventMetadata<AggregateId>
+  ) => DomainEvent;
 }>;

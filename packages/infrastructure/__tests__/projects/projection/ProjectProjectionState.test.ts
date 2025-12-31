@@ -27,13 +27,17 @@ import {
 } from '@mo/domain';
 import { applyProjectEventToSnapshot } from '../../../src/projects/projections/model/ProjectProjectionState';
 
-const meta = () => ({
+const baseProjectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
+const milestoneId = MilestoneId.from('00000000-0000-0000-0000-000000000301');
+const meta = (
+  occurredAt: Timestamp,
+  aggregateId: ProjectId = baseProjectId
+) => ({
+  aggregateId,
+  occurredAt,
   eventId: EventId.create(),
   actorId: ActorId.from('user-1'),
 });
-
-const baseProjectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
-const milestoneId = MilestoneId.from('00000000-0000-0000-0000-000000000301');
 
 const createdEvent = () =>
   new ProjectCreated(
@@ -48,7 +52,7 @@ const createdEvent = () =>
       createdBy: UserId.from('user-1'),
       createdAt: Timestamp.fromMillis(1000),
     },
-    meta()
+    meta(Timestamp.fromMillis(1000))
   );
 
 describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
@@ -81,7 +85,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           status: ProjectStatus.from('in_progress'),
           changedAt: Timestamp.fromMillis(2000),
         },
-        meta()
+        meta(Timestamp.fromMillis(2000))
       ),
       2
     );
@@ -101,7 +105,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           targetDate: LocalDate.fromString('2025-07-01'),
           changedAt: Timestamp.fromMillis(3000),
         },
-        meta()
+        meta(Timestamp.fromMillis(3000))
       ),
       2
     );
@@ -120,7 +124,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           name: ProjectName.from('Project Two'),
           changedAt: Timestamp.fromMillis(4000),
         },
-        meta()
+        meta(Timestamp.fromMillis(4000))
       ),
       2
     );
@@ -135,7 +139,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           description: ProjectDescription.from('Updated'),
           changedAt: Timestamp.fromMillis(5000),
         },
-        meta()
+        meta(Timestamp.fromMillis(5000))
       ),
       3
     );
@@ -153,7 +157,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           goalId: GoalId.from('00000000-0000-0000-0000-000000000101'),
           addedAt: Timestamp.fromMillis(6000),
         },
-        meta()
+        meta(Timestamp.fromMillis(6000))
       ),
       2
     );
@@ -166,7 +170,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           projectId: baseProjectId,
           removedAt: Timestamp.fromMillis(7000),
         },
-        meta()
+        meta(Timestamp.fromMillis(7000))
       ),
       3
     );
@@ -185,7 +189,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           targetDate: LocalDate.fromString('2025-03-01'),
           addedAt: Timestamp.fromMillis(8000),
         },
-        meta()
+        meta(Timestamp.fromMillis(8000))
       ),
       2
     );
@@ -205,7 +209,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           name: MilestoneName.from('M2'),
           changedAt: Timestamp.fromMillis(9000),
         },
-        meta()
+        meta(Timestamp.fromMillis(9000))
       ),
       3
     );
@@ -220,7 +224,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           targetDate: LocalDate.fromString('2025-04-01'),
           changedAt: Timestamp.fromMillis(10000),
         },
-        meta()
+        meta(Timestamp.fromMillis(10000))
       ),
       4
     );
@@ -234,7 +238,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           milestoneId,
           archivedAt: Timestamp.fromMillis(11000),
         },
-        meta()
+        meta(Timestamp.fromMillis(11000))
       ),
       5
     );
@@ -250,7 +254,7 @@ describe('ProjectProjectionState.applyProjectEventToSnapshot', () => {
           projectId: baseProjectId,
           archivedAt: Timestamp.fromMillis(12000),
         },
-        meta()
+        meta(Timestamp.fromMillis(12000))
       ),
       2
     );

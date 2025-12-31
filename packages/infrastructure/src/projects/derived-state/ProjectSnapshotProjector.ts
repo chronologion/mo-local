@@ -32,6 +32,7 @@ type SnapshotApplyResult = {
 export class ProjectSnapshotProjector {
   private readonly snapshots = new Map<string, ProjectSnapshotState>();
   private readonly projections = new Map<string, ProjectListItem>();
+  private readonly goalIndex = new Map<string, Set<string>>();
 
   constructor(
     private readonly cacheStore: ProjectionCacheStore,
@@ -41,6 +42,17 @@ export class ProjectSnapshotProjector {
 
   listProjections(): ProjectListItem[] {
     return [...this.projections.values()];
+  }
+
+  listByGoalId(goalId: string): ProjectListItem[] {
+    const ids = this.goalIndex.get(goalId);
+    if (!ids || ids.size === 0) return [];
+    const items: ProjectListItem[] = [];
+    for (const id of ids) {
+      const item = this.projections.get(id);
+      if (item) items.push(item);
+    }
+    return items.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getProjection(aggregateId: string): ProjectListItem | null {
@@ -54,6 +66,7 @@ export class ProjectSnapshotProjector {
   clearCaches(): void {
     this.snapshots.clear();
     this.projections.clear();
+    this.goalIndex.clear();
   }
 
   async bootstrapFromCache(): Promise<void> {
@@ -72,7 +85,9 @@ export class ProjectSnapshotProjector {
         );
         if (!snapshot || snapshot.archivedAt !== null) continue;
         this.snapshots.set(aggregateId, snapshot);
-        this.projections.set(aggregateId, projectSnapshotToListItem(snapshot));
+        const item = projectSnapshotToListItem(snapshot);
+        this.projections.set(aggregateId, item);
+        this.indexGoal(item.goalId, aggregateId);
       } catch {
         await this.cacheStore.remove(PROJECTION_ID, aggregateId);
       }
@@ -120,6 +135,7 @@ export class ProjectSnapshotProjector {
     if (nextSnapshot.archivedAt === null) {
       const nextItem = projectSnapshotToListItem(nextSnapshot);
       this.projections.set(event.aggregateId, nextItem);
+      this.reindexGoal(previousSnapshot, nextItem);
       return {
         changed: true,
         previous: previousSnapshot,
@@ -130,6 +146,7 @@ export class ProjectSnapshotProjector {
     }
 
     this.projections.delete(event.aggregateId);
+    this.reindexGoal(previousSnapshot, null);
     return {
       changed: true,
       previous: previousSnapshot,
@@ -216,5 +233,43 @@ export class ProjectSnapshotProjector {
       lastCommitSequence,
       writtenAt: Date.now(),
     });
+  }
+
+  private indexGoal(goalId: string | null, projectId: string): void {
+    if (!goalId) return;
+    const set = this.goalIndex.get(goalId) ?? new Set<string>();
+    set.add(projectId);
+    this.goalIndex.set(goalId, set);
+  }
+
+  private unindexGoal(goalId: string | null, projectId: string): void {
+    if (!goalId) return;
+    const set = this.goalIndex.get(goalId);
+    if (!set) return;
+    set.delete(projectId);
+    if (set.size === 0) {
+      this.goalIndex.delete(goalId);
+    }
+  }
+
+  private reindexGoal(
+    previous: ProjectSnapshotState | null,
+    nextItem: ProjectListItem | null
+  ): void {
+    if (
+      previous &&
+      previous.archivedAt === null &&
+      nextItem &&
+      nextItem.archivedAt === null &&
+      previous.goalId === nextItem.goalId
+    ) {
+      return;
+    }
+    if (previous && previous.archivedAt === null) {
+      this.unindexGoal(previous.goalId, previous.id);
+    }
+    if (nextItem && nextItem.archivedAt === null) {
+      this.indexGoal(nextItem.goalId, nextItem.id);
+    }
   }
 }

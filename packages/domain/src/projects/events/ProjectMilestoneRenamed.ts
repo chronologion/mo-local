@@ -24,26 +24,23 @@ export class ProjectMilestoneRenamed
   readonly name: MilestoneName;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneRenamedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectMilestoneRenamedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
     this.name = payload.name;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectMilestoneRenamedSpec = payloadEventSpec<
   ProjectMilestoneRenamed,
-  ProjectMilestoneRenamedPayload
+  ProjectMilestoneRenamedPayload,
+  ProjectId
 >(
   projectEventTypes.projectMilestoneRenamed,
   (p, meta) => new ProjectMilestoneRenamed(p, meta),

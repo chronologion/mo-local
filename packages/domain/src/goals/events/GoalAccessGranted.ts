@@ -24,26 +24,20 @@ export class GoalAccessGranted
   readonly permission: Permission;
   readonly grantedAt: Timestamp;
 
-  constructor(payload: GoalAccessGrantedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.grantedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalAccessGrantedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.grantedTo = payload.grantedTo;
     this.permission = payload.permission;
-    this.grantedAt = payload.grantedAt;
+    this.grantedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalAccessGrantedSpec = payloadEventSpec<
   GoalAccessGranted,
-  GoalAccessGrantedPayload
+  GoalAccessGrantedPayload,
+  GoalId
 >(
   goalEventTypes.goalAccessGranted,
   (p, meta) => new GoalAccessGranted(p, meta),

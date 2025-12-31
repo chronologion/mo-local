@@ -18,24 +18,18 @@ export class GoalAchieved
   readonly goalId: GoalId;
   readonly achievedAt: Timestamp;
 
-  constructor(payload: GoalAchievedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.achievedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
-    this.achievedAt = payload.achievedAt;
+  constructor(payload: GoalAchievedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
+    this.achievedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalAchievedSpec = payloadEventSpec<
   GoalAchieved,
-  GoalAchievedPayload
+  GoalAchievedPayload,
+  GoalId
 >(goalEventTypes.goalAchieved, (p, meta) => new GoalAchieved(p, meta), {
   goalId: voString(GoalId.from),
   achievedAt: voNumber(Timestamp.fromMillis),

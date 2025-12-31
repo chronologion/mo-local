@@ -38,17 +38,18 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
-      const cmd = new CreateGoal({
-        goalId: uuidv7(),
-        slice: params.slice,
-        summary: params.summary,
-        targetMonth: params.targetMonth,
-        priority: params.priority,
-        userId,
-        timestamp: Date.now(),
-        idempotencyKey: uuidv7(),
-      });
+      const actorId = ensureUser();
+      const cmd = new CreateGoal(
+        {
+          goalId: uuidv7(),
+          slice: params.slice,
+          summary: params.summary,
+          targetMonth: params.targetMonth,
+          priority: params.priority,
+          timestamp: Date.now(),
+        },
+        { actorId, idempotencyKey: uuidv7() }
+      );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
@@ -71,7 +72,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const timestamp = Date.now();
       const result = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(params.goalId)
@@ -86,14 +87,15 @@ export const useGoalCommands = () => {
       let knownVersion = current.version;
       let changed = false;
       if (params.summary !== undefined && params.summary !== current.summary) {
-        const cmd = new ChangeGoalSummary({
-          goalId: params.goalId,
-          summary: params.summary,
-          timestamp,
-          userId,
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        const cmd = new ChangeGoalSummary(
+          {
+            goalId: params.goalId,
+            summary: params.summary,
+            timestamp,
+            knownVersion,
+          },
+          { actorId, idempotencyKey: uuidv7() }
+        );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
@@ -106,14 +108,15 @@ export const useGoalCommands = () => {
         knownVersion += 1;
       }
       if (params.slice !== undefined && params.slice !== current.slice) {
-        const cmd = new ChangeGoalSlice({
-          goalId: params.goalId,
-          slice: params.slice,
-          timestamp,
-          userId,
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        const cmd = new ChangeGoalSlice(
+          {
+            goalId: params.goalId,
+            slice: params.slice,
+            timestamp,
+            knownVersion,
+          },
+          { actorId, idempotencyKey: uuidv7() }
+        );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
@@ -129,14 +132,15 @@ export const useGoalCommands = () => {
         params.priority !== undefined &&
         params.priority !== current.priority
       ) {
-        const cmd = new ChangeGoalPriority({
-          goalId: params.goalId,
-          priority: params.priority,
-          timestamp,
-          userId,
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        const cmd = new ChangeGoalPriority(
+          {
+            goalId: params.goalId,
+            priority: params.priority,
+            timestamp,
+            knownVersion,
+          },
+          { actorId, idempotencyKey: uuidv7() }
+        );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
@@ -152,14 +156,15 @@ export const useGoalCommands = () => {
         params.targetMonth !== undefined &&
         params.targetMonth !== current.targetMonth
       ) {
-        const cmd = new ChangeGoalTargetMonth({
-          goalId: params.goalId,
-          targetMonth: params.targetMonth,
-          timestamp,
-          userId,
-          knownVersion,
-          idempotencyKey: uuidv7(),
-        });
+        const cmd = new ChangeGoalTargetMonth(
+          {
+            goalId: params.goalId,
+            targetMonth: params.targetMonth,
+            timestamp,
+            knownVersion,
+          },
+          { actorId, idempotencyKey: uuidv7() }
+        );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
           throw new Error(
@@ -187,7 +192,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -197,13 +202,14 @@ export const useGoalCommands = () => {
       if (!current) {
         throw new Error('Goal not found');
       }
-      const cmd = new ArchiveGoal({
-        goalId,
-        timestamp: Date.now(),
-        userId,
-        knownVersion: current.version,
-        idempotencyKey: uuidv7(),
-      });
+      const cmd = new ArchiveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: current.version,
+        },
+        { actorId, idempotencyKey: uuidv7() }
+      );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
@@ -226,7 +232,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -236,13 +242,14 @@ export const useGoalCommands = () => {
       if (!current) {
         throw new Error('Goal not found');
       }
-      const cmd = new AchieveGoal({
-        goalId,
-        timestamp: Date.now(),
-        userId,
-        knownVersion: current.version,
-        idempotencyKey: uuidv7(),
-      });
+      const cmd = new AchieveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: current.version,
+        },
+        { actorId, idempotencyKey: uuidv7() }
+      );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(
@@ -265,7 +272,7 @@ export const useGoalCommands = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = ensureUser();
+      const actorId = ensureUser();
       const current = await services.goalQueryBus.dispatch(
         new GetGoalByIdQuery(goalId)
       );
@@ -275,13 +282,14 @@ export const useGoalCommands = () => {
       if (!current) {
         throw new Error('Goal not found');
       }
-      const cmd = new UnachieveGoal({
-        goalId,
-        timestamp: Date.now(),
-        userId,
-        knownVersion: current.version,
-        idempotencyKey: uuidv7(),
-      });
+      const cmd = new UnachieveGoal(
+        {
+          goalId,
+          timestamp: Date.now(),
+          knownVersion: current.version,
+        },
+        { actorId, idempotencyKey: uuidv7() }
+      );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
         throw new Error(

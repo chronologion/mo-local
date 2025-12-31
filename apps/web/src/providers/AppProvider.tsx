@@ -16,6 +16,7 @@ import {
 } from '@mo/presentation/react';
 import { useRemoteAuth } from './RemoteAuthProvider';
 import { wipeEventStoreDb } from '../utils/resetEventStoreDb';
+import { Button } from '../components/ui/button';
 
 const USER_META_KEY = 'mo-local-user';
 const STORE_ID_KEY = 'mo-local-store-id';
@@ -417,16 +418,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const resetLocalState = async (): Promise<void> => {
-    if (!services) throw new Error('Services not initialized');
+    const currentStoreId = services?.storeId ?? storeId ?? loadStoredStoreId();
     try {
-      const goalCtx = services.contexts.goals;
-      const projectCtx = services.contexts.projects;
+      const goalCtx = services?.contexts.goals;
+      const projectCtx = services?.contexts.projects;
       goalCtx?.goalProjection.stop();
       projectCtx?.projectProjection.stop();
-      services.syncEngine.stop();
-      services.publisher.stop();
-      await services.dbShutdown();
-      await wipeEventStoreDb(services.storeId);
+      services?.syncEngine.stop();
+      services?.publisher.stop();
+      await services?.dbShutdown();
+      if (currentStoreId) {
+        await wipeEventStoreDb(currentStoreId);
+      }
     } catch (error) {
       console.warn('Event store shutdown failed', error);
     }
@@ -556,7 +559,40 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   if (initError) {
-    return <div>Failed to initialize event store: {initError}</div>;
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
+        <div className="rounded-lg border border-border bg-card/90 p-6 shadow-md">
+          <div className="space-y-2">
+            <div className="text-sm font-semibold uppercase tracking-wide text-accent2">
+              Event store error
+            </div>
+            <div className="text-lg font-semibold">
+              Failed to initialize event store
+            </div>
+            <div className="text-sm text-muted-foreground">{initError}</div>
+          </div>
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              If local storage is corrupted, reset local data and re-onboard.
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={async () => {
+                const confirmed = window.confirm(
+                  'This will clear local data for this app on this device. You will need to onboard again.'
+                );
+                if (!confirmed) return;
+                await resetLocalState();
+              }}
+            >
+              Reset local data
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!services || !servicesConfig || servicesConfig.storeId !== storeId) {

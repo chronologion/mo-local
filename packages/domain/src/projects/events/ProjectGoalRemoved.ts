@@ -18,24 +18,21 @@ export class ProjectGoalRemoved
   readonly projectId: ProjectId;
   readonly removedAt: Timestamp;
 
-  constructor(payload: ProjectGoalRemovedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.removedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
-    this.removedAt = payload.removedAt;
+  constructor(
+    payload: ProjectGoalRemovedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
+    this.removedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectGoalRemovedSpec = payloadEventSpec<
   ProjectGoalRemoved,
-  ProjectGoalRemovedPayload
+  ProjectGoalRemovedPayload,
+  ProjectId
 >(
   projectEventTypes.projectGoalRemoved,
   (p, meta) => new ProjectGoalRemoved(p, meta),

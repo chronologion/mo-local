@@ -1,13 +1,20 @@
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
-import { GoalAchievementSaga, type ValidationError } from '@mo/application';
+import {
+  ConcurrencyError,
+  GoalAchievementSaga,
+  type ValidationError,
+} from '@mo/application';
 import {
   IndexedDBKeyStore,
   InMemoryKeyringStore,
   KeyringManager,
   WebCryptoService,
 } from '@mo/infrastructure';
-import { EncryptedEventToDomainAdapter } from '@mo/infrastructure';
+import {
+  EncryptedEventToDomainAdapter,
+  SqliteEventStore,
+} from '@mo/infrastructure';
 import {
   bootstrapGoalBoundedContext,
   type GoalBoundedContextServices,
@@ -22,6 +29,9 @@ import {
 } from '@mo/infrastructure';
 import { createWebSqliteDb, type SqliteDbPort } from '@mo/eventstore-web';
 import { SyncEngine, HttpSyncTransport } from '@mo/sync-engine';
+import { AggregateTypes } from '@mo/eventstore-core';
+import { MissingKeyError } from '@mo/infrastructure';
+import { DomainEvent } from '@mo/domain';
 
 export type AppBoundedContext = 'goals' | 'projects';
 
@@ -123,20 +133,82 @@ export const createAppServices = async ({
 
   const sagas: AppServices['sagas'] = {};
   if (ctx.goals && ctx.projects) {
+    const seedEvents = async (): Promise<DomainEvent[]> => {
+      const goalStore = new SqliteEventStore(db, AggregateTypes.goal);
+      const projectStore = new SqliteEventStore(db, AggregateTypes.project);
+      const [goalEvents, projectEvents] = await Promise.all([
+        goalStore.getAllEvents(),
+        projectStore.getAllEvents(),
+      ]);
+      const allEvents = [...goalEvents, ...projectEvents]
+        .filter((event) => event.sequence !== undefined)
+        .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+
+      const domainEvents: DomainEvent[] = [];
+      for (const event of allEvents) {
+        try {
+          const kAggregate = await keyringManager.resolveKeyForEvent(event);
+          const domainEvent = await toDomain.toDomain(event, kAggregate);
+          domainEvents.push(domainEvent);
+        } catch (error) {
+          if (error instanceof MissingKeyError) {
+            console.warn(
+              '[GoalAchievementSaga] Missing key for seed event',
+              event.aggregateId
+            );
+            continue;
+          }
+          if (
+            error instanceof Error &&
+            error.message === 'Master key not set'
+          ) {
+            console.warn(
+              '[GoalAchievementSaga] Master key not set; skipping seed'
+            );
+            return [];
+          }
+          throw error;
+        }
+      }
+
+      return domainEvents;
+    };
     const sagaStore = new SqliteGoalAchievementSagaStore(
       new ProcessManagerStateStore(db),
       crypto,
       keyStore
     );
+    const isConcurrencyFailure = (errors: ValidationError[]): boolean =>
+      errors.some(
+        (error) =>
+          error.field === 'application' &&
+          error.message.includes('version mismatch')
+      );
+
     const saga = new GoalAchievementSaga(
       sagaStore,
-      ctx.goals.goalRepo,
-      ctx.projects.projectReadModel,
+      seedEvents,
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
         if (!result.ok) {
+          if (isConcurrencyFailure(result.errors)) {
+            throw new ConcurrencyError('Goal version mismatch');
+          }
           throw new Error(
             `Goal achievement saga failed: ${result.errors
+              .map((e: ValidationError) => `${e.field}:${e.message}`)
+              .join(', ')}`
+          );
+        }
+      },
+      async (command) => {
+        const result = await ctx.goals!.goalCommandBus.dispatch(command);
+        if (!result.ok) {
+          if (isConcurrencyFailure(result.errors)) {
+            throw new ConcurrencyError('Goal version mismatch');
+          }
+          throw new Error(
+            `Goal unachieve saga failed: ${result.errors
               .map((e: ValidationError) => `${e.field}:${e.message}`)
               .join(', ')}`
           );
@@ -163,10 +235,12 @@ export const createAppServices = async ({
     storeId,
     transport: new HttpSyncTransport({ baseUrl: apiBaseUrl }),
     onRebaseRequired: async () => {
+      // Rebuild projections first so saga reconciliation reads consistent views.
       await Promise.all([
         ctx.goals?.goalProjection.onRebaseRequired(),
         ctx.projects?.projectProjection.onRebaseRequired(),
       ]);
+      await sagas.goalAchievement?.onRebaseRequired();
     },
   });
 

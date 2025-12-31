@@ -21,25 +21,19 @@ export class GoalRefined
   readonly summary: Summary;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalRefinedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalRefinedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.summary = payload.summary;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalRefinedSpec = payloadEventSpec<
   GoalRefined,
-  GoalRefinedPayload
+  GoalRefinedPayload,
+  GoalId
 >(goalEventTypes.goalRefined, (p, meta) => new GoalRefined(p, meta), {
   goalId: voString(GoalId.from),
   summary: voString(Summary.from),

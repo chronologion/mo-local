@@ -1,4 +1,16 @@
-import { ActorId, CorrelationId, DomainEvent, EventId } from '@mo/domain';
+import {
+  ActorId,
+  CorrelationId,
+  DomainEvent,
+  EventId,
+  GoalId,
+  ProjectId,
+  Timestamp,
+  UserId,
+  goalEventTypes,
+  identityEventTypes,
+  projectEventTypes,
+} from '@mo/domain';
 import { EncryptedEvent, CryptoServicePort } from '@mo/application';
 import { buildEventAad } from '../../eventing/aad';
 import { decodePayloadEnvelope } from '../../eventing/payloadEnvelope';
@@ -10,6 +22,27 @@ import { decodePersisted } from '../../eventing/registry';
  */
 export class EncryptedEventToDomainAdapter {
   constructor(private readonly crypto: CryptoServicePort) {}
+
+  private static readonly aggregateIdResolvers = (() => {
+    const map = new Map<string, (id: string) => GoalId | ProjectId | UserId>();
+    for (const type of Object.values(goalEventTypes)) {
+      map.set(type, (id) => GoalId.from(id));
+    }
+    for (const type of Object.values(projectEventTypes)) {
+      map.set(type, (id) => ProjectId.from(id));
+    }
+    map.set(identityEventTypes.userRegistered, (id) => UserId.from(id));
+    return map;
+  })();
+
+  private resolveAggregateId(eventType: string, aggregateId: string) {
+    const resolver =
+      EncryptedEventToDomainAdapter.aggregateIdResolvers.get(eventType);
+    if (!resolver) {
+      throw new Error(`Unknown aggregate type for event ${eventType}`);
+    }
+    return resolver(aggregateId);
+  }
 
   async toDomain(
     encryptedEvent: EncryptedEvent,
@@ -48,6 +81,11 @@ export class EncryptedEventToDomainAdapter {
         payload: data,
       },
       {
+        aggregateId: this.resolveAggregateId(
+          encryptedEvent.eventType,
+          encryptedEvent.aggregateId
+        ),
+        occurredAt: Timestamp.fromMillis(encryptedEvent.occurredAt),
         eventId: EventId.from(encryptedEvent.id),
         actorId: ActorId.from(encryptedEvent.actorId),
         causationId: encryptedEvent.causationId
@@ -56,6 +94,7 @@ export class EncryptedEventToDomainAdapter {
         correlationId: encryptedEvent.correlationId
           ? CorrelationId.from(encryptedEvent.correlationId)
           : undefined,
+        version: encryptedEvent.version ?? undefined,
       }
     );
   }

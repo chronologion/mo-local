@@ -116,15 +116,20 @@ export class ProjectProjectionProcessor
     status?: string;
     goalId?: string | null;
   }): ProjectListItem[] {
-    const items = [...this.snapshotProjector.listProjections()];
-    const filtered = filter
-      ? items.filter((item) => {
-          if (filter.status && item.status !== filter.status) return false;
-          if (filter.goalId !== undefined && item.goalId !== filter.goalId) {
-            return false;
-          }
-          return true;
-        })
+    let items: ProjectListItem[];
+    if (filter?.goalId !== undefined) {
+      if (filter.goalId === null) {
+        items = [...this.snapshotProjector.listProjections()].filter(
+          (item) => item.goalId === null
+        );
+      } else {
+        items = this.snapshotProjector.listByGoalId(filter.goalId);
+      }
+    } else {
+      items = [...this.snapshotProjector.listProjections()];
+    }
+    const filtered = filter?.status
+      ? items.filter((item) => item.status === filter.status)
       : items;
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
   }

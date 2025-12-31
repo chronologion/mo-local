@@ -26,27 +26,21 @@ export class ProjectMilestoneRescheduled
 
   constructor(
     payload: ProjectMilestoneRescheduledPayload,
-    meta: EventMetadata
+    meta: EventMetadata<ProjectId>
   ) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+    super(meta);
+    this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
     this.targetDate = payload.targetDate;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectMilestoneRescheduledSpec = payloadEventSpec<
   ProjectMilestoneRescheduled,
-  ProjectMilestoneRescheduledPayload
+  ProjectMilestoneRescheduledPayload,
+  ProjectId
 >(
   projectEventTypes.projectMilestoneRescheduled,
   (p, meta) => new ProjectMilestoneRescheduled(p, meta),

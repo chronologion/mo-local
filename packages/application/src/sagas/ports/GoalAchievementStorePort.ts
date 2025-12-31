@@ -5,7 +5,9 @@ export type GoalAchievementState = {
   linkedProjectIds: string[];
   completedProjectIds: string[];
   achieved: boolean;
+  archived: boolean;
   achievementRequested: boolean;
+  version: number;
 };
 
 export type ProjectAchievementState = {
@@ -31,4 +33,5 @@ export interface GoalAchievementStorePort {
     cursor?: GoalAchievementCursor
   ): Promise<void>;
   removeProjectState(projectId: string): Promise<void>;
+  resetAll(): Promise<void>;
 }

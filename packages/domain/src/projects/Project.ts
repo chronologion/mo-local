@@ -6,7 +6,7 @@ import { ProjectId } from './vos/ProjectId';
 import { ProjectName } from './vos/ProjectName';
 import { ProjectStatus } from './vos/ProjectStatus';
 import { ProjectDescription } from './vos/ProjectDescription';
-import { Milestone } from './Milestone';
+import { Milestone, MilestoneRecord } from './Milestone';
 import { MilestoneId } from './vos/MilestoneId';
 import { MilestoneName } from './vos/MilestoneName';
 import { GoalId } from '../goals/vos/GoalId';
@@ -59,6 +59,7 @@ export class Project extends AggregateRoot<ProjectId> {
     super(id);
   }
 
+  // TODO: params should be typed as the event payload (`ProjectCreatedPayload`) => reduce the verbosity
   static create(params: {
     id: ProjectId;
     name: ProjectName;
@@ -70,12 +71,14 @@ export class Project extends AggregateRoot<ProjectId> {
     createdBy: UserId;
     createdAt: Timestamp;
   }): Project {
+    // TODO: Use Assert
     if (!params.startDate.isSameOrBefore(params.targetDate)) {
       throw new Error('Start date must be on or before target date');
     }
 
     const project = new Project(params.id);
     project.apply(
+      // TODO: Direct params assignment
       new ProjectCreated(
         {
           projectId: params.id,
@@ -88,7 +91,13 @@ export class Project extends AggregateRoot<ProjectId> {
           createdBy: params.createdBy,
           createdAt: params.createdAt,
         },
-        { eventId: EventId.create(), actorId: params.createdBy }
+        {
+          aggregateId: params.id,
+          occurredAt: params.createdAt,
+          // TODO: Possible factory method to DRY up
+          eventId: EventId.create(),
+          actorId: params.createdBy,
+        }
       )
     );
     return project;
@@ -141,8 +150,8 @@ export class Project extends AggregateRoot<ProjectId> {
     return this._goalId;
   }
 
-  get milestones(): ReadonlyArray<Milestone> {
-    return this._milestones;
+  get milestones(): ReadonlyArray<MilestoneRecord> {
+    return this._milestones.map((m) => m.asRecord());
   }
 
   get createdBy(): UserId {
@@ -185,7 +194,12 @@ export class Project extends AggregateRoot<ProjectId> {
           name: params.name,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -207,7 +221,12 @@ export class Project extends AggregateRoot<ProjectId> {
           description: params.description,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -229,7 +248,12 @@ export class Project extends AggregateRoot<ProjectId> {
           status: params.status,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -262,7 +286,12 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -284,7 +313,12 @@ export class Project extends AggregateRoot<ProjectId> {
           goalId: params.goalId,
           addedAt: params.addedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.addedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -300,7 +334,12 @@ export class Project extends AggregateRoot<ProjectId> {
           projectId: this.id,
           removedAt: params.removedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.removedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -327,7 +366,12 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           addedAt: params.addedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.addedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -353,7 +397,12 @@ export class Project extends AggregateRoot<ProjectId> {
           name: params.name,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -379,7 +428,12 @@ export class Project extends AggregateRoot<ProjectId> {
           targetDate: params.targetDate,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -398,7 +452,12 @@ export class Project extends AggregateRoot<ProjectId> {
           milestoneId: params.milestoneId,
           archivedAt: params.archivedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.archivedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -411,7 +470,12 @@ export class Project extends AggregateRoot<ProjectId> {
           projectId: this.id,
           archivedAt: params.archivedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.archivedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }

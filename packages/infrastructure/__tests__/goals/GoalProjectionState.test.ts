@@ -32,6 +32,8 @@ const baseDate = Timestamp.fromMillis(
 );
 const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000001');
 const meta = () => ({
+  aggregateId,
+  occurredAt: baseDate,
   eventId: EventId.create(),
   actorId: ActorId.from('user-1'),
 });

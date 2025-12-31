@@ -8,8 +8,7 @@ const now = Date.now();
 describe('RegisterUserCommand validation', () => {
   it('ensures public keys are present', () => {
     const result = validateRegisterUserCommand({
-      type: 'RegisterUser',
-      userId: 'user-1',
+      actorId: 'user-1',
       signingPublicKey: new Uint8Array(),
       encryptionPublicKey: new Uint8Array([1, 2]),
       timestamp: now,
@@ -40,8 +39,7 @@ describe('ImportUserKeysCommand validation', () => {
     };
 
     const result = validateImportUserKeysCommand({
-      type: 'ImportUserKeys',
-      userId: 'user-1',
+      actorId: 'user-1',
       backup,
       timestamp: now,
     });
