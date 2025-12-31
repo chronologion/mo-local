@@ -19,6 +19,7 @@ import {
   extractTableNames,
   runExecute,
   runQuery,
+  SqliteInitError,
   toPlatformError,
   type SqliteContext,
 } from './sqlite';
@@ -43,6 +44,183 @@ type Subscription = {
 type Connection = {
   port: PortLike;
   subscriptions: Map<string, Subscription>;
+};
+
+type OpfsDiagnostics = Readonly<{
+  secureContext: boolean | null;
+  hasStorage: boolean;
+  hasGetDirectory: boolean;
+  hasLocks: boolean;
+  estimate?: Readonly<{ usage: number | null; quota: number | null }>;
+  persisted?: boolean;
+  rootEntries?: ReadonlyArray<string>;
+  vfsDirEntries?: ReadonlyArray<string>;
+  errors?: ReadonlyArray<
+    Readonly<{ step: string; name: string; message: string }>
+  >;
+}>;
+
+type DirectoryHandleWithEntries = FileSystemDirectoryHandle & {
+  entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
+};
+
+const hasDirectoryEntries = (
+  dir: FileSystemDirectoryHandle
+): dir is DirectoryHandleWithEntries => {
+  // eslint-disable-next-line no-restricted-syntax -- TS lib typing for FileSystemDirectoryHandle iteration is incomplete here; runtime supports `entries()` where available.
+  const entries = (dir as unknown as { entries?: unknown }).entries;
+  return typeof entries === 'function';
+};
+
+const collectOpfsDiagnostics = async (
+  storeId: string
+): Promise<OpfsDiagnostics> => {
+  const errors: Array<{ step: string; name: string; message: string }> = [];
+  const vfsDir = `mo-eventstore-${storeId}`;
+  const rootEntries: string[] = [];
+  const vfsDirEntries: string[] = [];
+
+  let secureContext: boolean | null = null;
+  if (typeof self !== 'undefined' && 'isSecureContext' in self) {
+    const value = (self as { isSecureContext: unknown }).isSecureContext;
+    secureContext = typeof value === 'boolean' ? value : null;
+  }
+
+  const hasStorage = typeof navigator !== 'undefined' && 'storage' in navigator;
+  const hasGetDirectory =
+    hasStorage && typeof navigator.storage.getDirectory === 'function';
+  const hasLocks = typeof navigator !== 'undefined' && 'locks' in navigator;
+
+  const estimate = await (async () => {
+    try {
+      if (!hasStorage || typeof navigator.storage.estimate !== 'function') {
+        return undefined;
+      }
+      const res = await navigator.storage.estimate();
+      return {
+        usage: typeof res.usage === 'number' ? res.usage : null,
+        quota: typeof res.quota === 'number' ? res.quota : null,
+      };
+    } catch (error) {
+      errors.push({
+        step: 'storage.estimate',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  })();
+
+  const persisted = await (async () => {
+    try {
+      if (!hasStorage || typeof navigator.storage.persisted !== 'function') {
+        return undefined;
+      }
+      return await navigator.storage.persisted();
+    } catch (error) {
+      errors.push({
+        step: 'storage.persisted',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  })();
+
+  const root = await (async () => {
+    try {
+      if (!hasGetDirectory) return null;
+      return await navigator.storage.getDirectory();
+    } catch (error) {
+      errors.push({
+        step: 'storage.getDirectory',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  })();
+
+  if (root) {
+    try {
+      if (hasDirectoryEntries(root)) {
+        let count = 0;
+        for await (const [name, handle] of root.entries()) {
+          const kind =
+            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          rootEntries.push(`${kind}:${name}`);
+          count += 1;
+          if (count >= 50) break;
+        }
+      }
+    } catch (error) {
+      errors.push({
+        step: 'root.entries',
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      const dir = await root.getDirectoryHandle(vfsDir, { create: false });
+      if (hasDirectoryEntries(dir)) {
+        let count = 0;
+        for await (const [name, handle] of dir.entries()) {
+          const kind =
+            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          vfsDirEntries.push(`${kind}:${name}`);
+          count += 1;
+          if (count >= 200) break;
+        }
+      }
+    } catch (error) {
+      errors.push({
+        step: `vfsDir.entries:${vfsDir}`,
+        name:
+          error && typeof error === 'object' && 'name' in error
+            ? String((error as { name?: unknown }).name)
+            : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (errors.length === 0) {
+    return {
+      secureContext,
+      hasStorage,
+      hasGetDirectory,
+      hasLocks,
+      estimate,
+      persisted,
+      rootEntries,
+      vfsDirEntries,
+    };
+  }
+
+  return {
+    secureContext,
+    hasStorage,
+    hasGetDirectory,
+    hasLocks,
+    estimate,
+    persisted,
+    rootEntries: rootEntries.length > 0 ? rootEntries : undefined,
+    vfsDirEntries: vfsDirEntries.length > 0 ? vfsDirEntries : undefined,
+    errors,
+  };
 };
 
 class DbOwnerServer {
@@ -128,28 +306,71 @@ class DbOwnerServer {
             : 'UnknownError';
         const messageText =
           error instanceof Error ? error.message : String(error);
+        const initStage =
+          error instanceof SqliteInitError ? error.stage : undefined;
+        const cause = error instanceof SqliteInitError ? error.cause : error;
+        const causeName =
+          typeof cause === 'object' && cause && 'name' in cause
+            ? String((cause as { name?: unknown }).name)
+            : null;
+        const causeMessage =
+          cause instanceof Error ? cause.message : String(cause);
+        const causeCode =
+          cause instanceof DOMException && typeof cause.code === 'number'
+            ? cause.code
+            : null;
+
+        const opfsDiagnostics = await collectOpfsDiagnostics(message.storeId);
+        const isInvalidStateError =
+          name === 'InvalidStateError' || causeName === 'InvalidStateError';
         console.error('[DbOwnerServer] initialization failed', {
           storeId: message.storeId,
           dbName: message.dbName,
           errorName: name,
           errorMessage: messageText,
           errorStack: error instanceof Error ? error.stack : undefined,
+          initStage,
+          causeName,
+          causeMessage,
+          causeCode,
+          opfsDiagnostics,
         });
-        const platformError: PlatformError =
-          name === 'InvalidStateError'
-            ? {
-                code: PlatformErrorCodes.DbInvalidStateError,
-                message:
-                  'OPFS returned InvalidStateError while opening the SQLite file. This can happen if another context still holds an exclusive access handle. Try closing other tabs and reloading; if it persists, use Reset Local State.',
-                context: {
-                  errorName: name,
-                  errorMessage: messageText,
-                  storeId: message.storeId,
-                  dbName: message.dbName,
-                  suggestedAction: 'reset',
-                },
-              }
-            : toPlatformError(error);
+        let platformError: PlatformError;
+        if (isInvalidStateError) {
+          platformError = {
+            code: PlatformErrorCodes.DbInvalidStateError,
+            message:
+              'OPFS returned InvalidStateError while opening the SQLite file. This can happen if another context still holds an exclusive access handle. Try closing other tabs and reloading; if it persists, use Reset Local State.',
+            context: {
+              errorName: name,
+              errorMessage: messageText,
+              storeId: message.storeId,
+              dbName: message.dbName,
+              initStage,
+              causeName,
+              causeMessage,
+              causeCode,
+              opfsDiagnostics,
+              suggestedAction: 'reset',
+            },
+          };
+        } else if (error instanceof SqliteInitError) {
+          platformError = {
+            code: PlatformErrorCodes.WorkerProtocolError,
+            message: error.message,
+            context: {
+              storeId: message.storeId,
+              dbName: message.dbName,
+              initStage,
+              causeName,
+              causeMessage,
+              causeCode,
+              opfsDiagnostics,
+            },
+          };
+        } else {
+          platformError = toPlatformError(error);
+        }
 
         const helloError: WorkerHello = {
           v: 1,

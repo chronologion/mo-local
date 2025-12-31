@@ -17,6 +17,17 @@ const sqliteMocks = vi.hoisted(() => ({
   createSqliteContext: vi.fn(),
   closeSqliteContext: vi.fn(),
   exportVfsFileBytes: vi.fn(),
+  SqliteInitError: class SqliteInitError extends Error {
+    readonly stage: string;
+    readonly cause: unknown;
+
+    constructor(stage: string, cause: unknown, message: string) {
+      super(message);
+      this.name = 'SqliteInitError';
+      this.stage = stage;
+      this.cause = cause;
+    }
+  },
   runQuery: vi.fn(),
   runExecute: vi.fn(),
   executeStatements: vi.fn(),

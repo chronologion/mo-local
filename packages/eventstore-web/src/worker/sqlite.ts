@@ -25,38 +25,123 @@ const SQLITE_ROW = SQLiteConstants.SQLITE_ROW;
 const SQLITE_DONE = SQLiteConstants.SQLITE_DONE;
 const SQLITE_OK = SQLiteConstants.SQLITE_OK;
 
+const SqliteInitStages = {
+  loadWasm: 'loadWasm',
+  initModule: 'initModule',
+  createVfs: 'createVfs',
+  awaitVfsReady: 'awaitVfsReady',
+  addVfsCapacity: 'addVfsCapacity',
+  vfsRegister: 'vfsRegister',
+  openDb: 'openDb',
+  applyPragmas: 'applyPragmas',
+  applySchema: 'applySchema',
+} as const;
+
+type SqliteInitStage = (typeof SqliteInitStages)[keyof typeof SqliteInitStages];
+
+export class SqliteInitError extends Error {
+  readonly stage: SqliteInitStage;
+  readonly cause: unknown;
+
+  constructor(stage: SqliteInitStage, cause: unknown, message: string) {
+    super(message);
+    this.name = 'SqliteInitError';
+    this.stage = stage;
+    this.cause = cause;
+  }
+}
+
+type VfsWithCapacity = VfsWithClose & {
+  addCapacity: (capacity: number) => Promise<void> | void;
+};
+
+const hasAddCapacity = (vfs: VfsWithClose): vfs is VfsWithCapacity => {
+  const candidate = (vfs as { addCapacity?: unknown }).addCapacity;
+  return typeof candidate === 'function';
+};
+
+const withInitStage = async <T>(
+  stage: SqliteInitStage,
+  label: string,
+  fn: () => Promise<T>
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (cause) {
+    throw new SqliteInitError(stage, cause, `SQLite init failed at ${label}`);
+  }
+};
+
 export async function createSqliteContext(options: {
   storeId: string;
   dbName: string;
 }): Promise<SqliteContext> {
-  const { url: resolvedWasmUrl, bytes: wasmBinary } = await loadWasmBinary([
-    wasmUrl,
-    new URL('wa-sqlite.wasm', import.meta.url).toString(),
-  ]);
-  const module = await SQLiteESMFactory({
-    locateFile: () => resolvedWasmUrl,
-    wasmBinary,
-  });
+  const { url: resolvedWasmUrl, bytes: wasmBinary } = await withInitStage(
+    SqliteInitStages.loadWasm,
+    'wasm',
+    async () =>
+      loadWasmBinary([
+        wasmUrl,
+        new URL('wa-sqlite.wasm', import.meta.url).toString(),
+      ])
+  );
+
+  const module = await withInitStage(
+    SqliteInitStages.initModule,
+    'SQLiteESMFactory',
+    async () =>
+      SQLiteESMFactory({
+        locateFile: () => resolvedWasmUrl,
+        wasmBinary,
+      })
+  );
+
   const sqlite3 = SQLite.Factory(module);
-  void options.storeId;
   const vfsSeed = `mo-eventstore-${options.storeId}`;
-  const vfs = new AccessHandlePoolVFS(vfsSeed) as VfsWithClose;
+  const vfs = await withInitStage(
+    SqliteInitStages.createVfs,
+    'create VFS',
+    async () => new AccessHandlePoolVFS(vfsSeed) as VfsWithClose
+  );
+
   if (vfs.isReady) {
-    await vfs.isReady;
+    await withInitStage(
+      SqliteInitStages.awaitVfsReady,
+      'await VFS ready',
+      async () => vfs.isReady
+    );
   }
-  if ('addCapacity' in vfs && typeof vfs.addCapacity === 'function') {
-    await vfs.addCapacity(12);
+
+  if (hasAddCapacity(vfs)) {
+    await withInitStage(
+      SqliteInitStages.addVfsCapacity,
+      'add VFS capacity',
+      async () => vfs.addCapacity(12)
+    );
   }
-  sqlite3.vfs_register(vfs, true);
+
+  await withInitStage(
+    SqliteInitStages.vfsRegister,
+    'vfs_register',
+    async () => {
+      sqlite3.vfs_register(vfs, true);
+    }
+  );
+
   const dbPath = options.dbName.startsWith('/')
     ? options.dbName
     : `/${options.dbName}`;
-  const db = await sqlite3.open_v2(
-    dbPath,
-    SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
+  const db = await withInitStage(SqliteInitStages.openDb, 'open_v2', async () =>
+    sqlite3.open_v2(
+      dbPath,
+      SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
+    )
   );
-  await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
-  await sqlite3.exec(db, 'PRAGMA synchronous = FULL');
+
+  await withInitStage(SqliteInitStages.applyPragmas, 'PRAGMAs', async () => {
+    await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
+    await sqlite3.exec(db, 'PRAGMA synchronous = FULL');
+  });
   const ctx: SqliteContext = {
     sqlite3,
     db,
@@ -64,7 +149,9 @@ export async function createSqliteContext(options: {
       typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed,
     vfs,
   };
-  await applySchema(ctx);
+  await withInitStage(SqliteInitStages.applySchema, 'applySchema', async () =>
+    applySchema(ctx)
+  );
   return ctx;
 }
 
