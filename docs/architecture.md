@@ -54,7 +54,7 @@ Hard rules:
 - **globalSequence**: server-assigned monotonically increasing ordering for a store’s sync stream; persisted locally via `sync_event_map`.
 - **effectiveTotalOrder**: deterministic derived-state ordering: first `globalSequence` (synced region), then `pendingCommitSequence` (local-only region).
 - **payloadVersion**: schema version for an event payload inside the encrypted envelope.
-- **byte-preservation**: a boundary contract that serialized payload bytes must remain stable for already-synced events (see §9.4).
+- **byte-preservation**: a boundary contract that serialized payload bytes must remain stable for already-synced events (see §8.6).
 
 ## 5. End-to-end workflows (contracts over mechanisms)
 
@@ -273,24 +273,50 @@ Contracts:
 Current saga:
 
 - `GoalAchievementSaga`: tracks project completion and automatically achieves a goal when all linked projects are completed.
-  - It persists saga state separately (goal + project state tables).
+  - It persists saga/process-manager state in `process_manager_state` (encrypted).
   - It uses an idempotency key that includes the triggering event ID for safe replays.
+  - On sync rebase, it reconciles by re-bootstrapping from rebuilt read models and may emit compensating commands (e.g. unachieve).
 
 ## 8. Infrastructure layer (`packages/infrastructure`)
 
-### 8.1 Storage: LiveStore schema and materialization
+### 8.1 Storage: OPFS SQLite schema + DB ownership
 
-LiveStore persists into browser SQLite (OPFS). It has:
+The web client persists into a single local SQLite database stored in OPFS:
 
-- an internal append-only log: `__livestore_session_changeset` (canonical on-device history),
-- a synced event stream: `event.v1` (protocol events),
-- materialized per-BC tables: `goal_events`, `project_events`, snapshots, meta, analytics/search.
+- DB file: `mo-eventstore-<storeId>.db`
+- OPFS directory namespace: `mo-eventstore-<storeId>` (used by wa-sqlite’s `AccessHandlePoolVFS`)
 
-**Single synced event name (`event.v1`)**
+#### 8.1.1 Single-writer ownership model
 
-- The synced event name is intentionally **not** BC-specific.
-- Routing to `goal_events` vs `project_events` is done during materialization by inspecting the domain `eventType` against known sets.
-- Payload bytes are normalized at materialization time (LiveStore transports can represent Uint8Array-like values in multiple shapes).
+We run SQLite inside a worker and enforce single-writer semantics per `storeId`:
+
+- Default: **SharedWorker** owns the DB and serves all tabs (multi-tab by design).
+- Fallback: **Dedicated Worker** owns the DB if SharedWorker is unavailable or fails to initialize.
+- Dedicated worker acquires a **Web Locks** exclusive lock: `mo-eventstore:<storeId>` (prevents multiple owners in the presence of multiple dedicated workers).
+
+Initialization is explicit via a hello handshake (`helloOk` / `helloError`). Failures surface with structured context (init stage + OPFS diagnostics) so they are debuggable (not silent timeouts).
+
+#### 8.1.2 `SqliteDbPort` boundary + reactivity
+
+`@mo/eventstore-web` provides a strict async DB boundary (`SqliteDbPort`):
+
+- `query/execute/batch` are worker RPCs (no synchronous DB access).
+- `batch()` executes atomically inside a single SQLite transaction.
+- `subscribeToTables([...], listener)` provides a table-level invalidation signal used by projections and sync scheduling.
+
+#### 8.1.3 Local schema (v1)
+
+The schema is applied on open via `PRAGMA user_version` and fails fast on unsupported versions.
+
+Core tables:
+
+- `events`: unified encrypted event log for all BCs (partitioned by `aggregate_type`).
+- `sync_event_map`: local mapping of `event_id → global_seq` for synced events.
+- `sync_meta`: per-store last pulled global sequence (`last_pulled_global_seq`).
+- `snapshots`: per-aggregate encrypted snapshot blob + last applied cursors.
+- `projection_meta`, `projection_cache`, `index_artifacts`: derived-state runtime persistence.
+- `process_manager_state`: saga/process-manager encrypted state (rebuildable/reconcilable).
+- `idempotency_keys`: idempotency fence for commands/process managers.
 
 ### 8.2 Eventing runtime (ALC-301: unified serialization)
 
@@ -328,7 +354,7 @@ Current implementation:
 
 - Keys are stored in IndexedDB and are encrypted at rest using a passphrase-derived KEK (“master key”).
 - The KEK is derived from the user’s passphrase + a per-user random salt (PBKDF2). The salt is persisted in local metadata so the same KEK can be re-derived on unlock/restore.
-- Backup/restore moves **keys only** (identity + aggregate keys). Event logs and encrypted payloads remain in LiveStore and/or flow via sync.
+- Backup/restore moves **keys only** (identity + aggregate keys). Event logs and encrypted payloads remain in OPFS SQLite and/or flow via sync.
 
 ### 8.4 Crypto and integrity binding
 
@@ -340,31 +366,34 @@ Current implementation:
 
 **Durable boundary**
 
-- LiveStore `store.commit(...)` is the on-device durability boundary.
+- A successful insert into the local `events` table is the on-device durability boundary.
 
 **Post-commit publication**
 
-- `CommittedEventPublisher` streams materialized events ordered by `sequence`, decrypts/hydrates, publishes them, and checkpoints progress.
+- `CommittedEventPublisher` streams committed events ordered by `commitSequence`, decrypts/hydrates, publishes them, and checkpoints progress.
 - Projections follow the same durability principle: they can be rebuilt from committed data.
 
-### 8.6 Sync backend (browser + API) and byte-preservation
+### 8.6 Sync engine (browser + API) and byte-preservation
 
 **Browser**
 
-- `CloudSyncBackend` pushes/pulls LiveStore encoded events over HTTP.
-- It maps server-ahead responses (HTTP 409) to LiveStore’s invalid push error so the sync processor can rebase.
+- `SyncEngine` is an explicit pull/push loop over the local `events` table.
+- “Pending” means: `events` rows that do not yet have a `sync_event_map` entry.
+- Push is triggered reactively from `events` invalidations (debounced), plus a low-frequency fallback interval as a safety net.
+- Pull uses long-polling (`waitMs`) and is guarded to avoid pull storms; push is not blocked by pull.
 
 **Server**
 
-- The sync API validates push batches (contiguity of `seqNum`/`parentSeqNum`) and persists into `sync.events`.
-- Server-ahead conflicts are surfaced as HTTP 409 with `minimumExpectedSeqNum` and `providedSeqNum`.
+- Server assigns a monotonically increasing `globalSequence` per `(owner_identity_id, store_id)` stream.
+- Push uses an `expectedHead` precondition; conflicts are HTTP 409 with `{ head, reason: 'server_ahead', missing?: [...] }` to enable fast-forward.
+- Server persists the payload as canonical JSON **TEXT** (`record_json`) and returns it as-is in pull responses.
 
 **Byte-preservation contract**
 
-LiveStore compares encoded events strictly. The backend must not change the serialized representation of `event.args` for already-synced sequence numbers.
+The backend must not change the serialized representation of already-synced records.
 
-- `sync.events.args` is stored as **TEXT containing JSON** (not `jsonb`).
-- The backend persists `JSON.stringify(args)` and reconstructs args by parsing the stored string, so `JSON.stringify(pulled.args) === storedText` in the JS implementation.
+- Each sync record includes base64url-encoded ciphertext bytes (never numeric-key “byte objects”).
+- The server stores `record_json` as **TEXT** (not `jsonb`) to avoid accidental canonicalization changes.
 
 Constraint:
 
@@ -385,7 +414,7 @@ The interface layer exists to keep UI code honest: it adapts UI needs to the App
 Contracts:
 
 - UI invokes use-cases only through command/query buses and read models/projection ports.
-- UI does not depend on LiveStore, crypto, or persistence directly; those are wired in the composition root and exposed through ports.
+- UI does not depend on SQLite/crypto/persistence directly; those are wired in the composition root and exposed through ports.
 - UI should treat `ConcurrencyError` as a recoverable conflict: refresh state and retry.
 
 ## 10. Security posture
@@ -399,7 +428,7 @@ This system provides **payload confidentiality** and **integrity binding** for d
 
 ### 10.2 What is observable / not fully protected
 
-- Sync protocol metadata is plaintext by design: event name (`event.v1`) and args include `aggregateId`, `eventType`, `version`, `occurredAt`, and IDs used for causation/correlation.
+- Sync protocol metadata is plaintext by design: each pushed record contains `aggregateType`, `aggregateId`, `eventType`, `version`, `occurredAt`, and IDs used for causation/correlation.
 - Ciphertext length and traffic patterns leak information.
 
 ### 10.3 Future mitigations (explicitly out of current scope)
@@ -408,7 +437,7 @@ This system provides **payload confidentiality** and **integrity binding** for d
 - Reduce metadata leakage by minimizing plaintext args or encrypting additional metadata (requires protocol changes).
 - Introduce key rotation/sharing mechanisms (e.g. keyring + epochs) when multi-device and sharing flows mature.
 
-## 11. ADRs (ALC-301: serialization + sync contracts)
+## 11. ADRs (selected)
 
 The ADRs below capture the decisions that define the “frozen contracts” for this architecture.
 
@@ -433,46 +462,47 @@ The ADRs below capture the decisions that define the “frozen contracts” for 
 - **Rationale**: Single source of truth for encode/decode; easier testing; fewer switches.
 - **Consequences**: Specs must be explicitly registered (`specs.generated.ts`) until codegen exists.
 
-### ADR ALC-301-04 — Single synced event name `event.v1`
+### ADR ALC-301-05 — Sync records are byte-preserved via TEXT JSON + base64url bytes
 
-- **Context**: Per-BC sync event names leak metadata and complicate adapters.
-- **Decision**: Use a single LiveStore synced event name (`event.v1`) and route by domain `eventType` at materialization time.
-- **Rationale**: Reduce metadata leakage and unify the protocol surface.
-- **Consequences**: Materializer becomes a security-sensitive router; unknown `eventType`s must be handled deterministically.
-
-### ADR ALC-301-05 — Sync args are byte-preserved via TEXT JSON
-
-- **Context**: Key reordering in JSON stores (e.g. Postgres `jsonb`) breaks LiveStore strict equality.
-- **Decision**: Store `sync.events.args` as TEXT containing JSON and treat it as order-sensitive/opaque.
-- **Rationale**: Preserve byte-equivalence for already-synced sequence numbers.
-- **Consequences**: Future non-JS boundaries require an explicit canonical encoding decision.
+- **Context**: We require payload byte stability across push → server persistence → pull. JSON stores may re-encode or reorder content; byte arrays must not be represented as numeric-key objects.
+- **Decision**: Push `recordJson` (TEXT) with ciphertext bytes encoded as base64url strings, store it as TEXT on the server (`record_json`), and return it without re-stringifying.
+- **Rationale**: Make the “byte-preservation” boundary explicit and testable while we are still JS-only at the edges.
+- **Consequences**: Future non-JS boundaries require an explicit canonical encoding decision (e.g. canonical JSON or CBOR).
 
 ### ADR ALC-301-06 — Publish only after commit
 
 - **Context**: Publishing “pending events” risks phantom side effects if persistence fails or the app crashes mid-flight.
-- **Decision**: Publish from a post-commit stream (materialized tables ordered by `sequence` with a persisted cursor).
+- **Decision**: Publish from a post-commit stream (`events` ordered by `commitSequence` with a persisted cursor).
 - **Rationale**: Crash-safety and replayability.
 - **Consequences**: Publication is eventually consistent and requires dedupe/checkpointing.
 
-### ADR ALC-307-01 — Replace LiveStore runtime with MO EventStore + Sync Engine (Approved)
+### ADR ALC-307-01 — Replace LiveStore runtime with MO EventStore + Sync Engine (Shipped)
 
-- **Reference**: ALC-307 (`docs/prd-eventstore-replacement.md`)
+- **Reference**: ALC-307 and its sub-issues (PRs #24–#33), plus OPFS hardening in ALC-329 (PR #34).
 - **Context**: LiveStore’s leader/session/rebase semantics have repeatedly conflicted with our durability + projection cursor requirements (e.g., non-durable `store.query(...)` writes and rebase-driven cursor divergence; see ALC-306). LiveStore also couples durability, reactivity, and sync semantics in ways that are structurally at odds with our E2EE constraint (ciphertext bytes must remain opaque and keys cannot be required “inside DB execution”). React Native support is also not currently covered by LiveStore in a way we want to rely on.
 - **Decision**: Replace LiveStore with a platform substrate composed of:
-  - a small, explicit SQLite runtime (`ISqliteDb`) with single-writer DB ownership (SharedWorker per `storeId` by default, with explicit fallbacks),
-  - an explicit sync engine (`@mo/sync-engine`) and a **replacement sync contract** that is breaking for this milestone (pre-production; no backward compat required):
-    - server-assigned `globalSequence` (no client `seqNum/parentSeqNum`),
-    - idempotent `eventId` de-duplication on the server,
-    - canonical byte encoding across JSON boundaries (base64url strings; never JSON “numeric-key byte objects”),
-  - an explicit projection/indexing runtime that is **eventually consistent** and rebuildable under an explicit rebase trigger (deterministic rebuild in a converged effective order when remote arrives while local pending exists).
+  - `@mo/eventstore-core` (pure types + cursor/order helpers),
+  - `@mo/eventstore-web` (OPFS SQLite runtime: worker-owned DB + `SqliteDbPort` + table invalidations),
+  - `@mo/sync-engine` (explicit pull/push loop + conflict handling + `onRebaseRequired` trigger),
+  - a derived-state runtime in infrastructure (`ProjectionRuntime`, snapshot/index/cache stores) that is eventually consistent and rebuildable under an explicit rebase trigger.
 
 - **Rationale**: Make durability, ordering/cursoring, and rebase behavior explicit and testable; remove hidden rollback semantics; enforce separation of concerns so the substrate can remain reusable while product policies stay in the application/infrastructure composition roots.
 - **Consequences**:
-  - Infrastructure migrates from LiveStore’s `Store.commit/query/subscribe` to worker-friendly async DB calls + table-level invalidation.
-  - “Events commit independently; projections are eventually consistent” becomes an explicit contract: derived-state compute must never block event commits and must be safe to rebuild.
-  - Sync endpoints and server persistence must change to the replacement contract (server-assigned ordering + idempotent events + base64url bytes) to eliminate the “guess → 409 → retry” pathologies and the JSON byte bloat class we have already hit.
-  - React Native implementation is explicitly out of scope for this milestone; we only keep contracts capability-based so a native implementation can be added later without changing Domain/Application.
-  - Current-state note: until ALC-307 ships, §§5.3–5.4 and parts of §12 still describe the existing LiveStore-based behavior; update them as part of the LiveStore removal work.
+  - Infrastructure migrated from LiveStore’s `Store.commit/query/subscribe` to worker-friendly async DB calls + table invalidation.
+  - Sync endpoints moved to the replacement contract (server-assigned ordering + idempotent events + base64url ciphertext bytes).
+  - Projections/sagas are explicitly rebuildable/reconcilable under rebase (`onRebaseRequired`).
+  - React Native support remains a planned future adapter; Domain/Application contracts remain platform-agnostic.
+
+### ADR ALC-314-01 — Derived state uses `effectiveTotalOrder` + explicit rebuild
+
+- **Context**: Remote events can be inserted “before” local pending commits in server order. Derived state must converge deterministically without hidden rollback semantics.
+- **Decision**: Derived state that must converge under sync uses `effectiveTotalOrder` (join `events` to `sync_event_map` and order by `globalSequence` then `commitSequence`). When remote arrives while pending exists, `SyncEngine` triggers `onRebaseRequired()` and projections reset/rebuild.
+- **Rationale**: Deterministic convergence and debuggable failure recovery.
+
+### ADR ALC-326-01 — Sync scheduling is reactive but bounded
+
+- **Context**: Naive polling and event-driven triggering can create pull storms or delayed pushes.
+- **Decision**: `SyncEngine` uses single in-flight pull/push, long-poll pull (`waitMs`), debounced push signals from `events` invalidation, and backoff gating with a low-frequency fallback push interval.
 
 ## 12. Failure modes and recovery
 
@@ -501,10 +531,9 @@ Projections are derived state and are rebuildable from committed event tables.
 
 Recovery:
 
-- Use projection processor `resetAndRebuild()` to clear derived tables and replay from `*_events` tables.
+- Use the derived-state runtime’s rebuild trigger (`onRebaseRequired()` / projection-level rebuild) to clear derived tables and replay from `events` (+ `sync_event_map` when using `effectiveTotalOrder`).
 - Note: rebuild requires the relevant aggregate keys; missing keys will cause those aggregates to remain absent.
-- **Sync rebase caveat**: LiveStore sync can roll back and rewrite already-materialized `*_events` rows during a rebase. Our encrypted projection tables (`*_snapshots`, `*_analytics`, `*_search_index`) are written out-of-band via `store.query(...)`, so they are not part of LiveStore’s changeset rollback. The projection runtimes must therefore detect cursor divergence (persisted `sequence` + tail `id/version`) and trigger a deterministic rebuild to avoid stale versions/optimistic concurrency conflicts.
-- **OCC caveat**: after concurrent offline edits, `*_events.version` is not guaranteed to be unique/monotonic across devices before the local state has “caught up” (the ciphertext AAD depends on that per-event version). For optimistic concurrency (`knownVersion`), treat snapshot `version` as the aggregate’s applied-event count and use `last_sequence` (not per-event `version`) as the incremental cursor when loading tail events.
+- If an index artifact is suspected to be corrupted, delete the relevant `index_artifacts` row(s) and rebuild; artifact encryption makes “partial reads” indistinguishable from corruption.
 
 ### 12.4 Saga stuck state
 
@@ -564,8 +593,8 @@ packages/<pkg>/
 | ------------- | ----------------------------------- | -------------------- |
 | Crypto        | Real (`NodeCryptoService`)          | Real                 |
 | Key store     | `InMemoryKeyStore`                  | `InMemoryKeyStore`   |
-| Event store   | Real (`BrowserLiveStoreEventStore`) | Real with test DB    |
-| LiveStore     | Skip (use in-memory stores)         | Real                 |
+| SQLite DB     | `SqliteDbPort` test double          | `@mo/eventstore-web` worker (Playwright) |
+| Event store   | Real (`SqliteEventStore`)           | Real (`SqliteEventStore`) |
 | External APIs | Mock                                | Mock or test server  |
 
 **Rule:** Prefer real implementations when fast enough. Mock at boundaries (HTTP, external services), not internal seams.
@@ -655,8 +684,10 @@ export class PersistenceError extends Error { ... }
 `as unknown as T` is acceptable only at serialization boundaries:
 
 ```typescript
-// ✅ OK — LiveStore types are invariant, we control the schema
-const store = (await createStorePromise({ ... })) as unknown as Store;
+// ✅ OK — protocol boundary, validated right after parsing
+const raw: unknown = data;
+if (!isWorkerResponse(raw)) throw new Error('Unexpected worker response');
+const message: WorkerResponse = raw;
 
 // ✅ OK — registry lookup returns unknown, we validate
 const spec = registry.get(eventType) as PayloadEventSpec<T>;
@@ -672,9 +703,34 @@ const user = data as unknown as User;
 | Use       | When                                                    |
 | --------- | ------------------------------------------------------- |
 | `Promise` | Application code, handlers, repositories                |
-| `Effect`  | LiveStore internals, sync backend (required by library) |
+| Workers   | Long-running IO/compute; keep UI responsive             |
 
-**Do not** mix Effect into application/domain code. Keep Effect contained to infrastructure where LiveStore requires it.
+**Rule:** Keep long-running work out of the UI thread; use worker boundaries and bounded background scheduling.
+
+## 16. Follow-ups and future work (post ALC-307 merge)
+
+This section is a living log of inconsistencies and improvement ideas discovered while shipping the ALC-307 LiveStore replacement stack. Treat this as backlog fodder (create Linear issues before acting).
+
+### 16.1 Correctness + recovery
+
+- **Remote insert safety**: `SyncEngine.applyRemoteEvents()` currently uses `INSERT OR IGNORE` into `events`. If we ever hit constraint collisions (e.g. `(aggregate_type, aggregate_id, version)`), we risk silently dropping remote facts. Decide the invariant (are cross-device concurrent writes allowed?) and make the failure mode explicit (surface error, or implement a real per-aggregate rebase strategy).
+- **Reset/repair tooling**: keep `db.shutdown` + OPFS wipe as the “escape hatch”; add a documented playbook for when to use it (and what data is lost vs recoverable from sync + key backups).
+
+### 16.2 Performance + storage
+
+- **SQLite PRAGMAs**: re-evaluate `journal_mode` / `synchronous` choices for OPFS durability vs performance once we have profiling numbers.
+- **OPFS persistence**: consider calling `navigator.storage.persist()` (and surfacing UI state) so Safari/Chromium are less likely to evict storage under pressure.
+- **VFS pool health**: we harden `AccessHandlePoolVFS` capacity handling, but we still need operational guidance and automated cleanup policies for legacy huge pools.
+
+### 16.3 Testing + observability
+
+- **Projection processor coverage**: add focused tests for Goals/Projects derived-state processors (not just runtime ordering) to reduce regression risk.
+- **Worker/OPFS diagnostics**: consolidate error logging into a single “diagnostics bundle” that can be copy-pasted by users (storeId, init stage, OPFS dir listing, schema version).
+
+### 16.4 API + protocol evolution
+
+- **Canonical encoding**: if/when we introduce non-JS clients, move off “JS + JSON.stringify” assumptions and adopt a canonical encoding (or a binary format) at the sync boundary.
+- **Retention**: define and document how sync retention/pruning interacts with client cursors and recovery (“force resync” / “reset store” paths).
 
 ## Appendix A: BC runtime data flow (Mermaid)
 
@@ -683,164 +739,97 @@ This is the canonical “event-sourced BC pipeline” diagram (example instantia
 ```mermaid
 flowchart TB
 
-  subgraph App["App UI<br>(Web / React)"]
-    UI["Screens & Components"]
+  subgraph WebApp["apps/web (React)"]
+    UI["UI (screens/components)"]
+    BackupUI["Backup/Restore UI"]
   end
 
-  subgraph Interface["Interface Layer<br>(Adapters & Context)"]
-    IF_CommandAPI["GoalCommand API (hooks)"]
-    IF_QueryAPI["GoalQuery API (hooks + subscriptions)"]
+  subgraph Interface["Interface adapters"]
+    CmdAPI["Command hooks"]
+    QryAPI["Query hooks"]
   end
 
-  subgraph Application["Application Layer (Goals BC)<br>CQRS + Ports"]
-    CmdBus["Command Bus (BusPort&lt;GoalCommand&gt;)"]
-    QryBus["Query Bus (BusPort&lt;GoalQuery&gt;)"]
-    CmdHandler["GoalCommandHandler"]
-    QryHandler["GoalQueryHandler"]
-    Saga["GoalAchievementSaga<br>(cross-BC)"]
-    RepoPort["GoalRepositoryPort (port)"]
-    ReadModelPort["GoalReadModelPort (port)"]
-    EventBus["EventBusPort (port)"]
+  subgraph Application["Application layer"]
+    CmdBus["Command Bus"]
+    QryBus["Query Bus"]
+    CmdHandlers["Command handlers"]
+    QryHandlers["Query handlers"]
+    EventBus["EventBusPort"]
+    Saga["GoalAchievementSaga"]
   end
 
-  subgraph Domain["Domain Layer (Goals BC)<br>Aggregates + Events"]
-    GoalAgg["Goal<br>(Aggregate Root)"]
-    GoalEvents["Domain Events:<br>GoalEventType (eventType strings)"]
+  subgraph Domain["Domain layer"]
+    Aggregates["Aggregates"]
+    DomainEvents["Domain events"]
   end
 
-  subgraph Infra["Infrastructure Layer (Goals BC)"]
-
-    subgraph WriteInfra["Persistence + Crypto (browser, custom)"]
-      GoalRepoImpl["GoalRepository"]
-      ToLiveStore["DomainToLiveStoreAdapter"]
-      LiveStoreEventStore["BrowserLiveStoreEventStore"]
-      CryptoService["WebCryptoService"]
-      KeyStore["IndexedDBKeyStore"]
-    end
-
-    subgraph ReadInfra["Projection + Publication (browser, custom)"]
-      ProjectionProcessor["GoalProjectionProcessor"]
-      ReadModelImpl["GoalReadModel"]
-      Publisher["CommittedEventPublisher"]
-      SagaStore["GoalAchievementSagaStore"]
-      ToDomain["LiveStoreToDomainAdapter"]
-      InMemoryEventBus["InMemoryEventBus"]
-      Subscribers["Other EventBus Subscribers<br>(sagas, analytics, other BCs)"]
-      SimpleBusImpl["SimpleBus&lt;GoalCommand&gt; / SimpleBus&lt;GoalQuery&gt;"]
-    end
-
-    subgraph LiveStoreStore["LiveStore Store<br>(SQLite + OPFS, browser DB)"]
-      LSChangeset[(__livestore_session_changeset)]
-      LSEvents[(goal_events)]
-      LSSnapshots[(goal_snapshots)]
-      LSGoalAchState[(goal_achievement_state)]
-      LSGoalAchProjects[(goal_achievement_projects)]
-      LSProjectionMeta[(goal_projection_meta)]
-      LSAnalytics[(goal_analytics)]
-      LSSearch[(goal_search_index)]
-      LSSyncProc["ClientSessionSyncProcessor"]
-    end
-
-    subgraph SyncClient["Sync (browser, HTTP client)"]
-      CloudSyncBackend["CloudSyncBackend"]
-    end
+  subgraph Infrastructure["Infrastructure (browser)"]
+    Repos["Repositories (Goals/Projects)"]
+    EventStore["SqliteEventStore"]
+    ToEncrypted["DomainToEncryptedEventAdapter"]
+    ToDomain["EncryptedEventToDomainAdapter"]
+    Crypto["WebCryptoService"]
+    KeyStore["IndexedDBKeyStore"]
+    Keyring["KeyringManager"]
+    Projections["ProjectionRuntime + processors"]
+    Publisher["CommittedEventPublisher"]
+    SagaStore["SqliteGoalAchievementSagaStore"]
   end
 
-  subgraph SyncServer["Sync Backend (NestJS + Postgres)"]
-    subgraph SyncPresentation["Presentation<br>/sync API"]
-      SyncController["SyncController<br>POST /sync/push, GET /sync/pull"]
-    end
-
-    subgraph SyncApplication["Application Layer (Sync)"]
-      SyncService["SyncService"]
-    end
-
-    subgraph SyncInfra["Persistence<br>sync schema (Postgres)"]
-      SyncEventRepo["KyselySyncEventRepository"]
-      SyncStoreRepo["KyselySyncStoreRepository"]
-      SyncEvents[(sync.events)]
-      SyncStores[(sync.stores)]
-    end
+  subgraph Substrate["Platform substrate"]
+    DbClient["SqliteDbPort client"]
+    DbOwner["DB owner worker (SharedWorker default)"]
+    Sqlite["wa-sqlite + AccessHandlePoolVFS (OPFS)"]
   end
 
-  %% App ↔ Interface ↔ Application
-  UI --> IF_CommandAPI
-  UI --> IF_QueryAPI
+  subgraph LocalDb["OPFS SQLite (mo-eventstore-<storeId>.db)"]
+    Events[(events)]
+    SyncMap[(sync_event_map)]
+    Snapshots[(snapshots)]
+    ProjMeta[(projection_meta)]
+    ProjCache[(projection_cache)]
+    IndexArtifacts[(index_artifacts)]
+    PMState[(process_manager_state)]
+    Idem[(idempotency_keys)]
+    SyncMeta[(sync_meta)]
+  end
 
-  IF_CommandAPI --> CmdBus
-  IF_QueryAPI --> QryBus
+  subgraph Sync["Sync"]
+    SyncEngine["SyncEngine"]
+    Transport["HttpSyncTransport"]
+  end
 
-  CmdBus --> CmdHandler
-  QryBus --> QryHandler
+  subgraph Server["apps/api sync (NestJS + Postgres)"]
+    SyncController["/sync controller"]
+    SyncService["SyncService"]
+    SyncEvents[(sync.events)]
+    SyncStores[(sync.stores)]
+  end
 
-  %% Command handler → domain + ports (OCC happens here)
-  CmdHandler --> GoalAgg
-  CmdHandler --> RepoPort
+  UI --> CmdAPI --> CmdBus --> CmdHandlers --> Aggregates --> DomainEvents
+  UI --> QryAPI --> QryBus --> QryHandlers
 
-  %% Query handler → read model port
-  QryHandler --> ReadModelPort
+  CmdHandlers --> Repos
+  Repos --> ToEncrypted --> Crypto
+  Repos --> Keyring --> Crypto
+  Repos --> KeyStore
+  Repos --> EventStore --> DbClient
 
-  %% Saga subscribes post-commit and dispatches commands
-  EventBus --> Saga
-  Saga -- "dispatch AchieveGoal" --> CmdBus
-  Saga --> SagaStore
-  SagaStore --> LSGoalAchState
-  SagaStore --> LSGoalAchProjects
+  QryHandlers --> Projections
+  Projections --> DbClient
+  Publisher --> DbClient
+  Publisher --> ToDomain --> Crypto
+  Publisher --> Keyring
+  Publisher --> EventBus --> Saga
+  Saga --> SagaStore --> DbClient
+  Saga --> CmdBus
 
-  %% Domain events
-  GoalAgg --> GoalEvents
+  DbClient <--> DbOwner <--> Sqlite <--> LocalDb
 
-  %% Repository persistence path (encode/encrypt → commit)
-  RepoPort -. "implemented by" .-> GoalRepoImpl
-  GoalRepoImpl --> ToLiveStore
-  ToLiveStore --> CryptoService
-  ToLiveStore --> KeyStore
-  ToLiveStore --> LiveStoreEventStore
-  LiveStoreEventStore --> LSEvents
-  LiveStoreEventStore --> LSSnapshots
-
-  %% Projections derive read models from committed events
-  ReadModelPort -. "implemented by" .-> ReadModelImpl
-  ReadModelImpl --> ProjectionProcessor
-  ProjectionProcessor --> LiveStoreEventStore
-  ProjectionProcessor --> ToDomain
-  ProjectionProcessor --> KeyStore
-  ProjectionProcessor --> LSProjectionMeta
-  ProjectionProcessor --> LSAnalytics
-  ProjectionProcessor --> LSSearch
-
-  %% Post-commit publication (commit boundary respected)
-  Publisher --> LiveStoreEventStore
-  Publisher --> ToDomain
-  Publisher --> KeyStore
-  Publisher --> EventBus
-  EventBus --> Subscribers
-
-  %% Ports implemented in Infra (dashed)
-  EventBus -. "implemented by" .-> InMemoryEventBus
-  CmdBus -. "implemented by" .-> SimpleBusImpl
-  QryBus -. "implemented by" .-> SimpleBusImpl
-
-  %% LiveStore sync loop over browser DB shapes
-  LSChangeset <--> LSSyncProc
-
-  %% Sync loop – client side (LiveStore → CloudSyncBackend)
-  LSSyncProc -- "SyncBackend.push / pull" --> CloudSyncBackend
-
-  %% Sync loop – HTTP transport (client → server)
-  CloudSyncBackend -- "PUSH (POST /sync/push)" --> SyncController
-  CloudSyncBackend -- "PULL (GET /sync/pull)" --> SyncController
-
-  SyncController --> SyncService
-  SyncService --> SyncEventRepo --> SyncEvents
-  SyncService --> SyncStoreRepo --> SyncStores
-
-  %% ========= STYLING =========
-  classDef ls fill:#E0F4FF,stroke:#007ACC,stroke-width:1px,color:#000;
-  class LSChangeset,LSEvents,LSSnapshots,LSProjectionMeta,LSAnalytics,LSSearch,LSSyncProc ls;
-
-  classDef port fill:#FFFFFF,stroke:#555555,stroke-width:1px,stroke-dasharray:4 3;
-  class CmdBus,QryBus,EventBus,RepoPort,ReadModelPort port;
+  SyncEngine --> DbClient
+  SyncEngine --> Transport --> SyncController --> SyncService
+  SyncService --> SyncEvents
+  SyncService --> SyncStores
 ```
 
 Notes:
