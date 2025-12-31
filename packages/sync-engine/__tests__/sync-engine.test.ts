@@ -220,6 +220,27 @@ class MemoryDb implements SqliteDbPort {
   }
 }
 
+class TestDb extends MemoryDb {
+  private subscribers: Array<() => void> = [];
+
+  subscribeToTables(
+    _tables?: ReadonlyArray<string>,
+    onChange?: () => void
+  ): () => void {
+    if (!onChange) return () => undefined;
+    this.subscribers.push(onChange);
+    return () => {
+      this.subscribers = this.subscribers.filter((cb) => cb !== onChange);
+    };
+  }
+
+  emitTableChange(): void {
+    for (const subscriber of this.subscribers) {
+      subscriber();
+    }
+  }
+}
+
 class FakeTransport implements SyncTransportPort {
   pullResponses: SyncPullResponseV1[] = [];
   pushResponses: Array<SyncPushOkResponseV1 | SyncPushConflictResponseV1> = [];
@@ -456,6 +477,140 @@ describe('SyncEngine', () => {
 
     engine.stop();
     randomMock.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('debounces push signals into a single request', async () => {
+    vi.useFakeTimers();
+    const db = new TestDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    let pushCalls = 0;
+
+    transport.pull = async () => ({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.push = async () => {
+      pushCalls += 1;
+      return {
+        ok: true,
+        head: 1,
+        assigned: [{ eventId: 'local-1', globalSequence: 1 }],
+      };
+    };
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-debounce',
+      onRebaseRequired,
+      pushIntervalMs: 0,
+      pullIntervalMs: 0,
+      pullWaitMs: 0,
+    });
+
+    engine.start();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    db.emitTableChange();
+    db.emitTableChange();
+    db.emitTableChange();
+
+    await vi.advanceTimersByTimeAsync(99);
+    expect(pushCalls).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
+    expect(pushCalls).toBe(1);
+
+    engine.stop();
+    vi.useRealTimers();
+  });
+
+  it('uses fallback push interval after signals are seen', async () => {
+    vi.useFakeTimers();
+    const db = new TestDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    let pushCalls = 0;
+
+    transport.pull = async () => ({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.push = async () => {
+      pushCalls += 1;
+      return {
+        ok: true,
+        head: 1,
+        assigned: [{ eventId: 'local-1', globalSequence: 1 }],
+      };
+    };
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-fallback',
+      onRebaseRequired,
+      pushIntervalMs: 1000,
+      pushFallbackIntervalMs: 50,
+      pullIntervalMs: 0,
+      pullWaitMs: 0,
+    });
+
+    engine.start();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+
+    db.emitTableChange();
+    await vi.advanceTimersByTimeAsync(100);
+    await Promise.resolve();
+    expect(pushCalls).toBe(0);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    await vi.advanceTimersByTimeAsync(49);
+    expect(pushCalls).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
+    expect(pushCalls).toBe(1);
+
+    engine.stop();
     vi.useRealTimers();
   });
 
