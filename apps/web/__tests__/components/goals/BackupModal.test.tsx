@@ -102,5 +102,8 @@ describe('BackupModal', () => {
         )
       ).not.toBeNull();
     });
+
+    expect(screen.getByRole('button', { name: /download keys/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /backup db/i })).toBeTruthy();
   });
 });
