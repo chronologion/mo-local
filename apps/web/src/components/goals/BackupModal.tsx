@@ -161,6 +161,11 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          <p className="text-sm font-bold my-2">
+            Important: Remember or store your passphrase in a password manager.
+            You will not be able to restore your keys and data without it.
+          </p>
+
           {backupLoading ? (
             <div className="flex items-center gap-2 text-foreground">
               <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
@@ -203,9 +208,11 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           ) : null}
 
           <p className="text-xs text-muted-foreground">
-            Keep key backups offline. Anyone with the key backup can impersonate
-            you. The DB file contains your local event history (still encrypted
-            per-aggregate), and can be restored via the onboarding restore flow.
+            Keep key backups offline. Anyone with the key backup and your
+            passphrase can impersonate you. If you use a simple passphrase, the
+            key backup can be used to brute-force your keys even without your
+            passphrase. The DB file contains your encrypted full local event
+            history and can be restored via the onboarding restore flow.
           </p>
         </div>
       </DialogContent>
