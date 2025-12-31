@@ -100,4 +100,10 @@ export interface SqliteDbPort {
    * Not supported by all adapters.
    */
   exportMainDatabase?: () => Promise<Uint8Array>;
+
+  /**
+   * DEV-only helper: replaces the main SQLite database file with the given bytes.
+   * Intended for restoring `Download DB` backups in development.
+   */
+  importMainDatabase?: (bytes: Uint8Array) => Promise<void>;
 }

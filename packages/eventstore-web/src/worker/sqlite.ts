@@ -274,6 +274,94 @@ export function exportVfsFileBytes(
   }
 }
 
+export function importVfsFileBytes(
+  ctx: SqliteContext,
+  path: string,
+  bytes: Uint8Array
+): void {
+  const dbPath = path.startsWith('/') ? path : `/${path}`;
+
+  const fileId =
+    Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
+  const outFlags = new DataView(new ArrayBuffer(4));
+  const rcOpen = ctx.vfs.xOpen(
+    dbPath,
+    fileId,
+    SQLiteConstants.SQLITE_OPEN_MAIN_DB |
+      SQLiteConstants.SQLITE_OPEN_READWRITE |
+      SQLiteConstants.SQLITE_OPEN_CREATE,
+    outFlags
+  );
+  if (rcOpen !== SQLITE_OK) {
+    throw new Error(`VFS xOpen failed: ${rcOpen}`);
+  }
+
+  try {
+    const rcTruncate = ctx.vfs.xTruncate(fileId, 0);
+    if (rcTruncate !== SQLITE_OK) {
+      throw new Error(`VFS xTruncate failed: ${rcTruncate}`);
+    }
+
+    const chunkSize = 64 * 1024;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      const view = bytes.subarray(offset, offset + chunkSize);
+      const rcWrite = ctx.vfs.xWrite(fileId, view, offset);
+      if (rcWrite !== SQLITE_OK) {
+        throw new Error(`VFS xWrite failed at offset ${offset}: ${rcWrite}`);
+      }
+    }
+
+    const rcSync = ctx.vfs.xSync(fileId, SQLiteConstants.SQLITE_SYNC_FULL);
+    if (rcSync !== SQLITE_OK) {
+      throw new Error(`VFS xSync failed: ${rcSync}`);
+    }
+  } finally {
+    ctx.vfs.xClose(fileId);
+  }
+}
+
+export async function replaceMainDatabaseBytes(
+  ctx: SqliteContext,
+  dbName: string,
+  bytes: Uint8Array
+): Promise<SqliteContext> {
+  await ctx.sqlite3.close(ctx.db);
+
+  // Best-effort cleanup of transient SQLite sidecar files that could be left
+  // behind from previous runs (e.g. crash mid-write).
+  // (Journal mode is DELETE in this app, but we also clean up WAL/SHM defensively.)
+  try {
+    ctx.vfs.xDelete(`${dbName}-journal`, 0);
+  } catch {
+    // ignore
+  }
+  try {
+    ctx.vfs.xDelete(`${dbName}-wal`, 0);
+  } catch {
+    // ignore
+  }
+  try {
+    ctx.vfs.xDelete(`${dbName}-shm`, 0);
+  } catch {
+    // ignore
+  }
+
+  importVfsFileBytes(ctx, dbName, bytes);
+
+  const dbPath = dbName.startsWith('/') ? dbName : `/${dbName}`;
+  const db = await ctx.sqlite3.open_v2(
+    dbPath,
+    SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
+  );
+
+  await ctx.sqlite3.exec(db, 'PRAGMA journal_mode = DELETE');
+  await ctx.sqlite3.exec(db, 'PRAGMA synchronous = FULL');
+
+  const next: SqliteContext = { ...ctx, db };
+  await applySchema(next);
+  return next;
+}
+
 export async function executeStatements(
   ctx: SqliteContext,
   statements: ReadonlyArray<SqliteStatement>

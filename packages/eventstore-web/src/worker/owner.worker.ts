@@ -16,6 +16,7 @@ import {
   closeSqliteContext,
   executeStatements,
   exportVfsFileBytes,
+  replaceMainDatabaseBytes,
   extractTableNames,
   runExecute,
   runQuery,
@@ -468,6 +469,30 @@ class DbOwnerServer {
         this.sendResponse(connection, envelope.requestId, {
           kind: 'ok',
           data: bytes,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbImportMain) {
+        if (!this.ctx || !this.dbName) {
+          const error: PlatformError = {
+            code: PlatformErrorCodes.DbOwnershipError,
+            message: 'DB is not initialized',
+          };
+          this.sendResponse(connection, envelope.requestId, {
+            kind: 'error',
+            error,
+          });
+          return;
+        }
+        this.ctx = await replaceMainDatabaseBytes(
+          this.ctx,
+          this.dbName,
+          payload.bytes
+        );
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
         });
         return;
       }

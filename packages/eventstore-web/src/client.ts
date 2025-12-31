@@ -156,6 +156,13 @@ export class DbClient implements SqliteDbPort {
     return data;
   }
 
+  async importMainDatabase(bytes: Uint8Array): Promise<void> {
+    await this.request({
+      kind: WorkerRequestKinds.dbImportMain,
+      bytes,
+    });
+  }
+
   private async request(payload: WorkerRequest): Promise<unknown> {
     const requestId = crypto.randomUUID();
     const message: WorkerEnvelope = {
