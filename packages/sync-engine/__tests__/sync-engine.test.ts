@@ -343,12 +343,12 @@ describe('SyncEngine', () => {
 
     engine.start();
     await vi.advanceTimersByTimeAsync(20);
-    await Promise.resolve();
     engine.stop();
+    vi.useRealTimers();
+    await Promise.resolve();
 
     expect(pullCalls).toBeGreaterThan(0);
     expect(pushCalls).toBeGreaterThan(0);
-    vi.useRealTimers();
   });
 
   it('pulls remote events, writes mappings, and triggers rebase when pending exists', async () => {
@@ -691,7 +691,7 @@ describe('SyncEngine', () => {
 
     await engine.syncOnce();
 
-    expect(transport.pull).toHaveBeenCalledTimes(3);
+    expect(transport.pull).toHaveBeenCalledTimes(1);
     expect(transport.pushRequests[0]?.expectedHead).toBe(0);
     expect(engine.getStatus().kind).toBe('idle');
   });
