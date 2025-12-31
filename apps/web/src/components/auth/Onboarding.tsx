@@ -26,6 +26,28 @@ export function Onboarding() {
   const [selectedRestoreFile, setSelectedRestoreFile] = useState<string | null>(
     null
   );
+  const [selectedDbFile, setSelectedDbFile] = useState<string | null>(null);
+  const [restoreDbBytes, setRestoreDbBytes] = useState<Uint8Array | null>(null);
+  const [restoreDbLoading, setRestoreDbLoading] = useState(false);
+
+  const readFileAsUint8Array = async (file: File): Promise<Uint8Array> => {
+    if (typeof file.arrayBuffer === 'function') {
+      return new Uint8Array(await file.arrayBuffer());
+    }
+    return await new Promise<Uint8Array>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onload = () => {
+        const result = reader.result;
+        if (!(result instanceof ArrayBuffer)) {
+          reject(new Error('Failed to read file bytes'));
+          return;
+        }
+        resolve(new Uint8Array(result));
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  };
 
   const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault();
@@ -60,9 +82,20 @@ export function Onboarding() {
       setRestoreError('Enter the passphrase used to create the backup');
       return;
     }
+    if (selectedDbFile && !restoreDbBytes) {
+      setRestoreError('DB file is still loading (or failed to load)');
+      return;
+    }
     setRestoreLoading(true);
     try {
-      await restoreBackup({ password: restorePass, backup: restoreInput });
+      const params: Parameters<typeof restoreBackup>[0] = {
+        password: restorePass,
+        backup: restoreInput,
+      };
+      if (restoreDbBytes && selectedDbFile) {
+        params.db = { fileName: selectedDbFile, bytes: restoreDbBytes };
+      }
+      await restoreBackup(params);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Restore failed';
       setRestoreError(message);
@@ -178,6 +211,41 @@ export function Onboarding() {
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Event store DB (optional)</Label>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="file"
+                  accept=".db,application/x-sqlite3"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      setSelectedDbFile(null);
+                      setRestoreDbBytes(null);
+                      setRestoreDbLoading(false);
+                      return;
+                    }
+                    setSelectedDbFile(file.name);
+                    setRestoreDbLoading(true);
+                    try {
+                      setRestoreDbBytes(await readFileAsUint8Array(file));
+                    } finally {
+                      setRestoreDbLoading(false);
+                    }
+                  }}
+                  className="text-xs text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-semibold file:text-foreground"
+                />
+                {selectedDbFile && (
+                  <span className="text-xs text-muted-foreground">
+                    Selected: {selectedDbFile}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use the `.db` file downloaded from the debug panel. Filename
+                must match `mo-eventstore-&lt;storeId&gt;.db`.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Backup passphrase</Label>
               <Input
                 type="password"
@@ -187,8 +255,15 @@ export function Onboarding() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button type="submit" disabled={restoreLoading}>
-                {restoreLoading ? 'Restoring…' : 'Restore backup'}
+              <Button
+                type="submit"
+                disabled={restoreLoading || restoreDbLoading}
+              >
+                {restoreLoading
+                  ? 'Restoring…'
+                  : restoreDbLoading
+                    ? 'Reading DB…'
+                    : 'Restore backup'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               {restoreError && (

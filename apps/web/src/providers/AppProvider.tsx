@@ -61,6 +61,10 @@ type AppContextValue = {
   restoreBackup: (params: {
     password: string;
     backup: string;
+    db?: Readonly<{
+      fileName: string;
+      bytes: Uint8Array;
+    }>;
   }) => Promise<void>;
 };
 
@@ -485,9 +489,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const restoreBackup = async ({
     password,
     backup,
+    db,
   }: {
     password: string;
     backup: string;
+    db?: Readonly<{
+      fileName: string;
+      bytes: Uint8Array;
+    }>;
   }) => {
     if (!services) throw new Error('Services not initialized');
     const parsedEnvelope = parseBackupEnvelope(backup);
@@ -512,6 +521,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const payload = parseBackupPayload(
       JSON.parse(new TextDecoder().decode(decrypted))
     );
+
+    if (db) {
+      const match = /^mo-eventstore-(.+)\\.db$/i.exec(db.fileName);
+      if (!match) {
+        throw new Error(
+          'DB filename must be of the form mo-eventstore-<storeId>.db'
+        );
+      }
+      const inferredStoreId = match[1] ?? '';
+      const parsed = storeIdSchema.safeParse(inferredStoreId);
+      if (!parsed.success) {
+        throw new Error('DB filename does not contain a valid storeId');
+      }
+      if (parsed.data !== payload.userId) {
+        throw new Error(
+          'Selected DB file does not match the backup (storeId mismatch)'
+        );
+      }
+    }
 
     const aggregateEntries: Array<[string, string]> = Object.entries(
       payload.aggregateKeys
@@ -563,6 +591,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         ? servicesRef.current
         : await switchToStore(payload.userId);
     targetServices.keyStore.setMasterKey(persistKek);
+
+    if (db) {
+      if (!targetServices.db.importMainDatabase) {
+        throw new Error('This build does not support restoring DB files');
+      }
+      await targetServices.db.importMainDatabase(db.bytes);
+    }
 
     const goalCtx = targetServices.contexts.goals;
     const projectCtx = targetServices.contexts.projects;
