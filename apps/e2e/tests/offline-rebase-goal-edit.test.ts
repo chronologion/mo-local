@@ -265,7 +265,7 @@ test.describe('offline rebase goal edit', () => {
       });
       await backupDialog.waitFor();
       await expect(
-        backupDialog.getByRole('button', { name: 'Download .json' })
+        backupDialog.getByRole('button', { name: 'Download keys' })
       ).toBeEnabled({ timeout: 25_000 });
 
       mark('copy backup payload');
@@ -282,11 +282,13 @@ test.describe('offline rebase goal edit', () => {
       await pageB.getByText('Set up your local identity').waitFor({
         timeout: 25_000,
       });
-      await pageB.locator('input[type="file"]').setInputFiles({
-        name: `mo-local-backup-${Date.now()}.json`,
-        mimeType: 'application/json',
-        buffer: Buffer.from(backupCipher, 'utf8'),
-      });
+      await pageB
+        .locator('input[type="file"][accept*=".backup"]')
+        .setInputFiles({
+          name: `mo-local-backup-${Date.now()}.json`,
+          mimeType: 'application/json',
+          buffer: Buffer.from(backupCipher, 'utf8'),
+        });
       await pageB
         .getByPlaceholder('Passphrase used for backup')
         .fill(creds.password);
@@ -469,11 +471,13 @@ test.describe('offline rebase goal edit', () => {
       await pageB.getByText('Set up your local identity').waitFor({
         timeout: 25_000,
       });
-      await pageB.locator('input[type="file"]').setInputFiles({
-        name: `mo-local-backup-${Date.now()}.json`,
-        mimeType: 'application/json',
-        buffer: Buffer.from(backupCipher, 'utf8'),
-      });
+      await pageB
+        .locator('input[type="file"][accept*=".backup"]')
+        .setInputFiles({
+          name: `mo-local-backup-${Date.now()}.json`,
+          mimeType: 'application/json',
+          buffer: Buffer.from(backupCipher, 'utf8'),
+        });
       await pageB
         .getByPlaceholder('Passphrase used for backup')
         .fill(creds.password);
