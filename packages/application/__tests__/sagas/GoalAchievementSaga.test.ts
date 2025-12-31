@@ -93,6 +93,16 @@ const seedEvents =
   };
 
 const dispatchNoop = async () => undefined;
+const metaFor = <TId extends GoalId | ProjectId | UserId>(
+  aggregateId: TId,
+  occurredAt: Timestamp,
+  actorId: ActorId = ActorId.from('user-1')
+) => ({
+  aggregateId,
+  occurredAt,
+  eventId: EventId.create(),
+  actorId,
+});
 
 describe('GoalAchievementSaga', () => {
   it('dispatches AchieveGoal when all linked projects are completed on bootstrap', async () => {
@@ -108,11 +118,11 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
     );
     const projectOne = new ProjectCreated(
       {
-        projectId: ProjectId.from('project-1'),
+        projectId: ProjectId.from('00000000-0000-0000-0000-000000000101'),
         name: ProjectName.from('Project One'),
         status: ProjectStatus.Completed,
         startDate: LocalDate.fromString('2025-01-01'),
@@ -122,11 +132,14 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000101'),
+        Timestamp.fromMillis(1)
+      )
     );
     const projectTwo = new ProjectCreated(
       {
-        projectId: ProjectId.from('project-2'),
+        projectId: ProjectId.from('00000000-0000-0000-0000-000000000102'),
         name: ProjectName.from('Project Two'),
         status: ProjectStatus.Completed,
         startDate: LocalDate.fromString('2025-01-01'),
@@ -136,7 +149,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000102'),
+        Timestamp.fromMillis(1)
+      )
     );
     const dispatched: string[] = [];
 
@@ -169,11 +185,11 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
     );
     const projectCreated = new ProjectCreated(
       {
-        projectId: ProjectId.from('project-1'),
+        projectId: ProjectId.from('00000000-0000-0000-0000-000000000101'),
         name: ProjectName.from('Project One'),
         status: ProjectStatus.InProgress,
         startDate: LocalDate.fromString('2025-01-01'),
@@ -183,14 +199,17 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000101'),
+        Timestamp.fromMillis(1)
+      )
     );
     const goalAchieved = new GoalAchieved(
       {
         goalId: GoalId.from(goalId),
         achievedAt: Timestamp.fromMillis(10),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), Timestamp.fromMillis(10))
     );
     const dispatchedUnachieve: UnachieveGoal[] = [];
 
@@ -235,7 +254,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
     );
     await eventBus.publish([goalCreated]);
 
@@ -251,7 +270,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000002'),
+        Timestamp.fromMillis(1000)
+      )
     );
 
     await eventBus.publish([projectCreated]);
@@ -288,7 +310,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(1),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
       ),
     ]);
 
@@ -304,7 +326,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000011'),
+        Timestamp.fromMillis(1000)
+      )
     );
     await eventBus.publish([projectOne]);
     expect(dispatched).toEqual([goalId]);
@@ -312,7 +337,7 @@ describe('GoalAchievementSaga', () => {
     const unachievedAt = Timestamp.fromMillis(2000);
     const unachievedEvent = new GoalUnachieved(
       { goalId: GoalId.from(goalId), unachievedAt },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), unachievedAt)
     );
     await eventBus.publish([unachievedEvent]);
 
@@ -328,7 +353,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(3000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000012'),
+        Timestamp.fromMillis(3000)
+      )
     );
     await eventBus.publish([projectTwo]);
 
@@ -362,7 +390,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(1),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
       ),
     ]);
 
@@ -378,7 +406,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000021'),
+        Timestamp.fromMillis(1000)
+      )
     );
     await eventBus.publish([projectOne]);
     expect(dispatched).toEqual([goalId]);
@@ -386,7 +417,7 @@ describe('GoalAchievementSaga', () => {
     const unachievedAt = Timestamp.fromMillis(2000);
     const unachievedEvent = new GoalUnachieved(
       { goalId: GoalId.from(goalId), unachievedAt },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(GoalId.from(goalId), unachievedAt)
     );
     await eventBus.publish([unachievedEvent]);
 
@@ -402,7 +433,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(3000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000022'),
+        Timestamp.fromMillis(3000)
+      )
     );
     await eventBus.publish([projectTwo]);
 
@@ -412,7 +446,10 @@ describe('GoalAchievementSaga', () => {
         status: ProjectStatus.Completed,
         changedAt: Timestamp.fromMillis(4000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000022'),
+        Timestamp.fromMillis(4000)
+      )
     );
     await eventBus.publish([projectTwoCompleted]);
 
@@ -448,7 +485,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(1),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
       ),
     ]);
 
@@ -465,7 +502,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(10),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(ProjectId.from(projectOneId), Timestamp.fromMillis(10))
       ),
       new ProjectCreated(
         {
@@ -479,7 +516,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(20),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(ProjectId.from(projectTwoId), Timestamp.fromMillis(20))
       ),
     ]);
 
@@ -490,7 +527,7 @@ describe('GoalAchievementSaga', () => {
           status: ProjectStatus.Completed,
           changedAt: Timestamp.fromMillis(1000),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(ProjectId.from(projectOneId), Timestamp.fromMillis(1000))
       ),
     ]);
 
@@ -501,7 +538,7 @@ describe('GoalAchievementSaga', () => {
           status: ProjectStatus.Completed,
           changedAt: Timestamp.fromMillis(2000),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(ProjectId.from(projectTwoId), Timestamp.fromMillis(2000))
       ),
     ]);
 
@@ -535,7 +572,7 @@ describe('GoalAchievementSaga', () => {
           createdBy: UserId.from('user-1'),
           createdAt: Timestamp.fromMillis(1),
         },
-        { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+        metaFor(GoalId.from(goalId), Timestamp.fromMillis(1))
       ),
     ]);
 
@@ -551,7 +588,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000031'),
+        Timestamp.fromMillis(1000)
+      )
     );
     await eventBus.publish([projectOne]);
 
@@ -574,7 +614,10 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(2000),
       },
-      { eventId: EventId.create(), actorId: ActorId.from('user-1') }
+      metaFor(
+        ProjectId.from('00000000-0000-0000-0000-000000000032'),
+        Timestamp.fromMillis(2000)
+      )
     );
     await eventBus.publish([projectTwo]);
 

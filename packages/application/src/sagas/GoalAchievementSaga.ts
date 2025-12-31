@@ -287,7 +287,7 @@ export class GoalAchievementSaga {
   ): Promise<void> {
     const goalId = event.aggregateId.value;
     const goalState = await this.ensureGoalState(goalId);
-    goalState.version = this.nextVersion(goalState.version);
+    goalState.version = event.version ?? goalState.version + 1;
     await this.store.saveGoalState(goalState);
     this.seenGoalIds.add(goalId);
   }
@@ -297,7 +297,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     goalState.achieved = true;
     goalState.achievementRequested = false;
-    goalState.version = this.nextVersion(goalState.version);
+    goalState.version = event.version ?? goalState.version + 1;
     await this.store.saveGoalState(goalState);
     this.seenGoalIds.add(goalId);
   }
@@ -307,7 +307,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     goalState.achieved = false;
     goalState.achievementRequested = false;
-    goalState.version = this.nextVersion(goalState.version);
+    goalState.version = event.version ?? goalState.version + 1;
     await this.store.saveGoalState(goalState);
     this.seenGoalIds.add(goalId);
   }
@@ -317,7 +317,7 @@ export class GoalAchievementSaga {
     const goalState = await this.ensureGoalState(goalId);
     goalState.archived = true;
     goalState.achievementRequested = false;
-    goalState.version = this.nextVersion(goalState.version);
+    goalState.version = event.version ?? goalState.version + 1;
     await this.store.saveGoalState(goalState);
     this.seenGoalIds.add(goalId);
   }
@@ -439,10 +439,6 @@ export class GoalAchievementSaga {
     );
 
     await this.dispatchUnachieveGoal(command);
-  }
-
-  private nextVersion(current: number): number {
-    return current + 1;
   }
 
   private systemEvent(goalId: string): DomainEvent {
