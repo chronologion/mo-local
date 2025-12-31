@@ -1,7 +1,7 @@
 # MO Local Architecture
 
 **Status**: living document  
-**Last Updated**: 2025-12-28
+**Last Updated**: 2025-12-31
 
 This document is the long-lived reference for the architecture implemented so far in this monorepo. It is intentionally grounded in what exists today and captures the key architecture decisions (ADRs) that shaped the current implementation.
 
@@ -40,7 +40,7 @@ This is not a “how to run the app” manual; that belongs in `README.md`.
 Hard rules:
 
 - **Domain** has no runtime dependencies and owns invariants.
-- **Application** orchestrates use-cases and exposes ports; it does not know LiveStore/IndexedDB/WebCrypto/HTTP/Postgres.
+- **Application** orchestrates use-cases and exposes ports; it does not know SQLite/OPFS/IndexedDB/WebCrypto/HTTP/Postgres.
 - **Infrastructure** implements ports and owns all persistence/crypto/sync/projection mechanisms.
 - **Interface** is the UI adapter; it does not “reach into” infrastructure directly.
 
@@ -49,11 +49,12 @@ Hard rules:
 - **aggregateId**: identifier of a Goal/Project aggregate instance.
 - **eventType**: stable discriminator string for domain events (e.g. `GoalCreated`).
 - **version**: per-aggregate monotonically increasing event version (local OCC uses this).
-- **sequence**: LiveStore materialized ordering number (used for post-commit streaming/publication).
-- **storeId**: LiveStore store identity used for sync; anchored to the local user’s root identity (`userId`) in the current implementation.
-- **seqNum / parentSeqNum**: LiveStore global sequence numbers used by the sync protocol.
+- **commitSequence**: local, durable commit order (`events.commit_sequence`) assigned on insert.
+- **storeId**: local store namespace used for DB + sync; anchored to the local user’s root identity (`userId`).
+- **globalSequence**: server-assigned monotonically increasing ordering for a store’s sync stream; persisted locally via `sync_event_map`.
+- **effectiveTotalOrder**: deterministic derived-state ordering: first `globalSequence` (synced region), then `pendingCommitSequence` (local-only region).
 - **payloadVersion**: schema version for an event payload inside the encrypted envelope.
-- **byte-preservation**: a boundary contract that serialized args must remain stable for already-synced sequence numbers (see §8.6).
+- **byte-preservation**: a boundary contract that serialized payload bytes must remain stable for already-synced events (see §9.4).
 
 ## 5. End-to-end workflows (contracts over mechanisms)
 
@@ -64,17 +65,17 @@ Hard rules:
 3. Infrastructure repository:
    - serializes each domain event using the unified eventing runtime (§8.2),
    - encrypts the payload envelope with the aggregate key (AES-GCM + AAD),
-   - appends to LiveStore via `store.commit(...)` (durable boundary),
+   - appends to the local SQLite `events` table via `SqliteDbPort` (durable boundary),
    - and relies on projection processors and post-commit streaming for derivations.
 
 **Contract**
 
 - If `knownVersion` mismatches, the handler fails with `ConcurrencyError` (no silent overwrites on-device).
-- “Durable” means “committed into LiveStore”; anything else must be derivable/replayable.
+- “Durable” means “persisted into OPFS-backed SQLite”; anything else must be derivable/replayable.
 
 ### 5.2 Read path (projections → read model → UI)
 
-1. Projection processors consume committed encrypted events from materialized tables.
+1. Projection processors consume committed encrypted events from the `events` table (and `sync_event_map` when using `effectiveTotalOrder`).
 2. They maintain encrypted snapshots + analytics/search indices and expose in-memory projections.
 3. Application queries depend only on `*ReadModel` ports; UI subscribes via projection ports.
 
@@ -85,7 +86,7 @@ Hard rules:
 
 ### 5.3 Publication path (post-commit → event bus)
 
-1. `CommittedEventPublisher` streams **committed** events from materialized tables ordered by `sequence`.
+1. `CommittedEventPublisher` streams **committed** events from the `events` table ordered by `commitSequence`.
 2. It decrypts and rehydrates domain events and publishes them on `EventBusPort`.
 3. It persists a cursor per stream to guarantee replayability and avoid double-publish on reload.
 
@@ -94,11 +95,11 @@ Hard rules:
 - No “publish while persisting pending events” side effects in command handlers.
 - Publication is eventually consistent with commits but replay-safe.
 
-### 5.4 Sync path (LiveStore protocol)
+### 5.4 Sync path (MO Sync Engine protocol)
 
-1. LiveStore sync pushes/pulls `LiveStoreEvent.Global.Encoded` records through `CloudSyncBackend`.
-2. Server persists those records into `sync.events` and serves them back to clients in the same protocol shape.
-3. If the server is ahead, push fails with HTTP 409 (`minimumExpectedSeqNum` / `providedSeqNum`) and the client rebases (pull then replay local commits).
+1. `SyncEngine` pushes/pulls a store’s encrypted records via HTTP (`/sync/push`, `/sync/pull`) using an explicit DTO contract (server assigns `globalSequence`).
+2. Pull persists remote events durably into the local `events` table and records `eventId → globalSequence` in `sync_event_map` (byte-preserved via `recordJson`).
+3. Push uses an `expectedHead` precondition; on HTTP 409 “server ahead”, the client fast-forwards (pull missing) and triggers an explicit rebase rebuild for derived state (then retries push).
 
 **Contract**
 
