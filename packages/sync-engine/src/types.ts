@@ -141,6 +141,7 @@ export type SyncEngineOptions = Readonly<{
   pullWaitMs?: number;
   pullIntervalMs?: number;
   pushIntervalMs?: number;
+  pushFallbackIntervalMs?: number;
   pushBatchSize?: number;
   maxPushRetries?: number;
   onStatusChange?: (status: SyncStatus) => void;

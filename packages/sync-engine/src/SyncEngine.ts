@@ -28,6 +28,7 @@ const DEFAULT_PULL_LIMIT = 200;
 const DEFAULT_PULL_WAIT_MS = 20_000;
 const DEFAULT_PULL_INTERVAL_MS = 1_000;
 const DEFAULT_PUSH_INTERVAL_MS = 2_000;
+const DEFAULT_PUSH_FALLBACK_INTERVAL_MS = 60_000;
 const DEFAULT_PUSH_BATCH_SIZE = 100;
 const DEFAULT_MAX_PUSH_RETRIES = 2;
 const MIN_PULL_BACKOFF_MS = 1_000;
@@ -95,6 +96,46 @@ const getLastError = (status: SyncStatus): SyncError | null => {
   return null;
 };
 
+type PullState = {
+  inFlight: boolean;
+  inFlightPromise: Promise<void> | null;
+  requested: boolean;
+  backoffMs: number;
+  notBeforeMs: number | null;
+  signal: DeferredSignal | null;
+  waiters: Array<() => void>;
+};
+
+type PushState = {
+  inFlight: boolean;
+  requested: boolean;
+  queued: boolean;
+  signalsSeen: boolean;
+  backoffMs: number;
+  notBeforeMs: number | null;
+  signal: DeferredSignal | null;
+};
+
+const createPullState = (): PullState => ({
+  inFlight: false,
+  inFlightPromise: null,
+  requested: false,
+  backoffMs: 0,
+  notBeforeMs: null,
+  signal: null,
+  waiters: [],
+});
+
+const createPushState = (): PushState => ({
+  inFlight: false,
+  requested: false,
+  queued: false,
+  signalsSeen: false,
+  backoffMs: 0,
+  notBeforeMs: null,
+  signal: null,
+});
+
 export class SyncEngine {
   private readonly db: SqliteDbPort;
   private readonly transport: SyncEngineOptions['transport'];
@@ -104,30 +145,21 @@ export class SyncEngine {
   private readonly pullWaitMs: number;
   private readonly pullIntervalMs: number;
   private readonly pushIntervalMs: number;
+  private readonly pushFallbackIntervalMs: number;
   private readonly pushBatchSize: number;
   private readonly maxPushRetries: number;
   private readonly onStatusChange?: (status: SyncStatus) => void;
   private running = false;
-  private pullInFlight = false;
-  private pushInFlight = false;
   private pushUnsubscribe: Unsubscribe | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
-  private pushRequested = false;
-  private pushQueued = false;
-  private pullRequested = false;
-  private pushSignalsSeen = false;
-  private pushBackoffMs = 0;
-  private pullSignal: DeferredSignal | null = null;
-  private pushSignal: DeferredSignal | null = null;
-  private pullInFlightPromise: Promise<void> | null = null;
-  private pullWaiters: Array<() => void> = [];
+  private pullState: PullState = createPullState();
+  private pushState: PushState = createPushState();
   private status: SyncStatus = {
     kind: SyncStatusKinds.idle,
     lastSuccessAt: null,
     lastError: null,
   };
   private lastKnownHead: number | null = null;
-  private pullBackoffMs = 0;
 
   constructor(options: SyncEngineOptions) {
     this.db = options.db;
@@ -138,6 +170,8 @@ export class SyncEngine {
     this.pullWaitMs = options.pullWaitMs ?? DEFAULT_PULL_WAIT_MS;
     this.pullIntervalMs = options.pullIntervalMs ?? DEFAULT_PULL_INTERVAL_MS;
     this.pushIntervalMs = options.pushIntervalMs ?? DEFAULT_PUSH_INTERVAL_MS;
+    this.pushFallbackIntervalMs =
+      options.pushFallbackIntervalMs ?? DEFAULT_PUSH_FALLBACK_INTERVAL_MS;
     this.pushBatchSize = options.pushBatchSize ?? DEFAULT_PUSH_BATCH_SIZE;
     this.maxPushRetries = options.maxPushRetries ?? DEFAULT_MAX_PUSH_RETRIES;
     this.onStatusChange = options.onStatusChange;
@@ -186,33 +220,15 @@ export class SyncEngine {
           : 0;
       await this.pullOnce({ waitMs });
       if (!this.running) return;
-      const delay = this.getPullDelayMs();
-      if (delay > 0) {
-        if (this.pullBackoffMs > 0) {
-          await sleep(delay);
-        } else {
-          await this.waitForPullSignalOrDelay(delay);
-        }
-      }
+      await this.waitForNextPull();
     }
   }
 
   private async pushLoop(): Promise<void> {
     while (this.running) {
-      if (!this.pushRequested) {
-        const delay = this.getPushDelayMs();
-        if (delay > 0) {
-          if (this.pushBackoffMs > 0) {
-            await sleep(delay);
-          } else {
-            await this.waitForPushSignalOrDelay(delay);
-          }
-        } else {
-          await this.waitForPushSignal();
-        }
-      }
+      await this.waitForNextPush();
       if (!this.running) return;
-      this.pushRequested = false;
+      this.pushState.requested = false;
       await this.pushOnce();
     }
   }
@@ -249,13 +265,13 @@ export class SyncEngine {
   }
 
   private async pullOnce(options: { waitMs: number }): Promise<void> {
-    if (this.pullInFlight) return;
-    this.pullInFlight = true;
-    this.pullInFlightPromise = this.pullOnceInternal(options);
+    if (this.pullState.inFlight) return;
+    this.pullState.inFlight = true;
+    this.pullState.inFlightPromise = this.pullOnceInternal(options);
     try {
-      await this.pullInFlightPromise;
+      await this.pullState.inFlightPromise;
     } finally {
-      this.pullInFlightPromise = null;
+      this.pullState.inFlightPromise = null;
     }
   }
 
@@ -305,19 +321,22 @@ export class SyncEngine {
         }
       }
 
-      this.pullBackoffMs = 0;
+      this.pullState.backoffMs = 0;
+      this.pullState.notBeforeMs = null;
       this.setStatus({
         kind: SyncStatusKinds.idle,
         lastSuccessAt: nowMs(),
         lastError: null,
       });
     } catch (error) {
-      this.pullBackoffMs = nextBackoffMs(
-        this.pullBackoffMs,
+      this.pullState.backoffMs = nextBackoffMs(
+        this.pullState.backoffMs,
         MIN_PULL_BACKOFF_MS,
         MAX_PULL_BACKOFF_MS
       );
-      const retryAt = nowMs() + this.pullBackoffMs;
+      const retryAt = nowMs() + this.pullState.backoffMs;
+      this.pullState.notBeforeMs = retryAt;
+      this.pullState.requested = true;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.server,
@@ -327,21 +346,22 @@ export class SyncEngine {
         retryAt
       );
     } finally {
-      this.pullInFlight = false;
+      this.pullState.inFlight = false;
       this.resolvePullWaiters();
     }
   }
 
   private async pushOnce(): Promise<void> {
-    if (this.pushInFlight) return;
-    this.pushInFlight = true;
+    if (this.pushState.inFlight) return;
+    this.pushState.inFlight = true;
     this.setSyncing(SyncDirections.push);
     try {
       const pending = await this.loadPendingEvents(this.pushBatchSize);
       if (pending.length === 0) {
         this.setIdle();
-        this.pushBackoffMs = 0;
-        this.pushRequested = false;
+        this.pushState.backoffMs = 0;
+        this.pushState.notBeforeMs = null;
+        this.pushState.requested = false;
         return;
       }
 
@@ -370,7 +390,8 @@ export class SyncEngine {
             lastSuccessAt: nowMs(),
             lastError: null,
           });
-          this.pushBackoffMs = 0;
+          this.pushState.backoffMs = 0;
+          this.pushState.notBeforeMs = null;
           const stillPending = await this.hasPendingEvents();
           if (stillPending && response.assigned.length > 0) {
             this.requestPush();
@@ -381,12 +402,13 @@ export class SyncEngine {
         await this.handleConflict(response, expectedHead);
       }
     } catch (error) {
-      this.pushBackoffMs = nextBackoffMs(
-        this.pushBackoffMs,
+      this.pushState.backoffMs = nextBackoffMs(
+        this.pushState.backoffMs,
         MIN_PUSH_BACKOFF_MS,
         MAX_PUSH_BACKOFF_MS
       );
-      const retryAt = nowMs() + this.pushBackoffMs;
+      const retryAt = nowMs() + this.pushState.backoffMs;
+      this.pushState.notBeforeMs = retryAt;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.network,
@@ -397,7 +419,7 @@ export class SyncEngine {
       );
       this.requestPush();
     } finally {
-      this.pushInFlight = false;
+      this.pushState.inFlight = false;
     }
   }
 
@@ -449,14 +471,14 @@ export class SyncEngine {
   }
 
   private schedulePush(): void {
-    this.pushSignalsSeen = true;
-    this.pushQueued = true;
+    this.pushState.signalsSeen = true;
+    this.pushState.queued = true;
     if (this.pushTimer) return;
     this.pushTimer = setTimeout(() => {
       this.pushTimer = null;
       if (!this.running) return;
-      if (!this.pushQueued) return;
-      this.pushQueued = false;
+      if (!this.pushState.queued) return;
+      this.pushState.queued = false;
       this.requestPush();
     }, DEFAULT_PUSH_DEBOUNCE_MS);
   }
@@ -467,13 +489,13 @@ export class SyncEngine {
   }
 
   private requestPush(): void {
-    this.pushRequested = true;
+    this.pushState.requested = true;
     this.signalPush();
   }
 
   private consumePullRequest(): boolean {
-    if (!this.pullRequested) return false;
-    this.pullRequested = false;
+    if (!this.pullState.requested) return false;
+    this.pullState.requested = false;
     return true;
   }
 
@@ -482,57 +504,104 @@ export class SyncEngine {
       await this.pullOnce({ waitMs: 0 });
       return;
     }
-    if (this.pullInFlightPromise) {
-      await this.pullInFlightPromise;
+    if (this.pullState.inFlightPromise) {
+      await this.pullState.inFlightPromise;
       return;
     }
-    this.pullRequested = true;
+    this.pullState.requested = true;
     this.signalPull();
     await new Promise<void>((resolve) => {
-      this.pullWaiters.push(resolve);
+      this.pullState.waiters.push(resolve);
     });
   }
 
   private async awaitPullIfInFlight(): Promise<void> {
-    if (this.pullInFlightPromise) {
-      await this.pullInFlightPromise;
+    if (this.pullState.inFlightPromise) {
+      await this.pullState.inFlightPromise;
     }
   }
 
   private resolvePullWaiters(): void {
-    if (this.pullWaiters.length === 0) return;
-    const waiters = this.pullWaiters;
-    this.pullWaiters = [];
+    if (this.pullState.waiters.length === 0) return;
+    const waiters = this.pullState.waiters;
+    this.pullState.waiters = [];
     for (const resolve of waiters) {
       resolve();
     }
   }
 
   private signalPull(): void {
-    if (!this.pullSignal) return;
-    this.pullSignal.resolve();
-    this.pullSignal = null;
+    if (!this.pullState.signal) return;
+    this.pullState.signal.resolve();
+    this.pullState.signal = null;
   }
 
   private signalPush(): void {
-    if (!this.pushSignal) return;
-    this.pushSignal.resolve();
-    this.pushSignal = null;
+    if (!this.pushState.signal) return;
+    this.pushState.signal.resolve();
+    this.pushState.signal = null;
   }
 
   private async waitForPushSignal(): Promise<void> {
-    if (!this.pushSignal) {
-      this.pushSignal = createDeferredSignal();
+    if (!this.pushState.signal) {
+      this.pushState.signal = createDeferredSignal();
     }
-    await this.pushSignal.promise;
+    await this.pushState.signal.promise;
+  }
+
+  private async waitForPullSignal(): Promise<void> {
+    if (!this.pullState.signal) {
+      this.pullState.signal = createDeferredSignal();
+    }
+    await this.pullState.signal.promise;
+  }
+
+  private async waitForNextPull(): Promise<void> {
+    const delay = this.getPullDelayMs();
+    if (delay <= 0) {
+      if (this.pullWaitMs === 0 && this.pullIntervalMs === 0) {
+        await this.waitForPullSignal();
+      }
+      return;
+    }
+    const now = nowMs();
+    const backoffActive =
+      this.pullState.notBeforeMs !== null && this.pullState.notBeforeMs > now;
+    if (backoffActive) {
+      await sleep(delay);
+      return;
+    }
+    await this.waitForPullSignalOrDelay(delay);
+  }
+
+  private async waitForNextPush(): Promise<void> {
+    const delay = this.getPushDelayMs();
+    if (this.pushState.requested) {
+      if (delay > 0) {
+        await sleep(delay);
+      }
+      return;
+    }
+    if (delay <= 0) {
+      await this.waitForPushSignal();
+      return;
+    }
+    const now = nowMs();
+    const backoffActive =
+      this.pushState.notBeforeMs !== null && this.pushState.notBeforeMs > now;
+    if (backoffActive) {
+      await sleep(delay);
+      return;
+    }
+    await this.waitForPushSignalOrDelay(delay);
   }
 
   private async waitForPullSignalOrDelay(delayMs: number): Promise<void> {
     if (delayMs <= 0) return;
-    if (!this.pullSignal) {
-      this.pullSignal = createDeferredSignal();
+    if (!this.pullState.signal) {
+      this.pullState.signal = createDeferredSignal();
     }
-    const currentSignal = this.pullSignal;
+    const currentSignal = this.pullState.signal;
     const sleeper = sleepWithCancel(delayMs);
     const winner = await Promise.race([
       currentSignal.promise.then(() => 'signal' as const),
@@ -541,17 +610,17 @@ export class SyncEngine {
     if (winner === 'signal') {
       sleeper.cancel();
     }
-    if (this.pullSignal === currentSignal) {
-      this.pullSignal = null;
+    if (this.pullState.signal === currentSignal) {
+      this.pullState.signal = null;
     }
   }
 
   private async waitForPushSignalOrDelay(delayMs: number): Promise<void> {
     if (delayMs <= 0) return;
-    if (!this.pushSignal) {
-      this.pushSignal = createDeferredSignal();
+    if (!this.pushState.signal) {
+      this.pushState.signal = createDeferredSignal();
     }
-    const currentSignal = this.pushSignal;
+    const currentSignal = this.pushState.signal;
     const sleeper = sleepWithCancel(delayMs);
     const winner = await Promise.race([
       currentSignal.promise.then(() => 'signal' as const),
@@ -560,16 +629,20 @@ export class SyncEngine {
     if (winner === 'signal') {
       sleeper.cancel();
     }
-    if (this.pushSignal === currentSignal) {
-      this.pushSignal = null;
+    if (this.pushState.signal === currentSignal) {
+      this.pushState.signal = null;
     }
   }
 
   private getPullDelayMs(): number {
-    if (this.pullBackoffMs > 0) {
-      return this.pullBackoffMs;
+    const now = nowMs();
+    if (
+      this.pullState.notBeforeMs !== null &&
+      this.pullState.notBeforeMs > now
+    ) {
+      return this.pullState.notBeforeMs - now;
     }
-    if (this.pullRequested) {
+    if (this.pullState.requested) {
       return 0;
     }
     if (this.pullWaitMs > 0) {
@@ -579,11 +652,18 @@ export class SyncEngine {
   }
 
   private getPushDelayMs(): number {
-    if (this.pushBackoffMs > 0) {
-      return this.pushBackoffMs;
+    const now = nowMs();
+    if (
+      this.pushState.notBeforeMs !== null &&
+      this.pushState.notBeforeMs > now
+    ) {
+      return this.pushState.notBeforeMs - now;
     }
-    if (this.pushSignalsSeen) {
+    if (this.pushState.requested) {
       return 0;
+    }
+    if (this.pushState.signalsSeen) {
+      return this.pushFallbackIntervalMs;
     }
     return this.pushIntervalMs;
   }
