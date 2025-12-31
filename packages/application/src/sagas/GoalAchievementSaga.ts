@@ -1,5 +1,6 @@
 import type { EventBusPort } from '../shared/ports/EventBusPort';
 import { AchieveGoal, UnachieveGoal } from '../goals/commands';
+import { ConcurrencyError } from '../errors/ConcurrencyError';
 import {
   ActorId,
   CorrelationId,
@@ -406,6 +407,9 @@ export class GoalAchievementSaga {
     } catch (error) {
       state.achievementRequested = false;
       await this.store.saveGoalState(state);
+      if (error instanceof ConcurrencyError) {
+        return;
+      }
       throw error;
     }
   }
@@ -438,7 +442,14 @@ export class GoalAchievementSaga {
       }
     );
 
-    await this.dispatchUnachieveGoal(command);
+    try {
+      await this.dispatchUnachieveGoal(command);
+    } catch (error) {
+      if (error instanceof ConcurrencyError) {
+        return;
+      }
+      throw error;
+    }
   }
 
   private systemEvent(goalId: string): DomainEvent {

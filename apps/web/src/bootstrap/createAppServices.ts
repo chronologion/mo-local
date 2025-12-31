@@ -1,6 +1,10 @@
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
-import { GoalAchievementSaga, type ValidationError } from '@mo/application';
+import {
+  ConcurrencyError,
+  GoalAchievementSaga,
+  type ValidationError,
+} from '@mo/application';
 import {
   IndexedDBKeyStore,
   InMemoryKeyringStore,
@@ -174,12 +178,22 @@ export const createAppServices = async ({
       crypto,
       keyStore
     );
+    const isConcurrencyFailure = (errors: ValidationError[]): boolean =>
+      errors.some(
+        (error) =>
+          error.field === 'application' &&
+          error.message.includes('version mismatch')
+      );
+
     const saga = new GoalAchievementSaga(
       sagaStore,
       seedEvents,
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
         if (!result.ok) {
+          if (isConcurrencyFailure(result.errors)) {
+            throw new ConcurrencyError('Goal version mismatch');
+          }
           throw new Error(
             `Goal achievement saga failed: ${result.errors
               .map((e: ValidationError) => `${e.field}:${e.message}`)
@@ -190,6 +204,9 @@ export const createAppServices = async ({
       async (command) => {
         const result = await ctx.goals!.goalCommandBus.dispatch(command);
         if (!result.ok) {
+          if (isConcurrencyFailure(result.errors)) {
+            throw new ConcurrencyError('Goal version mismatch');
+          }
           throw new Error(
             `Goal unachieve saga failed: ${result.errors
               .map((e: ValidationError) => `${e.field}:${e.message}`)
