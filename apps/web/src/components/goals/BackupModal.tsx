@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
+import { createBackupPayloadV2 } from '../../backup/backupPayload';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -65,21 +66,16 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               ),
             }
           : null;
-        const aggregateEncoded: Record<string, string> = {};
-        for (const [aggregateId, wrappedKey] of Object.entries(
-          backup.aggregateKeys
-        )) {
-          if (!(wrappedKey instanceof Uint8Array)) {
-            throw new Error('Unexpected aggregate key format in keystore');
-          }
-          aggregateEncoded[aggregateId] = toBase64(wrappedKey);
+        if (!identityEncoded) {
+          setBackupError('No keys found in keystore');
+          setBackupCipher(null);
+          return;
         }
-        const payload = {
+        const payload = createBackupPayloadV2({
           userId,
           identityKeys: identityEncoded,
-          aggregateKeys: aggregateEncoded,
           exportedAt: new Date().toISOString(),
-        };
+        });
         const plaintext = new TextEncoder().encode(JSON.stringify(payload));
         const encrypted = await services.crypto.encrypt(plaintext, masterKey);
         const b64 = toBase64(encrypted);
@@ -126,9 +122,9 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         <DialogHeader>
           <DialogTitle>Backup identity keys (not goal data)</DialogTitle>
           <DialogDescription>
-            Save this file securely. It only contains your signing and per-goal
-            keys; it does not include your goals or event history. Until sync or
-            log export exists, your goals stay on this device.
+            Save this file securely. It contains your identity keys; it does not
+            include your goals or event history. Per-goal keys are recovered
+            from synced event history after restore.
           </DialogDescription>
         </DialogHeader>
 

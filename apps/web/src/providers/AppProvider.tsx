@@ -19,6 +19,7 @@ import {
   wipeAllMoLocalOpfs,
   wipeEventStoreDb,
 } from '../utils/resetEventStoreDb';
+import { parseBackupPayload } from '../backup/backupPayload';
 import { Button } from '../components/ui/button';
 
 const USER_META_KEY = 'mo-local-user';
@@ -508,19 +509,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     services.keyStore.setMasterKey(decryptKek);
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
-    const payloadSchema = z.object({
-      userId: z.uuid(),
-      identityKeys: z
-        .object({
-          signingPrivateKey: z.string().min(1),
-          signingPublicKey: z.string().min(1),
-          encryptionPrivateKey: z.string().min(1),
-          encryptionPublicKey: z.string().min(1),
-        })
-        .nullable(),
-      aggregateKeys: z.record(z.string(), z.string().min(1)),
-    });
-    const payload = payloadSchema.parse(
+    const payload = parseBackupPayload(
       JSON.parse(new TextDecoder().decode(decrypted))
     );
 
