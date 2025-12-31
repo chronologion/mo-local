@@ -111,6 +111,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     aggregateCount?: number;
     tables?: string[];
     onRebuild?: () => void;
+    onDownloadDb?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -222,6 +223,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               void (async () => {
                 await goalCtx.goalProjection.resetAndRebuild();
                 await projectCtx.projectProjection.resetAndRebuild();
+              })();
+            },
+            onDownloadDb: () => {
+              const exporter = svc.db.exportMainDatabase;
+              if (!exporter) {
+                console.warn('[DebugPanel] DB export not supported by adapter');
+                return;
+              }
+              void (async () => {
+                const bytes = await exporter();
+                const stableBytes = new Uint8Array(bytes);
+                const blob = new Blob([stableBytes], {
+                  type: 'application/x-sqlite3',
+                });
+                const url = URL.createObjectURL(blob);
+                try {
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `mo-eventstore-${storeId}.db`;
+                  a.rel = 'noopener';
+                  a.click();
+                } finally {
+                  URL.revokeObjectURL(url);
+                }
               })();
             },
           });
@@ -678,6 +703,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             eventCount: debugInfo.eventCount,
             aggregateCount: debugInfo.aggregateCount,
             onRebuild: debugInfo.onRebuild,
+            onDownloadDb: debugInfo.onDownloadDb,
           }}
         />
       ) : null}

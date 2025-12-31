@@ -7,6 +7,7 @@ type DebugInfo = {
   eventCount?: number;
   aggregateCount?: number;
   onRebuild?: () => void;
+  onDownloadDb?: () => void;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -55,6 +56,23 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
           onClick={info.onRebuild}
         >
           Rebuild Projections
+        </button>
+      ) : null}
+      {info.onDownloadDb ? (
+        <button
+          style={{
+            marginTop: 8,
+            marginLeft: 8,
+            padding: '4px 8px',
+            borderRadius: 4,
+            border: '1px solid #6b7280',
+            background: '#111827',
+            color: '#e5e7eb',
+            cursor: 'pointer',
+          }}
+          onClick={info.onDownloadDb}
+        >
+          Download DB
         </button>
       ) : null}
     </div>
