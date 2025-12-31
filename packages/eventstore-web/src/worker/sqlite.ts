@@ -60,6 +60,24 @@ const hasAddCapacity = (vfs: VfsWithClose): vfs is VfsWithCapacity => {
   return typeof candidate === 'function';
 };
 
+type VfsWithGetCapacity = VfsWithClose & {
+  getCapacity: () => number;
+};
+
+const hasGetCapacity = (vfs: VfsWithClose): vfs is VfsWithGetCapacity => {
+  const candidate = (vfs as { getCapacity?: unknown }).getCapacity;
+  return typeof candidate === 'function';
+};
+
+type VfsWithRemoveCapacity = VfsWithClose & {
+  removeCapacity: (capacity: number) => Promise<number> | number;
+};
+
+const hasRemoveCapacity = (vfs: VfsWithClose): vfs is VfsWithRemoveCapacity => {
+  const candidate = (vfs as { removeCapacity?: unknown }).removeCapacity;
+  return typeof candidate === 'function';
+};
+
 const withInitStage = async <T>(
   stage: SqliteInitStage,
   label: string,
@@ -112,12 +130,39 @@ export async function createSqliteContext(options: {
     );
   }
 
+  // IMPORTANT: AccessHandlePoolVFS persists pooled files in OPFS.
+  // Calling addCapacity(N) on every boot grows the directory unboundedly,
+  // which can eventually cause Safari to throw `InvalidStateError` during
+  // VFS initialization (it tries to reopen every pooled file).
   if (hasAddCapacity(vfs)) {
-    await withInitStage(
-      SqliteInitStages.addVfsCapacity,
-      'add VFS capacity',
-      async () => vfs.addCapacity(12)
-    );
+    const targetCapacity = 12;
+    if (hasGetCapacity(vfs)) {
+      const currentCapacity = vfs.getCapacity();
+      if (
+        Number.isFinite(currentCapacity) &&
+        currentCapacity < targetCapacity
+      ) {
+        await withInitStage(
+          SqliteInitStages.addVfsCapacity,
+          'ensure VFS capacity',
+          async () => vfs.addCapacity(targetCapacity - currentCapacity)
+        );
+      }
+      if (hasRemoveCapacity(vfs) && currentCapacity > targetCapacity * 4) {
+        // Best-effort: trim huge pools created by older builds.
+        try {
+          await vfs.removeCapacity(currentCapacity - targetCapacity);
+        } catch {
+          // ignore trim failures (may be constrained by active associations)
+        }
+      }
+    } else {
+      await withInitStage(
+        SqliteInitStages.addVfsCapacity,
+        'add VFS capacity',
+        async () => vfs.addCapacity(targetCapacity)
+      );
+    }
   }
 
   await withInitStage(
