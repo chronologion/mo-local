@@ -170,7 +170,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             <p className="text-sm text-destructive">{backupError}</p>
           ) : null}
 
-          <div className="flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <Button
               onClick={downloadBackup}
               disabled={!backupCipher || backupLoading}
