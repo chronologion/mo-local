@@ -176,7 +176,7 @@ describe('Onboarding', () => {
           password: 'secretpass',
           backup: 'backup',
           db: expect.objectContaining({
-            fileName: 'mo-eventstore-019b0000-0000-7000-8000-000000000000.db',
+            bytes: expect.any(Uint8Array),
           }),
         })
       );
