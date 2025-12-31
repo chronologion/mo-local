@@ -23,26 +23,23 @@ export class ProjectRescheduled
   readonly targetDate: LocalDate;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectRescheduledPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectRescheduledPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.startDate = payload.startDate;
     this.targetDate = payload.targetDate;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectRescheduledSpec = payloadEventSpec<
   ProjectRescheduled,
-  ProjectRescheduledPayload
+  ProjectRescheduledPayload,
+  ProjectId
 >(
   projectEventTypes.projectRescheduled,
   (p, meta) => new ProjectRescheduled(p, meta),

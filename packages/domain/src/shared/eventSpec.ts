@@ -12,18 +12,27 @@ export type FieldMapper<T, J extends JsonValue = JsonValue> = Readonly<{
 }>;
 
 import type { EventMetadata } from './DomainEvent';
+import type { AggregateId } from './vos/AggregateId';
 
-export type PayloadEventSpec<E, P extends object> = Readonly<{
+export type PayloadEventSpec<
+  E,
+  P extends object,
+  TId extends AggregateId = AggregateId,
+> = Readonly<{
   type: string;
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> };
-  ctor: (p: P, meta: EventMetadata) => E;
+  ctor: (p: P, meta: EventMetadata<TId>) => E;
 }>;
 
-export function payloadEventSpec<E extends P, P extends object>(
+export function payloadEventSpec<
+  E extends P,
+  P extends object,
+  TId extends AggregateId = AggregateId,
+>(
   type: string,
-  ctor: (p: P, meta: EventMetadata) => E,
+  ctor: (p: P, meta: EventMetadata<TId>) => E,
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> }
-): PayloadEventSpec<E, P> {
+): PayloadEventSpec<E, P, TId> {
   return { type, ctor, fields };
 }
 

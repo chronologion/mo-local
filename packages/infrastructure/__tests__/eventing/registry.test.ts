@@ -55,7 +55,15 @@ describe('eventing registry + runtime', () => {
     );
     const createdBy = UserId.from('user-1');
     const actorId = ActorId.from('user-1');
-    const meta = () => ({ eventId: EventId.create(), actorId });
+    const meta = <TId extends GoalId | ProjectId>(
+      aggregateId: TId,
+      occurredAt: Timestamp
+    ) => ({
+      aggregateId,
+      occurredAt,
+      eventId: EventId.create(),
+      actorId,
+    });
     const events = [
       new GoalCreated(
         {
@@ -67,7 +75,7 @@ describe('eventing registry + runtime', () => {
           createdBy,
           createdAt: ts('2025-01-01T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-01T00:00:00Z'))
       ),
       new GoalRefined(
         {
@@ -75,7 +83,7 @@ describe('eventing registry + runtime', () => {
           summary: Summary.from('Updated summary'),
           changedAt: ts('2025-01-02T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-02T00:00:00Z'))
       ),
       new GoalRecategorized(
         {
@@ -83,7 +91,7 @@ describe('eventing registry + runtime', () => {
           slice: Slice.from('Work'),
           changedAt: ts('2025-01-03T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-03T00:00:00Z'))
       ),
       new GoalRescheduled(
         {
@@ -91,7 +99,7 @@ describe('eventing registry + runtime', () => {
           targetMonth: Month.from('2026-01'),
           changedAt: ts('2025-01-04T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-04T00:00:00Z'))
       ),
       new GoalPrioritized(
         {
@@ -99,28 +107,28 @@ describe('eventing registry + runtime', () => {
           priority: Priority.from('should'),
           changedAt: ts('2025-01-05T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-05T00:00:00Z'))
       ),
       new GoalAchieved(
         {
           goalId,
           achievedAt: ts('2025-01-06T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-06T00:00:00Z'))
       ),
       new GoalUnachieved(
         {
           goalId,
           unachievedAt: ts('2025-01-06T12:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-06T12:00:00Z'))
       ),
       new GoalArchived(
         {
           goalId,
           archivedAt: ts('2025-01-07T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-07T00:00:00Z'))
       ),
       new GoalAccessGranted(
         {
@@ -129,7 +137,7 @@ describe('eventing registry + runtime', () => {
           permission: Permission.from('edit'),
           grantedAt: ts('2025-01-08T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-08T00:00:00Z'))
       ),
       new GoalAccessRevoked(
         {
@@ -137,7 +145,7 @@ describe('eventing registry + runtime', () => {
           revokedFrom: UserId.from('user-2'),
           revokedAt: ts('2025-01-09T00:00:00Z'),
         },
-        meta()
+        meta(goalId, ts('2025-01-09T00:00:00Z'))
       ),
       new ProjectCreated(
         {
@@ -151,7 +159,7 @@ describe('eventing registry + runtime', () => {
           createdBy,
           createdAt: ts('2025-01-09T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-09T00:00:00Z'))
       ),
       new ProjectStatusTransitioned(
         {
@@ -159,7 +167,7 @@ describe('eventing registry + runtime', () => {
           status: ProjectStatus.from('in_progress'),
           changedAt: ts('2025-01-10T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-10T00:00:00Z'))
       ),
       new ProjectRescheduled(
         {
@@ -168,7 +176,7 @@ describe('eventing registry + runtime', () => {
           targetDate: LocalDate.fromString('2025-07-01'),
           changedAt: ts('2025-01-11T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-11T00:00:00Z'))
       ),
       new ProjectRenamed(
         {
@@ -176,7 +184,7 @@ describe('eventing registry + runtime', () => {
           name: ProjectName.from('Project Helios'),
           changedAt: ts('2025-01-12T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-12T00:00:00Z'))
       ),
       new ProjectDescribed(
         {
@@ -184,7 +192,7 @@ describe('eventing registry + runtime', () => {
           description: ProjectDescription.from('New description'),
           changedAt: ts('2025-01-13T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-13T00:00:00Z'))
       ),
       new ProjectGoalAdded(
         {
@@ -192,14 +200,14 @@ describe('eventing registry + runtime', () => {
           goalId,
           addedAt: ts('2025-01-14T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-14T00:00:00Z'))
       ),
       new ProjectGoalRemoved(
         {
           projectId,
           removedAt: ts('2025-01-15T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-15T00:00:00Z'))
       ),
       new ProjectMilestoneAdded(
         {
@@ -209,7 +217,7 @@ describe('eventing registry + runtime', () => {
           targetDate: LocalDate.fromString('2025-03-01'),
           addedAt: ts('2025-01-16T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-16T00:00:00Z'))
       ),
       new ProjectMilestoneRescheduled(
         {
@@ -218,7 +226,7 @@ describe('eventing registry + runtime', () => {
           targetDate: LocalDate.fromString('2025-04-01'),
           changedAt: ts('2025-01-17T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-17T00:00:00Z'))
       ),
       new ProjectMilestoneRenamed(
         {
@@ -227,7 +235,7 @@ describe('eventing registry + runtime', () => {
           name: MilestoneName.from('Milestone B'),
           changedAt: ts('2025-01-18T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-18T00:00:00Z'))
       ),
       new ProjectMilestoneArchived(
         {
@@ -235,20 +243,23 @@ describe('eventing registry + runtime', () => {
           milestoneId,
           archivedAt: ts('2025-01-19T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-19T00:00:00Z'))
       ),
       new ProjectArchived(
         {
           projectId,
           archivedAt: ts('2025-01-20T00:00:00Z'),
         },
-        meta()
+        meta(projectId, ts('2025-01-20T00:00:00Z'))
       ),
     ];
 
     for (const event of events) {
       const encoded = encodePersisted(event);
-      const decoded = decodePersisted(encoded, meta());
+      const decoded = decodePersisted(
+        encoded,
+        meta(event.aggregateId as GoalId | ProjectId, event.occurredAt)
+      );
       const reencoded = encodePersisted(decoded);
       expect(reencoded).toEqual(encoded);
     }

@@ -9,10 +9,12 @@ export * from './shared/vos/ValueObject';
 export * from './shared/vos/ActorId';
 export * from './shared/vos/EventId';
 export * from './shared/vos/CorrelationId';
+export * from './shared/vos/AggregateId';
 
 // Identity Value Objects
 export * from './identity/UserId';
 export * from './identity/events/UserRegistered';
+export * from './identity/events/eventTypes';
 
 // Goal Value Objects
 export * from './goals/vos/GoalId';

@@ -21,25 +21,19 @@ export class GoalRecategorized
   readonly slice: Slice;
   readonly changedAt: Timestamp;
 
-  constructor(payload: GoalRecategorizedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalRecategorizedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.slice = payload.slice;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalRecategorizedSpec = payloadEventSpec<
   GoalRecategorized,
-  GoalRecategorizedPayload
+  GoalRecategorizedPayload,
+  GoalId
 >(
   goalEventTypes.goalRecategorized,
   (p, meta) => new GoalRecategorized(p, meta),

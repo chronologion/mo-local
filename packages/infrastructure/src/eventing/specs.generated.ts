@@ -1,4 +1,4 @@
-import type { DomainEvent, PayloadEventSpec } from '@mo/domain';
+import type { AggregateId, DomainEvent, PayloadEventSpec } from '@mo/domain';
 import type { RuntimeEventSpec } from './types';
 import {
   GoalAccessGrantedSpec,
@@ -25,8 +25,12 @@ import {
   ProjectStatusTransitionedSpec,
 } from '@mo/domain';
 
-const toRuntimeSpec = <E extends DomainEvent, P extends object>(
-  spec: PayloadEventSpec<E, P>
+const toRuntimeSpec = <
+  E extends DomainEvent,
+  P extends object,
+  TId extends AggregateId,
+>(
+  spec: PayloadEventSpec<E, P, TId>
 ): RuntimeEventSpec =>
   // eslint-disable-next-line no-restricted-syntax -- Generated registry erases per-event field typing into the runtime spec union.
   spec as unknown as RuntimeEventSpec;

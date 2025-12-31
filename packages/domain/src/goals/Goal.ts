@@ -137,7 +137,12 @@ export class Goal extends AggregateRoot<GoalId> {
           createdBy: params.createdBy,
           createdAt: params.createdAt,
         },
-        { eventId: EventId.create(), actorId: params.createdBy }
+        {
+          aggregateId: params.id,
+          occurredAt: params.createdAt,
+          eventId: EventId.create(),
+          actorId: params.createdBy,
+        }
       )
     );
     return goal;
@@ -220,7 +225,12 @@ export class Goal extends AggregateRoot<GoalId> {
           summary: params.summary,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -245,7 +255,12 @@ export class Goal extends AggregateRoot<GoalId> {
           slice: params.slice,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -273,7 +288,12 @@ export class Goal extends AggregateRoot<GoalId> {
           targetMonth: params.targetMonth,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -301,7 +321,12 @@ export class Goal extends AggregateRoot<GoalId> {
           priority: params.priority,
           changedAt: params.changedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.changedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -326,6 +351,8 @@ export class Goal extends AggregateRoot<GoalId> {
           achievedAt: params.achievedAt,
         },
         {
+          aggregateId: this.id,
+          occurredAt: params.achievedAt,
           eventId: EventId.create(),
           actorId: params.actorId,
           correlationId: params.correlationId,
@@ -355,6 +382,8 @@ export class Goal extends AggregateRoot<GoalId> {
           unachievedAt: params.unachievedAt,
         },
         {
+          aggregateId: this.id,
+          occurredAt: params.unachievedAt,
           eventId: EventId.create(),
           actorId: params.actorId,
           correlationId: params.correlationId,
@@ -380,7 +409,12 @@ export class Goal extends AggregateRoot<GoalId> {
           goalId: this.id,
           archivedAt: params.archivedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.archivedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -414,7 +448,12 @@ export class Goal extends AggregateRoot<GoalId> {
           permission: params.permission,
           grantedAt: params.grantedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.grantedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }
@@ -443,7 +482,12 @@ export class Goal extends AggregateRoot<GoalId> {
           revokedFrom: params.userId,
           revokedAt: params.revokedAt,
         },
-        { eventId: EventId.create(), actorId: params.actorId }
+        {
+          aggregateId: this.id,
+          occurredAt: params.revokedAt,
+          eventId: EventId.create(),
+          actorId: params.actorId,
+        }
       )
     );
   }

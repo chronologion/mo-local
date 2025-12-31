@@ -108,7 +108,6 @@ class DbOwnerServer {
         this.ctx = await createSqliteContext({
           storeId: message.storeId,
           dbName: message.dbName,
-          storage: 'opfs',
         });
       } catch (error) {
         const name =

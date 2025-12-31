@@ -32,4 +32,7 @@ export interface IEvent<TId extends AggregateId = AggregateId> {
 
   /** Correlation identifier for tracing workflows */
   correlationId?: CorrelationId;
+
+  /** Aggregate version at the time of this event (infra metadata) */
+  version?: number;
 }

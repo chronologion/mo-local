@@ -21,25 +21,22 @@ export class ProjectStatusTransitioned
   readonly status: ProjectStatus;
   readonly changedAt: Timestamp;
 
-  constructor(payload: ProjectStatusTransitionedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.changedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectStatusTransitionedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.status = payload.status;
-    this.changedAt = payload.changedAt;
+    this.changedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectStatusTransitionedSpec = payloadEventSpec<
   ProjectStatusTransitioned,
-  ProjectStatusTransitionedPayload
+  ProjectStatusTransitionedPayload,
+  ProjectId
 >(
   projectEventTypes.projectStatusTransitioned,
   (p, meta) => new ProjectStatusTransitioned(p, meta),

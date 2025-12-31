@@ -21,25 +21,22 @@ export class ProjectMilestoneArchived
   readonly milestoneId: MilestoneId;
   readonly archivedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneArchivedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.archivedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectMilestoneArchivedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
-    this.archivedAt = payload.archivedAt;
+    this.archivedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectMilestoneArchivedSpec = payloadEventSpec<
   ProjectMilestoneArchived,
-  ProjectMilestoneArchivedPayload
+  ProjectMilestoneArchivedPayload,
+  ProjectId
 >(
   projectEventTypes.projectMilestoneArchived,
   (p, meta) => new ProjectMilestoneArchived(p, meta),

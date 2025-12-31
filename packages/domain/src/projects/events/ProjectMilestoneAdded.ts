@@ -27,27 +27,24 @@ export class ProjectMilestoneAdded
   readonly targetDate: LocalDate;
   readonly addedAt: Timestamp;
 
-  constructor(payload: ProjectMilestoneAddedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.addedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectMilestoneAddedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
     this.name = payload.name;
     this.targetDate = payload.targetDate;
-    this.addedAt = payload.addedAt;
+    this.addedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectMilestoneAddedSpec = payloadEventSpec<
   ProjectMilestoneAdded,
-  ProjectMilestoneAddedPayload
+  ProjectMilestoneAddedPayload,
+  ProjectId
 >(
   projectEventTypes.projectMilestoneAdded,
   (p, meta) => new ProjectMilestoneAdded(p, meta),

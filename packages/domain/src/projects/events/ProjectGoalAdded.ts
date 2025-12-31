@@ -21,25 +21,22 @@ export class ProjectGoalAdded
   readonly goalId: GoalId;
   readonly addedAt: Timestamp;
 
-  constructor(payload: ProjectGoalAddedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.projectId,
-      occurredAt: payload.addedAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.projectId = payload.projectId;
+  constructor(
+    payload: ProjectGoalAddedPayload,
+    meta: EventMetadata<ProjectId>
+  ) {
+    super(meta);
+    this.projectId = this.aggregateId;
     this.goalId = payload.goalId;
-    this.addedAt = payload.addedAt;
+    this.addedAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const ProjectGoalAddedSpec = payloadEventSpec<
   ProjectGoalAdded,
-  ProjectGoalAddedPayload
+  ProjectGoalAddedPayload,
+  ProjectId
 >(
   projectEventTypes.projectGoalAdded,
   (p, meta) => new ProjectGoalAdded(p, meta),

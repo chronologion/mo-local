@@ -18,12 +18,18 @@ export class UserCommandHandler {
     command: ValidatedRegisterUserCommand
   ): Promise<{ userId: string }> {
     const actorId = command.actorId;
+    const registeredAt = Timestamp.fromMillis(command.timestamp);
     const registrationEvent = new UserRegistered(
       {
         userId: actorId,
-        registeredAt: Timestamp.fromMillis(command.timestamp),
+        registeredAt,
       },
-      { eventId: EventId.create(), actorId }
+      {
+        aggregateId: actorId,
+        occurredAt: registeredAt,
+        eventId: EventId.create(),
+        actorId,
+      }
     );
     await this.eventBus.publish([registrationEvent]);
     return { userId: actorId.value };

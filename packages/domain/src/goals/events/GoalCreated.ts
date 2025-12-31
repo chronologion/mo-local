@@ -32,29 +32,23 @@ export class GoalCreated
   readonly createdBy: UserId;
   readonly createdAt: Timestamp;
 
-  constructor(payload: GoalCreatedPayload, meta: EventMetadata) {
-    super({
-      aggregateId: payload.goalId,
-      occurredAt: payload.createdAt,
-      eventId: meta.eventId,
-      actorId: meta.actorId,
-      causationId: meta?.causationId,
-      correlationId: meta?.correlationId,
-    });
-    this.goalId = payload.goalId;
+  constructor(payload: GoalCreatedPayload, meta: EventMetadata<GoalId>) {
+    super(meta);
+    this.goalId = this.aggregateId;
     this.slice = payload.slice;
     this.summary = payload.summary;
     this.targetMonth = payload.targetMonth;
     this.priority = payload.priority;
     this.createdBy = payload.createdBy;
-    this.createdAt = payload.createdAt;
+    this.createdAt = this.occurredAt;
     Object.freeze(this);
   }
 }
 
 export const GoalCreatedSpec = payloadEventSpec<
   GoalCreated,
-  GoalCreatedPayload
+  GoalCreatedPayload,
+  GoalId
 >(goalEventTypes.goalCreated, (p, meta) => new GoalCreated(p, meta), {
   goalId: voString(GoalId.from),
   slice: voString(Slice.from),
