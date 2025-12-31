@@ -38,6 +38,7 @@ export type WorkerEnvelope =
 export const WorkerHelloKinds = {
   hello: 'hello',
   helloOk: 'hello.ok',
+  helloError: 'hello.error',
 } as const;
 
 export type WorkerHelloKind =
@@ -58,12 +59,19 @@ export type WorkerHello =
       protocolVersion: 1;
       ownershipMode: DbOwnershipMode;
       serverInstanceId: string;
+    }>
+  | Readonly<{
+      v: 1;
+      kind: typeof WorkerHelloKinds.helloError;
+      error: PlatformError;
     }>;
 
 export const WorkerRequestKinds = {
   dbQuery: 'db.query',
   dbExecute: 'db.execute',
   dbBatch: 'db.batch',
+  dbShutdown: 'db.shutdown',
+  dbExportMain: 'db.exportMain',
   dbSubscribeTables: 'db.subscribeTables',
   dbUnsubscribeTables: 'db.unsubscribeTables',
   indexStatus: 'index.status',
@@ -89,6 +97,12 @@ export type WorkerRequest =
   | Readonly<{
       kind: typeof WorkerRequestKinds.dbBatch;
       statements: ReadonlyArray<SqliteStatement>;
+    }>
+  | Readonly<{
+      kind: typeof WorkerRequestKinds.dbShutdown;
+    }>
+  | Readonly<{
+      kind: typeof WorkerRequestKinds.dbExportMain;
     }>
   | Readonly<{
       kind: typeof WorkerRequestKinds.dbSubscribeTables;

@@ -57,7 +57,9 @@ export async function createWebSqliteDb(
     throw new Error('createWebSqliteDb must be called in a browser context');
   }
   if (options.requireOpfs && !hasOpfsSupport()) {
-    throw new Error('OPFS is required but unavailable');
+    throw new Error(
+      'OPFS is required but unavailable in this browser context (requires a secure context and StorageManager.getDirectory).'
+    );
   }
 
   const clientInstanceId = crypto.randomUUID();
@@ -128,9 +130,9 @@ export async function createWebSqliteDb(
     dbName: options.dbName,
     requireOpfs: options.requireOpfs,
   };
+  let helloOk: Extract<WorkerHello, { kind: typeof WorkerHelloKinds.helloOk }>;
   try {
-    const _helloOk = await sendHello(port, hello);
-    void _helloOk;
+    helloOk = await sendHello(port, hello);
   } catch (error) {
     const canFallback = closeSharedPort !== null;
     if (canFallback) {
@@ -141,8 +143,7 @@ export async function createWebSqliteDb(
       }
       closeSharedPort = null;
       port = createDedicatedWorkerPort();
-      const _helloOk = await sendHello(port, hello);
-      void _helloOk;
+      helloOk = await sendHello(port, hello);
     } else {
       throw error;
     }
@@ -152,6 +153,13 @@ export async function createWebSqliteDb(
   return {
     db: client,
     shutdown: async () => {
+      if (helloOk.ownershipMode.type === 'dedicatedWorker') {
+        try {
+          await client.shutdownWorker();
+        } catch {
+          // best-effort; worker may already be gone
+        }
+      }
       client.shutdown();
       if (worker) {
         worker.terminate();
@@ -163,6 +171,8 @@ export async function createWebSqliteDb(
 
 function hasOpfsSupport(): boolean {
   return (
+    typeof window !== 'undefined' &&
+    window.isSecureContext === true &&
     typeof navigator !== 'undefined' &&
     'storage' in navigator &&
     typeof navigator.storage.getDirectory === 'function'

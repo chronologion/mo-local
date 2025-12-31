@@ -140,6 +140,22 @@ export class DbClient implements SqliteDbPort {
     this.port.removeEventListener('message', this.onMessage);
   }
 
+  async shutdownWorker(): Promise<void> {
+    await this.request({
+      kind: WorkerRequestKinds.dbShutdown,
+    });
+  }
+
+  async exportMainDatabase(): Promise<Uint8Array> {
+    const data = await this.request({
+      kind: WorkerRequestKinds.dbExportMain,
+    });
+    if (!(data instanceof Uint8Array)) {
+      throw new Error('Invalid export response');
+    }
+    return data;
+  }
+
   private async request(payload: WorkerRequest): Promise<unknown> {
     const requestId = crypto.randomUUID();
     const message: WorkerEnvelope = {
@@ -211,6 +227,19 @@ export async function sendHello(
         clearTimeout(timeoutId);
         port.removeEventListener('message', handler);
         resolve(data);
+        return;
+      }
+      if (data.kind === WorkerHelloKinds.helloError) {
+        clearTimeout(timeoutId);
+        port.removeEventListener('message', handler);
+        const err = new Error(data.error.message) as Error & {
+          code: string;
+          context?: Readonly<Record<string, unknown>>;
+        };
+        err.name = data.error.code;
+        err.code = data.error.code;
+        err.context = data.error.context;
+        reject(err);
       }
     };
     port.addEventListener('message', handler);

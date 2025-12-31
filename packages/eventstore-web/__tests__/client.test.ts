@@ -157,6 +157,58 @@ describe('DbClient', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     client.shutdown();
   });
+
+  it('sends shutdown request', async () => {
+    const port = new TestPort();
+    const client = new DbClient(port);
+    const promise = client.shutdownWorker();
+    const envelope = port.posted[0]?.message as WorkerEnvelope;
+    expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
+    expect(
+      (
+        envelope as Extract<
+          WorkerEnvelope,
+          { kind: typeof WorkerEnvelopeKinds.request }
+        >
+      ).payload.kind
+    ).toBe(WorkerRequestKinds.dbShutdown);
+
+    port.emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: { kind: WorkerResponseKinds.ok, data: null },
+    });
+
+    await expect(promise).resolves.toBeUndefined();
+    client.shutdown();
+  });
+
+  it('exports main db bytes', async () => {
+    const port = new TestPort();
+    const client = new DbClient(port);
+    const promise = client.exportMainDatabase();
+    const envelope = port.posted[0]?.message as WorkerEnvelope;
+    expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
+    expect(
+      (
+        envelope as Extract<
+          WorkerEnvelope,
+          { kind: typeof WorkerEnvelopeKinds.request }
+        >
+      ).payload.kind
+    ).toBe(WorkerRequestKinds.dbExportMain);
+
+    port.emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: { kind: WorkerResponseKinds.ok, data: new Uint8Array([9]) },
+    });
+
+    await expect(promise).resolves.toEqual(new Uint8Array([9]));
+    client.shutdown();
+  });
 });
 
 describe('sendHello', () => {
@@ -186,6 +238,36 @@ describe('sendHello', () => {
     port.emit(response);
 
     await expect(promise).resolves.toEqual(response);
+  });
+
+  it('rejects on hello error', async () => {
+    const port = new TestPort();
+    const promise = sendHello(port, {
+      v: 1,
+      kind: WorkerHelloKinds.hello,
+      storeId: 'store',
+      clientInstanceId: 'client',
+      dbName: 'db',
+      requireOpfs: true,
+    });
+
+    const response: Extract<WorkerHello, { kind: 'hello.error' }> = {
+      v: 1,
+      kind: WorkerHelloKinds.helloError,
+      error: {
+        code: 'DbInvalidStateError',
+        message: 'bad',
+        context: { foo: 'bar' },
+      },
+    };
+    port.emit(response);
+
+    await expect(promise).rejects.toMatchObject({
+      name: 'DbInvalidStateError',
+      message: 'bad',
+      code: 'DbInvalidStateError',
+      context: { foo: 'bar' },
+    });
   });
 
   it('rejects on timeout', async () => {

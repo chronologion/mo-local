@@ -94,4 +94,10 @@ export interface SqliteDbPort {
     tables: ReadonlyArray<SqliteTableName>,
     listener: (hints: ReadonlyArray<ChangeHint>) => void
   ): Unsubscribe;
+
+  /**
+   * DEV-only helper: exports the main SQLite database file bytes.
+   * Not supported by all adapters.
+   */
+  exportMainDatabase?: () => Promise<Uint8Array>;
 }

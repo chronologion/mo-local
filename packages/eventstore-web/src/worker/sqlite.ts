@@ -23,6 +23,7 @@ export type SqliteContext = Readonly<{
 
 const SQLITE_ROW = SQLiteConstants.SQLITE_ROW;
 const SQLITE_DONE = SQLiteConstants.SQLITE_DONE;
+const SQLITE_OK = SQLiteConstants.SQLITE_OK;
 
 export async function createSqliteContext(options: {
   storeId: string;
@@ -92,6 +93,53 @@ async function loadWasmBinary(
 export async function closeSqliteContext(ctx: SqliteContext): Promise<void> {
   await ctx.sqlite3.close(ctx.db);
   await ctx.vfs.close?.();
+}
+
+export function exportVfsFileBytes(
+  ctx: SqliteContext,
+  path: string
+): Uint8Array {
+  const dbPath = path.startsWith('/') ? path : `/${path}`;
+
+  const fileId =
+    Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
+  const outFlags = new DataView(new ArrayBuffer(4));
+  const rcOpen = ctx.vfs.xOpen(
+    dbPath,
+    fileId,
+    SQLiteConstants.SQLITE_OPEN_MAIN_DB | SQLiteConstants.SQLITE_OPEN_READONLY,
+    outFlags
+  );
+  if (rcOpen !== SQLITE_OK) {
+    throw new Error(`VFS xOpen failed: ${rcOpen}`);
+  }
+
+  try {
+    const sizeView = new DataView(new ArrayBuffer(8));
+    const rcSize = ctx.vfs.xFileSize(fileId, sizeView);
+    if (rcSize !== SQLITE_OK) {
+      throw new Error(`VFS xFileSize failed: ${rcSize}`);
+    }
+    const size = Number(sizeView.getBigInt64(0, true));
+    if (!Number.isSafeInteger(size) || size < 0) {
+      throw new Error('Invalid VFS file size');
+    }
+
+    const bytes = new Uint8Array(size);
+    const chunkSize = 64 * 1024;
+    for (let offset = 0; offset < size; offset += chunkSize) {
+      const length = Math.min(chunkSize, size - offset);
+      const view = bytes.subarray(offset, offset + length);
+      const rcRead = ctx.vfs.xRead(fileId, view, offset);
+      if (rcRead !== SQLITE_OK) {
+        throw new Error(`VFS xRead failed at offset ${offset}: ${rcRead}`);
+      }
+    }
+
+    return bytes;
+  } finally {
+    ctx.vfs.xClose(fileId);
+  }
 }
 
 export async function executeStatements(

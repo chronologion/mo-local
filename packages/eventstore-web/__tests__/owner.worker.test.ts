@@ -15,6 +15,8 @@ type SqliteContext = import('../src/worker/sqlite').SqliteContext;
 
 const sqliteMocks = vi.hoisted(() => ({
   createSqliteContext: vi.fn(),
+  closeSqliteContext: vi.fn(),
+  exportVfsFileBytes: vi.fn(),
   runQuery: vi.fn(),
   runExecute: vi.fn(),
   executeStatements: vi.fn(),
@@ -32,6 +34,8 @@ type PostedMessage = {
 const setupWorker = async () => {
   vi.resetModules();
   sqliteMocks.createSqliteContext.mockReset();
+  sqliteMocks.closeSqliteContext.mockReset();
+  sqliteMocks.exportVfsFileBytes.mockReset();
   sqliteMocks.runQuery.mockReset();
   sqliteMocks.runExecute.mockReset();
   sqliteMocks.executeStatements.mockReset();
@@ -49,6 +53,8 @@ const setupWorker = async () => {
   sqliteMocks.runExecute.mockResolvedValue(undefined);
   sqliteMocks.executeStatements.mockResolvedValue([{ kind: 'execute' }]);
   sqliteMocks.extractTableNames.mockReturnValue(['EVENTS']);
+  sqliteMocks.closeSqliteContext.mockResolvedValue(undefined);
+  sqliteMocks.exportVfsFileBytes.mockReturnValue(new Uint8Array([1, 2, 3]));
   sqliteMocks.toPlatformError.mockImplementation((error: unknown) => ({
     code: PlatformErrorCodes.WorkerProtocolError,
     message: error instanceof Error ? error.message : String(error),
@@ -236,5 +242,68 @@ describe('owner.worker', () => {
         },
       },
     });
+  });
+
+  it('shuts down sqlite context and releases lock on db.shutdown', async () => {
+    const { emit, posted, flush } = await setupWorker();
+    sendHello(emit);
+    await flush();
+
+    emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.request,
+      requestId: 'shutdown-1',
+      payload: {
+        kind: WorkerRequestKinds.dbShutdown,
+      },
+    });
+    await flush();
+
+    expect(sqliteMocks.closeSqliteContext).toHaveBeenCalledTimes(1);
+
+    const response = posted.find(
+      (entry) =>
+        (entry.message as WorkerEnvelope).kind ===
+          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).requestId === 'shutdown-1'
+    );
+    expect(response?.message).toMatchObject({
+      kind: WorkerEnvelopeKinds.response,
+      requestId: 'shutdown-1',
+      payload: { kind: WorkerResponseKinds.ok, data: null },
+    });
+  });
+
+  it('exports main db bytes on db.exportMain', async () => {
+    const { emit, posted, flush } = await setupWorker();
+    sendHello(emit);
+    await flush();
+
+    emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.request,
+      requestId: 'export-1',
+      payload: {
+        kind: WorkerRequestKinds.dbExportMain,
+      },
+    });
+    await flush();
+
+    expect(sqliteMocks.exportVfsFileBytes).toHaveBeenCalledTimes(1);
+
+    const response = posted.find(
+      (entry) =>
+        (entry.message as WorkerEnvelope).kind ===
+          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).requestId === 'export-1'
+    )?.message as WorkerEnvelope | undefined;
+
+    expect(response).toBeTruthy();
+    if (response && response.kind === WorkerEnvelopeKinds.response) {
+      expect(response.payload).toMatchObject({ kind: WorkerResponseKinds.ok });
+      expect(
+        (response.payload as { kind: string; data: unknown }).data
+      ).toBeInstanceOf(Uint8Array);
+    }
   });
 });

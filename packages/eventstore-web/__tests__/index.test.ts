@@ -5,7 +5,13 @@ vi.mock('../src/client', () => {
     DbClient: class {
       shutdown(): void {}
     },
-    sendHello: vi.fn().mockResolvedValue({}),
+    sendHello: vi.fn().mockResolvedValue({
+      v: 1,
+      kind: 'hello.ok',
+      protocolVersion: 1,
+      ownershipMode: { type: 'sharedWorker', workerId: 'worker-1' },
+      serverInstanceId: 'server-1',
+    }),
   };
 });
 
@@ -48,7 +54,7 @@ describe('createWebSqliteDb', () => {
   });
 
   it('throws when OPFS is required but unavailable', async () => {
-    (globalThis as { window?: unknown }).window = {};
+    (globalThis as { window?: unknown }).window = { isSecureContext: true };
     (globalThis as { navigator?: unknown }).navigator = {};
     await expect(
       createWebSqliteDb({
@@ -56,7 +62,26 @@ describe('createWebSqliteDb', () => {
         dbName: 'db',
         requireOpfs: true,
       })
-    ).rejects.toThrow('OPFS is required but unavailable');
+    ).rejects.toThrow(
+      'OPFS is required but unavailable in this browser context'
+    );
+  });
+
+  it('throws when OPFS is not in a secure context', async () => {
+    (globalThis as { window?: unknown }).window = { isSecureContext: false };
+    (globalThis as { navigator?: unknown }).navigator = {
+      storage: { getDirectory: () => ({}) },
+    };
+
+    await expect(
+      createWebSqliteDb({
+        storeId: 'store',
+        dbName: 'db',
+        requireOpfs: true,
+      })
+    ).rejects.toThrow(
+      'OPFS is required but unavailable in this browser context'
+    );
   });
 
   it('uses SharedWorker when available', async () => {

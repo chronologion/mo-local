@@ -13,7 +13,9 @@ import {
 } from '../protocol/types';
 import {
   createSqliteContext,
+  closeSqliteContext,
   executeStatements,
+  exportVfsFileBytes,
   extractTableNames,
   runExecute,
   runQuery,
@@ -90,26 +92,36 @@ class DbOwnerServer {
     if (message.kind !== WorkerHelloKinds.hello) return;
 
     if (!this.ctx) {
-      this.storeId = message.storeId;
-      this.dbName = message.dbName;
       console.info('[DbOwnerServer] initializing', {
         storeId: message.storeId,
         dbName: message.dbName,
         requireOpfs: message.requireOpfs,
         ownershipMode: this.ownershipMode,
       });
-      if (message.requireOpfs) {
-        await this.assertOpfsSupport();
-      }
-      if (this.ownershipMode.type === 'dedicatedWorker') {
-        await this.acquireLock(message.storeId);
-      }
       try {
+        this.storeId = message.storeId;
+        this.dbName = message.dbName;
+        if (message.requireOpfs) {
+          await this.assertOpfsSupport();
+        }
+        if (this.ownershipMode.type === 'dedicatedWorker') {
+          await this.acquireLock(message.storeId);
+        }
         this.ctx = await createSqliteContext({
           storeId: message.storeId,
           dbName: message.dbName,
         });
       } catch (error) {
+        this.storeId = null;
+        this.dbName = null;
+        if (this.releaseLock) {
+          try {
+            this.releaseLock();
+          } catch {
+            // ignore lock release errors
+          }
+          this.releaseLock = null;
+        }
         const name =
           typeof error === 'object' && error && 'name' in error
             ? String((error as { name?: unknown }).name)
@@ -123,26 +135,28 @@ class DbOwnerServer {
           errorMessage: messageText,
           errorStack: error instanceof Error ? error.stack : undefined,
         });
-        if (name === 'InvalidStateError') {
-          const response: WorkerResponse = {
-            kind: 'error',
-            error: {
-              code: PlatformErrorCodes.DbInvalidStateError,
-              message:
-                'OPFS is in an invalid state. Use Reset Local State and restore from backup.',
-              context: { suggestedAction: 'reset' },
-            },
-          };
-          const envelope: WorkerEnvelope = {
-            v: 1,
-            kind: WorkerEnvelopeKinds.response,
-            requestId: crypto.randomUUID(),
-            payload: response,
-          };
-          connection.port.postMessage(envelope);
-          return;
-        }
-        this.sendInitError(connection, error);
+        const platformError: PlatformError =
+          name === 'InvalidStateError'
+            ? {
+                code: PlatformErrorCodes.DbInvalidStateError,
+                message:
+                  'OPFS returned InvalidStateError while opening the SQLite file. This can happen if another context still holds an exclusive access handle. Try closing other tabs and reloading; if it persists, use Reset Local State.',
+                context: {
+                  errorName: name,
+                  errorMessage: messageText,
+                  storeId: message.storeId,
+                  dbName: message.dbName,
+                  suggestedAction: 'reset',
+                },
+              }
+            : toPlatformError(error);
+
+        const helloError: WorkerHello = {
+          v: 1,
+          kind: WorkerHelloKinds.helloError,
+          error: platformError,
+        };
+        connection.port.postMessage(helloError);
         return;
       }
     }
@@ -177,9 +191,6 @@ class DbOwnerServer {
     connection: Connection,
     envelope: WorkerEnvelope
   ): Promise<void> {
-    if (!this.ctx) {
-      return;
-    }
     if (envelope.kind !== WorkerEnvelopeKinds.request) return;
 
     if (this.canceledRequests.has(envelope.requestId)) {
@@ -197,6 +208,61 @@ class DbOwnerServer {
 
     const payload = envelope.payload as WorkerRequest;
     try {
+      if (payload.kind === WorkerRequestKinds.dbShutdown) {
+        const ctx = this.ctx;
+        this.ctx = null;
+        this.storeId = null;
+        this.dbName = null;
+        if (this.releaseLock) {
+          try {
+            this.releaseLock();
+          } catch {
+            // ignore lock release errors
+          }
+          this.releaseLock = null;
+        }
+        if (ctx) {
+          await closeSqliteContext(ctx);
+        }
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: null,
+        });
+        return;
+      }
+
+      if (payload.kind === WorkerRequestKinds.dbExportMain) {
+        if (!this.ctx || !this.dbName) {
+          const error: PlatformError = {
+            code: PlatformErrorCodes.DbOwnershipError,
+            message: 'DB is not initialized',
+          };
+          this.sendResponse(connection, envelope.requestId, {
+            kind: 'error',
+            error,
+          });
+          return;
+        }
+        const bytes = exportVfsFileBytes(this.ctx, this.dbName);
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'ok',
+          data: bytes,
+        });
+        return;
+      }
+
+      if (!this.ctx) {
+        const error: PlatformError = {
+          code: PlatformErrorCodes.DbOwnershipError,
+          message: 'DB is not initialized',
+        };
+        this.sendResponse(connection, envelope.requestId, {
+          kind: 'error',
+          error,
+        });
+        return;
+      }
+
       if (payload.kind === WorkerRequestKinds.dbQuery) {
         const rows = await runQuery(
           this.ctx.sqlite3,
