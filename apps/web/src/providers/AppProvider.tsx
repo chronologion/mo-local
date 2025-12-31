@@ -583,6 +583,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!goalCtx || !projectCtx) {
       throw new Error('Bounded contexts not bootstrapped');
     }
+
+    // If a backup doesn't include aggregate keys (v2), we cannot decrypt existing
+    // projection cache rows on boot. Rebuild once to (1) repopulate caches and
+    // (2) persist current aggregate keys derived from keyring updates/events.
+    if (Object.keys(payload.aggregateKeys).length === 0) {
+      await goalCtx.goalProjection.resetAndRebuild();
+      await projectCtx.projectProjection.resetAndRebuild();
+    }
     const nextMeta = {
       userId: payload.userId,
       pwdSalt: persistSaltB64,
