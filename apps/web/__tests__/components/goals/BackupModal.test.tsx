@@ -80,7 +80,7 @@ describe('BackupModal', () => {
     });
   });
 
-  it('shows success message when backup is ready', async () => {
+  it('enables key download when backup is ready', async () => {
     mockedUseApp.mockReturnValue({
       ...makeAppContext({
         session: { status: 'ready', userId: 'user-1' },
@@ -96,14 +96,16 @@ describe('BackupModal', () => {
     render(<BackupModal open={true} onClose={vi.fn()} />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Encrypted backup ready. Use Download or Copy to save it securely.'
-        )
-      ).not.toBeNull();
+      const downloadButton = screen.getByRole('button', {
+        name: /download keys/i,
+      });
+      expect(downloadButton).toBeTruthy();
+      if (!(downloadButton instanceof HTMLButtonElement)) {
+        throw new Error('Expected download keys to be a button element');
+      }
+      expect(downloadButton.disabled).toBe(false);
     });
 
-    expect(screen.getByRole('button', { name: /download keys/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /backup db/i })).toBeTruthy();
   });
 });
