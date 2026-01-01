@@ -16,7 +16,7 @@ Key rules:
 - In case of blocking issues and PRD divergence you can't reconcile – stop and ask.
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.
 - Tests are located in `__tests__` on the same level as `src` for each app/module.
-- Use the docker compose stack to run and debug the app, and run e2e tests.
+- Use the `yarn` scripts and control the Docker compose stack to run & debug the app, and run e2e tests.
 - Lint, typecheck, prettify before you declare something is ready.
 - For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
 - In PR descriptions, wrap code identifiers, filenames, and commands in backticks.
