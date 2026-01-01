@@ -46,7 +46,7 @@ export default function App() {
                   onClick={() => setBackupOpen(true)}
                   className="hidden md:inline-flex"
                 >
-                  Backup keys
+                  Backup
                 </Button>
               ) : null}
               {session.status === 'ready' ? <RemoteAuthStatus /> : null}

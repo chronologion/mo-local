@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
+import { createBackupPayloadV2 } from '../../backup/backupPayload';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -23,6 +24,8 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
   const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [dbBackupError, setDbBackupError] = useState<string | null>(null);
+  const [dbBackupLoading, setDbBackupLoading] = useState(false);
 
   const userId = useMemo(
     () => (session.status === 'ready' ? session.userId : undefined),
@@ -65,21 +68,16 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
               ),
             }
           : null;
-        const aggregateEncoded: Record<string, string> = {};
-        for (const [aggregateId, wrappedKey] of Object.entries(
-          backup.aggregateKeys
-        )) {
-          if (!(wrappedKey instanceof Uint8Array)) {
-            throw new Error('Unexpected aggregate key format in keystore');
-          }
-          aggregateEncoded[aggregateId] = toBase64(wrappedKey);
+        if (!identityEncoded) {
+          setBackupError('No keys found in keystore');
+          setBackupCipher(null);
+          return;
         }
-        const payload = {
+        const payload = createBackupPayloadV2({
           userId,
           identityKeys: identityEncoded,
-          aggregateKeys: aggregateEncoded,
           exportedAt: new Date().toISOString(),
-        };
+        });
         const plaintext = new TextEncoder().encode(JSON.stringify(payload));
         const encrypted = await services.crypto.encrypt(plaintext, masterKey);
         const b64 = toBase64(encrypted);
@@ -115,6 +113,36 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadDb = async (): Promise<void> => {
+    setDbBackupError(null);
+    if (!services.db.exportMainDatabase) {
+      setDbBackupError('DB export is not supported in this build.');
+      return;
+    }
+    setDbBackupLoading(true);
+    try {
+      const bytes = await services.db.exportMainDatabase();
+      const stableBytes = new Uint8Array(bytes);
+      const blob = new Blob([stableBytes], {
+        type: 'application/x-sqlite3',
+      });
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mo-eventstore-${userId ?? 'store'}.db`;
+        a.rel = 'noopener';
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setDbBackupError(err instanceof Error ? err.message : 'DB export failed');
+    } finally {
+      setDbBackupLoading(false);
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -124,15 +152,20 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Backup identity keys (not goal data)</DialogTitle>
+          <DialogTitle>Backup</DialogTitle>
           <DialogDescription>
-            Save this file securely. It only contains your signing and per-goal
-            keys; it does not include your goals or event history. Until sync or
-            log export exists, your goals stay on this device.
+            Download an encrypted key backup (required to unlock this identity
+            on another device) and optionally export your local event store DB
+            (goal/project data + event history).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <p className="text-sm font-bold my-2">
+            Important: Remember or store your passphrase in a password manager.
+            You will not be able to restore your keys and data without it.
+          </p>
+
           {backupLoading ? (
             <div className="flex items-center gap-2 text-foreground">
               <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
@@ -140,19 +173,15 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             </div>
           ) : backupError ? (
             <p className="text-sm text-destructive">{backupError}</p>
-          ) : backupCipher ? (
-            <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
-              Encrypted backup ready. Use Download or Copy to save it securely.
-            </div>
           ) : null}
 
-          <div className="flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <Button
               onClick={downloadBackup}
               disabled={!backupCipher || backupLoading}
-              variant="secondary"
+              variant="outline"
             >
-              Download .json
+              Download keys
             </Button>
             <Button
               onClick={() => {
@@ -165,12 +194,25 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             >
               Copy
             </Button>
+            <Button
+              onClick={() => void downloadDb()}
+              disabled={dbBackupLoading}
+              variant="outline"
+            >
+              {dbBackupLoading ? 'Exporting DB…' : 'Backup DB'}
+            </Button>
           </div>
 
+          {dbBackupError ? (
+            <p className="text-sm text-destructive">{dbBackupError}</p>
+          ) : null}
+
           <p className="text-xs text-muted-foreground">
-            Keep backups offline. Anyone with this file can impersonate you. To
-            see your goals on another device you will also need their event data
-            (future sync/export), not just this key backup.
+            Keep key backups offline. Anyone with the key backup and your
+            passphrase can impersonate you. If you use a simple passphrase, the
+            key backup can be used to brute-force your keys even without your
+            passphrase. The DB file contains your encrypted full local event
+            history and can be restored via the onboarding restore flow.
           </p>
         </div>
       </DialogContent>

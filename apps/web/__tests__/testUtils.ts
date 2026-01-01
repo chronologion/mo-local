@@ -32,7 +32,7 @@ export const makeAppContext = (
   resetLocalState: async () => {},
   rebuildProjections: async () => {},
   masterKey: null,
-  restoreBackup: async () => {},
+  restoreBackup: async (_params) => {},
   ...overrides,
 });
 

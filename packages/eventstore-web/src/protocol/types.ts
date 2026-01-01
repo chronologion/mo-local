@@ -72,6 +72,7 @@ export const WorkerRequestKinds = {
   dbBatch: 'db.batch',
   dbShutdown: 'db.shutdown',
   dbExportMain: 'db.exportMain',
+  dbImportMain: 'db.importMain',
   dbSubscribeTables: 'db.subscribeTables',
   dbUnsubscribeTables: 'db.unsubscribeTables',
   indexStatus: 'index.status',
@@ -103,6 +104,10 @@ export type WorkerRequest =
     }>
   | Readonly<{
       kind: typeof WorkerRequestKinds.dbExportMain;
+    }>
+  | Readonly<{
+      kind: typeof WorkerRequestKinds.dbImportMain;
+      bytes: Uint8Array;
     }>
   | Readonly<{
       kind: typeof WorkerRequestKinds.dbSubscribeTables;

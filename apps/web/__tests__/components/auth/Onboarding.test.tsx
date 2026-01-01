@@ -15,7 +15,7 @@ describe('Onboarding', () => {
     mockedUseApp.mockReturnValue(
       makeAppContext({
         completeOnboarding: vi.fn(async () => {}),
-        restoreBackup: vi.fn(async () => {}),
+        restoreBackup: vi.fn(async (_params) => {}),
         session: { status: 'needs-onboarding' },
       })
     );
@@ -48,7 +48,7 @@ describe('Onboarding', () => {
     mockedUseApp.mockReturnValue(
       makeAppContext({
         completeOnboarding,
-        restoreBackup: vi.fn(async () => {}),
+        restoreBackup: vi.fn(async (_params) => {}),
         session: { status: 'needs-onboarding' },
       })
     );
@@ -71,7 +71,7 @@ describe('Onboarding', () => {
   });
 
   it('validates restore inputs and calls restoreBackup', async () => {
-    const restoreBackup = vi.fn(async () => {});
+    const restoreBackup = vi.fn(async (_params) => {});
     mockedUseApp.mockReturnValue(
       makeAppContext({
         completeOnboarding: vi.fn(async () => {}),
@@ -91,9 +91,9 @@ describe('Onboarding', () => {
       baseFile,
       { text: async () => 'backup' }
     );
-    const input = document.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement | null;
+    const input = document.querySelectorAll('input[type="file"]')[0] as
+      | HTMLInputElement
+      | undefined;
     expect(input).not.toBeNull();
     if (!input) return;
     fireEvent.change(input, { target: { files: [file] } });
@@ -113,6 +113,73 @@ describe('Onboarding', () => {
         password: 'secretpass',
         backup: 'backup',
       });
+    });
+  });
+
+  it('passes db file bytes when selected', async () => {
+    const restoreBackup = vi.fn(async (_params) => {});
+    mockedUseApp.mockReturnValue(
+      makeAppContext({
+        completeOnboarding: vi.fn(async () => {}),
+        restoreBackup,
+        session: { status: 'needs-onboarding' },
+      })
+    );
+
+    render(<Onboarding />);
+
+    const baseFile = new File(['backup'], 'keys.backup', {
+      type: 'application/json',
+    });
+    const file: File & { text: () => Promise<string> } = Object.assign(
+      baseFile,
+      { text: async () => 'backup' }
+    );
+
+    const baseDbFile = new File(
+      [new Uint8Array([9, 8, 7])],
+      'mo-eventstore-019b0000-0000-7000-8000-000000000000.db',
+      {
+        type: 'application/x-sqlite3',
+      }
+    );
+    const dbFile: File & { arrayBuffer: () => Promise<ArrayBuffer> } =
+      Object.assign(baseDbFile, {
+        arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
+      });
+
+    const inputs = document.querySelectorAll('input[type="file"]');
+    const backupInput = inputs[0] as HTMLInputElement | undefined;
+    const dbInput = inputs[1] as HTMLInputElement | undefined;
+    expect(backupInput).toBeTruthy();
+    expect(dbInput).toBeTruthy();
+    if (!backupInput || !dbInput) return;
+
+    fireEvent.change(backupInput, { target: { files: [file] } });
+    fireEvent.change(dbInput, { target: { files: [dbFile] } });
+    fireEvent.change(
+      screen.getByPlaceholderText('Passphrase used for backup'),
+      {
+        target: { value: 'secretpass' },
+      }
+    );
+
+    await waitFor(() => {
+      const button = screen.getByRole('button', { name: /restore backup/i });
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name: /restore backup/i }));
+
+    await waitFor(() => {
+      expect(restoreBackup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          password: 'secretpass',
+          backup: 'backup',
+          db: expect.objectContaining({
+            bytes: expect.any(Uint8Array),
+          }),
+        })
+      );
     });
   });
 });

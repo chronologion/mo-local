@@ -17,6 +17,7 @@ const sqliteMocks = vi.hoisted(() => ({
   createSqliteContext: vi.fn(),
   closeSqliteContext: vi.fn(),
   exportVfsFileBytes: vi.fn(),
+  replaceMainDatabaseBytes: vi.fn(),
   SqliteInitError: class SqliteInitError extends Error {
     readonly stage: string;
     readonly cause: unknown;
@@ -47,6 +48,7 @@ const setupWorker = async () => {
   sqliteMocks.createSqliteContext.mockReset();
   sqliteMocks.closeSqliteContext.mockReset();
   sqliteMocks.exportVfsFileBytes.mockReset();
+  sqliteMocks.replaceMainDatabaseBytes.mockReset();
   sqliteMocks.runQuery.mockReset();
   sqliteMocks.runExecute.mockReset();
   sqliteMocks.executeStatements.mockReset();
@@ -66,6 +68,7 @@ const setupWorker = async () => {
   sqliteMocks.extractTableNames.mockReturnValue(['EVENTS']);
   sqliteMocks.closeSqliteContext.mockResolvedValue(undefined);
   sqliteMocks.exportVfsFileBytes.mockReturnValue(new Uint8Array([1, 2, 3]));
+  sqliteMocks.replaceMainDatabaseBytes.mockResolvedValue(ctx);
   sqliteMocks.toPlatformError.mockImplementation((error: unknown) => ({
     code: PlatformErrorCodes.WorkerProtocolError,
     message: error instanceof Error ? error.message : String(error),
@@ -315,6 +318,40 @@ describe('owner.worker', () => {
       expect(
         (response.payload as { kind: string; data: unknown }).data
       ).toBeInstanceOf(Uint8Array);
+    }
+  });
+
+  it('imports main db bytes on db.importMain', async () => {
+    const { emit, posted, flush } = await setupWorker();
+    sendHello(emit);
+    await flush();
+
+    emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.request,
+      requestId: 'import-1',
+      payload: {
+        kind: WorkerRequestKinds.dbImportMain,
+        bytes: new Uint8Array([9, 8, 7]),
+      },
+    });
+    await flush();
+
+    expect(sqliteMocks.replaceMainDatabaseBytes).toHaveBeenCalledTimes(1);
+
+    const response = posted.find(
+      (entry) =>
+        (entry.message as WorkerEnvelope).kind ===
+          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).requestId === 'import-1'
+    )?.message as WorkerEnvelope | undefined;
+
+    expect(response).toBeTruthy();
+    if (response && response.kind === WorkerEnvelopeKinds.response) {
+      expect(response.payload).toMatchObject({
+        kind: WorkerResponseKinds.ok,
+        data: null,
+      });
     }
   });
 });

@@ -209,6 +209,34 @@ describe('DbClient', () => {
     await expect(promise).resolves.toEqual(new Uint8Array([9]));
     client.shutdown();
   });
+
+  it('imports main db bytes', async () => {
+    const port = new TestPort();
+    const client = new DbClient(port);
+    const bytes = new Uint8Array([1, 2, 3]);
+    const promise = client.importMainDatabase(bytes);
+    const envelope = port.posted[0]?.message as WorkerEnvelope;
+    expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
+    expect(port.posted[0]?.transfer).toContain(bytes.buffer);
+    expect(
+      (
+        envelope as Extract<
+          WorkerEnvelope,
+          { kind: typeof WorkerEnvelopeKinds.request }
+        >
+      ).payload.kind
+    ).toBe(WorkerRequestKinds.dbImportMain);
+
+    port.emit({
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: { kind: WorkerResponseKinds.ok, data: null },
+    });
+
+    await expect(promise).resolves.toBeUndefined();
+    client.shutdown();
+  });
 });
 
 describe('sendHello', () => {

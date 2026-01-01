@@ -19,6 +19,7 @@ import {
   wipeAllMoLocalOpfs,
   wipeEventStoreDb,
 } from '../utils/resetEventStoreDb';
+import { parseBackupPayload } from '../backup/backupPayload';
 import { Button } from '../components/ui/button';
 
 const USER_META_KEY = 'mo-local-user';
@@ -60,6 +61,9 @@ type AppContextValue = {
   restoreBackup: (params: {
     password: string;
     backup: string;
+    db?: Readonly<{
+      bytes: Uint8Array;
+    }>;
   }) => Promise<void>;
 };
 
@@ -484,9 +488,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const restoreBackup = async ({
     password,
     backup,
+    db,
   }: {
     password: string;
     backup: string;
+    db?: Readonly<{
+      bytes: Uint8Array;
+    }>;
   }) => {
     if (!services) throw new Error('Services not initialized');
     const parsedEnvelope = parseBackupEnvelope(backup);
@@ -508,19 +516,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     services.keyStore.setMasterKey(decryptKek);
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
-    const payloadSchema = z.object({
-      userId: z.uuid(),
-      identityKeys: z
-        .object({
-          signingPrivateKey: z.string().min(1),
-          signingPublicKey: z.string().min(1),
-          encryptionPrivateKey: z.string().min(1),
-          encryptionPublicKey: z.string().min(1),
-        })
-        .nullable(),
-      aggregateKeys: z.record(z.string(), z.string().min(1)),
-    });
-    const payload = payloadSchema.parse(
+    const payload = parseBackupPayload(
       JSON.parse(new TextDecoder().decode(decrypted))
     );
 
@@ -575,10 +571,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         : await switchToStore(payload.userId);
     targetServices.keyStore.setMasterKey(persistKek);
 
+    if (db) {
+      if (!targetServices.db.importMainDatabase) {
+        throw new Error('This build does not support restoring DB files');
+      }
+      await targetServices.db.importMainDatabase(db.bytes);
+    }
+
     const goalCtx = targetServices.contexts.goals;
     const projectCtx = targetServices.contexts.projects;
     if (!goalCtx || !projectCtx) {
       throw new Error('Bounded contexts not bootstrapped');
+    }
+
+    // If a backup doesn't include aggregate keys (v2), we cannot decrypt existing
+    // projection cache rows on boot. Rebuild once to (1) repopulate caches and
+    // (2) persist current aggregate keys derived from keyring updates/events.
+    if (Object.keys(payload.aggregateKeys).length === 0) {
+      await goalCtx.goalProjection.resetAndRebuild();
+      await projectCtx.projectProjection.resetAndRebuild();
     }
     const nextMeta = {
       userId: payload.userId,
