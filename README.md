@@ -2,14 +2,17 @@
 
 ## Overview
 
-MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS domain model with LiveStore-backed persistence and per-aggregate encryption. The repo is a Yarn workspaces monorepo:
+MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS domain model with an event-sourced local store (SQLite in OPFS) and client-side encryption. The repo is a Yarn workspaces monorepo:
 
 - **apps/web** – React + Vite client with onboarding, unlock, goals/projects dashboards (tabs, FTS search, per-goal/project modals, milestones), and key backup/restoration flows. Hosts the composition root.
 - **packages/domain** – Pure TypeScript domain for Goals (Balanced Wheel), Projects, and Identity (aggregates, value objects, fluent assertions).
 - **packages/application** – CQRS primitives (commands, handlers, buses), per-BC ports (`GoalRepositoryPort`, `GoalReadModelPort`, `ProjectRepositoryPort`, `ProjectReadModelPort`), and identity commands.
-- **packages/infrastructure** – LiveStore schema/adapters, crypto services (WebCrypto + Node), IndexedDB key store, per-BC repositories/projections, and wiring.
+- **packages/eventstore-core** – ordering/cursors and event store core types.
+- **packages/eventstore-web** – OPFS SQLite adapter + DB owner worker (SharedWorker default; Worker fallback).
+- **packages/sync-engine** – HTTP sync protocol client (push/pull, conflict handling, scheduling).
+- **packages/infrastructure** – crypto services (WebCrypto + Node), IndexedDB key store, eventing/serialization runtime, repositories/projections, and wiring.
 - **packages/presentation** – React-facing context + hooks for Goals/Projects over command/query buses and projection ports.
-- **apps/api** – NestJS backend (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, Access BC migrations, and a LiveStore sync backend with `/sync/push` + `/sync/pull` persisting into `sync.events` / `sync.stores`).
+- **apps/api** – NestJS backend (Kysely, Kratos session guard, `/health`, `/me`, `/auth/*`, Access BC migrations, and the sync backend with `/sync/push` + `/sync/pull` persisting into `sync.events` / `sync.stores`).
 
 Everything runs locally today; cloud auth + sync are implemented and optional, while sharing/invites are follow-up work.
 
@@ -66,14 +69,14 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 
 ## Key Concepts
 
-- **LiveStore store**: `packages/infrastructure/src/goals/schema.ts` defines the SQLite schema shared by Goals and Projects (`goal_events`, `project_events`, `*_snapshots`, projection meta, analytics, search). `apps/web` mounts it via an OPFS-backed adapter and a shared worker.
+- **Local event store (OPFS SQLite)**: the canonical local log lives in OPFS SQLite (`mo-eventstore-<storeId>.db`) and is owned by a DB worker (SharedWorker default; Worker fallback).
 - **Goal domain**: `Goal` aggregate emits immutable events (`GoalCreated`, `GoalRefined`, `GoalRecategorized`, `GoalRescheduled`, `GoalPrioritized`, …). Value objects (Slice, Priority, Month, Summary) enforce invariants via `Assert`.
 - **Project domain**: `Project` aggregate models day-precision timelines with milestones and optional goal linkage; value objects capture name/status/date/description/goal/milestone semantics.
 - **Application layer**: per-BC command handlers (`GoalCommandHandler`, `ProjectCommandHandler`, `UserCommandHandler`) operate on simple command DTOs, materialize value objects, and persist encrypted events through repositories implementing shared `Repository` ports.
-- **Encryption**: Each goal gets its own symmetric key (`K_goal`). Keys are stored in `IndexedDBKeyStore`, wrapped with a passphrase-derived KEK (PBKDF2 600k iterations). WebCrypto handles encryption, signing, and ECIES wrapping utilities for future sharing flows.
-- **Serialization + sync contract**: domain payloads are encrypted, but LiveStore sync events are `event.v1` and must be byte-preserved server-side (`sync.events.args` is stored as TEXT JSON, not `jsonb`).
+- **Encryption**: domain payloads and snapshots are encrypted client-side. Keys are stored encrypted at rest in IndexedDB under a passphrase-derived KEK; aggregate keys are backed up/restored via an encrypted key backup.
+- **Serialization + sync contract**: the server stores sync records as `record_json` TEXT and returns them as-is; already-synced record bytes must be preserved under the current JS boundary.
 - **React wiring**:
-  - `createAppServices` (`apps/web/src/bootstrap/createAppServices.ts`) is the app-level composition root: it wires LiveStore, per-BC event stores, crypto, key store, event bus, and BC bootstraps (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`).
+  - `createAppServices` (`apps/web/src/bootstrap/createAppServices.ts`) is the app-level composition root: it wires the local event store, crypto, key store, event bus, and BC bootstraps (`bootstrapGoalBoundedContext`, `bootstrapProjectBoundedContext`).
   - `AppProvider` bootstraps `createAppServices`, drives onboarding/unlock state, and wraps the interface layer.
   - `packages/presentation` exposes `InterfaceProvider` and hooks such as `useGoals`, `useGoalById`, `useGoalSearch`, `useGoalCommands`, `useProjects`, `useProjectCommands` over per-BC command/query buses + projection ports.
 
@@ -95,7 +98,7 @@ localStorage.removeItem('mo-local-user');
 
 Then reload, onboard with a new passphrase, and optionally import a backup.
 
-OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To force a clean slate you can clear the browser's "Site Data" for the dev origin.
+OPFS data lives under your browser profile. To force a clean slate you can clear the browser’s “Site Data” for the dev origin, or use the in-app reset tooling (DEV).
 
 ## Testing & Quality
 
@@ -108,11 +111,13 @@ OPFS/LiveStore data lives under your browser profile (store id `mo-local`). To f
 
 ## Troubleshooting
 
-- **LiveStore init errors**: Watch the in-app debug panel (DEV only) for OPFS availability, table counts, or adapter issues.
-- **Missing keys**: If LiveStore still holds encrypted events but the keystore was cleared, goal projections will log warnings until you restore keys from backup.
-- **Safari quirks**: The bundled shared worker is required for OPFS persistence—ensure the page is served over `localhost` and not a file:// URL.
+- **Event store init errors**: Watch the in-app debug panel (DEV only) for OPFS availability, table counts, or adapter issues.
+- **Missing keys**: If OPFS still holds encrypted events but the keystore was cleared, projections will fail to decrypt until you restore keys from backup.
+- **Safari quirks**: Ensure you are not in Private Browsing (OPFS can be unavailable) and the page is served from `localhost`/HTTPS (secure context).
 
 ## Documentation
 
-- `docs/architecture.md` – long-lived architecture reference (layers + key decisions/ADRs).
-- `goals-poc-prd-v2.md` – product/workflow PRD (temporary; will be retired as the architecture doc becomes the source of truth).
+- `docs/README.md` – documentation strategy and process.
+- `docs/architecture.md` – architecture overview (layers + topic docs).
+- `docs/security.md` – security model overview.
+- `docs/adr/` / `docs/rfcs/` – decisions and proposals.

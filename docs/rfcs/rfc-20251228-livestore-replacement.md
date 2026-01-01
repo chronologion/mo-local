@@ -1,10 +1,10 @@
-# PRD: Local-First Event Store & Sync Engine (LiveStore Replacement)
+# RFC: Local-First Event Store & Sync Engine (LiveStore Replacement)
 
-**Issue**: ALC-307
-**Status**: Reviewed, ready for implementation
-**Version**: v1
-**Date**: 2025-12-28
+**Status**: Implemented
+**Linear**: ALC-307
 **Related**: ALC-244, ALC-254, ALC-301, ALC-306, ALC-305
+**Created**: 2025-12-28
+**Last Updated**: 2026-01-01
 
 ---
 
@@ -883,10 +883,14 @@ export const ChangeHintKinds = {
   tableInvalidated: 'tableInvalidated',
   rowsChanged: 'rowsChanged',
 } as const;
-export type ChangeHintKind = (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
+export type ChangeHintKind =
+  (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
 
 export type ChangeHint =
-  | Readonly<{ kind: typeof ChangeHintKinds.tableInvalidated; table: SqliteTableName }>
+  | Readonly<{
+      kind: typeof ChangeHintKinds.tableInvalidated;
+      table: SqliteTableName;
+    }>
   | Readonly<{
       kind: typeof ChangeHintKinds.rowsChanged;
       table: SqliteTableName;
@@ -1096,7 +1100,10 @@ export type WorkerRequest =
       statements: ReadonlyArray<SqliteStatement>;
     }>
   | Readonly<{ kind: typeof WorkerRequestKinds.indexStatus; indexId: string }>
-  | Readonly<{ kind: typeof WorkerRequestKinds.indexEnsureBuilt; indexId: string }>
+  | Readonly<{
+      kind: typeof WorkerRequestKinds.indexEnsureBuilt;
+      indexId: string;
+    }>
   | Readonly<{
       kind: typeof WorkerRequestKinds.readModelListWindow;
       readModelId: string;
@@ -3102,7 +3109,7 @@ store.subscribe(tables.goal_events.count(), callback);
 ## 18. References
 
 - `docs/architecture.md` (storage, commit boundary, sync contracts)
-- `goals-poc-prd-v2.md` (POC scope and current LiveStore integration)
+- `rfcs/RFC-20251128-local-first-poc.md` (POC scope and current LiveStore integration)
 - wa-sqlite: https://github.com/rhashimoto/wa-sqlite
 - op-sqlite: https://github.com/OP-Engineering/op-sqlite
 - PowerSync: SQLite persistence on the web: https://www.powersync.com/blog/sqlite-persistence-on-the-web
