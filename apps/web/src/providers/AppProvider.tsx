@@ -646,6 +646,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (
       window as {
         __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
       }
@@ -653,6 +657,54 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (
       window as {
         __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moPullOnce = () => services.syncEngine.debugPullOnce({ waitMs: 0 });
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moPushOnce = () => services.syncEngine.debugPushOnce();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncStart = () => services.syncEngine.start();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+      }
+    ).__moSyncStop = () => services.syncEngine.stop();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
       }
@@ -665,6 +717,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     (
       window as {
         __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
       }
