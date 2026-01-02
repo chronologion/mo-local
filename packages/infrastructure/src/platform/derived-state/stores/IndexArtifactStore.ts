@@ -14,10 +14,7 @@ export type IndexArtifactRecord = Readonly<{
 export class IndexArtifactStore {
   constructor(private readonly db: SqliteDbPort) {}
 
-  async get(
-    indexId: string,
-    scopeKey: ScopeKey
-  ): Promise<IndexArtifactRecord | null> {
+  async get(indexId: string, scopeKey: ScopeKey): Promise<IndexArtifactRecord | null> {
     const rows = await this.db.query<
       Readonly<{
         index_id: string;
@@ -92,15 +89,10 @@ export class IndexArtifactStore {
   }
 
   async remove(indexId: string, scopeKey: ScopeKey): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM index_artifacts WHERE index_id = ? AND scope_key = ?',
-      [indexId, scopeKey]
-    );
+    await this.db.execute('DELETE FROM index_artifacts WHERE index_id = ? AND scope_key = ?', [indexId, scopeKey]);
   }
 
   async removeAll(indexId: string): Promise<void> {
-    await this.db.execute('DELETE FROM index_artifacts WHERE index_id = ?', [
-      indexId,
-    ]);
+    await this.db.execute('DELETE FROM index_artifacts WHERE index_id = ?', [indexId]);
   }
 }

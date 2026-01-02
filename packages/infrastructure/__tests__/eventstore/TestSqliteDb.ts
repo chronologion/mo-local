@@ -1,10 +1,4 @@
-import type {
-  ChangeHint,
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from '@mo/eventstore-web';
+import type { ChangeHint, SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 
 export type TestEventRow = {
@@ -49,10 +43,7 @@ export class TestSqliteDb implements SqliteDbPort {
   constructor(seed?: { events?: ReadonlyArray<TestEventRow> }) {
     if (seed?.events) {
       this.events.push(...seed.events);
-      const maxSeq = seed.events.reduce(
-        (max, row) => Math.max(max, row.commit_sequence),
-        0
-      );
+      const maxSeq = seed.events.reduce((max, row) => Math.max(max, row.commit_sequence), 0);
       this.nextCommitSequence = maxSeq + 1;
     }
   }
@@ -65,11 +56,7 @@ export class TestSqliteDb implements SqliteDbPort {
     if (this.isSelectMaxVersion(normalized)) {
       const [aggregateType, aggregateId] = params as [string, string];
       const maxVersion = this.events
-        .filter(
-          (row) =>
-            row.aggregate_type === aggregateType &&
-            row.aggregate_id === aggregateId
-        )
+        .filter((row) => row.aggregate_type === aggregateType && row.aggregate_id === aggregateId)
         .reduce((max, row) => Math.max(max, row.version), 0);
       return [{ version: maxVersion || null } as unknown as T];
     }
@@ -83,11 +70,7 @@ export class TestSqliteDb implements SqliteDbPort {
     }
 
     if (this.isSelectEventsForAggregate(normalized)) {
-      const [aggregateType, aggregateId, fromVersion] = params as [
-        string,
-        string,
-        number,
-      ];
+      const [aggregateType, aggregateId, fromVersion] = params as [string, string, number];
       const rows = this.events
         .filter(
           (row) =>
@@ -100,11 +83,11 @@ export class TestSqliteDb implements SqliteDbPort {
     }
 
     if (this.isSelectAllEvents(normalized)) {
-      const { aggregateType, aggregateId, eventType, since, limit } =
-        this.parseSelectAllEventsParams(normalized, params);
-      let rows = this.events.filter(
-        (row) => row.aggregate_type === aggregateType
+      const { aggregateType, aggregateId, eventType, since, limit } = this.parseSelectAllEventsParams(
+        normalized,
+        params
       );
+      let rows = this.events.filter((row) => row.aggregate_type === aggregateType);
       if (aggregateId) {
         rows = rows.filter((row) => row.aggregate_id === aggregateId);
       }
@@ -139,18 +122,10 @@ export class TestSqliteDb implements SqliteDbPort {
     throw new Error(`Unhandled query: ${sql}`);
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     const normalized = sql.trim().toUpperCase();
     if (this.isInsertIdempotency(normalized)) {
-      const [key, commandType, aggregateId, createdAt] = params as [
-        string,
-        string,
-        string,
-        number,
-      ];
+      const [key, commandType, aggregateId, createdAt] = params as [string, string, string, number];
       this.idempotency.set(key, {
         idempotency_key: key,
         command_type: commandType,
@@ -160,15 +135,8 @@ export class TestSqliteDb implements SqliteDbPort {
       return;
     }
     if (this.isUpsertProjectionMeta(normalized)) {
-      const [
-        projectionId,
-        ordering,
-        lastGlobalSeq,
-        lastPendingCommitSeq,
-        lastCommitSequence,
-        phase,
-        updatedAt,
-      ] = params as [string, string, number, number, number, string, number];
+      const [projectionId, ordering, lastGlobalSeq, lastPendingCommitSeq, lastCommitSequence, phase, updatedAt] =
+        params as [string, string, number, number, number, string, number];
       this.projectionMeta.set(projectionId, {
         projection_id: projectionId,
         ordering,
@@ -183,9 +151,7 @@ export class TestSqliteDb implements SqliteDbPort {
     throw new Error(`Unhandled execute: ${sql}`);
   }
 
-  async batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     const results: SqliteBatchResult[] = [];
     for (const statement of statements) {
       if (statement.kind === SqliteStatementKinds.execute) {
@@ -194,10 +160,7 @@ export class TestSqliteDb implements SqliteDbPort {
         continue;
       }
       if (this.isInsertEventsReturning(statement.sql)) {
-        const row = this.applyInsertReturning(
-          statement.sql,
-          statement.params ?? []
-        );
+        const row = this.applyInsertReturning(statement.sql, statement.params ?? []);
         results.push({ kind: SqliteStatementKinds.query, rows: [row] });
         continue;
       }
@@ -207,10 +170,7 @@ export class TestSqliteDb implements SqliteDbPort {
     return results;
   }
 
-  subscribeToTables(
-    _tables: ReadonlyArray<string>,
-    _listener: () => void
-  ): () => void {
+  subscribeToTables(_tables: ReadonlyArray<string>, _listener: () => void): () => void {
     return () => undefined;
   }
 
@@ -253,9 +213,7 @@ export class TestSqliteDb implements SqliteDbPort {
       ];
       const hasDuplicate = this.events.some(
         (row) =>
-          row.aggregate_type === aggregateType &&
-          row.aggregate_id === aggregateId &&
-          row.version === Number(version)
+          row.aggregate_type === aggregateType && row.aggregate_id === aggregateId && row.version === Number(version)
       );
       if (hasDuplicate) {
         const error = new Error('UNIQUE constraint failed');
@@ -314,9 +272,7 @@ export class TestSqliteDb implements SqliteDbPort {
   }
 
   private isSelectAllEvents(sql: string): boolean {
-    return (
-      sql.includes('FROM EVENTS') && sql.includes('ORDER BY COMMIT_SEQUENCE')
-    );
+    return sql.includes('FROM EVENTS') && sql.includes('ORDER BY COMMIT_SEQUENCE');
   }
 
   private parseSelectAllEventsParams(
@@ -331,15 +287,9 @@ export class TestSqliteDb implements SqliteDbPort {
   }> {
     let index = 0;
     const aggregateType = String(params[index++]);
-    const aggregateId = sql.includes('AGGREGATE_ID = ?')
-      ? String(params[index++])
-      : null;
-    const eventType = sql.includes('EVENT_TYPE = ?')
-      ? String(params[index++])
-      : null;
-    const since = sql.includes('COMMIT_SEQUENCE > ?')
-      ? Number(params[index++])
-      : null;
+    const aggregateId = sql.includes('AGGREGATE_ID = ?') ? String(params[index++]) : null;
+    const eventType = sql.includes('EVENT_TYPE = ?') ? String(params[index++]) : null;
+    const since = sql.includes('COMMIT_SEQUENCE > ?') ? Number(params[index++]) : null;
     const limit = sql.includes('LIMIT ?') ? Number(params[index++]) : null;
     return { aggregateType, aggregateId, eventType, since, limit };
   }
@@ -361,10 +311,7 @@ export class TestSqliteDb implements SqliteDbPort {
     return this.isInsertEvents(normalized) && normalized.includes('RETURNING');
   }
 
-  private applyInsertReturning(
-    sql: string,
-    params: ReadonlyArray<SqliteValue>
-  ): TestEventRow {
+  private applyInsertReturning(sql: string, params: ReadonlyArray<SqliteValue>): TestEventRow {
     this.applyExecute(sql, params);
     const last = this.events[this.events.length - 1];
     if (!last) {

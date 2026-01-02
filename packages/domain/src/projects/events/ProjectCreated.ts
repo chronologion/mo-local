@@ -8,12 +8,7 @@ import { ProjectDescription } from '../vos/ProjectDescription';
 import { GoalId } from '../../goals/vos/GoalId';
 import { UserId } from '../../identity/UserId';
 import { Timestamp } from '../../shared/vos/Timestamp';
-import {
-  nullable,
-  payloadEventSpec,
-  voNumber,
-  voString,
-} from '../../shared/eventSpec';
+import { nullable, payloadEventSpec, voNumber, voString } from '../../shared/eventSpec';
 
 export interface ProjectCreatedPayload {
   projectId: ProjectId;
@@ -27,10 +22,7 @@ export interface ProjectCreatedPayload {
   createdAt: Timestamp;
 }
 
-export class ProjectCreated
-  extends DomainEvent<ProjectId>
-  implements ProjectCreatedPayload
-{
+export class ProjectCreated extends DomainEvent<ProjectId> implements ProjectCreatedPayload {
   readonly eventType = projectEventTypes.projectCreated;
 
   readonly projectId: ProjectId;
@@ -58,18 +50,18 @@ export class ProjectCreated
   }
 }
 
-export const ProjectCreatedSpec = payloadEventSpec<
-  ProjectCreated,
-  ProjectCreatedPayload,
-  ProjectId
->(projectEventTypes.projectCreated, (p, meta) => new ProjectCreated(p, meta), {
-  projectId: voString(ProjectId.from),
-  name: voString(ProjectName.from),
-  status: voString(ProjectStatus.from),
-  startDate: voString(LocalDate.fromString),
-  targetDate: voString(LocalDate.fromString),
-  description: voString(ProjectDescription.from),
-  goalId: nullable(voString(GoalId.from)),
-  createdBy: voString(UserId.from),
-  createdAt: voNumber(Timestamp.fromMillis),
-});
+export const ProjectCreatedSpec = payloadEventSpec<ProjectCreated, ProjectCreatedPayload, ProjectId>(
+  projectEventTypes.projectCreated,
+  (p, meta) => new ProjectCreated(p, meta),
+  {
+    projectId: voString(ProjectId.from),
+    name: voString(ProjectName.from),
+    status: voString(ProjectStatus.from),
+    startDate: voString(LocalDate.fromString),
+    targetDate: voString(LocalDate.fromString),
+    description: voString(ProjectDescription.from),
+    goalId: nullable(voString(GoalId.from)),
+    createdBy: voString(UserId.from),
+    createdAt: voNumber(Timestamp.fromMillis),
+  }
+);

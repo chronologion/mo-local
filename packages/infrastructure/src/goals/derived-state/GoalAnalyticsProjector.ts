@@ -2,29 +2,17 @@ import type { EffectiveCursor } from '@mo/eventstore-core';
 import { ProjectionOrderings } from '@mo/eventstore-core';
 import type { KeyStorePort } from '@mo/application';
 import type { WebCryptoService } from '../../crypto/WebCryptoService';
-import {
-  AnalyticsDelta,
-  buildAnalyticsDeltas,
-} from '../projections/model/GoalProjectionState';
+import { AnalyticsDelta, buildAnalyticsDeltas } from '../projections/model/GoalProjectionState';
 import type { GoalSnapshotState } from '../projections/model/GoalProjectionState';
-import {
-  AnalyticsPayload,
-  applyCategoryDelta,
-  applyMonthlyDelta,
-  createEmptyAnalytics,
-} from './GoalAnalyticsState';
-import {
-  buildProjectionCacheAad,
-  ProjectionCacheStore,
-} from '../../platform/derived-state';
+import { AnalyticsPayload, applyCategoryDelta, applyMonthlyDelta, createEmptyAnalytics } from './GoalAnalyticsState';
+import { buildProjectionCacheAad, ProjectionCacheStore } from '../../platform/derived-state';
 
 const PROJECTION_ID = 'goal_analytics';
 const ANALYTICS_SCOPE = 'global';
 const ANALYTICS_KEY_ID = 'goal_analytics';
 const ANALYTICS_VERSION = 1;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const parseAnalyticsPayload = (value: unknown): AnalyticsPayload => {
   if (!isRecord(value)) {
@@ -40,10 +28,7 @@ const parseAnalyticsPayload = (value: unknown): AnalyticsPayload => {
   };
 };
 
-const applyAnalyticsDeltas = (
-  analytics: AnalyticsPayload,
-  deltas: AnalyticsDelta
-): AnalyticsPayload => {
+const applyAnalyticsDeltas = (analytics: AnalyticsPayload, deltas: AnalyticsDelta): AnalyticsPayload => {
   let monthlyTotals = analytics.monthlyTotals;
   let categoryRollups = analytics.categoryRollups;
   deltas.monthly.forEach(({ yearMonth, slice, delta }) => {
@@ -98,16 +83,9 @@ export class GoalAnalyticsProjector {
     if (this.analyticsCache) return this.analyticsCache;
     const row = await this.cacheStore.get(PROJECTION_ID, ANALYTICS_SCOPE);
     if (!row) return createEmptyAnalytics();
-    const aad = buildProjectionCacheAad(
-      PROJECTION_ID,
-      ANALYTICS_SCOPE,
-      row.cacheVersion,
-      row.lastEffectiveCursor
-    );
+    const aad = buildProjectionCacheAad(PROJECTION_ID, ANALYTICS_SCOPE, row.cacheVersion, row.lastEffectiveCursor);
     const plaintext = await this.crypto.decrypt(row.cacheEncrypted, key, aad);
-    return parseAnalyticsPayload(
-      JSON.parse(new TextDecoder().decode(plaintext))
-    );
+    return parseAnalyticsPayload(JSON.parse(new TextDecoder().decode(plaintext)));
   }
 
   private async saveAnalytics(
@@ -116,12 +94,7 @@ export class GoalAnalyticsProjector {
     cursor: EffectiveCursor,
     lastCommitSequence: number
   ): Promise<void> {
-    const aad = buildProjectionCacheAad(
-      PROJECTION_ID,
-      ANALYTICS_SCOPE,
-      ANALYTICS_VERSION,
-      cursor
-    );
+    const aad = buildProjectionCacheAad(PROJECTION_ID, ANALYTICS_SCOPE, ANALYTICS_VERSION, cursor);
     const payloadBytes = new TextEncoder().encode(JSON.stringify(analytics));
     const cipher = await this.crypto.encrypt(payloadBytes, key, aad);
     await this.cacheStore.put({

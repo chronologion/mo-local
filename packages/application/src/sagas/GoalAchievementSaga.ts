@@ -81,48 +81,22 @@ export class GoalAchievementSaga {
   }
 
   subscribe(eventBus: EventBusPort): void {
-    eventBus.subscribe(projectEventTypes.projectCreated, (event) =>
-      this.handleEvent(event as ProjectCreated)
-    );
-    eventBus.subscribe(projectEventTypes.projectGoalAdded, (event) =>
-      this.handleEvent(event as ProjectGoalAdded)
-    );
-    eventBus.subscribe(projectEventTypes.projectGoalRemoved, (event) =>
-      this.handleEvent(event as ProjectGoalRemoved)
-    );
+    eventBus.subscribe(projectEventTypes.projectCreated, (event) => this.handleEvent(event as ProjectCreated));
+    eventBus.subscribe(projectEventTypes.projectGoalAdded, (event) => this.handleEvent(event as ProjectGoalAdded));
+    eventBus.subscribe(projectEventTypes.projectGoalRemoved, (event) => this.handleEvent(event as ProjectGoalRemoved));
     eventBus.subscribe(projectEventTypes.projectStatusTransitioned, (event) =>
       this.handleEvent(event as ProjectStatusTransitioned)
     );
-    eventBus.subscribe(goalEventTypes.goalAchieved, (event) =>
-      this.handleEvent(event as GoalAchieved)
-    );
-    eventBus.subscribe(goalEventTypes.goalUnachieved, (event) =>
-      this.handleEvent(event as GoalUnachieved)
-    );
-    eventBus.subscribe(goalEventTypes.goalArchived, (event) =>
-      this.handleEvent(event as GoalArchived)
-    );
-    eventBus.subscribe(goalEventTypes.goalCreated, (event) =>
-      this.handleEvent(event as GoalCreated)
-    );
-    eventBus.subscribe(goalEventTypes.goalRefined, (event) =>
-      this.handleEvent(event as GoalRefined)
-    );
-    eventBus.subscribe(goalEventTypes.goalRecategorized, (event) =>
-      this.handleEvent(event as GoalRecategorized)
-    );
-    eventBus.subscribe(goalEventTypes.goalRescheduled, (event) =>
-      this.handleEvent(event as GoalRescheduled)
-    );
-    eventBus.subscribe(goalEventTypes.goalPrioritized, (event) =>
-      this.handleEvent(event as GoalPrioritized)
-    );
-    eventBus.subscribe(goalEventTypes.goalAccessGranted, (event) =>
-      this.handleEvent(event as GoalAccessGranted)
-    );
-    eventBus.subscribe(goalEventTypes.goalAccessRevoked, (event) =>
-      this.handleEvent(event as GoalAccessRevoked)
-    );
+    eventBus.subscribe(goalEventTypes.goalAchieved, (event) => this.handleEvent(event as GoalAchieved));
+    eventBus.subscribe(goalEventTypes.goalUnachieved, (event) => this.handleEvent(event as GoalUnachieved));
+    eventBus.subscribe(goalEventTypes.goalArchived, (event) => this.handleEvent(event as GoalArchived));
+    eventBus.subscribe(goalEventTypes.goalCreated, (event) => this.handleEvent(event as GoalCreated));
+    eventBus.subscribe(goalEventTypes.goalRefined, (event) => this.handleEvent(event as GoalRefined));
+    eventBus.subscribe(goalEventTypes.goalRecategorized, (event) => this.handleEvent(event as GoalRecategorized));
+    eventBus.subscribe(goalEventTypes.goalRescheduled, (event) => this.handleEvent(event as GoalRescheduled));
+    eventBus.subscribe(goalEventTypes.goalPrioritized, (event) => this.handleEvent(event as GoalPrioritized));
+    eventBus.subscribe(goalEventTypes.goalAccessGranted, (event) => this.handleEvent(event as GoalAccessGranted));
+    eventBus.subscribe(goalEventTypes.goalAccessRevoked, (event) => this.handleEvent(event as GoalAccessRevoked));
   }
 
   private async handleEvent(event: DomainEvent): Promise<void> {
@@ -137,9 +111,7 @@ export class GoalAchievementSaga {
         await this.handleProjectGoalRemoved(event as ProjectGoalRemoved);
         return;
       case projectEventTypes.projectStatusTransitioned:
-        await this.handleProjectStatusTransitioned(
-          event as ProjectStatusTransitioned
-        );
+        await this.handleProjectStatusTransitioned(event as ProjectStatusTransitioned);
         return;
       case goalEventTypes.goalAchieved:
         await this.handleGoalAchieved(event as GoalAchieved);
@@ -200,9 +172,7 @@ export class GoalAchievementSaga {
   private async handleProjectGoalAdded(event: ProjectGoalAdded): Promise<void> {
     const projectId = event.projectId.value;
     const goalId = event.goalId.value;
-    const projectState =
-      (await this.store.getProjectState(projectId)) ??
-      this.emptyProjectState(projectId);
+    const projectState = (await this.store.getProjectState(projectId)) ?? this.emptyProjectState(projectId);
     projectState.goalId = goalId;
     await this.store.saveProjectState(projectState);
 
@@ -221,13 +191,9 @@ export class GoalAchievementSaga {
     }
   }
 
-  private async handleProjectGoalRemoved(
-    event: ProjectGoalRemoved
-  ): Promise<void> {
+  private async handleProjectGoalRemoved(event: ProjectGoalRemoved): Promise<void> {
     const projectId = event.projectId.value;
-    const projectState =
-      (await this.store.getProjectState(projectId)) ??
-      this.emptyProjectState(projectId);
+    const projectState = (await this.store.getProjectState(projectId)) ?? this.emptyProjectState(projectId);
     const goalId = projectState.goalId;
     if (!goalId) {
       await this.store.removeProjectState(projectId);
@@ -246,14 +212,10 @@ export class GoalAchievementSaga {
     }
   }
 
-  private async handleProjectStatusTransitioned(
-    event: ProjectStatusTransitioned
-  ): Promise<void> {
+  private async handleProjectStatusTransitioned(event: ProjectStatusTransitioned): Promise<void> {
     const projectId = event.projectId.value;
     const status = event.status.value as ProjectStatusValue;
-    const projectState =
-      (await this.store.getProjectState(projectId)) ??
-      this.emptyProjectState(projectId);
+    const projectState = (await this.store.getProjectState(projectId)) ?? this.emptyProjectState(projectId);
     projectState.status = status;
     await this.store.saveProjectState(projectState);
 
@@ -331,43 +293,25 @@ export class GoalAchievementSaga {
     return { projectId, goalId: null, status: null };
   }
 
-  private addLinkedProject(
-    state: GoalAchievementState,
-    projectId: string
-  ): void {
+  private addLinkedProject(state: GoalAchievementState, projectId: string): void {
     if (!state.linkedProjectIds.includes(projectId)) {
       state.linkedProjectIds = [...state.linkedProjectIds, projectId];
     }
   }
 
-  private removeLinkedProject(
-    state: GoalAchievementState,
-    projectId: string
-  ): void {
-    state.linkedProjectIds = state.linkedProjectIds.filter(
-      (id) => id !== projectId
-    );
-    state.completedProjectIds = state.completedProjectIds.filter(
-      (id) => id !== projectId
-    );
+  private removeLinkedProject(state: GoalAchievementState, projectId: string): void {
+    state.linkedProjectIds = state.linkedProjectIds.filter((id) => id !== projectId);
+    state.completedProjectIds = state.completedProjectIds.filter((id) => id !== projectId);
   }
 
-  private addCompletedProject(
-    state: GoalAchievementState,
-    projectId: string
-  ): void {
+  private addCompletedProject(state: GoalAchievementState, projectId: string): void {
     if (!state.completedProjectIds.includes(projectId)) {
       state.completedProjectIds = [...state.completedProjectIds, projectId];
     }
   }
 
-  private removeCompletedProject(
-    state: GoalAchievementState,
-    projectId: string
-  ): void {
-    state.completedProjectIds = state.completedProjectIds.filter(
-      (id) => id !== projectId
-    );
+  private removeCompletedProject(state: GoalAchievementState, projectId: string): void {
+    state.completedProjectIds = state.completedProjectIds.filter((id) => id !== projectId);
   }
 
   private async maybeAchieveGoal(
@@ -378,9 +322,7 @@ export class GoalAchievementSaga {
     if (state.achieved) return;
     if (state.archived) return;
     if (state.linkedProjectIds.length === 0) return;
-    const allCompleted = state.linkedProjectIds.every((projectId) =>
-      state.completedProjectIds.includes(projectId)
-    );
+    const allCompleted = state.linkedProjectIds.every((projectId) => state.completedProjectIds.includes(projectId));
     if (!allCompleted) return;
     if (state.version <= 0) return;
     if (state.achievementRequested && !options?.forceRetry) return;
@@ -414,16 +356,11 @@ export class GoalAchievementSaga {
     }
   }
 
-  private async maybeUnachieveGoal(
-    state: GoalAchievementState,
-    event: DomainEvent
-  ): Promise<void> {
+  private async maybeUnachieveGoal(state: GoalAchievementState, event: DomainEvent): Promise<void> {
     if (!state.achieved && !state.achievementRequested) return;
     if (state.archived) return;
     if (state.linkedProjectIds.length === 0) return;
-    const allCompleted = state.linkedProjectIds.every((projectId) =>
-      state.completedProjectIds.includes(projectId)
-    );
+    const allCompleted = state.linkedProjectIds.every((projectId) => state.completedProjectIds.includes(projectId));
     if (allCompleted) return;
     if (state.version <= 0) return;
 

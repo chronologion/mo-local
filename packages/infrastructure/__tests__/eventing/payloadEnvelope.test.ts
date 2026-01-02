@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  decodePayloadEnvelope,
-  encodePayloadEnvelope,
-} from '../../src/eventing/payloadEnvelope';
+import { decodePayloadEnvelope, encodePayloadEnvelope } from '../../src/eventing/payloadEnvelope';
 
 describe('payloadEnvelope', () => {
   it('round-trips payload envelope', () => {
@@ -18,9 +15,7 @@ describe('payloadEnvelope', () => {
   });
 
   it('rejects payloads without envelope', () => {
-    const legacy = new TextEncoder().encode(
-      JSON.stringify({ alpha: 1, beta: 2 })
-    );
+    const legacy = new TextEncoder().encode(JSON.stringify({ alpha: 1, beta: 2 }));
     expect(() => decodePayloadEnvelope(legacy)).toThrow(/payload envelope/i);
   });
 });

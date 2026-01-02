@@ -15,9 +15,7 @@ import type { Timestamp } from './vos/Timestamp';
  * - `aggregateId` is an AggregateId (e.g. GoalId, ProjectId)
  * - `occurredAt` is a Timestamp value object
  */
-export abstract class DomainEvent<
-  TId extends AggregateId = AggregateId,
-> implements IEvent<TId> {
+export abstract class DomainEvent<TId extends AggregateId = AggregateId> implements IEvent<TId> {
   abstract readonly eventType: string;
 
   readonly aggregateId: TId;

@@ -11,20 +11,14 @@ export interface ProjectMilestoneArchivedPayload {
   archivedAt: Timestamp;
 }
 
-export class ProjectMilestoneArchived
-  extends DomainEvent<ProjectId>
-  implements ProjectMilestoneArchivedPayload
-{
+export class ProjectMilestoneArchived extends DomainEvent<ProjectId> implements ProjectMilestoneArchivedPayload {
   readonly eventType = projectEventTypes.projectMilestoneArchived;
 
   readonly projectId: ProjectId;
   readonly milestoneId: MilestoneId;
   readonly archivedAt: Timestamp;
 
-  constructor(
-    payload: ProjectMilestoneArchivedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectMilestoneArchivedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
@@ -37,12 +31,8 @@ export const ProjectMilestoneArchivedSpec = payloadEventSpec<
   ProjectMilestoneArchived,
   ProjectMilestoneArchivedPayload,
   ProjectId
->(
-  projectEventTypes.projectMilestoneArchived,
-  (p, meta) => new ProjectMilestoneArchived(p, meta),
-  {
-    projectId: voString(ProjectId.from),
-    milestoneId: voString(MilestoneId.from),
-    archivedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+>(projectEventTypes.projectMilestoneArchived, (p, meta) => new ProjectMilestoneArchived(p, meta), {
+  projectId: voString(ProjectId.from),
+  milestoneId: voString(MilestoneId.from),
+  archivedAt: voNumber(Timestamp.fromMillis),
+});

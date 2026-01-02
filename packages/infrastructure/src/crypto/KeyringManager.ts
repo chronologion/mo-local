@@ -1,9 +1,4 @@
-import type {
-  EncryptedEvent,
-  CryptoServicePort,
-  KeyStorePort,
-  KeyringStorePort,
-} from '@mo/application';
+import type { EncryptedEvent, CryptoServicePort, KeyStorePort, KeyringStorePort } from '@mo/application';
 import { MissingKeyError } from '../errors';
 import { Keyring } from './Keyring';
 
@@ -32,29 +27,19 @@ export class KeyringManager {
     }
     const ownerKey = await this.deriveOwnerKey(aggregateId);
     const ownerEnvelope = await this.crypto.encrypt(dek, ownerKey);
-    const keyring = Keyring.createInitial(
-      aggregateId,
-      createdAt,
-      ownerEnvelope
-    );
+    const keyring = Keyring.createInitial(aggregateId, createdAt, ownerEnvelope);
     await this.keyringStore.saveKeyring(aggregateId, keyring.toState());
     this.cacheKey(aggregateId, 0, dek);
     await this.keyStore.saveAggregateKey(aggregateId, dek);
 
-    const encryptedKeyring = await this.crypto.encrypt(
-      keyring.toBytes(),
-      ownerKey
-    );
+    const encryptedKeyring = await this.crypto.encrypt(keyring.toBytes(), ownerKey);
     return {
       epoch: keyring.getCurrentEpoch(),
       keyringUpdate: encryptedKeyring,
     };
   }
 
-  async ingestKeyringUpdate(
-    aggregateId: string,
-    update: Uint8Array
-  ): Promise<void> {
+  async ingestKeyringUpdate(aggregateId: string, update: Uint8Array): Promise<void> {
     const ownerKey = await this.deriveOwnerKey(aggregateId);
     const decrypted = await this.crypto.decrypt(update, ownerKey);
     const keyring = Keyring.fromBytes(decrypted);
@@ -79,14 +64,9 @@ export class KeyringManager {
       const ownerKey = await this.deriveOwnerKey(event.aggregateId);
       const epochRecord = keyring.getEpoch(epoch);
       if (!epochRecord) {
-        throw new MissingKeyError(
-          `Missing keyring epoch ${epoch} for ${event.aggregateId}`
-        );
+        throw new MissingKeyError(`Missing keyring epoch ${epoch} for ${event.aggregateId}`);
       }
-      const dek = await this.crypto.decrypt(
-        epochRecord.ownerEnvelope,
-        ownerKey
-      );
+      const dek = await this.crypto.decrypt(epochRecord.ownerEnvelope, ownerKey);
       this.cacheKey(event.aggregateId, epoch, dek);
       if (epoch === keyring.getCurrentEpoch()) {
         await this.keyStore.saveAggregateKey(event.aggregateId, dek);
@@ -102,9 +82,7 @@ export class KeyringManager {
       }
     }
 
-    throw new MissingKeyError(
-      `Missing aggregate key for ${event.aggregateId} (epoch ${epoch})`
-    );
+    throw new MissingKeyError(`Missing aggregate key for ${event.aggregateId} (epoch ${epoch})`);
   }
 
   async getCurrentEpoch(aggregateId: string): Promise<number> {
@@ -112,11 +90,7 @@ export class KeyringManager {
     return keyringState?.currentEpoch ?? 0;
   }
 
-  private async cacheEpochKeys(
-    aggregateId: string,
-    keyring: Keyring,
-    ownerKey: Uint8Array
-  ): Promise<void> {
+  private async cacheEpochKeys(aggregateId: string, keyring: Keyring, ownerKey: Uint8Array): Promise<void> {
     for (const epoch of keyring.listEpochs()) {
       if (this.getCachedKey(aggregateId, epoch.epochId)) {
         continue;
@@ -130,8 +104,7 @@ export class KeyringManager {
   }
 
   private cacheKey(aggregateId: string, epoch: number, key: Uint8Array): void {
-    const epochs =
-      this.epochKeys.get(aggregateId) ?? new Map<number, Uint8Array>();
+    const epochs = this.epochKeys.get(aggregateId) ?? new Map<number, Uint8Array>();
     epochs.set(epoch, new Uint8Array(key));
     this.epochKeys.set(aggregateId, epochs);
   }

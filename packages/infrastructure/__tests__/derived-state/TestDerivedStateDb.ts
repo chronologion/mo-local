@@ -1,10 +1,4 @@
-import type {
-  ChangeHint,
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from '@mo/eventstore-web';
+import type { ChangeHint, SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 
 type ProjectionCacheRow = Readonly<{
@@ -29,8 +23,7 @@ type IndexArtifactRow = Readonly<{
   written_at: number;
 }>;
 
-const normalizeSql = (sql: string): string =>
-  sql.replace(/\s+/g, ' ').trim().toUpperCase();
+const normalizeSql = (sql: string): string => sql.replace(/\s+/g, ' ').trim().toUpperCase();
 
 const toString = (value: SqliteValue): string => {
   if (typeof value === 'string') return value;
@@ -51,10 +44,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
   private readonly projectionCache = new Map<string, ProjectionCacheRow>();
   private readonly indexArtifacts = new Map<string, IndexArtifactRow>();
 
-  getProjectionCacheRow(
-    projectionId: string,
-    scopeKey: string
-  ): ProjectionCacheRow | null {
+  getProjectionCacheRow(projectionId: string, scopeKey: string): ProjectionCacheRow | null {
     return this.projectionCache.get(`${projectionId}:${scopeKey}`) ?? null;
   }
 
@@ -62,10 +52,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
     this.projectionCache.set(`${row.projection_id}:${row.scope_key}`, row);
   }
 
-  getIndexArtifactRow(
-    indexId: string,
-    scopeKey: string
-  ): IndexArtifactRow | null {
+  getIndexArtifactRow(indexId: string, scopeKey: string): IndexArtifactRow | null {
     return this.indexArtifacts.get(`${indexId}:${scopeKey}`) ?? null;
   }
 
@@ -83,9 +70,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
       }
       if (normalized.includes('WHERE PROJECTION_ID = ?')) {
         const projectionId = toString(params[0] as SqliteValue);
-        const rows = [...this.projectionCache.values()].filter(
-          (row) => row.projection_id === projectionId
-        );
+        const rows = [...this.projectionCache.values()].filter((row) => row.projection_id === projectionId);
         return rows as unknown as T[];
       }
     }
@@ -112,10 +97,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
     throw new Error(`Unhandled query: ${sql}`);
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     const normalized = normalizeSql(sql);
     if (normalized.startsWith('INSERT INTO PROJECTION_CACHE')) {
       const row: ProjectionCacheRow = {
@@ -186,9 +168,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
     throw new Error(`Unhandled execute: ${sql}`);
   }
 
-  async batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     const results: SqliteBatchResult[] = [];
     for (const statement of statements) {
       if (statement.kind === SqliteStatementKinds.execute) {
@@ -202,10 +182,7 @@ export class TestDerivedStateDb implements SqliteDbPort {
     return results;
   }
 
-  subscribeToTables(
-    _tables: ReadonlyArray<string>,
-    _listener: () => void
-  ): () => void {
+  subscribeToTables(_tables: ReadonlyArray<string>, _listener: () => void): () => void {
     return () => undefined;
   }
 

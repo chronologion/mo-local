@@ -3,16 +3,9 @@ import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
 import { createBackupPayloadV2 } from '../../backup/backupPayload';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 
-const toBase64 = (data: Uint8Array): string =>
-  btoa(String.fromCharCode(...Array.from(data)));
+const toBase64 = (data: Uint8Array): string => btoa(String.fromCharCode(...Array.from(data)));
 
 type BackupModalProps = {
   open: boolean;
@@ -27,10 +20,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
   const [dbBackupError, setDbBackupError] = useState<string | null>(null);
   const [dbBackupLoading, setDbBackupLoading] = useState(false);
 
-  const userId = useMemo(
-    () => (session.status === 'ready' ? session.userId : undefined),
-    [session]
-  );
+  const userId = useMemo(() => (session.status === 'ready' ? session.userId : undefined), [session]);
 
   useEffect(() => {
     if (!open || session.status !== 'ready') return;
@@ -56,16 +46,10 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         }
         const identityEncoded = backup.identityKeys
           ? {
-              signingPrivateKey: toBase64(
-                backup.identityKeys.signingPrivateKey
-              ),
+              signingPrivateKey: toBase64(backup.identityKeys.signingPrivateKey),
               signingPublicKey: toBase64(backup.identityKeys.signingPublicKey),
-              encryptionPrivateKey: toBase64(
-                backup.identityKeys.encryptionPrivateKey
-              ),
-              encryptionPublicKey: toBase64(
-                backup.identityKeys.encryptionPublicKey
-              ),
+              encryptionPrivateKey: toBase64(backup.identityKeys.encryptionPrivateKey),
+              encryptionPublicKey: toBase64(backup.identityKeys.encryptionPublicKey),
             }
           : null;
         if (!identityEncoded) {
@@ -83,16 +67,11 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         const b64 = toBase64(encrypted);
         const saltB64 = userMeta?.pwdSalt;
         if (!saltB64) {
-          throw new Error(
-            'Password salt missing; please reset local state and re-onboard before exporting a backup.'
-          );
+          throw new Error('Password salt missing; please reset local state and re-onboard before exporting a backup.');
         }
-        setBackupCipher(
-          JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2)
-        );
+        setBackupCipher(JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2));
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Failed to load keys';
+        const message = err instanceof Error ? err.message : 'Failed to load keys';
         setBackupError(message);
         setBackupCipher(null);
       } finally {
@@ -154,16 +133,15 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
         <DialogHeader>
           <DialogTitle>Backup</DialogTitle>
           <DialogDescription>
-            Download an encrypted key backup (required to unlock this identity
-            on another device) and optionally export your local event store DB
-            (goal/project data + event history).
+            Download an encrypted key backup (required to unlock this identity on another device) and optionally export
+            your local event store DB (goal/project data + event history).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm font-bold my-2">
-            Important: Remember or store your passphrase in a password manager.
-            You will not be able to restore your keys and data without it.
+            Important: Remember or store your passphrase in a password manager. You will not be able to restore your
+            keys and data without it.
           </p>
 
           {backupLoading ? (
@@ -176,11 +154,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           ) : null}
 
           <div className="mt-2 flex items-center gap-2">
-            <Button
-              onClick={downloadBackup}
-              disabled={!backupCipher || backupLoading}
-              variant="outline"
-            >
+            <Button onClick={downloadBackup} disabled={!backupCipher || backupLoading} variant="outline">
               Download keys
             </Button>
             <Button
@@ -194,25 +168,17 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
             >
               Copy
             </Button>
-            <Button
-              onClick={() => void downloadDb()}
-              disabled={dbBackupLoading}
-              variant="outline"
-            >
+            <Button onClick={() => void downloadDb()} disabled={dbBackupLoading} variant="outline">
               {dbBackupLoading ? 'Exporting DB…' : 'Backup DB'}
             </Button>
           </div>
 
-          {dbBackupError ? (
-            <p className="text-sm text-destructive">{dbBackupError}</p>
-          ) : null}
+          {dbBackupError ? <p className="text-sm text-destructive">{dbBackupError}</p> : null}
 
           <p className="text-xs text-muted-foreground">
-            Keep key backups offline. Anyone with the key backup and your
-            passphrase can impersonate you. If you use a simple passphrase, the
-            key backup can be used to brute-force your keys even without your
-            passphrase. The DB file contains your encrypted full local event
-            history and can be restored via the onboarding restore flow.
+            Keep key backups offline. Anyone with the key backup and your passphrase can impersonate you. If you use a
+            simple passphrase, the key backup can be used to brute-force your keys even without your passphrase. The DB
+            file contains your encrypted full local event history and can be restored via the onboarding restore flow.
           </p>
         </div>
       </DialogContent>

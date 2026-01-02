@@ -13,5 +13,4 @@ export const projectEventTypes = {
   projectArchived: 'ProjectArchived',
 } as const;
 
-export type ProjectEventType =
-  (typeof projectEventTypes)[keyof typeof projectEventTypes];
+export type ProjectEventType = (typeof projectEventTypes)[keyof typeof projectEventTypes];

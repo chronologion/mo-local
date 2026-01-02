@@ -14,21 +14,13 @@ export class Milestone extends ChildEntity<MilestoneId, MilestoneRecord> {
   private _name: MilestoneName;
   private _targetDate: LocalDate;
 
-  private constructor(
-    id: MilestoneId,
-    name: MilestoneName,
-    targetDate: LocalDate
-  ) {
+  private constructor(id: MilestoneId, name: MilestoneName, targetDate: LocalDate) {
     super(id);
     this._name = name;
     this._targetDate = targetDate;
   }
 
-  static create(params: {
-    id: MilestoneId;
-    name: MilestoneName;
-    targetDate: LocalDate;
-  }): Milestone {
+  static create(params: { id: MilestoneId; name: MilestoneName; targetDate: LocalDate }): Milestone {
     Assert.that(params.name, 'Milestone name').isDefined();
     return new Milestone(params.id, params.name, params.targetDate);
   }

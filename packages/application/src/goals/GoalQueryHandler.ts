@@ -7,10 +7,7 @@ export type GoalQuery = ListGoalsQuery | GetGoalByIdQuery | SearchGoalsQuery;
 
 export type GoalQueryResult = GoalListItemDto[] | GoalListItemDto | null;
 
-export class GoalQueryHandler implements IQueryHandler<
-  GoalQuery,
-  GoalQueryResult
-> {
+export class GoalQueryHandler implements IQueryHandler<GoalQuery, GoalQueryResult> {
   constructor(private readonly readModel: GoalReadModelPort) {}
 
   execute(query: GoalQuery): Promise<GoalQueryResult> {

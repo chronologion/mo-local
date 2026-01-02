@@ -29,9 +29,7 @@ describe('Onboarding', () => {
       target: { value: 'short' },
     });
     fireEvent.click(screen.getByRole('button', { name: /finish onboarding/i }));
-    expect(
-      screen.getByText('Password must be at least 8 characters')
-    ).not.toBeNull();
+    expect(screen.getByText('Password must be at least 8 characters')).not.toBeNull();
 
     fireEvent.change(screen.getByPlaceholderText('Create a passphrase'), {
       target: { value: 'longpassword' },
@@ -87,22 +85,14 @@ describe('Onboarding', () => {
     const baseFile = new File(['backup'], 'keys.backup', {
       type: 'application/json',
     });
-    const file: File & { text: () => Promise<string> } = Object.assign(
-      baseFile,
-      { text: async () => 'backup' }
-    );
-    const input = document.querySelectorAll('input[type="file"]')[0] as
-      | HTMLInputElement
-      | undefined;
+    const file: File & { text: () => Promise<string> } = Object.assign(baseFile, { text: async () => 'backup' });
+    const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement | undefined;
     expect(input).not.toBeNull();
     if (!input) return;
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.change(
-      screen.getByPlaceholderText('Passphrase used for backup'),
-      {
-        target: { value: 'secretpass' },
-      }
-    );
+    fireEvent.change(screen.getByPlaceholderText('Passphrase used for backup'), {
+      target: { value: 'secretpass' },
+    });
     await waitFor(() => {
       expect(screen.getByText(/Selected:/)).not.toBeNull();
     });
@@ -131,22 +121,14 @@ describe('Onboarding', () => {
     const baseFile = new File(['backup'], 'keys.backup', {
       type: 'application/json',
     });
-    const file: File & { text: () => Promise<string> } = Object.assign(
-      baseFile,
-      { text: async () => 'backup' }
-    );
+    const file: File & { text: () => Promise<string> } = Object.assign(baseFile, { text: async () => 'backup' });
 
-    const baseDbFile = new File(
-      [new Uint8Array([9, 8, 7])],
-      'mo-eventstore-019b0000-0000-7000-8000-000000000000.db',
-      {
-        type: 'application/x-sqlite3',
-      }
-    );
-    const dbFile: File & { arrayBuffer: () => Promise<ArrayBuffer> } =
-      Object.assign(baseDbFile, {
-        arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
-      });
+    const baseDbFile = new File([new Uint8Array([9, 8, 7])], 'mo-eventstore-019b0000-0000-7000-8000-000000000000.db', {
+      type: 'application/x-sqlite3',
+    });
+    const dbFile: File & { arrayBuffer: () => Promise<ArrayBuffer> } = Object.assign(baseDbFile, {
+      arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
+    });
 
     const inputs = document.querySelectorAll('input[type="file"]');
     const backupInput = inputs[0] as HTMLInputElement | undefined;
@@ -157,12 +139,9 @@ describe('Onboarding', () => {
 
     fireEvent.change(backupInput, { target: { files: [file] } });
     fireEvent.change(dbInput, { target: { files: [dbFile] } });
-    fireEvent.change(
-      screen.getByPlaceholderText('Passphrase used for backup'),
-      {
-        target: { value: 'secretpass' },
-      }
-    );
+    fireEvent.change(screen.getByPlaceholderText('Passphrase used for backup'), {
+      target: { value: 'secretpass' },
+    });
 
     await waitFor(() => {
       const button = screen.getByRole('button', { name: /restore backup/i });

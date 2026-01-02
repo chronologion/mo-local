@@ -78,11 +78,7 @@ const hasRemoveCapacity = (vfs: VfsWithClose): vfs is VfsWithRemoveCapacity => {
   return typeof candidate === 'function';
 };
 
-const withInitStage = async <T>(
-  stage: SqliteInitStage,
-  label: string,
-  fn: () => Promise<T>
-): Promise<T> => {
+const withInitStage = async <T>(stage: SqliteInitStage, label: string, fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } catch (cause) {
@@ -90,28 +86,16 @@ const withInitStage = async <T>(
   }
 };
 
-export async function createSqliteContext(options: {
-  storeId: string;
-  dbName: string;
-}): Promise<SqliteContext> {
-  const { url: resolvedWasmUrl, bytes: wasmBinary } = await withInitStage(
-    SqliteInitStages.loadWasm,
-    'wasm',
-    async () =>
-      loadWasmBinary([
-        wasmUrl,
-        new URL('wa-sqlite.wasm', import.meta.url).toString(),
-      ])
+export async function createSqliteContext(options: { storeId: string; dbName: string }): Promise<SqliteContext> {
+  const { url: resolvedWasmUrl, bytes: wasmBinary } = await withInitStage(SqliteInitStages.loadWasm, 'wasm', async () =>
+    loadWasmBinary([wasmUrl, new URL('wa-sqlite.wasm', import.meta.url).toString()])
   );
 
-  const module = await withInitStage(
-    SqliteInitStages.initModule,
-    'SQLiteESMFactory',
-    async () =>
-      SQLiteESMFactory({
-        locateFile: () => resolvedWasmUrl,
-        wasmBinary,
-      })
+  const module = await withInitStage(SqliteInitStages.initModule, 'SQLiteESMFactory', async () =>
+    SQLiteESMFactory({
+      locateFile: () => resolvedWasmUrl,
+      wasmBinary,
+    })
   );
 
   const sqlite3 = SQLite.Factory(module);
@@ -123,11 +107,7 @@ export async function createSqliteContext(options: {
   );
 
   if (vfs.isReady) {
-    await withInitStage(
-      SqliteInitStages.awaitVfsReady,
-      'await VFS ready',
-      async () => vfs.isReady
-    );
+    await withInitStage(SqliteInitStages.awaitVfsReady, 'await VFS ready', async () => vfs.isReady);
   }
 
   // IMPORTANT: AccessHandlePoolVFS persists pooled files in OPFS.
@@ -138,14 +118,9 @@ export async function createSqliteContext(options: {
     const targetCapacity = 12;
     if (hasGetCapacity(vfs)) {
       const currentCapacity = vfs.getCapacity();
-      if (
-        Number.isFinite(currentCapacity) &&
-        currentCapacity < targetCapacity
-      ) {
-        await withInitStage(
-          SqliteInitStages.addVfsCapacity,
-          'ensure VFS capacity',
-          async () => vfs.addCapacity(targetCapacity - currentCapacity)
+      if (Number.isFinite(currentCapacity) && currentCapacity < targetCapacity) {
+        await withInitStage(SqliteInitStages.addVfsCapacity, 'ensure VFS capacity', async () =>
+          vfs.addCapacity(targetCapacity - currentCapacity)
         );
       }
       if (hasRemoveCapacity(vfs) && currentCapacity > targetCapacity * 4) {
@@ -157,30 +132,19 @@ export async function createSqliteContext(options: {
         }
       }
     } else {
-      await withInitStage(
-        SqliteInitStages.addVfsCapacity,
-        'add VFS capacity',
-        async () => vfs.addCapacity(targetCapacity)
+      await withInitStage(SqliteInitStages.addVfsCapacity, 'add VFS capacity', async () =>
+        vfs.addCapacity(targetCapacity)
       );
     }
   }
 
-  await withInitStage(
-    SqliteInitStages.vfsRegister,
-    'vfs_register',
-    async () => {
-      sqlite3.vfs_register(vfs, true);
-    }
-  );
+  await withInitStage(SqliteInitStages.vfsRegister, 'vfs_register', async () => {
+    sqlite3.vfs_register(vfs, true);
+  });
 
-  const dbPath = options.dbName.startsWith('/')
-    ? options.dbName
-    : `/${options.dbName}`;
+  const dbPath = options.dbName.startsWith('/') ? options.dbName : `/${options.dbName}`;
   const db = await withInitStage(SqliteInitStages.openDb, 'open_v2', async () =>
-    sqlite3.open_v2(
-      dbPath,
-      SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE
-    )
+    sqlite3.open_v2(dbPath, SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE)
   );
 
   await withInitStage(SqliteInitStages.applyPragmas, 'PRAGMAs', async () => {
@@ -190,27 +154,20 @@ export async function createSqliteContext(options: {
   const ctx: SqliteContext = {
     sqlite3,
     db,
-    vfsName:
-      typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed,
+    vfsName: typeof vfs.name === 'string' && vfs.name.length > 0 ? vfs.name : vfsSeed,
     vfs,
   };
-  await withInitStage(SqliteInitStages.applySchema, 'applySchema', async () =>
-    applySchema(ctx)
-  );
+  await withInitStage(SqliteInitStages.applySchema, 'applySchema', async () => applySchema(ctx));
   return ctx;
 }
 
-async function loadWasmBinary(
-  candidates: ReadonlyArray<string>
-): Promise<{ url: string; bytes: Uint8Array }> {
+async function loadWasmBinary(candidates: ReadonlyArray<string>): Promise<{ url: string; bytes: Uint8Array }> {
   let lastError: unknown = null;
   for (const url of candidates) {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        lastError = new Error(
-          `Failed to load wa-sqlite wasm: ${response.status}`
-        );
+        lastError = new Error(`Failed to load wa-sqlite wasm: ${response.status}`);
         continue;
       }
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -227,14 +184,10 @@ export async function closeSqliteContext(ctx: SqliteContext): Promise<void> {
   await ctx.vfs.close?.();
 }
 
-export function exportVfsFileBytes(
-  ctx: SqliteContext,
-  path: string
-): Uint8Array {
+export function exportVfsFileBytes(ctx: SqliteContext, path: string): Uint8Array {
   const dbPath = path.startsWith('/') ? path : `/${path}`;
 
-  const fileId =
-    Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
+  const fileId = Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
   const outFlags = new DataView(new ArrayBuffer(4));
   const rcOpen = ctx.vfs.xOpen(
     dbPath,
@@ -274,22 +227,15 @@ export function exportVfsFileBytes(
   }
 }
 
-export function importVfsFileBytes(
-  ctx: SqliteContext,
-  path: string,
-  bytes: Uint8Array
-): void {
+export function importVfsFileBytes(ctx: SqliteContext, path: string, bytes: Uint8Array): void {
   const dbPath = path.startsWith('/') ? path : `/${path}`;
 
-  const fileId =
-    Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
+  const fileId = Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 10_000) - 1;
   const outFlags = new DataView(new ArrayBuffer(4));
   const rcOpen = ctx.vfs.xOpen(
     dbPath,
     fileId,
-    SQLiteConstants.SQLITE_OPEN_MAIN_DB |
-      SQLiteConstants.SQLITE_OPEN_READWRITE |
-      SQLiteConstants.SQLITE_OPEN_CREATE,
+    SQLiteConstants.SQLITE_OPEN_MAIN_DB | SQLiteConstants.SQLITE_OPEN_READWRITE | SQLiteConstants.SQLITE_OPEN_CREATE,
     outFlags
   );
   if (rcOpen !== SQLITE_OK) {
@@ -372,20 +318,10 @@ export async function executeStatements(
   try {
     for (const statement of statements) {
       if (statement.kind === 'execute') {
-        await runExecute(
-          sqlite3,
-          ctx.db,
-          statement.sql,
-          statement.params ?? []
-        );
+        await runExecute(sqlite3, ctx.db, statement.sql, statement.params ?? []);
         results.push({ kind: 'execute' });
       } else {
-        const rows = await runQuery(
-          sqlite3,
-          ctx.db,
-          statement.sql,
-          statement.params ?? []
-        );
+        const rows = await runQuery(sqlite3, ctx.db, statement.sql, statement.params ?? []);
         results.push({ kind: 'query', rows });
       }
     }
@@ -487,9 +423,7 @@ export function normalizeSqliteValue(value: unknown): SqliteValue {
 
 export function toPlatformError(error: unknown): PlatformError {
   const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: unknown }).code)
-      : null;
+    error && typeof error === 'object' && 'code' in error ? String((error as { code?: unknown }).code) : null;
   if (code) {
     if (code.includes('CONSTRAINT')) {
       return {
@@ -519,21 +453,15 @@ export function toPlatformError(error: unknown): PlatformError {
 export function extractTableNames(sql: string): ReadonlyArray<string> {
   const normalized = sql.trim().replace(/\s+/g, ' ').toUpperCase();
   const matches: string[] = [];
-  const insertMatch = /INSERT(?:\s+OR\s+[A-Z_]+)?\s+INTO\s+([A-Z0-9_]+)/.exec(
-    normalized
-  );
+  const insertMatch = /INSERT(?:\s+OR\s+[A-Z_]+)?\s+INTO\s+([A-Z0-9_]+)/.exec(normalized);
   if (insertMatch) matches.push(insertMatch[1]);
   const updateMatch = /UPDATE\s+([A-Z0-9_]+)/.exec(normalized);
   if (updateMatch) matches.push(updateMatch[1]);
   const deleteMatch = /DELETE\s+FROM\s+([A-Z0-9_]+)/.exec(normalized);
   if (deleteMatch) matches.push(deleteMatch[1]);
-  const createMatch = /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([A-Z0-9_]+)/.exec(
-    normalized
-  );
+  const createMatch = /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([A-Z0-9_]+)/.exec(normalized);
   if (createMatch) matches.push(createMatch[1]);
-  const dropMatch = /DROP\s+TABLE\s+IF\s+EXISTS\s+([A-Z0-9_]+)/.exec(
-    normalized
-  );
+  const dropMatch = /DROP\s+TABLE\s+IF\s+EXISTS\s+([A-Z0-9_]+)/.exec(normalized);
   if (dropMatch) matches.push(dropMatch[1]);
   return Array.from(new Set(matches));
 }

@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  Goal,
-  GoalId,
-  Month,
-  Priority,
-  Slice,
-  Summary,
-  UserId,
-  Timestamp,
-} from '@mo/domain';
+import { Goal, GoalId, Month, Priority, Slice, Summary, UserId, Timestamp } from '@mo/domain';
 import { InMemoryGoalRepository } from '../../fixtures/ports/InMemoryGoalRepository';
 import { InMemoryEventBus } from '../../fixtures/ports/InMemoryEventBus';
 import { MockCryptoService } from '../../fixtures/ports/MockCryptoService';

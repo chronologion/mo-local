@@ -8,9 +8,7 @@ export async function up(db: Kysely<AccessDatabase>): Promise<void> {
     .createTable('access.identities')
     .addColumn('id', 'uuid', (col) => col.primaryKey())
     .addColumn('public_key', 'bytea')
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   await db.schema
@@ -20,17 +18,11 @@ export async function up(db: Kysely<AccessDatabase>): Promise<void> {
     .addColumn('token', 'varchar', (col) => col.notNull().unique())
     .addColumn('permission', 'varchar', (col) => col.notNull())
     .addColumn('wrapped_key', 'bytea', (col) => col.notNull())
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('expires_at', 'timestamptz')
     .execute();
 
-  await db.schema
-    .createIndex('access_invites_aggregate_idx')
-    .on('access.invites')
-    .column('aggregate_id')
-    .execute();
+  await db.schema.createIndex('access_invites_aggregate_idx').on('access.invites').column('aggregate_id').execute();
 }
 
 export async function down(db: Kysely<AccessDatabase>): Promise<void> {

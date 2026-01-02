@@ -1,8 +1,4 @@
-import type {
-  CommitCursor,
-  EffectiveCursor,
-  ProjectionOrdering,
-} from '@mo/eventstore-core';
+import type { CommitCursor, EffectiveCursor, ProjectionOrdering } from '@mo/eventstore-core';
 
 export type ProjectionId = string;
 export type ScopeKey = string;
@@ -14,8 +10,7 @@ export const ProjectionPhases = {
   failed: 'failed',
 } as const;
 
-export type ProjectionPhase =
-  (typeof ProjectionPhases)[keyof typeof ProjectionPhases];
+export type ProjectionPhase = (typeof ProjectionPhases)[keyof typeof ProjectionPhases];
 
 export type ProjectionStatus = Readonly<{
   projectionId: ProjectionId;
@@ -50,9 +45,7 @@ export interface IndexingPort {
   /** Ensure the index exists (build incrementally if missing/outdated). */
   ensureBuilt(indexId: string): Promise<void>;
   /** Debug/status only. */
-  status(
-    indexId: string
-  ): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>>;
+  status(indexId: string): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>>;
 }
 
 export const IndexBuildPhases = {
@@ -62,8 +55,7 @@ export const IndexBuildPhases = {
   failed: 'failed',
 } as const;
 
-export type IndexBuildPhase =
-  (typeof IndexBuildPhases)[keyof typeof IndexBuildPhases];
+export type IndexBuildPhase = (typeof IndexBuildPhases)[keyof typeof IndexBuildPhases];
 
 export interface ProjectionProcessorPort {
   readonly ordering: ProjectionOrdering;

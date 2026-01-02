@@ -31,8 +31,6 @@ describe('parseBackupEnvelope', () => {
       salt: 'AA==',
     });
 
-    expect(() => parseBackupEnvelope(maliciousBackup)).toThrow(
-      /Backup salt must decode to between 16 and 64 bytes/
-    );
+    expect(() => parseBackupEnvelope(maliciousBackup)).toThrow(/Backup salt must decode to between 16 and 64 bytes/);
   });
 });

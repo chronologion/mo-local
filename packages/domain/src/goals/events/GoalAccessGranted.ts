@@ -13,10 +13,7 @@ export interface GoalAccessGrantedPayload {
   grantedAt: Timestamp;
 }
 
-export class GoalAccessGranted
-  extends DomainEvent<GoalId>
-  implements GoalAccessGrantedPayload
-{
+export class GoalAccessGranted extends DomainEvent<GoalId> implements GoalAccessGrantedPayload {
   readonly eventType = goalEventTypes.goalAccessGranted;
 
   readonly goalId: GoalId;
@@ -34,11 +31,7 @@ export class GoalAccessGranted
   }
 }
 
-export const GoalAccessGrantedSpec = payloadEventSpec<
-  GoalAccessGranted,
-  GoalAccessGrantedPayload,
-  GoalId
->(
+export const GoalAccessGrantedSpec = payloadEventSpec<GoalAccessGranted, GoalAccessGrantedPayload, GoalId>(
   goalEventTypes.goalAccessGranted,
   (p, meta) => new GoalAccessGranted(p, meta),
   {

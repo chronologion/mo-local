@@ -11,10 +11,7 @@ export interface GoalPrioritizedPayload {
   changedAt: Timestamp;
 }
 
-export class GoalPrioritized
-  extends DomainEvent<GoalId>
-  implements GoalPrioritizedPayload
-{
+export class GoalPrioritized extends DomainEvent<GoalId> implements GoalPrioritizedPayload {
   readonly eventType = goalEventTypes.goalPrioritized;
 
   readonly goalId: GoalId;
@@ -30,12 +27,12 @@ export class GoalPrioritized
   }
 }
 
-export const GoalPrioritizedSpec = payloadEventSpec<
-  GoalPrioritized,
-  GoalPrioritizedPayload,
-  GoalId
->(goalEventTypes.goalPrioritized, (p, meta) => new GoalPrioritized(p, meta), {
-  goalId: voString(GoalId.from),
-  priority: voString(Priority.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalPrioritizedSpec = payloadEventSpec<GoalPrioritized, GoalPrioritizedPayload, GoalId>(
+  goalEventTypes.goalPrioritized,
+  (p, meta) => new GoalPrioritized(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    priority: voString(Priority.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

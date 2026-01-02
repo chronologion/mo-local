@@ -1,15 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import type {
-  CloudIdentitySession,
-  CloudAccessClientPort,
-} from '@mo/application';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { CloudIdentitySession, CloudAccessClientPort } from '@mo/application';
 import { HttpCloudAccessClient } from '@mo/infrastructure/cloud';
 
 type RemoteAuthState =
@@ -31,10 +21,7 @@ type RemoteAuthContextValue = {
   clearError: () => void;
 };
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_URL ??
-  import.meta.env.VITE_API_BASE_URL ??
-  'http://localhost:4000';
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
 const RemoteAuthContext = createContext<RemoteAuthContextValue | null>(null);
 
@@ -43,10 +30,7 @@ export type RemoteAuthProviderProps = {
   client?: CloudAccessClientPort;
 };
 
-export const RemoteAuthProvider = ({
-  children,
-  client: injectedClient,
-}: RemoteAuthProviderProps) => {
+export const RemoteAuthProvider = ({ children, client: injectedClient }: RemoteAuthProviderProps) => {
   const [state, setState] = useState<RemoteAuthState>({
     status: 'disconnected',
   });
@@ -72,8 +56,7 @@ export const RemoteAuthProvider = ({
         setState({ status: 'disconnected' });
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Session is no longer valid';
+      const message = err instanceof Error ? err.message : 'Session is no longer valid';
       setError(message);
       setState({ status: 'disconnected' });
     }
@@ -98,8 +81,7 @@ export const RemoteAuthProvider = ({
           email: session.email,
         });
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Unable to sign up right now';
+        const message = err instanceof Error ? err.message : 'Unable to sign up right now';
         setError(message);
         setState({ status: 'disconnected' });
         throw err;
@@ -123,8 +105,7 @@ export const RemoteAuthProvider = ({
           email: session.email,
         });
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Login failed, try again';
+        const message = err instanceof Error ? err.message : 'Login failed, try again';
         setError(message);
         setState({ status: 'disconnected' });
         throw err;
@@ -138,8 +119,7 @@ export const RemoteAuthProvider = ({
     try {
       await client.logout();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Unable to log out right now';
+      const message = err instanceof Error ? err.message : 'Unable to log out right now';
       setError(message);
     } finally {
       setState({ status: 'disconnected' });

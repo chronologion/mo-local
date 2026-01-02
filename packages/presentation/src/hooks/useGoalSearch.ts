@@ -20,9 +20,7 @@ export const useGoalSearch = (term: string, filter?: Filters) => {
       setLoading(true);
       setError(null);
       try {
-        const list = await services.goalQueryBus.dispatch(
-          new SearchGoalsQuery(term, filter)
-        );
+        const list = await services.goalQueryBus.dispatch(new SearchGoalsQuery(term, filter));
         if (cancelled) return;
         if (!Array.isArray(list)) {
           throw new Error('Invalid search result');

@@ -32,9 +32,8 @@ export type SupportedProjectEvent =
 
 const projectEventNames = new Set(Object.values(projectEventTypes) as string[]);
 
-export const isProjectEvent = (
-  event: DomainEvent
-): event is SupportedProjectEvent => projectEventNames.has(event.eventType);
+export const isProjectEvent = (event: DomainEvent): event is SupportedProjectEvent =>
+  projectEventNames.has(event.eventType);
 
 export type ProjectMilestoneState = {
   id: string;
@@ -172,9 +171,7 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.milestoneId.value
-            ? { ...m, targetDate: event.targetDate.value }
-            : m
+          m.id === event.milestoneId.value ? { ...m, targetDate: event.targetDate.value } : m
         ),
         updatedAt: event.changedAt.value,
         version,
@@ -185,9 +182,7 @@ export const applyProjectEventToSnapshot = (
       return {
         ...snapshot,
         milestones: snapshot.milestones.map((m) =>
-          m.id === event.milestoneId.value
-            ? { ...m, name: event.name.value }
-            : m
+          m.id === event.milestoneId.value ? { ...m, name: event.name.value } : m
         ),
         updatedAt: event.changedAt.value,
         version,
@@ -197,9 +192,7 @@ export const applyProjectEventToSnapshot = (
       if (!snapshot) return null;
       return {
         ...snapshot,
-        milestones: snapshot.milestones.filter(
-          (m) => m.id !== event.milestoneId.value
-        ),
+        milestones: snapshot.milestones.filter((m) => m.id !== event.milestoneId.value),
         updatedAt: event.archivedAt.value,
         version,
       };
@@ -218,9 +211,7 @@ export const applyProjectEventToSnapshot = (
   }
 };
 
-export const projectSnapshotToListItem = (
-  snapshot: ProjectSnapshotState
-): ProjectListItem => ({
+export const projectSnapshotToListItem = (snapshot: ProjectSnapshotState): ProjectListItem => ({
   id: snapshot.id,
   name: snapshot.name,
   status: snapshot.status,

@@ -100,10 +100,7 @@ export class Goal extends AggregateRoot<GoalId> {
    * Reconstitute a Goal from a persisted snapshot plus tail events.
    * Snapshot version is treated as authoritative; tail events advance it.
    */
-  static reconstituteFromSnapshot(
-    snapshot: GoalSnapshot,
-    tailEvents: readonly DomainEvent[]
-  ): Goal {
+  static reconstituteFromSnapshot(snapshot: GoalSnapshot, tailEvents: readonly DomainEvent[]): Goal {
     const goal = new Goal(snapshot.id);
     goal.hydrateFromSnapshot(snapshot);
     goal.loadFromHistory(tailEvents as DomainEvent[]);
@@ -207,16 +204,9 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or summary is unchanged
    */
-  changeSummary(params: {
-    summary: Summary;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeSummary(params: { summary: Summary; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.summary.equals(this.summary),
-      'Summary unchanged'
-    ).isFalse();
+    Assert.that(params.summary.equals(this.summary), 'Summary unchanged').isFalse();
 
     this.apply(
       new GoalRefined(
@@ -240,11 +230,7 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or slice is unchanged
    */
-  changeSlice(params: {
-    slice: Slice;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeSlice(params: { slice: Slice; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     Assert.that(params.slice.equals(this.slice), 'Slice unchanged').isFalse();
 
@@ -270,16 +256,9 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or month is unchanged
    */
-  changeTargetMonth(params: {
-    targetMonth: Month;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeTargetMonth(params: { targetMonth: Month; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.targetMonth.equals(this.targetMonth),
-      'Target month unchanged'
-    ).isFalse();
+    Assert.that(params.targetMonth.equals(this.targetMonth), 'Target month unchanged').isFalse();
 
     this.apply(
       new GoalRescheduled(
@@ -303,16 +282,9 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or priority is unchanged
    */
-  changePriority(params: {
-    priority: Priority;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changePriority(params: { priority: Priority; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.priority.equals(this.priority),
-      'Priority unchanged'
-    ).isFalse();
+    Assert.that(params.priority.equals(this.priority), 'Priority unchanged').isFalse();
 
     this.apply(
       new GoalPrioritized(
@@ -424,17 +396,10 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user already has access
    */
-  grantAccess(params: {
-    userId: UserId;
-    permission: Permission;
-    grantedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  grantAccess(params: { userId: UserId; permission: Permission; grantedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
 
-    const existing = this._accessList.find(
-      (entry) => entry.userId.equals(params.userId) && entry.isActive
-    );
+    const existing = this._accessList.find((entry) => entry.userId.equals(params.userId) && entry.isActive);
     Assert.that(existing, 'User already has access').satisfies(
       (e) => e === undefined,
       'User already has access to this goal'
@@ -463,16 +428,10 @@ export class Goal extends AggregateRoot<GoalId> {
    *
    * @throws {Error} if goal is archived or user doesn't have active access
    */
-  revokeAccess(params: {
-    userId: UserId;
-    revokedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  revokeAccess(params: { userId: UserId; revokedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
 
-    const existing = this._accessList.find(
-      (entry) => entry.userId.equals(params.userId) && entry.isActive
-    );
+    const existing = this._accessList.find((entry) => entry.userId.equals(params.userId) && entry.isActive);
     Assert.that(existing, 'Access entry').isDefined();
 
     this.apply(
@@ -554,9 +513,7 @@ export class Goal extends AggregateRoot<GoalId> {
   }
 
   protected onGoalAccessRevoked(event: GoalAccessRevoked): void {
-    const entry = this._accessList.find(
-      (e) => e.userId.equals(event.revokedFrom) && e.isActive
-    );
+    const entry = this._accessList.find((e) => e.userId.equals(event.revokedFrom) && e.isActive);
     if (entry) {
       entry.revoke(event.revokedAt);
     }

@@ -1,10 +1,5 @@
 import 'reflect-metadata';
-import {
-  INestApplication,
-  ValidationPipe,
-  CanActivate,
-  ExecutionContext,
-} from '@nestjs/common';
+import { INestApplication, ValidationPipe, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { SyncController } from '../../src/sync/presentation/sync.controller';
@@ -28,13 +23,8 @@ class InMemorySyncEventRepository extends SyncEventRepository {
   private events: SyncEvent[] = [];
   private heads = new Map<string, number>();
 
-  async getHeadSequence(
-    ownerId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<GlobalSequenceNumber> {
-    return GlobalSequenceNumber.from(
-      this.heads.get(`${ownerId.unwrap()}::${storeId.unwrap()}`) ?? 0
-    );
+  async getHeadSequence(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<GlobalSequenceNumber> {
+    return GlobalSequenceNumber.from(this.heads.get(`${ownerId.unwrap()}::${storeId.unwrap()}`) ?? 0);
   }
 
   async appendBatch(params: {
@@ -78,9 +68,7 @@ class InMemorySyncEventRepository extends SyncEventRepository {
         globalSequence: stored.globalSequence,
       };
     });
-    this.events.sort(
-      (a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap()
-    );
+    this.events.sort((a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap());
     this.heads.set(key, currentHead);
     return { head: GlobalSequenceNumber.from(currentHead), assigned };
   }
@@ -106,10 +94,7 @@ class InMemorySyncEventRepository extends SyncEventRepository {
 class InMemorySyncStoreRepository extends SyncStoreRepository {
   private owners = new Map<string, string>();
 
-  async ensureStoreOwner(
-    storeId: SyncStoreId,
-    ownerId: SyncOwnerId
-  ): Promise<void> {
+  async ensureStoreOwner(storeId: SyncStoreId, ownerId: SyncOwnerId): Promise<void> {
     const storeIdValue = storeId.unwrap();
     const ownerValue = ownerId.unwrap();
     const existing = this.owners.get(storeIdValue);
@@ -155,11 +140,8 @@ describe('SyncController (integration, in-memory repos)', () => {
         { provide: SyncAccessPolicy, useClass: AllowAllAccessPolicy },
         {
           provide: SyncService,
-          useFactory: (
-            repo: SyncEventRepository,
-            storeRepo: SyncStoreRepository,
-            accessPolicy: SyncAccessPolicy
-          ) => new SyncService(repo, storeRepo, accessPolicy),
+          useFactory: (repo: SyncEventRepository, storeRepo: SyncStoreRepository, accessPolicy: SyncAccessPolicy) =>
+            new SyncService(repo, storeRepo, accessPolicy),
           inject: [SyncEventRepository, SyncStoreRepository, SyncAccessPolicy],
         },
       ],
@@ -207,9 +189,7 @@ describe('SyncController (integration, in-memory repos)', () => {
     expect(conflict.body.ok).toBe(false);
     expect(conflict.body.reason).toBe('server_ahead');
     expect(conflict.body.head).toBe(1);
-    expect(conflict.body.missing).toEqual([
-      expect.objectContaining({ eventId: 'e1', globalSequence: 1 }),
-    ]);
+    expect(conflict.body.missing).toEqual([expect.objectContaining({ eventId: 'e1', globalSequence: 1 })]);
 
     const pull = await request(app.getHttpServer())
       .get('/sync/pull')
@@ -217,9 +197,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .query({ storeId: TEST_STORE_ID_V7, since: 0, limit: 10 })
       .expect(200);
 
-    expect(pull.body.events).toEqual([
-      expect.objectContaining({ eventId: 'e1', globalSequence: 1 }),
-    ]);
+    expect(pull.body.events).toEqual([expect.objectContaining({ eventId: 'e1', globalSequence: 1 })]);
     expect(pull.body.head).toBe(1);
   });
 });

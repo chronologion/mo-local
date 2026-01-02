@@ -18,11 +18,9 @@ export type LocalEventRow = Readonly<{
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 
-const isNullableString = (value: unknown): value is string | null =>
-  value === null || typeof value === 'string';
+const isNullableString = (value: unknown): value is string | null => value === null || typeof value === 'string';
 
-const isNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
+const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 const isNullableNumber = (value: unknown): value is number | null =>
   value === null || (typeof value === 'number' && Number.isFinite(value));
@@ -39,8 +37,7 @@ export const toSyncRecord = (row: LocalEventRow): SyncEventRecord => ({
   causationId: row.causation_id ?? null,
   correlationId: row.correlation_id ?? null,
   epoch: row.epoch ?? null,
-  keyringUpdate:
-    row.keyring_update === null ? null : encodeBase64Url(row.keyring_update),
+  keyringUpdate: row.keyring_update === null ? null : encodeBase64Url(row.keyring_update),
 });
 
 export const toRecordJson = (record: SyncEventRecord): string =>
@@ -91,10 +88,7 @@ export const parseRecordJson = (recordJson: string): SyncEventRecord => {
   return parsed;
 };
 
-export const decodeRecordPayload = (record: SyncEventRecord): Uint8Array =>
-  decodeBase64Url(record.payload);
+export const decodeRecordPayload = (record: SyncEventRecord): Uint8Array => decodeBase64Url(record.payload);
 
-export const decodeRecordKeyringUpdate = (
-  record: SyncEventRecord
-): Uint8Array | null =>
+export const decodeRecordKeyringUpdate = (record: SyncEventRecord): Uint8Array | null =>
   record.keyringUpdate === null ? null : decodeBase64Url(record.keyringUpdate);

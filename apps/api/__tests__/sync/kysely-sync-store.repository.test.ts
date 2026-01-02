@@ -20,10 +20,7 @@ class FakeCountQuery {
   ) {}
 
   where(column: string, _op: '=', value: string): FakeCountQuery {
-    return new FakeCountQuery(this.rows, [
-      ...this.whereClauses,
-      { column, value },
-    ]);
+    return new FakeCountQuery(this.rows, [...this.whereClauses, { column, value }]);
   }
 
   executeTakeFirst(): { count: number } {
@@ -95,12 +92,7 @@ const makeSelectBuilder = <T extends StoreRow | EventRow>(
   whereClauses: WhereClause[] = [],
   mode: 'rows' | 'count' = 'rows'
 ) => ({
-  select: (arg: unknown) =>
-    makeSelectBuilder(
-      rows,
-      whereClauses,
-      typeof arg === 'function' ? 'count' : mode
-    ),
+  select: (arg: unknown) => makeSelectBuilder(rows, whereClauses, typeof arg === 'function' ? 'count' : mode),
   where: (column: string, _op: '=', value: string) =>
     makeSelectBuilder(rows, [...whereClauses, { column, value }], mode),
   execute: () => {
@@ -139,9 +131,7 @@ const makeDbService = (db: FakeDb): SyncDatabaseService =>
         execute: (fn: (trx: FakeTrx) => Promise<void>) =>
           fn({
             selectFrom: (table: 'sync.stores' | 'sync.events') =>
-              table === 'sync.stores'
-                ? makeSelectBuilder(db.stores)
-                : makeSelectBuilder(db.events),
+              table === 'sync.stores' ? makeSelectBuilder(db.stores) : makeSelectBuilder(db.events),
             insertInto: (_table: 'sync.stores') => ({
               values: (row: StoreRow) => new FakeInsert(db.stores, row),
             }),
@@ -155,8 +145,7 @@ const makeDbService = (db: FakeDb): SyncDatabaseService =>
         }
         return {
           select: (_: unknown) => ({
-            where: (column: string, _op: '=', value: string) =>
-              new FakeCountQuery(db.events, [{ column, value }]),
+            where: (column: string, _op: '=', value: string) => new FakeCountQuery(db.events, [{ column, value }]),
           }),
         };
       },
@@ -164,9 +153,7 @@ const makeDbService = (db: FakeDb): SyncDatabaseService =>
         values: (row: StoreRow) => ({
           onConflict: () => ({
             execute: () => {
-              const existing = db.stores.find(
-                (store) => store.store_id === row.store_id
-              );
+              const existing = db.stores.find((store) => store.store_id === row.store_id);
               if (!existing) {
                 db.stores.push({ ...row });
               }
@@ -183,13 +170,8 @@ describe('KyselySyncStoreRepository', () => {
   it('inserts the first store for an owner', async () => {
     const db = new FakeDb();
     const repo = new KyselySyncStoreRepository(makeDbService(db));
-    await repo.ensureStoreOwner(
-      SyncStoreId.from('store-1'),
-      SyncOwnerId.from('owner-1')
-    );
-    expect(db.stores).toEqual([
-      { store_id: 'store-1', owner_identity_id: 'owner-1', head: 0 },
-    ]);
+    await repo.ensureStoreOwner(SyncStoreId.from('store-1'), SyncOwnerId.from('owner-1'));
+    expect(db.stores).toEqual([{ store_id: 'store-1', owner_identity_id: 'owner-1', head: 0 }]);
   });
 
   it('rejects if store owned by different identity', async () => {
@@ -201,24 +183,15 @@ describe('KyselySyncStoreRepository', () => {
     });
     const repo = new KyselySyncStoreRepository(makeDbService(db));
     await expect(
-      repo.ensureStoreOwner(
-        SyncStoreId.from('store-1'),
-        SyncOwnerId.from('owner-2')
-      )
+      repo.ensureStoreOwner(SyncStoreId.from('store-1'), SyncOwnerId.from('owner-2'))
     ).rejects.toBeInstanceOf(SyncAccessDeniedError);
   });
 
   it('allows multiple stores for a single owner', async () => {
     const db = new FakeDb();
     const repo = new KyselySyncStoreRepository(makeDbService(db));
-    await repo.ensureStoreOwner(
-      SyncStoreId.from('store-1'),
-      SyncOwnerId.from('owner-1')
-    );
-    await repo.ensureStoreOwner(
-      SyncStoreId.from('store-2'),
-      SyncOwnerId.from('owner-1')
-    );
+    await repo.ensureStoreOwner(SyncStoreId.from('store-1'), SyncOwnerId.from('owner-1'));
+    await repo.ensureStoreOwner(SyncStoreId.from('store-2'), SyncOwnerId.from('owner-1'));
     expect(db.stores).toEqual([
       { store_id: 'store-1', owner_identity_id: 'owner-1', head: 0 },
       { store_id: 'store-2', owner_identity_id: 'owner-1', head: 0 },

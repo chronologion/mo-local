@@ -7,9 +7,7 @@ export class DatabaseService<DB = unknown> implements OnModuleDestroy {
   private readonly db: Kysely<DB>;
 
   constructor() {
-    const connectionString =
-      process.env.DATABASE_URL ??
-      'postgres://postgres:devpassword@localhost:5434/mo_local';
+    const connectionString = process.env.DATABASE_URL ?? 'postgres://postgres:devpassword@localhost:5434/mo_local';
 
     if (!connectionString) {
       throw new Error('DATABASE_URL is required to start the API');

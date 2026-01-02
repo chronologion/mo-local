@@ -16,10 +16,7 @@ export abstract class BaseCommand<TPayload extends object> implements ICommand {
   readonly correlationId?: string | null;
   readonly causationId?: string | null;
 
-  protected constructor(
-    _payload: Partial<TPayload> = {},
-    meta?: CommandMetadata
-  ) {
+  protected constructor(_payload: Partial<TPayload> = {}, meta?: CommandMetadata) {
     // Subclasses assign payload fields explicitly to keep commands strict.
     if (!meta?.actorId) {
       throw new Error('Command requires actorId');

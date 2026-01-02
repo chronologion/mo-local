@@ -24,17 +24,11 @@ import {
   RevokeGoalAccess,
 } from './commands';
 import { GoalRepositoryPort } from './ports/GoalRepositoryPort';
-import {
-  CryptoServicePort,
-  IdempotencyStorePort,
-  KeyStorePort,
-} from '../shared/ports';
+import { CryptoServicePort, IdempotencyStorePort, KeyStorePort } from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
-export type GoalCommandResult =
-  | { goalId: string; encryptionKey: Uint8Array }
-  | { goalId: string };
+export type GoalCommandResult = { goalId: string; encryptionKey: Uint8Array } | { goalId: string };
 
 /**
  * Orchestrates domain + crypto + persistence for goal-related commands.
@@ -50,25 +44,19 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleCreate(command: CreateGoal): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      slice,
-      summary,
-      targetMonth,
-      priority,
-      actorId,
-      timestamp,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      slice: (c) => Slice.from(c.slice),
-      summary: (c) => Summary.from(c.summary),
-      targetMonth: (c) => Month.from(c.targetMonth),
-      priority: (c) => Priority.from(c.priority),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+    const { goalId, slice, summary, targetMonth, priority, actorId, timestamp, idempotencyKey } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        slice: (c) => Slice.from(c.slice),
+        summary: (c) => Summary.from(c.summary),
+        targetMonth: (c) => Month.from(c.targetMonth),
+        priority: (c) => Priority.from(c.priority),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      }
+    );
 
     const isDuplicate = await this.isDuplicateCommand({
       idempotencyKey,
@@ -118,17 +106,8 @@ export class GoalCommandHandler extends BaseCommandHandler {
     return { goalId: goal.id.value, encryptionKey: kGoal };
   }
 
-  async handleChangeSummary(
-    command: ChangeGoalSummary
-  ): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      summary,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangeSummary(command: ChangeGoalSummary): Promise<GoalCommandResult> {
+    const { goalId, summary, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       summary: (c) => Summary.from(c.summary),
       actorId: (c) => UserId.from(c.actorId),
@@ -161,18 +140,15 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeSlice(
-    command: ChangeGoalSlice
-  ): Promise<GoalCommandResult> {
-    const { goalId, slice, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        slice: (c) => Slice.from(c.slice),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
+  async handleChangeSlice(command: ChangeGoalSlice): Promise<GoalCommandResult> {
+    const { goalId, slice, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      slice: (c) => Slice.from(c.slice),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
     if (
       await this.isDuplicateCommand({
@@ -198,17 +174,8 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeTargetMonth(
-    command: ChangeGoalTargetMonth
-  ): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      targetMonth,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangeTargetMonth(command: ChangeGoalTargetMonth): Promise<GoalCommandResult> {
+    const { goalId, targetMonth, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       targetMonth: (c) => Month.from(c.targetMonth),
       actorId: (c) => UserId.from(c.actorId),
@@ -245,17 +212,8 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangePriority(
-    command: ChangeGoalPriority
-  ): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      priority,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangePriority(command: ChangeGoalPriority): Promise<GoalCommandResult> {
+    const { goalId, priority, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       priority: (c) => Priority.from(c.priority),
       actorId: (c) => UserId.from(c.actorId),
@@ -289,14 +247,13 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleArchive(command: ArchiveGoal): Promise<GoalCommandResult> {
-    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
     if (
       await this.isDuplicateCommand({
@@ -323,20 +280,15 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleAchieve(command: AchieveGoal): Promise<GoalCommandResult> {
-    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
-    const correlationId = command.correlationId
-      ? CorrelationId.from(command.correlationId)
-      : undefined;
-    const causationId = command.causationId
-      ? EventId.from(command.causationId)
-      : undefined;
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
+    const correlationId = command.correlationId ? CorrelationId.from(command.correlationId) : undefined;
+    const causationId = command.causationId ? EventId.from(command.causationId) : undefined;
 
     if (
       await this.isDuplicateCommand({
@@ -368,20 +320,15 @@ export class GoalCommandHandler extends BaseCommandHandler {
   }
 
   async handleUnachieve(command: UnachieveGoal): Promise<GoalCommandResult> {
-    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        goalId: (c) => GoalId.from(c.goalId),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
-    const correlationId = command.correlationId
-      ? CorrelationId.from(command.correlationId)
-      : undefined;
-    const causationId = command.causationId
-      ? EventId.from(command.causationId)
-      : undefined;
+    const { goalId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      goalId: (c) => GoalId.from(c.goalId),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
+    const correlationId = command.correlationId ? CorrelationId.from(command.correlationId) : undefined;
+    const causationId = command.causationId ? EventId.from(command.causationId) : undefined;
 
     if (
       await this.isDuplicateCommand({
@@ -412,26 +359,19 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleGrantAccess(
-    command: GrantGoalAccess
-  ): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      grantToUserId,
-      permission,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      goalId: (c) => GoalId.from(c.goalId),
-      grantToUserId: (c) => UserId.from(c.grantToUserId),
-      permission: (c) => Permission.from(c.permission),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+  async handleGrantAccess(command: GrantGoalAccess): Promise<GoalCommandResult> {
+    const { goalId, grantToUserId, permission, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(
+      command,
+      {
+        goalId: (c) => GoalId.from(c.goalId),
+        grantToUserId: (c) => UserId.from(c.grantToUserId),
+        permission: (c) => Permission.from(c.permission),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      }
+    );
 
     if (
       await this.isDuplicateCommand({
@@ -462,17 +402,8 @@ export class GoalCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleRevokeAccess(
-    command: RevokeGoalAccess
-  ): Promise<GoalCommandResult> {
-    const {
-      goalId,
-      revokeUserId,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleRevokeAccess(command: RevokeGoalAccess): Promise<GoalCommandResult> {
+    const { goalId, revokeUserId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       goalId: (c) => GoalId.from(c.goalId),
       revokeUserId: (c) => UserId.from(c.revokeUserId),
       actorId: (c) => UserId.from(c.actorId),

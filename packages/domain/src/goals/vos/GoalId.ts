@@ -2,8 +2,7 @@ import { Assert } from '../../shared/Assert';
 import { AggregateId } from '../../shared/vos/AggregateId';
 import { uuidv7 } from '../../utils/uuid';
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Value object representing a Goal's unique identifier.

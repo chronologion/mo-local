@@ -32,10 +32,7 @@ const onboard = async (page: Page, password: string): Promise<void> => {
   await unlockButton.waitFor({ state: 'hidden' }).catch(() => undefined);
 };
 
-const connectToCloudAsSignup = async (
-  page: Page,
-  creds: Credentials
-): Promise<void> => {
+const connectToCloudAsSignup = async (page: Page, creds: Credentials): Promise<void> => {
   await page.getByRole('button', { name: 'Connect to cloud' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('you@example.com').waitFor({ timeout: 25_000 });
@@ -45,10 +42,7 @@ const connectToCloudAsSignup = async (
   await page.getByText('Connected').waitFor({ timeout: 25_000 });
 };
 
-const connectToCloudAsLogin = async (
-  page: Page,
-  creds: Credentials
-): Promise<void> => {
+const connectToCloudAsLogin = async (page: Page, creds: Credentials): Promise<void> => {
   await page.getByRole('button', { name: 'Connect to cloud' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.waitFor({ timeout: 25_000 });
@@ -69,20 +63,14 @@ const createGoal = async (page: Page, summary: string): Promise<void> => {
   });
 };
 
-const createLinkedProject = async (
-  page: Page,
-  params: { name: string; goalSummary: string }
-): Promise<void> => {
+const createLinkedProject = async (page: Page, params: { name: string; goalSummary: string }): Promise<void> => {
   const { name, goalSummary } = params;
   await page.getByRole('tab', { name: 'Projects' }).click();
   await page.getByRole('button', { name: 'New project' }).click();
   await page.getByPlaceholder('Project name').fill(name);
   const dialog = page.getByRole('dialog', { name: 'Create project' });
   await dialog.waitFor({ timeout: 25_000 });
-  const goalSelect = dialog
-    .getByText('Linked Goal (optional)')
-    .locator('..')
-    .getByRole('combobox');
+  const goalSelect = dialog.getByText('Linked Goal (optional)').locator('..').getByRole('combobox');
   await goalSelect.click();
   await page.getByRole('option', { name: goalSummary }).click();
   await page.getByRole('button', { name: 'Create Project' }).click();
@@ -108,11 +96,7 @@ const setProjectStatus = async (
   await expect(trigger).toContainText(status, { timeout: 10_000 });
 };
 
-const expectGoalAchieved = async (
-  page: Page,
-  summary: string,
-  expected: boolean
-): Promise<void> => {
+const expectGoalAchieved = async (page: Page, summary: string, expected: boolean): Promise<void> => {
   await page.getByRole('tab', { name: 'Goals' }).click();
   const goalCard = page.locator('div.rounded-xl', {
     has: page.getByText(summary, { exact: true }),
@@ -128,10 +112,7 @@ const expectGoalAchieved = async (
   }
 };
 
-const editGoalSummary = async (
-  page: Page,
-  nextSummary: string
-): Promise<void> => {
+const editGoalSummary = async (page: Page, nextSummary: string): Promise<void> => {
   await page
     .getByRole('tab', { name: 'Goals' })
     .click()
@@ -190,10 +171,9 @@ const getSyncStatus = async (page: Page): Promise<unknown> => {
 const pullHead = async (page: Page, storeId: string): Promise<number> => {
   return await page.evaluate(
     async ({ apiBase, sid }) => {
-      const resp = await fetch(
-        `${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=1`,
-        { credentials: 'include' }
-      );
+      const resp = await fetch(`${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=1`, {
+        credentials: 'include',
+      });
       const data = (await resp.json()) as { head: number };
       return data.head ?? 0;
     },
@@ -264,9 +244,7 @@ test.describe('offline rebase goal edit', () => {
         name: 'Backup',
       });
       await backupDialog.waitFor();
-      await expect(
-        backupDialog.getByRole('button', { name: 'Download keys' })
-      ).toBeEnabled({ timeout: 25_000 });
+      await expect(backupDialog.getByRole('button', { name: 'Download keys' })).toBeEnabled({ timeout: 25_000 });
 
       mark('copy backup payload');
       await backupDialog.getByRole('button', { name: 'Copy' }).click();
@@ -282,16 +260,12 @@ test.describe('offline rebase goal edit', () => {
       await pageB.getByText('Set up your local identity').waitFor({
         timeout: 25_000,
       });
-      await pageB
-        .locator('input[type="file"][accept*=".backup"]')
-        .setInputFiles({
-          name: `mo-local-backup-${Date.now()}.json`,
-          mimeType: 'application/json',
-          buffer: Buffer.from(backupCipher, 'utf8'),
-        });
-      await pageB
-        .getByPlaceholder('Passphrase used for backup')
-        .fill(creds.password);
+      await pageB.locator('input[type="file"][accept*=".backup"]').setInputFiles({
+        name: `mo-local-backup-${Date.now()}.json`,
+        mimeType: 'application/json',
+        buffer: Buffer.from(backupCipher, 'utf8'),
+      });
+      await pageB.getByPlaceholder('Passphrase used for backup').fill(creds.password);
       await pageB.getByRole('button', { name: 'Restore backup' }).click();
       await pageB.getByRole('tab', { name: 'Goals' }).waitFor({
         timeout: 25_000,
@@ -299,9 +273,7 @@ test.describe('offline rebase goal edit', () => {
 
       mark('login cloud on B');
       await connectToCloudAsLogin(pageB, creds);
-      const storeIdB = await pageB.evaluate(() =>
-        localStorage.getItem('mo-local-store-id')
-      );
+      const storeIdB = await pageB.evaluate(() => localStorage.getItem('mo-local-store-id'));
       if (storeIdB) {
         const head = await pullHead(pageB, storeIdB);
         mark(`server head after login B: ${head}`);
@@ -316,9 +288,7 @@ test.describe('offline rebase goal edit', () => {
       let synced = false;
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
-          await expect(
-            pageB.getByText(goalSummary, { exact: true })
-          ).toBeVisible({
+          await expect(pageB.getByText(goalSummary, { exact: true })).toBeVisible({
             timeout: 10_000,
           });
           synced = true;
@@ -394,11 +364,7 @@ test.describe('offline rebase goal edit', () => {
       await editGoalSummary(pageB, summaryB2);
 
       mark('assert no version mismatch errors');
-      expect(
-        [...errorsA, ...errorsB].filter((msg) =>
-          msg.toLowerCase().includes('version mismatch')
-        )
-      ).toEqual([]);
+      expect([...errorsA, ...errorsB].filter((msg) => msg.toLowerCase().includes('version mismatch'))).toEqual([]);
     } finally {
       await ctxA.close();
       await ctxB.close();
@@ -471,16 +437,12 @@ test.describe('offline rebase goal edit', () => {
       await pageB.getByText('Set up your local identity').waitFor({
         timeout: 25_000,
       });
-      await pageB
-        .locator('input[type="file"][accept*=".backup"]')
-        .setInputFiles({
-          name: `mo-local-backup-${Date.now()}.json`,
-          mimeType: 'application/json',
-          buffer: Buffer.from(backupCipher, 'utf8'),
-        });
-      await pageB
-        .getByPlaceholder('Passphrase used for backup')
-        .fill(creds.password);
+      await pageB.locator('input[type="file"][accept*=".backup"]').setInputFiles({
+        name: `mo-local-backup-${Date.now()}.json`,
+        mimeType: 'application/json',
+        buffer: Buffer.from(backupCipher, 'utf8'),
+      });
+      await pageB.getByPlaceholder('Passphrase used for backup').fill(creds.password);
       await pageB.getByRole('button', { name: 'Restore backup' }).click();
       await pageB.getByRole('tab', { name: 'Goals' }).waitFor({
         timeout: 25_000,
@@ -518,14 +480,10 @@ test.describe('offline rebase goal edit', () => {
       await ctxA.close();
       await ctxB.close();
       if (errorsA.length > 0) {
-        console.error(
-          `[rebase-unachieve] console errors A:\\n${errorsA.join('\\n')}`
-        );
+        console.error(`[rebase-unachieve] console errors A:\\n${errorsA.join('\\n')}`);
       }
       if (errorsB.length > 0) {
-        console.error(
-          `[rebase-unachieve] console errors B:\\n${errorsB.join('\\n')}`
-        );
+        console.error(`[rebase-unachieve] console errors B:\\n${errorsB.join('\\n')}`);
       }
     }
   });

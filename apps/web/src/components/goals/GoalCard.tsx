@@ -3,13 +3,7 @@ import type { GoalListItemDto } from '@mo/application';
 import { useProjects } from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import {
-  Archive,
-  CheckCircle2,
-  Pencil,
-  RefreshCw,
-  XCircle,
-} from 'lucide-react';
+import { Archive, CheckCircle2, Pencil, RefreshCw, XCircle } from 'lucide-react';
 
 type GoalCardProps = {
   goal: GoalListItemDto;
@@ -46,20 +40,14 @@ export function GoalCard({
             </Badge>
           )}
         </div>
-        <span className="text-xs text-muted-foreground">
-          {goal.targetMonth}
-        </span>
+        <span className="text-xs text-muted-foreground">{goal.targetMonth}</span>
       </div>
       <div className="space-y-1">
-        <div className="text-lg font-semibold text-card-foreground">
-          {goal.summary}
-        </div>
+        <div className="text-lg font-semibold text-card-foreground">{goal.summary}</div>
       </div>
       {loadingProjects ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-muted-foreground">
-            Loading linked projects…
-          </span>
+          <span className="text-muted-foreground">Loading linked projects…</span>
         </div>
       ) : projects.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -78,11 +66,7 @@ export function GoalCard({
           onClick={async () => {
             await onToggleAchieved(goal);
           }}
-          aria-label={
-            goal.achievedAt !== null
-              ? 'Mark goal as not achieved'
-              : 'Mark goal as achieved'
-          }
+          aria-label={goal.achievedAt !== null ? 'Mark goal as not achieved' : 'Mark goal as achieved'}
         >
           {isTogglingAchieved ? (
             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -92,13 +76,7 @@ export function GoalCard({
             <CheckCircle2 className="h-4 w-4" />
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled={isUpdating}
-          onClick={() => onEdit(goal)}
-          aria-label="Edit goal"
-        >
+        <Button variant="ghost" size="icon" disabled={isUpdating} onClick={() => onEdit(goal)} aria-label="Edit goal">
           <Pencil className="h-4 w-4" />
         </Button>
         <Button
@@ -110,11 +88,7 @@ export function GoalCard({
           disabled={isArchiving}
           aria-label="Archive goal"
         >
-          {isArchiving ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Archive className="h-4 w-4" />
-          )}
+          {isArchiving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
         </Button>
       </div>
     </div>

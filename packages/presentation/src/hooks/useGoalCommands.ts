@@ -52,11 +52,7 @@ export const useGoalCommands = () => {
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
-        throw new Error(
-          result.errors
-            .map((err: { message: string }) => err.message)
-            .join(', ')
-        );
+        throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
       }
       await services.goalProjection.whenReady();
     } catch (err) {
@@ -74,9 +70,7 @@ export const useGoalCommands = () => {
     try {
       const actorId = ensureUser();
       const timestamp = Date.now();
-      const result = await services.goalQueryBus.dispatch(
-        new GetGoalByIdQuery(params.goalId)
-      );
+      const result = await services.goalQueryBus.dispatch(new GetGoalByIdQuery(params.goalId));
       if (Array.isArray(result)) {
         throw new Error('Invalid query result');
       }
@@ -98,11 +92,7 @@ export const useGoalCommands = () => {
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
-          throw new Error(
-            result.errors
-              .map((err: { message: string }) => err.message)
-              .join(', ')
-          );
+          throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
         }
         changed = true;
         knownVersion += 1;
@@ -119,19 +109,12 @@ export const useGoalCommands = () => {
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
-          throw new Error(
-            result.errors
-              .map((err: { message: string }) => err.message)
-              .join(', ')
-          );
+          throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
         }
         changed = true;
         knownVersion += 1;
       }
-      if (
-        params.priority !== undefined &&
-        params.priority !== current.priority
-      ) {
+      if (params.priority !== undefined && params.priority !== current.priority) {
         const cmd = new ChangeGoalPriority(
           {
             goalId: params.goalId,
@@ -143,19 +126,12 @@ export const useGoalCommands = () => {
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
-          throw new Error(
-            result.errors
-              .map((err: { message: string }) => err.message)
-              .join(', ')
-          );
+          throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
         }
         changed = true;
         knownVersion += 1;
       }
-      if (
-        params.targetMonth !== undefined &&
-        params.targetMonth !== current.targetMonth
-      ) {
+      if (params.targetMonth !== undefined && params.targetMonth !== current.targetMonth) {
         const cmd = new ChangeGoalTargetMonth(
           {
             goalId: params.goalId,
@@ -167,11 +143,7 @@ export const useGoalCommands = () => {
         );
         const result = await services.goalCommandBus.dispatch(cmd);
         if (!result.ok) {
-          throw new Error(
-            result.errors
-              .map((err: { message: string }) => err.message)
-              .join(', ')
-          );
+          throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
         }
         changed = true;
         knownVersion += 1;
@@ -193,9 +165,7 @@ export const useGoalCommands = () => {
     setError(null);
     try {
       const actorId = ensureUser();
-      const current = await services.goalQueryBus.dispatch(
-        new GetGoalByIdQuery(goalId)
-      );
+      const current = await services.goalQueryBus.dispatch(new GetGoalByIdQuery(goalId));
       if (Array.isArray(current)) {
         throw new Error('Invalid query result');
       }
@@ -212,11 +182,7 @@ export const useGoalCommands = () => {
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
-        throw new Error(
-          result.errors
-            .map((err: { message: string }) => err.message)
-            .join(', ')
-        );
+        throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
       }
       await services.goalProjection.whenReady();
     } catch (err) {
@@ -233,9 +199,7 @@ export const useGoalCommands = () => {
     setError(null);
     try {
       const actorId = ensureUser();
-      const current = await services.goalQueryBus.dispatch(
-        new GetGoalByIdQuery(goalId)
-      );
+      const current = await services.goalQueryBus.dispatch(new GetGoalByIdQuery(goalId));
       if (Array.isArray(current)) {
         throw new Error('Invalid query result');
       }
@@ -252,11 +216,7 @@ export const useGoalCommands = () => {
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
-        throw new Error(
-          result.errors
-            .map((err: { message: string }) => err.message)
-            .join(', ')
-        );
+        throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
       }
       await services.goalProjection.whenReady();
     } catch (err) {
@@ -273,9 +233,7 @@ export const useGoalCommands = () => {
     setError(null);
     try {
       const actorId = ensureUser();
-      const current = await services.goalQueryBus.dispatch(
-        new GetGoalByIdQuery(goalId)
-      );
+      const current = await services.goalQueryBus.dispatch(new GetGoalByIdQuery(goalId));
       if (Array.isArray(current)) {
         throw new Error('Invalid query result');
       }
@@ -292,11 +250,7 @@ export const useGoalCommands = () => {
       );
       const result = await services.goalCommandBus.dispatch(cmd);
       if (!result.ok) {
-        throw new Error(
-          result.errors
-            .map((err: { message: string }) => err.message)
-            .join(', ')
-        );
+        throw new Error(result.errors.map((err: { message: string }) => err.message).join(', '));
       }
       await services.goalProjection.whenReady();
     } catch (err) {

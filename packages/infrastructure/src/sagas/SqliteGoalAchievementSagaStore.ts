@@ -7,10 +7,7 @@ import type {
   ProjectAchievementState,
 } from '@mo/application';
 import { ZERO_EFFECTIVE_CURSOR } from '@mo/eventstore-core';
-import {
-  buildProcessManagerStateAad,
-  ProcessManagerStateStore,
-} from '../platform/derived-state';
+import { buildProcessManagerStateAad, ProcessManagerStateStore } from '../platform/derived-state';
 
 const PROCESS_MANAGER_ID = 'goal_achievement';
 const PROCESS_MANAGER_KEY_ID = 'process_manager:goal_achievement';
@@ -19,8 +16,7 @@ const STATE_VERSION = 1;
 const goalScope = (goalId: string): string => `goal:${goalId}`;
 const projectScope = (projectId: string): string => `project:${projectId}`;
 
-const serializeState = (state: unknown): Uint8Array =>
-  new TextEncoder().encode(JSON.stringify(state));
+const serializeState = (state: unknown): Uint8Array => new TextEncoder().encode(JSON.stringify(state));
 
 const parseJson = <T>(value: Uint8Array): T => {
   const decoded = new TextDecoder().decode(value);
@@ -38,23 +34,15 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     return this.loadState<GoalAchievementState>(goalScope(goalId));
   }
 
-  async saveGoalState(
-    state: GoalAchievementState,
-    cursor?: GoalAchievementCursor
-  ): Promise<void> {
+  async saveGoalState(state: GoalAchievementState, cursor?: GoalAchievementCursor): Promise<void> {
     await this.saveState(goalScope(state.goalId), state, cursor);
   }
 
-  async getProjectState(
-    projectId: string
-  ): Promise<ProjectAchievementState | null> {
+  async getProjectState(projectId: string): Promise<ProjectAchievementState | null> {
     return this.loadState<ProjectAchievementState>(projectScope(projectId));
   }
 
-  async saveProjectState(
-    state: ProjectAchievementState,
-    cursor?: GoalAchievementCursor
-  ): Promise<void> {
+  async saveProjectState(state: ProjectAchievementState, cursor?: GoalAchievementCursor): Promise<void> {
     await this.saveState(projectScope(state.projectId), state, cursor);
   }
 
@@ -70,12 +58,7 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     const row = await this.store.get(PROCESS_MANAGER_ID, scopeKey);
     if (!row) return null;
     const key = await this.ensureProcessManagerKey();
-    const aad = buildProcessManagerStateAad(
-      PROCESS_MANAGER_ID,
-      scopeKey,
-      row.stateVersion,
-      row.lastEffectiveCursor
-    );
+    const aad = buildProcessManagerStateAad(PROCESS_MANAGER_ID, scopeKey, row.stateVersion, row.lastEffectiveCursor);
     try {
       const plaintext = await this.crypto.decrypt(row.stateEncrypted, key, aad);
       return parseJson<T>(plaintext);
@@ -85,19 +68,10 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
     }
   }
 
-  private async saveState<T>(
-    scopeKey: string,
-    state: T,
-    cursor?: GoalAchievementCursor
-  ): Promise<void> {
+  private async saveState<T>(scopeKey: string, state: T, cursor?: GoalAchievementCursor): Promise<void> {
     const key = await this.ensureProcessManagerKey();
     const effectiveCursor = cursor ?? ZERO_EFFECTIVE_CURSOR;
-    const aad = buildProcessManagerStateAad(
-      PROCESS_MANAGER_ID,
-      scopeKey,
-      STATE_VERSION,
-      effectiveCursor
-    );
+    const aad = buildProcessManagerStateAad(PROCESS_MANAGER_ID, scopeKey, STATE_VERSION, effectiveCursor);
     const cipher = await this.crypto.encrypt(serializeState(state), key, aad);
     await this.store.put({
       processManagerId: PROCESS_MANAGER_ID,
@@ -110,9 +84,7 @@ export class SqliteGoalAchievementSagaStore implements GoalAchievementStorePort 
   }
 
   private async ensureProcessManagerKey(): Promise<Uint8Array> {
-    const existing = await this.keyStore.getAggregateKey(
-      PROCESS_MANAGER_KEY_ID
-    );
+    const existing = await this.keyStore.getAggregateKey(PROCESS_MANAGER_KEY_ID);
     if (existing) return existing;
     const generated = await this.crypto.generateKey();
     await this.keyStore.saveAggregateKey(PROCESS_MANAGER_KEY_ID, generated);

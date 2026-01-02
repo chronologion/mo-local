@@ -1,10 +1,6 @@
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
-import {
-  INestApplication,
-  UnauthorizedException,
-  ValidationPipe,
-} from '@nestjs/common';
+import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { IdentityRepository } from '../../src/access/application/ports/identity-repository';
@@ -46,9 +42,7 @@ class FakeKratosPasswordService {
 
   async register(email: string, password: string) {
     if (password === 'breached-password') {
-      throw new Error(
-        'The password does not fulfill the password policy because it was found in data breaches.'
-      );
+      throw new Error('The password does not fulfill the password policy because it was found in data breaches.');
     }
     const identityId = randomUUID();
     this.users.set(email, { password, identityId });
@@ -114,16 +108,8 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
     const sessionGuard = new KratosSessionGuard(authService, sessionCache);
 
     // Ensure Nest has constructor metadata for the controller.
-    Reflect.defineMetadata(
-      'design:paramtypes',
-      [AuthService, SessionCache],
-      AuthController
-    );
-    Reflect.defineMetadata(
-      'design:paramtypes',
-      [AuthService, SessionCache],
-      KratosSessionGuard
-    );
+    Reflect.defineMetadata('design:paramtypes', [AuthService, SessionCache], AuthController);
+    Reflect.defineMetadata('design:paramtypes', [AuthService, SessionCache], KratosSessionGuard);
 
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController, MeController],
@@ -219,10 +205,7 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       .expect(201);
     const cookie = cookieHeader(login.headers['set-cookie']);
 
-    const ok = await request(app.getHttpServer())
-      .get('/auth/whoami')
-      .set('Cookie', cookie)
-      .expect(200);
+    const ok = await request(app.getHttpServer()).get('/auth/whoami').set('Cookie', cookie).expect(200);
     expect(ok.body.identityId).toBeDefined();
     expect(ok.body.email).toBe('bob@example.com');
 
@@ -236,10 +219,7 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       .expect(201);
     const cookie = cookieHeader(login.headers['set-cookie']);
 
-    const me = await request(app.getHttpServer())
-      .get('/me')
-      .set('Cookie', cookie)
-      .expect(200);
+    const me = await request(app.getHttpServer()).get('/me').set('Cookie', cookie).expect(200);
 
     expect(me.body.id).toBeDefined();
     expect(me.body.traits.email).toBe('carol@example.com');
@@ -254,24 +234,14 @@ describe('Access auth endpoints (integration, in-memory Kratos)', () => {
       .expect(201);
     const cookie = cookieHeader(login.headers['set-cookie']);
 
-    await request(app.getHttpServer())
-      .get('/auth/whoami')
-      .set('Cookie', cookie)
-      .expect(200);
+    await request(app.getHttpServer()).get('/auth/whoami').set('Cookie', cookie).expect(200);
 
-    const logout = await request(app.getHttpServer())
-      .post('/auth/logout')
-      .set('Cookie', cookie)
-      .send({})
-      .expect(201);
+    const logout = await request(app.getHttpServer()).post('/auth/logout').set('Cookie', cookie).send({}).expect(201);
 
     const cleared = cookieHeader(logout.headers['set-cookie']);
     expect(cleared).toContain(`${SESSION_COOKIE_NAME}=`);
 
-    await request(app.getHttpServer())
-      .get('/auth/whoami')
-      .set('Cookie', cookie)
-      .expect(401);
+    await request(app.getHttpServer()).get('/auth/whoami').set('Cookie', cookie).expect(401);
   });
 });
 

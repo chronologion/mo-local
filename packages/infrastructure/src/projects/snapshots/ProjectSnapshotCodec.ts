@@ -14,14 +14,8 @@ import {
   projectStatusValues,
   type ProjectSnapshot,
 } from '@mo/domain';
-import type {
-  ProjectMilestoneState,
-  ProjectSnapshotState,
-} from '../projections/model/ProjectProjectionState';
-import {
-  decodeSnapshotEnvelope,
-  encodeSnapshotEnvelope,
-} from '../../snapshots/snapshotEnvelope';
+import type { ProjectMilestoneState, ProjectSnapshotState } from '../projections/model/ProjectProjectionState';
+import { decodeSnapshotEnvelope, encodeSnapshotEnvelope } from '../../snapshots/snapshotEnvelope';
 
 const SNAPSHOT_VERSION = 1;
 
@@ -41,8 +35,7 @@ type ProjectSnapshotPayloadV1 = {
   version?: number;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const requireString = (value: unknown, label: string): string => {
   if (typeof value === 'string') return value;
@@ -62,19 +55,13 @@ const requireNumber = (value: unknown, label: string): number => {
   throw new Error(`Project snapshot ${label} must be a number`);
 };
 
-const requireNullableNumber = (
-  value: unknown,
-  label: string
-): number | null => {
+const requireNullableNumber = (value: unknown, label: string): number | null => {
   if (value === null) return null;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   throw new Error(`Project snapshot ${label} must be a number or null`);
 };
 
-const requireNullableString = (
-  value: unknown,
-  label: string
-): string | null => {
+const requireNullableString = (value: unknown, label: string): string | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === 'string') return value;
   throw new Error(`Project snapshot ${label} must be a string or null`);
@@ -86,9 +73,7 @@ const requireProjectStatus = (value: unknown): ProjectStatusValue => {
   }
   const match = projectStatusValues.find((status) => status === value);
   if (!match) {
-    throw new Error(
-      `Project snapshot status must be one of ${projectStatusValues.join(', ')}`
-    );
+    throw new Error(`Project snapshot status must be one of ${projectStatusValues.join(', ')}`);
   }
   return match;
 };
@@ -102,10 +87,7 @@ const parseMilestones = (value: unknown): ProjectMilestoneState[] => {
     return {
       id: requireString(item.id, `milestones[${idx}].id`),
       name: requireString(item.name, `milestones[${idx}].name`),
-      targetDate: requireString(
-        item.targetDate,
-        `milestones[${idx}].targetDate`
-      ),
+      targetDate: requireString(item.targetDate, `milestones[${idx}].targetDate`),
     };
   });
 };
@@ -127,26 +109,18 @@ const parsePayloadV1 = (data: unknown): ProjectSnapshotPayloadV1 => {
     createdAt: requireNumber(data.createdAt, 'createdAt'),
     updatedAt: requireNumber(data.updatedAt, 'updatedAt'),
     archivedAt: requireNullableNumber(data.archivedAt, 'archivedAt'),
-    version:
-      typeof data.version === 'number' && Number.isFinite(data.version)
-        ? data.version
-        : undefined,
+    version: typeof data.version === 'number' && Number.isFinite(data.version) ? data.version : undefined,
   };
 };
 
-const upcastProjectSnapshot = (
-  snapshotVersion: number,
-  data: unknown
-): ProjectSnapshotPayloadV1 => {
+const upcastProjectSnapshot = (snapshotVersion: number, data: unknown): ProjectSnapshotPayloadV1 => {
   if (snapshotVersion === 1) {
     return parsePayloadV1(data);
   }
   throw new Error(`Unsupported project snapshot version ${snapshotVersion}`);
 };
 
-const toPayloadV1 = (
-  snapshot: ProjectSnapshotState
-): ProjectSnapshotPayloadV1 => ({
+const toPayloadV1 = (snapshot: ProjectSnapshotState): ProjectSnapshotPayloadV1 => ({
   id: snapshot.id,
   name: snapshot.name,
   status: snapshot.status,
@@ -162,26 +136,19 @@ const toPayloadV1 = (
   version: snapshot.version,
 });
 
-export const encodeProjectSnapshotPayload = (
-  payload: ProjectSnapshotPayloadV1
-): Uint8Array =>
+export const encodeProjectSnapshotPayload = (payload: ProjectSnapshotPayloadV1): Uint8Array =>
   encodeSnapshotEnvelope({
     snapshotVersion: SNAPSHOT_VERSION,
     data: payload,
   });
 
-export const encodeProjectSnapshotState = (
-  snapshot: ProjectSnapshotState
-): Uint8Array =>
+export const encodeProjectSnapshotState = (snapshot: ProjectSnapshotState): Uint8Array =>
   encodeSnapshotEnvelope({
     snapshotVersion: SNAPSHOT_VERSION,
     data: toPayloadV1(snapshot),
   });
 
-export const decodeProjectSnapshotState = (
-  payload: Uint8Array,
-  aggregateVersion: number
-): ProjectSnapshotState => {
+export const decodeProjectSnapshotState = (payload: Uint8Array, aggregateVersion: number): ProjectSnapshotState => {
   const { snapshotVersion, data } = decodeSnapshotEnvelope(payload);
   const parsed = upcastProjectSnapshot(snapshotVersion, data);
   return {
@@ -201,10 +168,7 @@ export const decodeProjectSnapshotState = (
   };
 };
 
-export const decodeProjectSnapshotDomain = (
-  payload: Uint8Array,
-  aggregateVersion: number
-): ProjectSnapshot => {
+export const decodeProjectSnapshotDomain = (payload: Uint8Array, aggregateVersion: number): ProjectSnapshot => {
   const { snapshotVersion, data } = decodeSnapshotEnvelope(payload);
   const parsed = upcastProjectSnapshot(snapshotVersion, data);
   return {
@@ -225,10 +189,7 @@ export const decodeProjectSnapshotDomain = (
     createdBy: UserId.from(parsed.createdBy),
     createdAt: Timestamp.fromMillis(parsed.createdAt),
     updatedAt: Timestamp.fromMillis(parsed.updatedAt),
-    archivedAt:
-      parsed.archivedAt === null
-        ? null
-        : Timestamp.fromMillis(parsed.archivedAt),
+    archivedAt: parsed.archivedAt === null ? null : Timestamp.fromMillis(parsed.archivedAt),
     version: aggregateVersion,
   };
 };

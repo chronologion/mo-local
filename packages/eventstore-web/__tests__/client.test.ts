@@ -24,19 +24,13 @@ class TestPort implements MessagePortLike {
     this.posted.push({ message, transfer });
   }
 
-  addEventListener(
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ): void {
+  addEventListener(type: 'message', listener: (event: MessageEvent) => void): void {
     if (type === 'message') {
       this.listeners.add(listener);
     }
   }
 
-  removeEventListener(
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ): void {
+  removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void {
     if (type === 'message') {
       this.listeners.delete(listener);
     }
@@ -61,10 +55,7 @@ describe('DbClient', () => {
     const promise = client.query<{ id: number }>('SELECT 1');
     const envelope = port.posted[0]?.message as WorkerEnvelope;
     expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
-    const requestEnvelope = envelope as Extract<
-      WorkerEnvelope,
-      { kind: typeof WorkerEnvelopeKinds.request }
-    >;
+    const requestEnvelope = envelope as Extract<WorkerEnvelope, { kind: typeof WorkerEnvelopeKinds.request }>;
     expect(requestEnvelope.payload.kind).toBe(WorkerRequestKinds.dbQuery);
 
     port.emit({
@@ -164,14 +155,9 @@ describe('DbClient', () => {
     const promise = client.shutdownWorker();
     const envelope = port.posted[0]?.message as WorkerEnvelope;
     expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
-    expect(
-      (
-        envelope as Extract<
-          WorkerEnvelope,
-          { kind: typeof WorkerEnvelopeKinds.request }
-        >
-      ).payload.kind
-    ).toBe(WorkerRequestKinds.dbShutdown);
+    expect((envelope as Extract<WorkerEnvelope, { kind: typeof WorkerEnvelopeKinds.request }>).payload.kind).toBe(
+      WorkerRequestKinds.dbShutdown
+    );
 
     port.emit({
       v: 1,
@@ -190,14 +176,9 @@ describe('DbClient', () => {
     const promise = client.exportMainDatabase();
     const envelope = port.posted[0]?.message as WorkerEnvelope;
     expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
-    expect(
-      (
-        envelope as Extract<
-          WorkerEnvelope,
-          { kind: typeof WorkerEnvelopeKinds.request }
-        >
-      ).payload.kind
-    ).toBe(WorkerRequestKinds.dbExportMain);
+    expect((envelope as Extract<WorkerEnvelope, { kind: typeof WorkerEnvelopeKinds.request }>).payload.kind).toBe(
+      WorkerRequestKinds.dbExportMain
+    );
 
     port.emit({
       v: 1,
@@ -218,14 +199,9 @@ describe('DbClient', () => {
     const envelope = port.posted[0]?.message as WorkerEnvelope;
     expect(envelope.kind).toBe(WorkerEnvelopeKinds.request);
     expect(port.posted[0]?.transfer).toContain(bytes.buffer);
-    expect(
-      (
-        envelope as Extract<
-          WorkerEnvelope,
-          { kind: typeof WorkerEnvelopeKinds.request }
-        >
-      ).payload.kind
-    ).toBe(WorkerRequestKinds.dbImportMain);
+    expect((envelope as Extract<WorkerEnvelope, { kind: typeof WorkerEnvelopeKinds.request }>).payload.kind).toBe(
+      WorkerRequestKinds.dbImportMain
+    );
 
     port.emit({
       v: 1,
@@ -253,10 +229,7 @@ describe('sendHello', () => {
     const posted = port.posted[0]?.message as WorkerHello;
     expect(posted.kind).toBe(WorkerHelloKinds.hello);
 
-    const response: Extract<
-      WorkerHello,
-      { kind: typeof WorkerHelloKinds.helloOk }
-    > = {
+    const response: Extract<WorkerHello, { kind: typeof WorkerHelloKinds.helloOk }> = {
       v: 1,
       kind: WorkerHelloKinds.helloOk,
       protocolVersion: 1,

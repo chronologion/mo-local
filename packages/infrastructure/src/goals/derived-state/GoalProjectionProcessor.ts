@@ -12,10 +12,7 @@ import {
   type IndexBuildPhase,
   type ProjectionStatus,
 } from '../../platform/derived-state';
-import {
-  IndexArtifactStore,
-  ProjectionCacheStore,
-} from '../../platform/derived-state';
+import { IndexArtifactStore, ProjectionCacheStore } from '../../platform/derived-state';
 import { ProjectionRuntime } from '../../platform/derived-state/runtime/ProjectionRuntime';
 import type {
   ProjectionApplyInput,
@@ -27,16 +24,11 @@ import type {
 import { GoalAnalyticsProjector } from './GoalAnalyticsProjector';
 import { GoalSearchProjector } from './GoalSearchProjector';
 import { GoalSnapshotProjector } from './GoalSnapshotProjector';
-import {
-  isGoalEvent,
-  type GoalListItem,
-} from '../projections/model/GoalProjectionState';
+import { isGoalEvent, type GoalListItem } from '../projections/model/GoalProjectionState';
 
 const PROJECTION_ID = 'goal_projection';
 
-export class GoalProjectionProcessor
-  implements ProjectionRuntimePort, IndexingPort
-{
+export class GoalProjectionProcessor implements ProjectionRuntimePort, IndexingPort {
   readonly projectionId = PROJECTION_ID;
   readonly ordering = ProjectionOrderings.effectiveTotalOrder;
   private readonly runtime: ProjectionRuntime;
@@ -56,21 +48,9 @@ export class GoalProjectionProcessor
   ) {
     this.cacheStore = new ProjectionCacheStore(db);
     this.indexStore = new IndexArtifactStore(db);
-    this.snapshotProjector = new GoalSnapshotProjector(
-      this.cacheStore,
-      crypto,
-      keyStore
-    );
-    this.analyticsProjector = new GoalAnalyticsProjector(
-      this.cacheStore,
-      crypto,
-      keyStore
-    );
-    this.searchProjector = new GoalSearchProjector(
-      this.indexStore,
-      crypto,
-      keyStore
-    );
+    this.snapshotProjector = new GoalSnapshotProjector(this.cacheStore, crypto, keyStore);
+    this.analyticsProjector = new GoalAnalyticsProjector(this.cacheStore, crypto, keyStore);
+    this.searchProjector = new GoalSearchProjector(this.indexStore, crypto, keyStore);
 
     const processor: ProjectionProcessor = {
       projectionId: this.projectionId,
@@ -120,9 +100,7 @@ export class GoalProjectionProcessor
   }
 
   listGoals(): GoalListItem[] {
-    return [...this.snapshotProjector.listProjections()].sort(
-      (a, b) => b.createdAt - a.createdAt
-    );
+    return [...this.snapshotProjector.listProjections()].sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getGoalById(goalId: string): GoalListItem | null {
@@ -133,26 +111,16 @@ export class GoalProjectionProcessor
     term: string,
     filter?: { slice?: string; month?: string; priority?: string }
   ): Promise<GoalListItem[]> {
-    await this.searchProjector.ensureBuilt(
-      this.snapshotProjector.listProjections()
-    );
-    return this.searchProjector.searchGoals(
-      term,
-      this.snapshotProjector.getProjectionsMap(),
-      filter
-    );
+    await this.searchProjector.ensureBuilt(this.snapshotProjector.listProjections());
+    return this.searchProjector.searchGoals(term, this.snapshotProjector.getProjectionsMap(), filter);
   }
 
   async ensureBuilt(indexId: string): Promise<void> {
     if (indexId !== 'goal_search') return;
-    await this.searchProjector.ensureBuilt(
-      this.snapshotProjector.listProjections()
-    );
+    await this.searchProjector.ensureBuilt(this.snapshotProjector.listProjections());
   }
 
-  async status(
-    indexId: string
-  ): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>> {
+  async status(indexId: string): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>> {
     if (indexId !== 'goal_search') {
       return { indexId, phase: IndexBuildPhases.missing };
     }
@@ -163,9 +131,7 @@ export class GoalProjectionProcessor
     await this.snapshotProjector.bootstrapFromCache();
   }
 
-  private async applyEvent(
-    input: ProjectionApplyInput
-  ): Promise<ProjectionApplyResult> {
+  private async applyEvent(input: ProjectionApplyInput): Promise<ProjectionApplyResult> {
     const event = this.toEncryptedEvent(input.event);
     const cursor = input.cursorAfter;
     try {
@@ -192,20 +158,14 @@ export class GoalProjectionProcessor
         cursor,
         input.lastCommitSequence
       );
-      this.searchProjector.applyProjectionChange(
-        applyResult.previousItem,
-        applyResult.nextItem
-      );
+      this.searchProjector.applyProjectionChange(applyResult.previousItem, applyResult.nextItem);
       if (applyResult.changed) {
         this.emitProjectionChanged();
       }
       return { changed: applyResult.changed };
     } catch (error) {
       if (error instanceof MissingKeyError) {
-        console.warn(
-          '[GoalProjectionProcessor] Missing key, skipping event for aggregate',
-          event.aggregateId
-        );
+        console.warn('[GoalProjectionProcessor] Missing key, skipping event for aggregate', event.aggregateId);
         return { changed: false };
       }
       throw error;

@@ -1,10 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, Search } from 'lucide-react';
-import {
-  useGoals,
-  useGoalCommands,
-  useGoalSearch,
-} from '@mo/presentation/react';
+import { useGoals, useGoalCommands, useGoalSearch } from '@mo/presentation/react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { GoalForm } from './GoalForm';
@@ -33,10 +29,7 @@ export function GoalDashboard() {
   } | null>(null);
   const { results: searchResults, loading: searching } = useGoalSearch(search);
 
-  const sortedGoals = useMemo(
-    () => [...goals].sort((a, b) => a.targetMonth.localeCompare(b.targetMonth)),
-    [goals]
-  );
+  const sortedGoals = useMemo(() => [...goals].sort((a, b) => a.targetMonth.localeCompare(b.targetMonth)), [goals]);
 
   const handleCreateGoal = async (params: GoalFormValues) => {
     await createGoal(params);
@@ -53,10 +46,7 @@ export function GoalDashboard() {
     }
   };
 
-  const handleUpdateGoal = async (
-    goalId: string,
-    changes: Partial<GoalFormValues>
-  ) => {
+  const handleUpdateGoal = async (goalId: string, changes: Partial<GoalFormValues>) => {
     if (!Object.keys(changes).length) {
       return;
     }
@@ -137,18 +127,8 @@ export function GoalDashboard() {
             onEdit={(g) => setEditingGoal(g)}
             onArchive={() => handleArchiveGoal(goal.id)}
             onToggleAchieved={handleToggleAchieved}
-            isUpdating={
-              mutating &&
-              !!pending &&
-              pending.id === goal.id &&
-              pending.action === 'update'
-            }
-            isArchiving={
-              mutating &&
-              !!pending &&
-              pending.id === goal.id &&
-              pending.action === 'archive'
-            }
+            isUpdating={mutating && !!pending && pending.id === goal.id && pending.action === 'update'}
+            isArchiving={mutating && !!pending && pending.id === goal.id && pending.action === 'archive'}
             isTogglingAchieved={
               mutating &&
               !!pending &&
@@ -170,9 +150,7 @@ export function GoalDashboard() {
               setCreateOpen(false);
             }}
           />
-          {(mutationError || error) && (
-            <p className="text-sm text-destructive">{mutationError || error}</p>
-          )}
+          {(mutationError || error) && <p className="text-sm text-destructive">{mutationError || error}</p>}
         </DialogContent>
       </Dialog>
       <Dialog
@@ -201,9 +179,7 @@ export function GoalDashboard() {
               }}
             />
           ) : null}
-          {(mutationError || error) && (
-            <p className="text-sm text-destructive">{mutationError || error}</p>
-          )}
+          {(mutationError || error) && <p className="text-sm text-destructive">{mutationError || error}</p>}
         </DialogContent>
       </Dialog>
     </div>

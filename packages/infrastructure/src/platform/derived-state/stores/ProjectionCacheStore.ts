@@ -16,10 +16,7 @@ export type ProjectionCacheRecord = Readonly<{
 export class ProjectionCacheStore {
   constructor(private readonly db: SqliteDbPort) {}
 
-  async get(
-    projectionId: ProjectionId,
-    scopeKey: ScopeKey
-  ): Promise<ProjectionCacheRecord | null> {
+  async get(projectionId: ProjectionId, scopeKey: ScopeKey): Promise<ProjectionCacheRecord | null> {
     const rows = await this.db.query<
       Readonly<{
         projection_id: string;
@@ -68,9 +65,7 @@ export class ProjectionCacheStore {
     };
   }
 
-  async listByProjection(
-    projectionId: ProjectionId
-  ): Promise<ReadonlyArray<ProjectionCacheRecord>> {
+  async listByProjection(projectionId: ProjectionId): Promise<ReadonlyArray<ProjectionCacheRecord>> {
     const rows = await this.db.query<
       Readonly<{
         projection_id: string;
@@ -154,16 +149,13 @@ export class ProjectionCacheStore {
   }
 
   async remove(projectionId: ProjectionId, scopeKey: ScopeKey): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM projection_cache WHERE projection_id = ? AND scope_key = ?',
-      [projectionId, scopeKey]
-    );
+    await this.db.execute('DELETE FROM projection_cache WHERE projection_id = ? AND scope_key = ?', [
+      projectionId,
+      scopeKey,
+    ]);
   }
 
   async removeAll(projectionId: ProjectionId): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM projection_cache WHERE projection_id = ?',
-      [projectionId]
-    );
+    await this.db.execute('DELETE FROM projection_cache WHERE projection_id = ?', [projectionId]);
   }
 }

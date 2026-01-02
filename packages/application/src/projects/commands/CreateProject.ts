@@ -1,8 +1,5 @@
 import { ProjectStatusValue } from '@mo/domain';
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type CreateProjectPayload = {
   projectId: string;
@@ -15,10 +12,7 @@ export type CreateProjectPayload = {
   timestamp: number;
 };
 
-export class CreateProject
-  extends BaseCommand<CreateProjectPayload>
-  implements Readonly<CreateProjectPayload>
-{
+export class CreateProject extends BaseCommand<CreateProjectPayload> implements Readonly<CreateProjectPayload> {
   readonly projectId: string;
   readonly name: string;
   readonly status: ProjectStatusValue;

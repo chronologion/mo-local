@@ -15,19 +15,9 @@ export type {
   SqliteDbPort,
 } from './types';
 
-export {
-  ChangeOperations,
-  ChangeHintKinds,
-  SqliteStatementKinds,
-} from './types';
+export { ChangeOperations, ChangeHintKinds, SqliteStatementKinds } from './types';
 
-export type {
-  DbOwnershipMode,
-  WorkerEnvelope,
-  WorkerHello,
-  WorkerRequest,
-  WorkerResponse,
-} from './protocol/types';
+export type { DbOwnershipMode, WorkerEnvelope, WorkerHello, WorkerRequest, WorkerResponse } from './protocol/types';
 
 export type WebSqliteOptions = Readonly<{
   storeId: string;
@@ -39,10 +29,7 @@ type SharedWorkerLike = {
   port: MessagePortLike & { close?: () => void };
 };
 
-type SharedWorkerConstructor = new (
-  url: URL,
-  options: { type: 'module'; name?: string }
-) => SharedWorkerLike;
+type SharedWorkerConstructor = new (url: URL, options: { type: 'module'; name?: string }) => SharedWorkerLike;
 
 const tryInvoke = (value: unknown): void => {
   if (typeof value === 'function') {
@@ -70,13 +57,10 @@ export async function createWebSqliteDb(
 
   const createSharedWorkerPort = (): MessagePortLike => {
     const SharedWorkerCtor = SharedWorker as SharedWorkerConstructor;
-    const sharedWorker = new SharedWorkerCtor(
-      new URL('./worker/owner.worker.ts', import.meta.url),
-      {
-        type: 'module',
-        name: `mo-eventstore:${options.storeId}`,
-      }
-    );
+    const sharedWorker = new SharedWorkerCtor(new URL('./worker/owner.worker.ts', import.meta.url), {
+      type: 'module',
+      name: `mo-eventstore:${options.storeId}`,
+    });
     closeSharedPort = () => sharedWorker.port.close?.();
     return {
       postMessage: (message, transfer) => {
@@ -86,10 +70,8 @@ export async function createWebSqliteDb(
           sharedWorker.port.postMessage(message);
         }
       },
-      addEventListener: (type, listener) =>
-        sharedWorker.port.addEventListener(type, listener),
-      removeEventListener: (type, listener) =>
-        sharedWorker.port.removeEventListener(type, listener),
+      addEventListener: (type, listener) => sharedWorker.port.addEventListener(type, listener),
+      removeEventListener: (type, listener) => sharedWorker.port.removeEventListener(type, listener),
       start: () => sharedWorker.port.start?.(),
     };
   };
@@ -106,17 +88,13 @@ export async function createWebSqliteDb(
           worker?.postMessage(message);
         }
       },
-      addEventListener: (type, listener) =>
-        worker?.addEventListener(type, listener as EventListener),
-      removeEventListener: (type, listener) =>
-        worker?.removeEventListener(type, listener as EventListener),
+      addEventListener: (type, listener) => worker?.addEventListener(type, listener as EventListener),
+      removeEventListener: (type, listener) => worker?.removeEventListener(type, listener as EventListener),
     };
   };
 
   try {
-    port = sharedWorkerSupported
-      ? createSharedWorkerPort()
-      : createDedicatedWorkerPort();
+    port = sharedWorkerSupported ? createSharedWorkerPort() : createDedicatedWorkerPort();
   } catch {
     closeSharedPort = null;
     port = createDedicatedWorkerPort();

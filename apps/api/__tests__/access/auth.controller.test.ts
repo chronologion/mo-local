@@ -28,8 +28,7 @@ const makeResponse = (): Response => {
   return res;
 };
 
-const makeConfigService = () =>
-  new ConfigService({ KRATOS_PUBLIC_URL: 'http://localhost:4455' });
+const makeConfigService = () => new ConfigService({ KRATOS_PUBLIC_URL: 'http://localhost:4455' });
 
 class StubIdentityRepository extends IdentityRepository {
   async ensureExists(): Promise<void> {
@@ -84,10 +83,7 @@ describe('AuthController', () => {
     const controller = new AuthController(authService, new SessionCache());
     const res = makeResponse();
 
-    const result = await controller.register(
-      { email: session.email ?? '', password: 'password123' },
-      res
-    );
+    const result = await controller.register({ email: session.email ?? '', password: 'password123' }, res);
 
     expect(result).toEqual({
       identityId: session.identityId,
@@ -119,10 +115,7 @@ describe('AuthController', () => {
     const controller = new AuthController(authService, new SessionCache());
     const res = makeResponse();
 
-    const result = await controller.login(
-      { email: session.email ?? '', password: 'password123' },
-      res
-    );
+    const result = await controller.login({ email: session.email ?? '', password: 'password123' }, res);
 
     expect(result).toEqual({
       identityId: session.identityId,
@@ -195,23 +188,12 @@ describe('AuthController', () => {
     expect(logoutSpy).toHaveBeenCalledWith('body-token');
     logoutSpy.mockClear();
 
-    await controller.logout(
-      undefined as unknown as { sessionToken: string },
-      'header-token',
-      res
-    );
-    await controller.logout(
-      undefined as unknown as { sessionToken: string },
-      undefined,
-      res
-    );
+    await controller.logout(undefined as unknown as { sessionToken: string }, 'header-token', res);
+    await controller.logout(undefined as unknown as { sessionToken: string }, undefined, res);
 
     expect(logoutSpy).toHaveBeenCalledWith('header-token');
     expect(logoutSpy).toHaveBeenCalledWith('cookie-token');
-    expect(res.clearCookie).toHaveBeenCalledWith(
-      SESSION_COOKIE_NAME,
-      expect.objectContaining({ path: '/' })
-    );
+    expect(res.clearCookie).toHaveBeenCalledWith(SESSION_COOKIE_NAME, expect.objectContaining({ path: '/' }));
   });
 });
 

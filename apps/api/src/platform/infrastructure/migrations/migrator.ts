@@ -1,12 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import {
-  FileMigrationProvider,
-  Kysely,
-  Migrator,
-  PostgresDialect,
-  type MigrationResultSet,
-} from 'kysely';
+import { FileMigrationProvider, Kysely, Migrator, PostgresDialect, type MigrationResultSet } from 'kysely';
 import { Pool } from 'pg';
 
 type MigratorConfig = {
@@ -41,9 +35,7 @@ export async function runMigrations<DB>({
 
   const direction = process.argv[2] === 'down' ? 'down' : 'up';
   const migrationResult: MigrationResultSet =
-    direction === 'down'
-      ? await migrator.migrateDown()
-      : await migrator.migrateToLatest();
+    direction === 'down' ? await migrator.migrateDown() : await migrator.migrateToLatest();
 
   migrationResult.results?.forEach((result) => {
     if (result.status === 'Success') {
@@ -61,10 +53,7 @@ export async function runMigrations<DB>({
   await db.destroy();
 }
 
-export function resolveConnectionString(
-  envVar: string,
-  fallback?: string
-): string {
+export function resolveConnectionString(envVar: string, fallback?: string): string {
   const value = process.env[envVar] ?? fallback;
   if (!value) {
     throw new Error(`Missing connection string for migrations (${envVar})`);

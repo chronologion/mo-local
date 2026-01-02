@@ -109,11 +109,7 @@ export class Goal extends AggregateRoot<GoalId> {
   private status: GoalStatus;
 
   // Command method — validates invariants, applies event
-  rename(params: {
-    title: GoalTitle;
-    renamedAt: Timestamp;
-    actorId: ActorId;
-  }): void {
+  rename(params: { title: GoalTitle; renamedAt: Timestamp; actorId: ActorId }): void {
     if (this.status === GoalStatus.Archived) {
       throw new Error('Cannot rename archived goal');
     }

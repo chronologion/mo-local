@@ -6,15 +6,9 @@ export type CloudIdentitySession = {
 export interface CloudAccessClientPort {
   whoAmI(): Promise<CloudIdentitySession | null>;
 
-  register(params: {
-    email: string;
-    password: string;
-  }): Promise<CloudIdentitySession>;
+  register(params: { email: string; password: string }): Promise<CloudIdentitySession>;
 
-  login(params: {
-    email: string;
-    password: string;
-  }): Promise<CloudIdentitySession>;
+  login(params: { email: string; password: string }): Promise<CloudIdentitySession>;
 
   logout(): Promise<{ revoked: boolean }>;
 }

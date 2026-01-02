@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  SyncAccessPolicy,
-  SyncAccessDeniedError,
-} from '../application/ports/sync-access-policy';
+import { SyncAccessPolicy, SyncAccessDeniedError } from '../application/ports/sync-access-policy';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
 
@@ -12,19 +9,13 @@ import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
  */
 @Injectable()
 export class OwnerOnlySyncAccessPolicy extends SyncAccessPolicy {
-  async ensureCanPush(
-    actorId: SyncOwnerId,
-    _storeId: SyncStoreId
-  ): Promise<void> {
+  async ensureCanPush(actorId: SyncOwnerId, _storeId: SyncStoreId): Promise<void> {
     if (!actorId.unwrap()) {
       throw new SyncAccessDeniedError('Invalid actor');
     }
   }
 
-  async ensureCanPull(
-    actorId: SyncOwnerId,
-    _storeId: SyncStoreId
-  ): Promise<void> {
+  async ensureCanPull(actorId: SyncOwnerId, _storeId: SyncStoreId): Promise<void> {
     if (!actorId.unwrap()) {
       throw new SyncAccessDeniedError('Invalid actor');
     }

@@ -1,10 +1,4 @@
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | { readonly [k: string]: JsonValue }
-  | readonly JsonValue[];
+export type JsonValue = string | number | boolean | null | { readonly [k: string]: JsonValue } | readonly JsonValue[];
 
 export type FieldMapper<T, J extends JsonValue = JsonValue> = Readonly<{
   encode: (v: T) => J;
@@ -14,21 +8,13 @@ export type FieldMapper<T, J extends JsonValue = JsonValue> = Readonly<{
 import type { EventMetadata } from './DomainEvent';
 import type { AggregateId } from './vos/AggregateId';
 
-export type PayloadEventSpec<
-  E,
-  P extends object,
-  TId extends AggregateId = AggregateId,
-> = Readonly<{
+export type PayloadEventSpec<E, P extends object, TId extends AggregateId = AggregateId> = Readonly<{
   type: string;
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> };
   ctor: (p: P, meta: EventMetadata<TId>) => E;
 }>;
 
-export function payloadEventSpec<
-  E extends P,
-  P extends object,
-  TId extends AggregateId = AggregateId,
->(
+export function payloadEventSpec<E extends P, P extends object, TId extends AggregateId = AggregateId>(
   type: string,
   ctor: (p: P, meta: EventMetadata<TId>) => E,
   fields: { readonly [K in keyof P]: FieldMapper<P[K]> }
@@ -37,9 +23,7 @@ export function payloadEventSpec<
 }
 
 type StringVO = { readonly value: string };
-export function voString<T extends StringVO>(
-  from: (s: string) => T
-): FieldMapper<T, string> {
+export function voString<T extends StringVO>(from: (s: string) => T): FieldMapper<T, string> {
   return {
     encode: (v) => v.value,
     decode: (u) => {
@@ -52,9 +36,7 @@ export function voString<T extends StringVO>(
 }
 
 type NumberVO = { readonly value: number };
-export function voNumber<T extends NumberVO>(
-  from: (n: number) => T
-): FieldMapper<T, number> {
+export function voNumber<T extends NumberVO>(from: (n: number) => T): FieldMapper<T, number> {
   return {
     encode: (v) => v.value,
     decode: (u) => {
@@ -90,9 +72,7 @@ export function numberField(): FieldMapper<number, number> {
   };
 }
 
-export function nullable<T, J extends JsonValue>(
-  mapper: FieldMapper<T, J>
-): FieldMapper<T | null, J | null> {
+export function nullable<T, J extends JsonValue>(mapper: FieldMapper<T, J>): FieldMapper<T | null, J | null> {
   return {
     encode: (v) => (v === null ? null : mapper.encode(v)),
     decode: (u) => (u === null ? null : mapper.decode(u)),

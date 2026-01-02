@@ -37,12 +37,9 @@ const MIN_PUSH_BACKOFF_MS = 1_000;
 const MAX_PUSH_BACKOFF_MS = 20_000;
 const DEFAULT_PUSH_DEBOUNCE_MS = 100;
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-const sleepWithCancel = (
-  ms: number
-): Readonly<{ promise: Promise<void>; cancel: () => void }> => {
+const sleepWithCancel = (ms: number): Readonly<{ promise: Promise<void>; cancel: () => void }> => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const promise = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, ms);
@@ -170,8 +167,7 @@ export class SyncEngine {
     this.pullWaitMs = options.pullWaitMs ?? DEFAULT_PULL_WAIT_MS;
     this.pullIntervalMs = options.pullIntervalMs ?? DEFAULT_PULL_INTERVAL_MS;
     this.pushIntervalMs = options.pushIntervalMs ?? DEFAULT_PUSH_INTERVAL_MS;
-    this.pushFallbackIntervalMs =
-      options.pushFallbackIntervalMs ?? DEFAULT_PUSH_FALLBACK_INTERVAL_MS;
+    this.pushFallbackIntervalMs = options.pushFallbackIntervalMs ?? DEFAULT_PUSH_FALLBACK_INTERVAL_MS;
     this.pushBatchSize = options.pushBatchSize ?? DEFAULT_PUSH_BATCH_SIZE;
     this.maxPushRetries = options.maxPushRetries ?? DEFAULT_MAX_PUSH_RETRIES;
     this.onStatusChange = options.onStatusChange;
@@ -213,11 +209,7 @@ export class SyncEngine {
 
   private async pullLoop(): Promise<void> {
     while (this.running) {
-      const waitMs = this.consumePullRequest()
-        ? 0
-        : this.pullWaitMs > 0
-          ? this.pullWaitMs
-          : 0;
+      const waitMs = this.consumePullRequest() ? 0 : this.pullWaitMs > 0 ? this.pullWaitMs : 0;
       await this.pullOnce({ waitMs });
       if (!this.running) return;
       await this.waitForNextPull();
@@ -329,11 +321,7 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
-      this.pullState.backoffMs = nextBackoffMs(
-        this.pullState.backoffMs,
-        MIN_PULL_BACKOFF_MS,
-        MAX_PULL_BACKOFF_MS
-      );
+      this.pullState.backoffMs = nextBackoffMs(this.pullState.backoffMs, MIN_PULL_BACKOFF_MS, MAX_PULL_BACKOFF_MS);
       const retryAt = nowMs() + this.pullState.backoffMs;
       this.pullState.notBeforeMs = retryAt;
       this.pullState.requested = true;
@@ -381,9 +369,7 @@ export class SyncEngine {
 
         if (response.ok) {
           await this.applyAssignments(response);
-          await this.writeLastPulledGlobalSeq(
-            Math.max(await this.readLastPulledGlobalSeq(), response.head)
-          );
+          await this.writeLastPulledGlobalSeq(Math.max(await this.readLastPulledGlobalSeq(), response.head));
           this.lastKnownHead = response.head;
           this.setStatus({
             kind: SyncStatusKinds.idle,
@@ -402,11 +388,7 @@ export class SyncEngine {
         await this.handleConflict(response, expectedHead);
       }
     } catch (error) {
-      this.pushState.backoffMs = nextBackoffMs(
-        this.pushState.backoffMs,
-        MIN_PUSH_BACKOFF_MS,
-        MAX_PUSH_BACKOFF_MS
-      );
+      this.pushState.backoffMs = nextBackoffMs(this.pushState.backoffMs, MIN_PUSH_BACKOFF_MS, MAX_PUSH_BACKOFF_MS);
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
       this.setErrorStatus(
@@ -423,17 +405,12 @@ export class SyncEngine {
     }
   }
 
-  private async handleConflict(
-    response: SyncPushConflictResponseV1,
-    expectedHead: number
-  ): Promise<void> {
+  private async handleConflict(response: SyncPushConflictResponseV1, expectedHead: number): Promise<void> {
     const missing = response.missing ?? [];
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
       const applied = await this.applyRemoteEvents(missing);
-      await this.writeLastPulledGlobalSeq(
-        Math.max(await this.readLastPulledGlobalSeq(), response.head)
-      );
+      await this.writeLastPulledGlobalSeq(Math.max(await this.readLastPulledGlobalSeq(), response.head));
       this.lastKnownHead = response.head;
       if (applied && hadPending) {
         const stillPending = await this.hasPendingEvents();
@@ -565,8 +542,7 @@ export class SyncEngine {
       return;
     }
     const now = nowMs();
-    const backoffActive =
-      this.pullState.notBeforeMs !== null && this.pullState.notBeforeMs > now;
+    const backoffActive = this.pullState.notBeforeMs !== null && this.pullState.notBeforeMs > now;
     if (backoffActive) {
       await sleep(delay);
       return;
@@ -587,8 +563,7 @@ export class SyncEngine {
       return;
     }
     const now = nowMs();
-    const backoffActive =
-      this.pushState.notBeforeMs !== null && this.pushState.notBeforeMs > now;
+    const backoffActive = this.pushState.notBeforeMs !== null && this.pushState.notBeforeMs > now;
     if (backoffActive) {
       await sleep(delay);
       return;
@@ -636,10 +611,7 @@ export class SyncEngine {
 
   private getPullDelayMs(): number {
     const now = nowMs();
-    if (
-      this.pullState.notBeforeMs !== null &&
-      this.pullState.notBeforeMs > now
-    ) {
+    if (this.pullState.notBeforeMs !== null && this.pullState.notBeforeMs > now) {
       return this.pullState.notBeforeMs - now;
     }
     if (this.pullState.requested) {
@@ -653,10 +625,7 @@ export class SyncEngine {
 
   private getPushDelayMs(): number {
     const now = nowMs();
-    if (
-      this.pushState.notBeforeMs !== null &&
-      this.pushState.notBeforeMs > now
-    ) {
+    if (this.pushState.notBeforeMs !== null && this.pushState.notBeforeMs > now) {
       return this.pushState.notBeforeMs - now;
     }
     if (this.pushState.requested) {
@@ -701,9 +670,7 @@ export class SyncEngine {
     return count > 0;
   }
 
-  private async loadPendingEvents(
-    limit: number
-  ): Promise<ReadonlyArray<PendingEventRow>> {
+  private async loadPendingEvents(limit: number): Promise<ReadonlyArray<PendingEventRow>> {
     const rows = await this.db.query<PendingEventRow>(
       `SELECT
         e.id,
@@ -729,15 +696,11 @@ export class SyncEngine {
     return rows;
   }
 
-  private async applyRemoteEvents(
-    events: ReadonlyArray<SyncPullResponseV1['events'][number]>
-  ): Promise<boolean> {
+  private async applyRemoteEvents(events: ReadonlyArray<SyncPullResponseV1['events'][number]>): Promise<boolean> {
     if (events.length === 0) return false;
     const eventIds = events.map((event) => event.eventId);
     const existingMapRows = await this.db.query<{ event_id: string }>(
-      `SELECT event_id FROM sync_event_map WHERE event_id IN (${eventIds
-        .map(() => '?')
-        .join(',')})`,
+      `SELECT event_id FROM sync_event_map WHERE event_id IN (${eventIds.map(() => '?').join(',')})`,
       eventIds
     );
     const existingMap = new Set(existingMapRows.map((row) => row.event_id));
@@ -747,9 +710,7 @@ export class SyncEngine {
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
-        throw new Error(
-          `Sync record id mismatch: ${record.id} !== ${incoming.eventId}`
-        );
+        throw new Error(`Sync record id mismatch: ${record.id} !== ${incoming.eventId}`);
       }
       const payload = decodeRecordPayload(record);
       const keyringUpdate = decodeRecordKeyringUpdate(record);
@@ -795,17 +756,13 @@ export class SyncEngine {
     return events.some((event) => !existingMap.has(event.eventId));
   }
 
-  private async applyAssignments(
-    response: SyncPushOkResponseV1
-  ): Promise<void> {
+  private async applyAssignments(response: SyncPushOkResponseV1): Promise<void> {
     const now = nowMs();
-    const statements: SqliteStatement[] = response.assigned.map(
-      (assignment) => ({
-        kind: SqliteStatementKinds.execute,
-        sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
-        params: [assignment.eventId, assignment.globalSequence, now],
-      })
-    );
+    const statements: SqliteStatement[] = response.assigned.map((assignment) => ({
+      kind: SqliteStatementKinds.execute,
+      sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
+      params: [assignment.eventId, assignment.globalSequence, now],
+    }));
     if (statements.length === 0) return;
     await this.db.batch(statements);
   }

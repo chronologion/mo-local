@@ -11,19 +11,17 @@ describe('AAD binding', () => {
     const aad = buildEventAad('agg-1', 'GoalCreated', 1);
     const ciphertext = await crypto.encrypt(plaintext, key, aad);
 
-    await expect(
-      crypto.decrypt(ciphertext, key, buildEventAad('agg-2', 'GoalCreated', 1))
-    ).rejects.toBeInstanceOf(Error);
-    await expect(
-      crypto.decrypt(ciphertext, key, buildEventAad('agg-1', 'GoalRefined', 1))
-    ).rejects.toBeInstanceOf(Error);
-    await expect(
-      crypto.decrypt(ciphertext, key, buildEventAad('agg-1', 'GoalCreated', 2))
-    ).rejects.toBeInstanceOf(Error);
-
-    await expect(crypto.decrypt(ciphertext, key, aad)).resolves.toEqual(
-      plaintext
+    await expect(crypto.decrypt(ciphertext, key, buildEventAad('agg-2', 'GoalCreated', 1))).rejects.toBeInstanceOf(
+      Error
     );
+    await expect(crypto.decrypt(ciphertext, key, buildEventAad('agg-1', 'GoalRefined', 1))).rejects.toBeInstanceOf(
+      Error
+    );
+    await expect(crypto.decrypt(ciphertext, key, buildEventAad('agg-1', 'GoalCreated', 2))).rejects.toBeInstanceOf(
+      Error
+    );
+
+    await expect(crypto.decrypt(ciphertext, key, aad)).resolves.toEqual(plaintext);
   });
 
   it('binds snapshot ciphertext integrity to {aggregateId,snapshot,version}', async () => {
@@ -34,15 +32,9 @@ describe('AAD binding', () => {
     const aad = buildSnapshotAad('agg-1', 1);
     const ciphertext = await crypto.encrypt(plaintext, key, aad);
 
-    await expect(
-      crypto.decrypt(ciphertext, key, buildSnapshotAad('agg-2', 1))
-    ).rejects.toBeInstanceOf(Error);
-    await expect(
-      crypto.decrypt(ciphertext, key, buildSnapshotAad('agg-1', 2))
-    ).rejects.toBeInstanceOf(Error);
+    await expect(crypto.decrypt(ciphertext, key, buildSnapshotAad('agg-2', 1))).rejects.toBeInstanceOf(Error);
+    await expect(crypto.decrypt(ciphertext, key, buildSnapshotAad('agg-1', 2))).rejects.toBeInstanceOf(Error);
 
-    await expect(crypto.decrypt(ciphertext, key, aad)).resolves.toEqual(
-      plaintext
-    );
+    await expect(crypto.decrypt(ciphertext, key, aad)).resolves.toEqual(plaintext);
   });
 });

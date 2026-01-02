@@ -29,9 +29,7 @@ const selectDay = (day: number, currentIso: string) => {
   const triggerLabel = formatLabel(currentIso);
   fireEvent.click(screen.getByRole('button', { name: triggerLabel }));
   const dayButtons = screen.getAllByRole('button', { name: String(day) });
-  const dayButton =
-    dayButtons.find((button) => !(button as HTMLButtonElement).disabled) ??
-    dayButtons[0];
+  const dayButton = dayButtons.find((button) => !(button as HTMLButtonElement).disabled) ?? dayButtons[0];
   fireEvent.click(dayButton);
 };
 
@@ -107,9 +105,7 @@ describe('MilestonesList', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Milestone must be on/after project start')
-      ).not.toBeNull();
+      expect(screen.getByText('Milestone must be on/after project start')).not.toBeNull();
     });
     expect(onUpdate).not.toHaveBeenCalled();
   });

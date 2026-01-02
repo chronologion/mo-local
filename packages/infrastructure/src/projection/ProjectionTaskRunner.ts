@@ -1,8 +1,5 @@
 const safeNow = (): number | null => {
-  if (
-    typeof performance !== 'undefined' &&
-    typeof performance.now === 'function'
-  ) {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
     return performance.now();
   }
   return null;
@@ -17,10 +14,7 @@ export class ProjectionTaskRunner {
   constructor(
     private readonly label: string,
     private readonly warnThresholdMs: number,
-    private readonly onBudgetExceeded?: (params: {
-      durationMs: number;
-      budgetMs: number;
-    }) => void
+    private readonly onBudgetExceeded?: (params: { durationMs: number; budgetMs: number }) => void
   ) {}
 
   async run(task: () => Promise<void>): Promise<void> {
@@ -55,13 +49,10 @@ export class ProjectionTaskRunner {
                     budgetMs: this.warnThresholdMs,
                   });
                 } else {
-                  console.warn(
-                    `[${this.label}] Task processing exceeded budget`,
-                    {
-                      durationMs,
-                      budgetMs: this.warnThresholdMs,
-                    }
-                  );
+                  console.warn(`[${this.label}] Task processing exceeded budget`, {
+                    durationMs,
+                    budgetMs: this.warnThresholdMs,
+                  });
                 }
               }
             }

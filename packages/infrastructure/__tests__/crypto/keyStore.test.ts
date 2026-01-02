@@ -27,12 +27,8 @@ describe('KeyWrapping', () => {
   });
 
   it('rejects invalid key lengths and wrapped length', async () => {
-    await expect(
-      KeyWrapping.wrapKey(new Uint8Array(16), new Uint8Array(32))
-    ).rejects.toThrow();
-    await expect(
-      KeyWrapping.unwrapKey(new Uint8Array(10), new Uint8Array(32))
-    ).rejects.toThrow();
+    await expect(KeyWrapping.wrapKey(new Uint8Array(16), new Uint8Array(32))).rejects.toThrow();
+    await expect(KeyWrapping.unwrapKey(new Uint8Array(10), new Uint8Array(32))).rejects.toThrow();
   });
 });
 
@@ -106,9 +102,7 @@ describe('IndexedDBKeyStore', () => {
       aggregateKeys: { 'goal-y': new Uint8Array([7]) },
     });
     expect(await overwrite.getIdentityKeys('user-b')).toEqual(identityKeys);
-    expect(await overwrite.getAggregateKey('goal-y')).toEqual(
-      new Uint8Array([7])
-    );
+    expect(await overwrite.getAggregateKey('goal-y')).toEqual(new Uint8Array([7]));
 
     await store.close();
     await overwrite.close();

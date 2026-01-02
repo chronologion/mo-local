@@ -1,13 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { ArrowRight, Lock, Wand2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -23,9 +17,7 @@ export function Onboarding() {
   const [restoreInput, setRestoreInput] = useState('');
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
-  const [selectedRestoreFile, setSelectedRestoreFile] = useState<string | null>(
-    null
-  );
+  const [selectedRestoreFile, setSelectedRestoreFile] = useState<string | null>(null);
   const [selectedDbFile, setSelectedDbFile] = useState<string | null>(null);
   const [restoreDbBytes, setRestoreDbBytes] = useState<Uint8Array | null>(null);
   const [restoreDbLoading, setRestoreDbLoading] = useState(false);
@@ -119,20 +111,13 @@ export function Onboarding() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2 text-accent">
             <Wand2 className="h-5 w-5" />
-            <span className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Set passphrase
-            </span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-primary">Set passphrase</span>
           </div>
           <CardTitle>Set up your local identity</CardTitle>
-          <CardDescription>
-            Generate keys on-device and encrypt them with your passphrase.
-          </CardDescription>
+          <CardDescription>Generate keys on-device and encrypt them with your passphrase.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form
-            className="grid gap-4 md:grid-cols-2"
-            onSubmit={handleSubmitPassword}
-          >
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmitPassword}>
             <div className="space-y-2">
               <Label>Password (derives KEK)</Label>
               <Input
@@ -160,9 +145,7 @@ export function Onboarding() {
                 {loading ? 'Creating keys…' : 'Finish onboarding'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              {error && (
-                <span className="text-sm text-destructive">{error}</span>
-              )}
+              {error && <span className="text-sm text-destructive">{error}</span>}
             </div>
           </form>
         </CardContent>
@@ -171,15 +154,12 @@ export function Onboarding() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2 text-accent">
             <Wand2 className="h-5 w-5" />
-            <span className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Restore from backup
-            </span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-primary">Restore from backup</span>
           </div>
           <CardTitle>Import keys from encrypted backup</CardTitle>
           <CardDescription>
-            Select your .backup file and enter the passphrase you used when
-            exporting. Backups contain keys only; goal data and event history
-            remain on the original device until sync/log export exists.
+            Select your .backup file and enter the passphrase you used when exporting. Backups contain keys only; goal
+            data and event history remain on the original device until sync/log export exists.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -204,9 +184,7 @@ export function Onboarding() {
                   className="text-xs text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-semibold file:text-foreground"
                 />
                 {selectedRestoreFile && (
-                  <span className="text-xs text-muted-foreground">
-                    Selected: {selectedRestoreFile}
-                  </span>
+                  <span className="text-xs text-muted-foreground">Selected: {selectedRestoreFile}</span>
                 )}
               </div>
             </div>
@@ -234,15 +212,11 @@ export function Onboarding() {
                   }}
                   className="text-xs text-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-semibold file:text-foreground"
                 />
-                {selectedDbFile && (
-                  <span className="text-xs text-muted-foreground">
-                    Selected: {selectedDbFile}
-                  </span>
-                )}
+                {selectedDbFile && <span className="text-xs text-muted-foreground">Selected: {selectedDbFile}</span>}
               </div>
               <p className="text-xs text-muted-foreground">
-                Use the `.db` file downloaded from the debug panel (optional).
-                It should correspond to the same identity as the key backup.
+                Use the `.db` file downloaded from the debug panel (optional). It should correspond to the same identity
+                as the key backup.
               </p>
             </div>
             <div className="space-y-2">
@@ -255,20 +229,11 @@ export function Onboarding() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                type="submit"
-                disabled={restoreLoading || restoreDbLoading}
-              >
-                {restoreLoading
-                  ? 'Restoring…'
-                  : restoreDbLoading
-                    ? 'Reading DB…'
-                    : 'Restore backup'}
+              <Button type="submit" disabled={restoreLoading || restoreDbLoading}>
+                {restoreLoading ? 'Restoring…' : restoreDbLoading ? 'Reading DB…' : 'Restore backup'}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              {restoreError && (
-                <span className="text-sm text-destructive">{restoreError}</span>
-              )}
+              {restoreError && <span className="text-sm text-destructive">{restoreError}</span>}
             </div>
           </form>
         </CardContent>

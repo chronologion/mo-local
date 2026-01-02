@@ -29,10 +29,7 @@ import { applyProjectEventToSnapshot } from '../../../src/projects/projections/m
 
 const baseProjectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
 const milestoneId = MilestoneId.from('00000000-0000-0000-0000-000000000301');
-const meta = (
-  occurredAt: Timestamp,
-  aggregateId: ProjectId = baseProjectId
-) => ({
+const meta = (occurredAt: Timestamp, aggregateId: ProjectId = baseProjectId) => ({
   aggregateId,
   occurredAt,
   eventId: EventId.create(),

@@ -1,13 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Lock, RefreshCw } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -39,25 +33,16 @@ export function Unlock() {
         <CardHeader className="space-y-2">
           <div className="flex items-center gap-2 text-primary">
             <Lock className="h-5 w-5 text-primary" />
-            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">
-              Unlock
-            </span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-accent2">Unlock</span>
           </div>
           <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
-            Unlock your keys with the passphrase you set during onboarding.
-          </CardDescription>
+          <CardDescription>Unlock your keys with the passphrase you set during onboarding.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleUnlock}>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={loading}>
@@ -65,20 +50,14 @@ export function Unlock() {
                 <Lock className="ml-2 h-4 w-4 text-primary-foreground" />
               </Button>
               {session.status === 'locked' ? (
-                <span className="text-sm text-muted-foreground">
-                  User: {session.userId}
-                </span>
+                <span className="text-sm text-muted-foreground">User: {session.userId}</span>
               ) : null}
-              {error && (
-                <span className="text-sm text-destructive">{error}</span>
-              )}
+              {error && <span className="text-sm text-destructive">{error}</span>}
             </div>
           </form>
           <div className="mt-6 border-t border-border pt-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Trouble unlocking? Reset local state and re-onboard.
-              </div>
+              <div className="text-sm text-muted-foreground">Trouble unlocking? Reset local state and re-onboard.</div>
               <Button
                 type="button"
                 variant="ghost"

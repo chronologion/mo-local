@@ -15,10 +15,7 @@ export interface ProjectMilestoneAddedPayload {
   addedAt: Timestamp;
 }
 
-export class ProjectMilestoneAdded
-  extends DomainEvent<ProjectId>
-  implements ProjectMilestoneAddedPayload
-{
+export class ProjectMilestoneAdded extends DomainEvent<ProjectId> implements ProjectMilestoneAddedPayload {
   readonly eventType = projectEventTypes.projectMilestoneAdded;
 
   readonly projectId: ProjectId;
@@ -27,10 +24,7 @@ export class ProjectMilestoneAdded
   readonly targetDate: LocalDate;
   readonly addedAt: Timestamp;
 
-  constructor(
-    payload: ProjectMilestoneAddedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectMilestoneAddedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
@@ -45,14 +39,10 @@ export const ProjectMilestoneAddedSpec = payloadEventSpec<
   ProjectMilestoneAdded,
   ProjectMilestoneAddedPayload,
   ProjectId
->(
-  projectEventTypes.projectMilestoneAdded,
-  (p, meta) => new ProjectMilestoneAdded(p, meta),
-  {
-    projectId: voString(ProjectId.from),
-    milestoneId: voString(MilestoneId.from),
-    name: voString(MilestoneName.from),
-    targetDate: voString(LocalDate.fromString),
-    addedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+>(projectEventTypes.projectMilestoneAdded, (p, meta) => new ProjectMilestoneAdded(p, meta), {
+  projectId: voString(ProjectId.from),
+  milestoneId: voString(MilestoneId.from),
+  name: voString(MilestoneName.from),
+  targetDate: voString(LocalDate.fromString),
+  addedAt: voNumber(Timestamp.fromMillis),
+});

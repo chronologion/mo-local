@@ -9,10 +9,7 @@ export interface GoalArchivedPayload {
   archivedAt: Timestamp;
 }
 
-export class GoalArchived
-  extends DomainEvent<GoalId>
-  implements GoalArchivedPayload
-{
+export class GoalArchived extends DomainEvent<GoalId> implements GoalArchivedPayload {
   readonly eventType = goalEventTypes.goalArchived;
 
   readonly goalId: GoalId;
@@ -26,11 +23,11 @@ export class GoalArchived
   }
 }
 
-export const GoalArchivedSpec = payloadEventSpec<
-  GoalArchived,
-  GoalArchivedPayload,
-  GoalId
->(goalEventTypes.goalArchived, (p, meta) => new GoalArchived(p, meta), {
-  goalId: voString(GoalId.from),
-  archivedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalArchivedSpec = payloadEventSpec<GoalArchived, GoalArchivedPayload, GoalId>(
+  goalEventTypes.goalArchived,
+  (p, meta) => new GoalArchived(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    archivedAt: voNumber(Timestamp.fromMillis),
+  }
+);

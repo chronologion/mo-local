@@ -27,9 +27,7 @@ import {
   EventId,
 } from '@mo/domain';
 
-const baseDate = Timestamp.fromMillis(
-  new Date('2025-01-01T00:00:00Z').getTime()
-);
+const baseDate = Timestamp.fromMillis(new Date('2025-01-01T00:00:00Z').getTime());
 const aggregateId = GoalId.from('00000000-0000-0000-0000-000000000001');
 const meta = () => ({
   aggregateId,
@@ -142,11 +140,7 @@ describe('GoalProjectionState', () => {
   });
 
   it('ignores access events for snapshot payload but advances version', () => {
-    const created = applyEventToSnapshot(
-      null,
-      createdEvent,
-      1
-    ) as GoalSnapshotState;
+    const created = applyEventToSnapshot(null, createdEvent, 1) as GoalSnapshotState;
     const afterAccess = applyEventToSnapshot(
       created,
       new GoalAccessGranted(
@@ -165,11 +159,7 @@ describe('GoalProjectionState', () => {
   });
 
   it('builds analytics deltas when slice/month change', () => {
-    const created = applyEventToSnapshot(
-      null,
-      createdEvent,
-      1
-    ) as GoalSnapshotState;
+    const created = applyEventToSnapshot(null, createdEvent, 1) as GoalSnapshotState;
     const moved: GoalSnapshotState = {
       ...created,
       slice: 'Work',
@@ -188,11 +178,7 @@ describe('GoalProjectionState', () => {
   });
 
   it('produces a list item DTO from snapshot', () => {
-    const created = applyEventToSnapshot(
-      null,
-      createdEvent,
-      1
-    ) as GoalSnapshotState;
+    const created = applyEventToSnapshot(null, createdEvent, 1) as GoalSnapshotState;
     const dto = snapshotToListItem(created);
     expect(dto).toMatchObject({
       id: aggregateId.value,
@@ -207,11 +193,7 @@ describe('GoalProjectionState', () => {
   });
 
   it('sets achievedAt when goal is achieved', () => {
-    const created = applyEventToSnapshot(
-      null,
-      createdEvent,
-      1
-    ) as GoalSnapshotState;
+    const created = applyEventToSnapshot(null, createdEvent, 1) as GoalSnapshotState;
     const achieved = applyEventToSnapshot(
       created,
       new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
@@ -221,11 +203,7 @@ describe('GoalProjectionState', () => {
   });
 
   it('clears achievedAt when goal is unachieved', () => {
-    const created = applyEventToSnapshot(
-      null,
-      createdEvent,
-      1
-    ) as GoalSnapshotState;
+    const created = applyEventToSnapshot(null, createdEvent, 1) as GoalSnapshotState;
     const achieved = applyEventToSnapshot(
       created,
       new GoalAchieved({ goalId: aggregateId, achievedAt: baseDate }, meta()),
@@ -233,10 +211,7 @@ describe('GoalProjectionState', () => {
     );
     const unachieved = applyEventToSnapshot(
       achieved,
-      new GoalUnachieved(
-        { goalId: aggregateId, unachievedAt: baseDate },
-        meta()
-      ),
+      new GoalUnachieved({ goalId: aggregateId, unachievedAt: baseDate }, meta()),
       3
     );
     expect(unachieved?.achievedAt).toBeNull();

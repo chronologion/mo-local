@@ -9,13 +9,7 @@ export class SyncAccessDeniedError extends Error {
 }
 
 export abstract class SyncAccessPolicy {
-  abstract ensureCanPush(
-    actorId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<void>;
+  abstract ensureCanPush(actorId: SyncOwnerId, storeId: SyncStoreId): Promise<void>;
 
-  abstract ensureCanPull(
-    actorId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<void>;
+  abstract ensureCanPull(actorId: SyncOwnerId, storeId: SyncStoreId): Promise<void>;
 }

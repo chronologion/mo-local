@@ -11,20 +11,14 @@ export interface ProjectStatusTransitionedPayload {
   changedAt: Timestamp;
 }
 
-export class ProjectStatusTransitioned
-  extends DomainEvent<ProjectId>
-  implements ProjectStatusTransitionedPayload
-{
+export class ProjectStatusTransitioned extends DomainEvent<ProjectId> implements ProjectStatusTransitionedPayload {
   readonly eventType = projectEventTypes.projectStatusTransitioned;
 
   readonly projectId: ProjectId;
   readonly status: ProjectStatus;
   readonly changedAt: Timestamp;
 
-  constructor(
-    payload: ProjectStatusTransitionedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectStatusTransitionedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.status = payload.status;
@@ -37,12 +31,8 @@ export const ProjectStatusTransitionedSpec = payloadEventSpec<
   ProjectStatusTransitioned,
   ProjectStatusTransitionedPayload,
   ProjectId
->(
-  projectEventTypes.projectStatusTransitioned,
-  (p, meta) => new ProjectStatusTransitioned(p, meta),
-  {
-    projectId: voString(ProjectId.from),
-    status: voString(ProjectStatus.from),
-    changedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+>(projectEventTypes.projectStatusTransitioned, (p, meta) => new ProjectStatusTransitioned(p, meta), {
+  projectId: voString(ProjectId.from),
+  status: voString(ProjectStatus.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

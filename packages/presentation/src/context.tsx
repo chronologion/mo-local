@@ -32,10 +32,7 @@ export interface ProjectProjectionPort {
 export interface InterfaceServices {
   goalCommandBus: BusPort<GoalCommand, CommandResult<GoalCommandResult>>;
   goalQueryBus: BusPort<GoalQuery, GoalQueryResult>;
-  projectCommandBus: BusPort<
-    ProjectCommand,
-    CommandResult<ProjectCommandResult>
-  >;
+  projectCommandBus: BusPort<ProjectCommand, CommandResult<ProjectCommandResult>>;
   projectQueryBus: BusPort<ProjectQuery, ProjectQueryResult>;
   goalProjection: GoalProjectionPort;
   projectProjection: ProjectProjectionPort;
@@ -53,13 +50,8 @@ export type InterfaceProviderProps = {
   children: ReactNode;
 };
 
-export const InterfaceProvider = ({
-  value,
-  children,
-}: InterfaceProviderProps) => (
-  <InterfaceContext.Provider value={value}>
-    {children}
-  </InterfaceContext.Provider>
+export const InterfaceProvider = ({ value, children }: InterfaceProviderProps) => (
+  <InterfaceContext.Provider value={value}>{children}</InterfaceContext.Provider>
 );
 
 export const useInterface = (): InterfaceContextValue => {

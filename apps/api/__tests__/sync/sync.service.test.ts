@@ -14,13 +14,8 @@ class InMemorySyncEventRepository extends SyncEventRepository {
   private events: SyncEvent[] = [];
   private heads = new Map<string, number>();
 
-  async getHeadSequence(
-    ownerId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<GlobalSequenceNumber> {
-    return GlobalSequenceNumber.from(
-      this.heads.get(`${ownerId.unwrap()}::${storeId.unwrap()}`) ?? 0
-    );
+  async getHeadSequence(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<GlobalSequenceNumber> {
+    return GlobalSequenceNumber.from(this.heads.get(`${ownerId.unwrap()}::${storeId.unwrap()}`) ?? 0);
   }
 
   async appendBatch(params: {
@@ -64,9 +59,7 @@ class InMemorySyncEventRepository extends SyncEventRepository {
         globalSequence: stored.globalSequence,
       };
     });
-    this.events.sort(
-      (a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap()
-    );
+    this.events.sort((a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap());
     this.heads.set(key, currentHead);
     return { head: GlobalSequenceNumber.from(currentHead), assigned };
   }
@@ -100,10 +93,7 @@ class AllowAllAccessPolicy extends SyncAccessPolicy {
 class InMemorySyncStoreRepository extends SyncStoreRepository {
   private owners = new Map<string, string>();
 
-  async ensureStoreOwner(
-    storeId: SyncStoreId,
-    ownerId: SyncOwnerId
-  ): Promise<void> {
+  async ensureStoreOwner(storeId: SyncStoreId, ownerId: SyncOwnerId): Promise<void> {
     const storeIdValue = storeId.unwrap();
     const ownerValue = ownerId.unwrap();
     const existing = this.owners.get(storeIdValue);
@@ -130,11 +120,7 @@ describe('SyncService', () => {
   beforeEach(() => {
     repository = new InMemorySyncEventRepository();
     storeRepository = new InMemorySyncStoreRepository();
-    service = new SyncService(
-      repository,
-      storeRepository,
-      new AllowAllAccessPolicy()
-    );
+    service = new SyncService(repository, storeRepository, new AllowAllAccessPolicy());
   });
 
   it('pushes a batch and updates head', async () => {
@@ -203,9 +189,7 @@ describe('SyncService', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.head.unwrap()).toBe(1);
-      expect(result.assigned).toEqual([
-        { eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) },
-      ]);
+      expect(result.assigned).toEqual([{ eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) }]);
     }
   });
 
@@ -224,10 +208,7 @@ describe('SyncService', () => {
       limit: 2,
     });
 
-    expect(firstPage.events.map((event) => event.eventId)).toEqual([
-      'e1',
-      'e2',
-    ]);
+    expect(firstPage.events.map((event) => event.eventId)).toEqual(['e1', 'e2']);
 
     const secondPage = await service.pullEvents({
       ownerId,

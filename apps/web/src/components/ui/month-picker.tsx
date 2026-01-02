@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
 import { cn } from '../../lib/utils';
 
@@ -27,9 +23,7 @@ const formatMonthLabel = (value: string | undefined): string => {
   if (!value || !/^\d{4}-\d{2}$/.test(value)) {
     return 'Select month';
   }
-  const [year, month] = value
-    .split('-')
-    .map((part) => Number.parseInt(part, 10));
+  const [year, month] = value.split('-').map((part) => Number.parseInt(part, 10));
   if (Number.isNaN(year) || Number.isNaN(month)) {
     return 'Select month';
   }
@@ -44,12 +38,7 @@ export interface MonthPickerProps {
   className?: string;
 }
 
-export function MonthPicker({
-  value,
-  onChange,
-  inputId,
-  className,
-}: MonthPickerProps) {
+export function MonthPicker({ value, onChange, inputId, className }: MonthPickerProps) {
   const [open, setOpen] = useState(false);
   const [displayYear, setDisplayYear] = useState(() => parseYear(value));
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -60,10 +49,7 @@ export function MonthPicker({
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -93,11 +79,7 @@ export function MonthPicker({
         variant="outline"
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          'w-full justify-start gap-2',
-          !value && 'text-muted-foreground',
-          className
-        )}
+        className={cn('w-full justify-start gap-2', !value && 'text-muted-foreground', className)}
       >
         <CalendarIcon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
         <span>{formatMonthLabel(value)}</span>

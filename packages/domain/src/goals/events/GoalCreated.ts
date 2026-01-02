@@ -19,10 +19,7 @@ export interface GoalCreatedPayload {
   createdAt: Timestamp;
 }
 
-export class GoalCreated
-  extends DomainEvent<GoalId>
-  implements GoalCreatedPayload
-{
+export class GoalCreated extends DomainEvent<GoalId> implements GoalCreatedPayload {
   readonly eventType = goalEventTypes.goalCreated;
   readonly goalId: GoalId;
   readonly slice: Slice;
@@ -45,16 +42,16 @@ export class GoalCreated
   }
 }
 
-export const GoalCreatedSpec = payloadEventSpec<
-  GoalCreated,
-  GoalCreatedPayload,
-  GoalId
->(goalEventTypes.goalCreated, (p, meta) => new GoalCreated(p, meta), {
-  goalId: voString(GoalId.from),
-  slice: voString(Slice.from),
-  summary: voString(Summary.from),
-  targetMonth: voString(Month.from),
-  priority: voString(Priority.from),
-  createdBy: voString(UserId.from),
-  createdAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalCreatedSpec = payloadEventSpec<GoalCreated, GoalCreatedPayload, GoalId>(
+  goalEventTypes.goalCreated,
+  (p, meta) => new GoalCreated(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    slice: voString(Slice.from),
+    summary: voString(Summary.from),
+    targetMonth: voString(Month.from),
+    priority: voString(Priority.from),
+    createdBy: voString(UserId.from),
+    createdAt: voNumber(Timestamp.fromMillis),
+  }
+);

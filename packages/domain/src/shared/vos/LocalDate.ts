@@ -25,10 +25,7 @@ export class LocalDate extends ValueObject<string> {
     Assert.that(year, 'year').isGreaterThanOrEqual(1);
     Assert.that(month, 'month').isBetween(1, 12);
     Assert.that(day, 'day').isBetween(1, 31);
-    const value = `${String(year).padStart(4, '0')}-${String(month).padStart(
-      2,
-      '0'
-    )}-${String(day).padStart(2, '0')}`;
+    const value = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return new LocalDate(value);
   }
 

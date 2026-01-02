@@ -8,9 +8,7 @@ describe('Timestamp', () => {
   });
 
   it('rejects non-finite millis', () => {
-    expect(() => Timestamp.fromMillis(Number.NaN)).toThrow(
-      'Timestamp must be a finite number of milliseconds'
-    );
+    expect(() => Timestamp.fromMillis(Number.NaN)).toThrow('Timestamp must be a finite number of milliseconds');
     expect(() => Timestamp.fromMillis(Number.POSITIVE_INFINITY)).toThrow(
       'Timestamp must be a finite number of milliseconds'
     );
@@ -25,12 +23,8 @@ describe('Timestamp', () => {
   });
 
   it('rejects invalid ISO/date', () => {
-    expect(() => Timestamp.fromISOString('invalid')).toThrow(
-      'Timestamp is not a valid ISO date'
-    );
-    expect(() => Timestamp.fromDate(new Date('invalid'))).toThrow(
-      'Timestamp is not a valid date'
-    );
+    expect(() => Timestamp.fromISOString('invalid')).toThrow('Timestamp is not a valid ISO date');
+    expect(() => Timestamp.fromDate(new Date('invalid'))).toThrow('Timestamp is not a valid date');
   });
 
   it('compares timestamps', () => {

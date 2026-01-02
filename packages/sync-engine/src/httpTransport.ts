@@ -12,8 +12,7 @@ export type HttpSyncTransportOptions = Readonly<{
   credentials?: RequestCredentials;
 }>;
 
-const normalizeBaseUrl = (baseUrl: string): string =>
-  baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+const normalizeBaseUrl = (baseUrl: string): string => (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl);
 
 const safeParseJson = async (response: Response): Promise<unknown> => {
   try {
@@ -23,8 +22,7 @@ const safeParseJson = async (response: Response): Promise<unknown> => {
   }
 };
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 export class HttpSyncTransport implements SyncTransportPort {
   private readonly baseUrl: string;
@@ -37,9 +35,7 @@ export class HttpSyncTransport implements SyncTransportPort {
     this.credentials = options.credentials ?? 'include';
   }
 
-  async push(
-    request: SyncPushRequestV1
-  ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
+  async push(request: SyncPushRequestV1): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     const response = await this.fetchImpl(`${this.baseUrl}/sync/push`, {
       method: 'POST',
       credentials: this.credentials,
@@ -65,12 +61,7 @@ export class HttpSyncTransport implements SyncTransportPort {
     return body as SyncPushOkResponseV1 | SyncPushConflictResponseV1;
   }
 
-  async pull(params: {
-    storeId: string;
-    since: number;
-    limit: number;
-    waitMs?: number;
-  }): Promise<SyncPullResponseV1> {
+  async pull(params: { storeId: string; since: number; limit: number; waitMs?: number }): Promise<SyncPullResponseV1> {
     const query = new URLSearchParams({
       storeId: params.storeId,
       since: String(params.since),
@@ -79,10 +70,9 @@ export class HttpSyncTransport implements SyncTransportPort {
     if (typeof params.waitMs === 'number') {
       query.set('waitMs', String(params.waitMs));
     }
-    const response = await this.fetchImpl(
-      `${this.baseUrl}/sync/pull?${query.toString()}`,
-      { credentials: this.credentials }
-    );
+    const response = await this.fetchImpl(`${this.baseUrl}/sync/pull?${query.toString()}`, {
+      credentials: this.credentials,
+    });
     if (response.status === 401 || response.status === 403) {
       throw new Error(`Sync pull unauthorized (${response.status})`);
     }

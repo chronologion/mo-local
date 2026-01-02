@@ -23,15 +23,9 @@ export type GoalAchievementCursor = {
 
 export interface GoalAchievementStorePort {
   getGoalState(goalId: string): Promise<GoalAchievementState | null>;
-  saveGoalState(
-    state: GoalAchievementState,
-    cursor?: GoalAchievementCursor
-  ): Promise<void>;
+  saveGoalState(state: GoalAchievementState, cursor?: GoalAchievementCursor): Promise<void>;
   getProjectState(projectId: string): Promise<ProjectAchievementState | null>;
-  saveProjectState(
-    state: ProjectAchievementState,
-    cursor?: GoalAchievementCursor
-  ): Promise<void>;
+  saveProjectState(state: ProjectAchievementState, cursor?: GoalAchievementCursor): Promise<void>;
   removeProjectState(projectId: string): Promise<void>;
   resetAll(): Promise<void>;
 }

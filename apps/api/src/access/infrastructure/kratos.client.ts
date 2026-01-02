@@ -4,8 +4,7 @@ import { AuthenticatedIdentity } from '../application/authenticated-identity';
 
 type JsonObject = Record<string, unknown>;
 
-const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null;
+const isObject = (value: unknown): value is JsonObject => typeof value === 'object' && value !== null;
 
 @Injectable()
 export class KratosClient {
@@ -36,9 +35,7 @@ export class KratosClient {
     }
 
     if (!response.ok) {
-      throw new UnauthorizedException(
-        `Unable to validate session (status ${response.status})`
-      );
+      throw new UnauthorizedException(`Unable to validate session (status ${response.status})`);
     }
 
     const payload = await this.readJson(response);
@@ -67,18 +64,13 @@ export class KratosClient {
     }
     const identity = payload.identity;
     if (!isObject(identity)) {
-      throw new UnauthorizedException(
-        'Kratos whoami response missing identity'
-      );
+      throw new UnauthorizedException('Kratos whoami response missing identity');
     }
     const id = identity.id;
     if (typeof id !== 'string' || !id) {
       throw new UnauthorizedException('Kratos identity id is missing');
     }
-    const traits =
-      isObject(identity.traits) && !Array.isArray(identity.traits)
-        ? identity.traits
-        : {};
+    const traits = isObject(identity.traits) && !Array.isArray(identity.traits) ? identity.traits : {};
     return { identity: { id, traits } };
   }
 }
