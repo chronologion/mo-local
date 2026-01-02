@@ -1,15 +1,10 @@
 import React from 'react';
 import { describe, beforeEach, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import {
-  RemoteAuthProvider,
-  useRemoteAuth,
-} from '../../src/providers/RemoteAuthProvider';
+import { RemoteAuthProvider, useRemoteAuth } from '../../src/providers/RemoteAuthProvider';
 import type { CloudAccessClientPort } from '@mo/application';
 
-const createClient = (
-  overrides: Partial<CloudAccessClientPort> = {}
-): CloudAccessClientPort => ({
+const createClient = (overrides: Partial<CloudAccessClientPort> = {}): CloudAccessClientPort => ({
   whoAmI: vi.fn(async () => null),
   register: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
   login: vi.fn(async () => ({ identityId: 'id-1', email: 'a@b.com' })),
@@ -19,9 +14,7 @@ const createClient = (
 
 const createWrapper =
   (client: CloudAccessClientPort) =>
-  ({ children }: { children: React.ReactNode }) => (
-    <RemoteAuthProvider client={client}>{children}</RemoteAuthProvider>
-  );
+  ({ children }: { children: React.ReactNode }) => <RemoteAuthProvider client={client}>{children}</RemoteAuthProvider>;
 
 describe('RemoteAuthProvider', () => {
   beforeEach(() => {

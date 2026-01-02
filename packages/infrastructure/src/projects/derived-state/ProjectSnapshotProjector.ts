@@ -10,14 +10,8 @@ import {
   type ProjectSnapshotState,
   type SupportedProjectEvent,
 } from '../projections/model/ProjectProjectionState';
-import {
-  decodeProjectSnapshotState,
-  encodeProjectSnapshotState,
-} from '../snapshots/ProjectSnapshotCodec';
-import {
-  buildProjectionCacheAad,
-  ProjectionCacheStore,
-} from '../../platform/derived-state';
+import { decodeProjectSnapshotState, encodeProjectSnapshotState } from '../snapshots/ProjectSnapshotCodec';
+import { buildProjectionCacheAad, ProjectionCacheStore } from '../../platform/derived-state';
 
 const PROJECTION_ID = 'project_snapshot';
 
@@ -101,18 +95,12 @@ export class ProjectSnapshotProjector {
     cursor: EffectiveCursor,
     lastCommitSequence: number
   ): Promise<SnapshotApplyResult> {
-    const previousSnapshot =
-      this.snapshots.get(event.aggregateId) ??
-      (await this.loadSnapshot(event.aggregateId, key));
+    const previousSnapshot = this.snapshots.get(event.aggregateId) ?? (await this.loadSnapshot(event.aggregateId, key));
     const previousItem =
       this.projections.get(event.aggregateId) ??
       (previousSnapshot ? projectSnapshotToListItem(previousSnapshot) : null);
     const nextVersion = previousSnapshot ? previousSnapshot.version + 1 : 1;
-    const nextSnapshot = applyProjectEventToSnapshot(
-      previousSnapshot,
-      domainEvent,
-      nextVersion
-    );
+    const nextSnapshot = applyProjectEventToSnapshot(previousSnapshot, domainEvent, nextVersion);
     if (!nextSnapshot) {
       return {
         changed: false,
@@ -123,13 +111,7 @@ export class ProjectSnapshotProjector {
       };
     }
 
-    await this.persistSnapshot(
-      event.aggregateId,
-      nextSnapshot,
-      key,
-      cursor,
-      lastCommitSequence
-    );
+    await this.persistSnapshot(event.aggregateId, nextSnapshot, key, cursor, lastCommitSequence);
     this.snapshots.set(event.aggregateId, nextSnapshot);
 
     if (nextSnapshot.archivedAt === null) {
@@ -168,10 +150,7 @@ export class ProjectSnapshotProjector {
     await this.cacheStore.removeAll(PROJECTION_ID);
   }
 
-  private async loadSnapshot(
-    aggregateId: string,
-    key: Uint8Array
-  ): Promise<ProjectSnapshotState | null> {
+  private async loadSnapshot(aggregateId: string, key: Uint8Array): Promise<ProjectSnapshotState | null> {
     const row = await this.cacheStore.get(PROJECTION_ID, aggregateId);
     if (!row) return null;
     try {
@@ -195,12 +174,7 @@ export class ProjectSnapshotProjector {
     cursor: EffectiveCursor,
     key: Uint8Array
   ): Promise<ProjectSnapshotState | null> {
-    const aad = buildProjectionCacheAad(
-      PROJECTION_ID,
-      aggregateId,
-      version,
-      cursor
-    );
+    const aad = buildProjectionCacheAad(PROJECTION_ID, aggregateId, version, cursor);
     const plaintext = await this.crypto.decrypt(payload, key, aad);
     return decodeProjectSnapshotState(plaintext, version);
   }
@@ -212,17 +186,8 @@ export class ProjectSnapshotProjector {
     cursor: EffectiveCursor,
     lastCommitSequence: number
   ): Promise<void> {
-    const aad = buildProjectionCacheAad(
-      PROJECTION_ID,
-      aggregateId,
-      snapshot.version,
-      cursor
-    );
-    const cipher = await this.crypto.encrypt(
-      encodeProjectSnapshotState(snapshot),
-      key,
-      aad
-    );
+    const aad = buildProjectionCacheAad(PROJECTION_ID, aggregateId, snapshot.version, cursor);
+    const cipher = await this.crypto.encrypt(encodeProjectSnapshotState(snapshot), key, aad);
     await this.cacheStore.put({
       projectionId: PROJECTION_ID,
       scopeKey: aggregateId,
@@ -252,10 +217,7 @@ export class ProjectSnapshotProjector {
     }
   }
 
-  private reindexGoal(
-    previous: ProjectSnapshotState | null,
-    nextItem: ProjectListItem | null
-  ): void {
+  private reindexGoal(previous: ProjectSnapshotState | null, nextItem: ProjectListItem | null): void {
     if (
       previous &&
       previous.archivedAt === null &&

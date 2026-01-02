@@ -12,9 +12,7 @@ export async function up(db: Kysely<SyncDatabase>): Promise<void> {
     .addColumn('global_seq', 'integer', (col) => col.notNull())
     .addColumn('event_id', 'varchar', (col) => col.notNull())
     .addColumn('record_json', 'text', (col) => col.notNull())
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   await db.schema

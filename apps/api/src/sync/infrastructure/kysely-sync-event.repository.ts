@@ -4,11 +4,7 @@ import {
   SyncEventRepository,
   SyncRepositoryHeadMismatchError,
 } from '../application/ports/sync-event-repository';
-import {
-  SyncEvent,
-  SyncEventAssignment,
-  SyncIncomingEvent,
-} from '../domain/SyncEvent';
+import { SyncEvent, SyncEventAssignment, SyncIncomingEvent } from '../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
@@ -20,10 +16,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
     super();
   }
 
-  async getHeadSequence(
-    ownerId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<GlobalSequenceNumber> {
+  async getHeadSequence(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<GlobalSequenceNumber> {
     const db = this.dbService.getDb();
     const result = await db
       .selectFrom('sync.stores')
@@ -61,10 +54,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
       }
       let currentHead = Number(storeRow.head ?? 0);
       if (currentHead !== expectedHead.unwrap()) {
-        throw new SyncRepositoryHeadMismatchError(
-          GlobalSequenceNumber.from(currentHead),
-          expectedHead
-        );
+        throw new SyncRepositoryHeadMismatchError(GlobalSequenceNumber.from(currentHead), expectedHead);
       }
 
       const existingRows = await trx
@@ -79,9 +69,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
         )
         .execute();
 
-      const existing = new Map(
-        existingRows.map((row) => [row.event_id, Number(row.global_seq)])
-      );
+      const existing = new Map(existingRows.map((row) => [row.event_id, Number(row.global_seq)]));
 
       const assigned: SyncEventAssignment[] = [];
 
@@ -104,11 +92,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
             event_id: event.eventId,
             record_json: event.recordJson,
           })
-          .onConflict((oc) =>
-            oc
-              .columns(['owner_identity_id', 'store_id', 'event_id'])
-              .doNothing()
-          )
+          .onConflict((oc) => oc.columns(['owner_identity_id', 'store_id', 'event_id']).doNothing())
           .returning(['event_id', 'global_seq'])
           .executeTakeFirst();
 
@@ -116,9 +100,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
           currentHead = nextSequence;
           assigned.push({
             eventId: inserted.event_id,
-            globalSequence: GlobalSequenceNumber.from(
-              Number(inserted.global_seq)
-            ),
+            globalSequence: GlobalSequenceNumber.from(Number(inserted.global_seq)),
           });
           continue;
         }
@@ -141,11 +123,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
         });
       }
 
-      await trx
-        .updateTable('sync.stores')
-        .set({ head: currentHead })
-        .where('store_id', '=', storeValue)
-        .execute();
+      await trx.updateTable('sync.stores').set({ head: currentHead }).where('store_id', '=', storeValue).execute();
 
       return {
         head: GlobalSequenceNumber.from(currentHead),
@@ -163,14 +141,7 @@ export class KyselySyncEventRepository extends SyncEventRepository {
     const db = this.dbService.getDb();
     const rows = await db
       .selectFrom('sync.events')
-      .select([
-        'owner_identity_id',
-        'store_id',
-        'global_seq',
-        'event_id',
-        'record_json',
-        'created_at',
-      ])
+      .select(['owner_identity_id', 'store_id', 'global_seq', 'event_id', 'record_json', 'created_at'])
       .where('owner_identity_id', '=', ownerId.unwrap())
       .where('store_id', '=', storeId.unwrap())
       .where('global_seq', '>', since.unwrap())

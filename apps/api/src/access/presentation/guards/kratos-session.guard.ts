@@ -1,9 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthenticatedIdentity } from '../../application/authenticated-identity';
 import { AuthService } from '../../application/auth.service';
@@ -33,8 +28,7 @@ export class KratosSessionGuard implements CanActivate {
     }
 
     const cached = this.sessionCache.read(sessionToken);
-    const authIdentity =
-      cached ?? (await this.authService.validateSession(sessionToken));
+    const authIdentity = cached ?? (await this.authService.validateSession(sessionToken));
 
     if (!cached) {
       this.sessionCache.write(sessionToken, authIdentity);

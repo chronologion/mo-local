@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SyncEngine } from '../src/SyncEngine';
 import { encodeBase64Url } from '../src/base64url';
-import type {
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from '@mo/eventstore-web';
+import type { SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
   type SyncDirection,
@@ -108,9 +103,7 @@ class MemoryDb implements SqliteDbPort {
     if (normalized.startsWith('SELECT LAST_PULLED_GLOBAL_SEQ FROM SYNC_META')) {
       const storeId = String(params[0] ?? '');
       const row = this.getSyncMeta(storeId);
-      return [
-        { last_pulled_global_seq: row?.last_pulled_global_seq ?? 0 },
-      ] as unknown as T[];
+      return [{ last_pulled_global_seq: row?.last_pulled_global_seq ?? 0 }] as unknown as T[];
     }
     if (normalized.startsWith('SELECT COUNT(*) AS COUNT FROM EVENTS')) {
       const pending = this.pendingEvents();
@@ -163,10 +156,7 @@ class MemoryDb implements SqliteDbPort {
     throw new Error(`Unhandled query: ${sql}`);
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     const normalized = normalizeSql(sql);
     if (normalized.startsWith('INSERT OR IGNORE INTO SYNC_META')) {
       const storeId = String(params[0] ?? '');
@@ -188,9 +178,7 @@ class MemoryDb implements SqliteDbPort {
         updated_at: Number(params[2] ?? 0),
       };
       if (existing) {
-        this.syncMeta = this.syncMeta.map((item) =>
-          item.store_id === storeId ? row : item
-        );
+        this.syncMeta = this.syncMeta.map((item) => (item.store_id === storeId ? row : item));
       } else {
         this.syncMeta.push(row);
       }
@@ -199,9 +187,7 @@ class MemoryDb implements SqliteDbPort {
     await this.executeStatement(sql, params);
   }
 
-  async batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     const results: SqliteBatchResult[] = [];
     for (const statement of statements) {
       if (statement.kind === SqliteStatementKinds.query) {
@@ -219,10 +205,7 @@ class MemoryDb implements SqliteDbPort {
     return () => undefined;
   }
 
-  private async executeStatement(
-    sql: string,
-    params: ReadonlyArray<SqliteValue>
-  ): Promise<void> {
+  private async executeStatement(sql: string, params: ReadonlyArray<SqliteValue>): Promise<void> {
     const normalized = normalizeSql(sql);
     if (normalized.startsWith('INSERT OR IGNORE INTO EVENTS')) {
       const [
@@ -289,19 +272,14 @@ class MemoryDb implements SqliteDbPort {
   }
 
   private pendingEvents(): EventRow[] {
-    return this.events.filter(
-      (row) => !this.syncEventMap.some((map) => map.event_id === row.id)
-    );
+    return this.events.filter((row) => !this.syncEventMap.some((map) => map.event_id === row.id));
   }
 }
 
 class TestDb extends MemoryDb {
   private subscribers: Array<() => void> = [];
 
-  subscribeToTables(
-    _tables?: ReadonlyArray<string>,
-    onChange?: () => void
-  ): () => void {
+  subscribeToTables(_tables?: ReadonlyArray<string>, onChange?: () => void): () => void {
     if (!onChange) return () => undefined;
     this.subscribers.push(onChange);
     return () => {
@@ -321,9 +299,7 @@ class FakeTransport implements SyncAbortableTransportPort {
   pushResponses: Array<SyncPushOkResponseV1 | SyncPushConflictResponseV1> = [];
   pushRequests: SyncPushRequestV1[] = [];
 
-  async push(
-    request: SyncPushRequestV1
-  ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
+  async push(request: SyncPushRequestV1): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     this.pushRequests.push(request);
     const response = this.pushResponses.shift();
     if (!response) {
@@ -332,12 +308,7 @@ class FakeTransport implements SyncAbortableTransportPort {
     return response;
   }
 
-  async pull(params: {
-    storeId: string;
-    since: number;
-    limit: number;
-    waitMs?: number;
-  }): Promise<SyncPullResponseV1> {
+  async pull(params: { storeId: string; since: number; limit: number; waitMs?: number }): Promise<SyncPullResponseV1> {
     const response = this.pullResponses.shift();
     if (!response) {
       return {
@@ -357,18 +328,14 @@ class FakeTransport implements SyncAbortableTransportPort {
   }
 }
 
-const normalizeSql = (sql: string): string =>
-  sql.replace(/\s+/g, ' ').trim().toUpperCase();
+const normalizeSql = (sql: string): string => sql.replace(/\s+/g, ' ').trim().toUpperCase();
 
 const toUint8Array = (value: SqliteValue, label: string): Uint8Array => {
   if (value instanceof Uint8Array) return value;
   throw new Error(`Expected ${label} to be Uint8Array`);
 };
 
-const toNullableUint8Array = (
-  value: SqliteValue,
-  label: string
-): Uint8Array | null => {
+const toNullableUint8Array = (value: SqliteValue, label: string): Uint8Array | null => {
   if (value === null) return null;
   if (value instanceof Uint8Array) return value;
   throw new Error(`Expected ${label} to be Uint8Array or null`);
@@ -606,9 +573,7 @@ describe('SyncEngine', () => {
     await engine.syncOnce();
 
     expect(transport.pushRequests).toHaveLength(1);
-    expect(
-      transport.pushRequests[0]?.events.map((event) => event.eventId)
-    ).toEqual(['local-1', 'local-2']);
+    expect(transport.pushRequests[0]?.events.map((event) => event.eventId)).toEqual(['local-1', 'local-2']);
   });
 
   it('runs pull/push loops and respects interval sleep', async () => {

@@ -3,10 +3,7 @@ import type { PersistedEvent, RuntimeEventSpec } from './types';
 import { latestVersionOf } from './migrations';
 import { upcastPayload } from './upcast';
 
-export function encodeLatest(
-  spec: RuntimeEventSpec,
-  event: Record<string, unknown>
-): PersistedEvent {
+export function encodeLatest(spec: RuntimeEventSpec, event: Record<string, unknown>): PersistedEvent {
   const payload: Record<string, unknown> = {};
   for (const k in spec.fields) {
     payload[k] = spec.fields[k].encode(event[k]);
@@ -14,11 +11,7 @@ export function encodeLatest(
   return { type: spec.type, version: latestVersionOf(spec.type), payload };
 }
 
-export function decode(
-  spec: RuntimeEventSpec,
-  rec: PersistedEvent,
-  meta: EventMetadata
-): DomainEvent {
+export function decode(spec: RuntimeEventSpec, rec: PersistedEvent, meta: EventMetadata): DomainEvent {
   const latestPayload = upcastPayload(rec.type, rec.version, rec.payload);
   if (typeof latestPayload !== 'object' || latestPayload === null) {
     throw new Error(`${rec.type}: payload must be an object`);

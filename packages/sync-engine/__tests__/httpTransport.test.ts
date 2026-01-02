@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HttpSyncTransport } from '../src/httpTransport';
 
 const makeResponse = (body: unknown, init?: ResponseInit): Response => {
-  const payload =
-    typeof body === 'string' ? body : JSON.stringify(body ?? null);
+  const payload = typeof body === 'string' ? body : JSON.stringify(body ?? null);
   return new Response(payload, {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -48,9 +47,7 @@ describe('HttpSyncTransport', () => {
   });
 
   it('throws when push response is not JSON', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(makeResponse('not-json', { status: 200 }));
+    const fetchImpl = vi.fn().mockResolvedValue(makeResponse('not-json', { status: 200 }));
     const transport = new HttpSyncTransport({
       baseUrl: 'http://localhost:4000',
       fetchImpl,
@@ -66,9 +63,7 @@ describe('HttpSyncTransport', () => {
   });
 
   it('throws on push non-409 error status', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(makeResponse({ error: 'oops' }, { status: 500 }));
+    const fetchImpl = vi.fn().mockResolvedValue(makeResponse({ error: 'oops' }, { status: 500 }));
     const transport = new HttpSyncTransport({
       baseUrl: 'http://localhost:4000',
       fetchImpl,
@@ -84,9 +79,7 @@ describe('HttpSyncTransport', () => {
   });
 
   it('throws on push unauthorized', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(makeResponse({ error: 'nope' }, { status: 401 }));
+    const fetchImpl = vi.fn().mockResolvedValue(makeResponse({ error: 'nope' }, { status: 401 }));
     const transport = new HttpSyncTransport({
       baseUrl: 'http://localhost:4000',
       fetchImpl,
@@ -123,39 +116,29 @@ describe('HttpSyncTransport', () => {
     });
 
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      'http://localhost:4000/sync/pull?storeId=store-1&since=2&limit=50&waitMs=10'
-    );
+    expect(url).toBe('http://localhost:4000/sync/pull?storeId=store-1&since=2&limit=50&waitMs=10');
     expect(init.credentials).toBe('include');
   });
 
   it('throws on pull non-OK status', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(makeResponse({ error: 'nope' }, { status: 503 }));
+    const fetchImpl = vi.fn().mockResolvedValue(makeResponse({ error: 'nope' }, { status: 503 }));
     const transport = new HttpSyncTransport({
       baseUrl: 'http://localhost:4000',
       fetchImpl,
     });
 
-    await expect(
-      transport.pull({ storeId: 'store-1', since: 0, limit: 1 })
-    ).rejects.toThrow('Sync pull failed with status 503');
+    await expect(transport.pull({ storeId: 'store-1', since: 0, limit: 1 })).rejects.toThrow(
+      'Sync pull failed with status 503'
+    );
   });
 
   it('ping throws when status is not ok', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        makeResponse({}, { status: 500, statusText: 'Server Error' })
-      );
+    const fetchImpl = vi.fn().mockResolvedValue(makeResponse({}, { status: 500, statusText: 'Server Error' }));
     const transport = new HttpSyncTransport({
       baseUrl: 'http://localhost:4000',
       fetchImpl,
     });
 
-    await expect(transport.ping()).rejects.toThrow(
-      'Sync ping failed with status 500'
-    );
+    await expect(transport.ping()).rejects.toThrow('Sync ping failed with status 500');
   });
 });

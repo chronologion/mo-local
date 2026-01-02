@@ -11,10 +11,7 @@ export interface ProjectRenamedPayload {
   changedAt: Timestamp;
 }
 
-export class ProjectRenamed
-  extends DomainEvent<ProjectId>
-  implements ProjectRenamedPayload
-{
+export class ProjectRenamed extends DomainEvent<ProjectId> implements ProjectRenamedPayload {
   readonly eventType = projectEventTypes.projectRenamed;
 
   readonly projectId: ProjectId;
@@ -30,12 +27,12 @@ export class ProjectRenamed
   }
 }
 
-export const ProjectRenamedSpec = payloadEventSpec<
-  ProjectRenamed,
-  ProjectRenamedPayload,
-  ProjectId
->(projectEventTypes.projectRenamed, (p, meta) => new ProjectRenamed(p, meta), {
-  projectId: voString(ProjectId.from),
-  name: voString(ProjectName.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+export const ProjectRenamedSpec = payloadEventSpec<ProjectRenamed, ProjectRenamedPayload, ProjectId>(
+  projectEventTypes.projectRenamed,
+  (p, meta) => new ProjectRenamed(p, meta),
+  {
+    projectId: voString(ProjectId.from),
+    name: voString(ProjectName.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

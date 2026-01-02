@@ -11,13 +11,7 @@ vi.mock('../../../src/providers/RemoteAuthProvider', () => ({
 }));
 
 vi.mock('../../../src/components/auth/RemoteAuthModal', () => ({
-  RemoteAuthModal: ({
-    open,
-    mode,
-  }: {
-    open: boolean;
-    mode: 'login' | 'signup';
-  }) => {
+  RemoteAuthModal: ({ open, mode }: { open: boolean; mode: 'login' | 'signup' }) => {
     modalSpy(open, mode);
     return <div>RemoteAuthModal Stub</div>;
   },

@@ -1,20 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import {
-  SyncEvent,
-  SyncEventAssignment,
-  SyncIncomingEvent,
-} from '../domain/SyncEvent';
+import { SyncEvent, SyncEventAssignment, SyncIncomingEvent } from '../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
-import {
-  SyncEventRepository,
-  SyncRepositoryHeadMismatchError,
-} from './ports/sync-event-repository';
-import {
-  SyncAccessDeniedError,
-  SyncAccessPolicy,
-} from './ports/sync-access-policy';
+import { SyncEventRepository, SyncRepositoryHeadMismatchError } from './ports/sync-event-repository';
+import { SyncAccessDeniedError, SyncAccessPolicy } from './ports/sync-access-policy';
 import { SyncStoreRepository } from './ports/sync-store-repository';
 
 export type SyncPushOk = Readonly<{
@@ -68,12 +58,7 @@ export class SyncService {
       return { ok: true, head: result.head, assigned: result.assigned };
     } catch (error) {
       if (error instanceof SyncRepositoryHeadMismatchError) {
-        const missing = await this.repository.loadSince(
-          ownerId,
-          storeId,
-          expectedHead,
-          1_000
-        );
+        const missing = await this.repository.loadSince(ownerId, storeId, expectedHead, 1_000);
         return {
           ok: false,
           head: error.currentHead,
@@ -107,12 +92,7 @@ export class SyncService {
     limit: number;
   }): Promise<{ events: SyncEvent[]; head: GlobalSequenceNumber }> {
     const { ownerId, storeId, since, limit } = params;
-    const events = await this.repository.loadSince(
-      ownerId,
-      storeId,
-      since,
-      limit
-    );
+    const events = await this.repository.loadSince(ownerId, storeId, since, limit);
     const head = await this.repository.getHeadSequence(ownerId, storeId);
     return { events, head };
   }

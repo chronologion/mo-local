@@ -9,19 +9,13 @@ export interface ProjectGoalRemovedPayload {
   removedAt: Timestamp;
 }
 
-export class ProjectGoalRemoved
-  extends DomainEvent<ProjectId>
-  implements ProjectGoalRemovedPayload
-{
+export class ProjectGoalRemoved extends DomainEvent<ProjectId> implements ProjectGoalRemovedPayload {
   readonly eventType = projectEventTypes.projectGoalRemoved;
 
   readonly projectId: ProjectId;
   readonly removedAt: Timestamp;
 
-  constructor(
-    payload: ProjectGoalRemovedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectGoalRemovedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.removedAt = this.occurredAt;
@@ -29,11 +23,7 @@ export class ProjectGoalRemoved
   }
 }
 
-export const ProjectGoalRemovedSpec = payloadEventSpec<
-  ProjectGoalRemoved,
-  ProjectGoalRemovedPayload,
-  ProjectId
->(
+export const ProjectGoalRemovedSpec = payloadEventSpec<ProjectGoalRemoved, ProjectGoalRemovedPayload, ProjectId>(
   projectEventTypes.projectGoalRemoved,
   (p, meta) => new ProjectGoalRemoved(p, meta),
   {

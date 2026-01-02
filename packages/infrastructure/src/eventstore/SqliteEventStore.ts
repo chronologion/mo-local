@@ -1,22 +1,9 @@
-import type {
-  EncryptedEvent,
-  EventFilter,
-  EventStorePort,
-} from '@mo/application';
+import type { EncryptedEvent, EventFilter, EventStorePort } from '@mo/application';
 import type { AggregateType } from '@mo/eventstore-core';
 import type { SqliteDbPort } from '@mo/eventstore-web';
-import {
-  SqliteEncryptedEventAppender,
-  type EncryptedEventAppender,
-} from './persistence/EncryptedEventAppender';
-import {
-  SqliteEncryptedEventReader,
-  type EncryptedEventReader,
-} from './persistence/EncryptedEventReader';
-import type {
-  EncryptedEventToAppend,
-  EventTableSpec,
-} from './persistence/types';
+import { SqliteEncryptedEventAppender, type EncryptedEventAppender } from './persistence/EncryptedEventAppender';
+import { SqliteEncryptedEventReader, type EncryptedEventReader } from './persistence/EncryptedEventReader';
+import type { EncryptedEventToAppend, EventTableSpec } from './persistence/types';
 
 export class SqliteEventStore implements EventStorePort {
   private readonly spec: EventTableSpec;
@@ -30,16 +17,10 @@ export class SqliteEventStore implements EventStorePort {
     this.spec = { table: 'events', aggregateType };
   }
 
-  async append(
-    aggregateId: string,
-    eventsToAppend: EncryptedEvent[]
-  ): Promise<void> {
+  async append(aggregateId: string, eventsToAppend: EncryptedEvent[]): Promise<void> {
     if (eventsToAppend.length === 0) return;
-    const minVersion = Math.min(
-      ...eventsToAppend.map((event) => event.version)
-    );
-    const expectedPreviousVersion =
-      Number.isFinite(minVersion) && minVersion > 0 ? minVersion - 1 : null;
+    const minVersion = Math.min(...eventsToAppend.map((event) => event.version));
+    const expectedPreviousVersion = Number.isFinite(minVersion) && minVersion > 0 ? minVersion - 1 : null;
     const toAppend: EncryptedEventToAppend[] = eventsToAppend.map((event) => ({
       eventId: event.id,
       aggregateId,
@@ -62,16 +43,8 @@ export class SqliteEventStore implements EventStorePort {
     );
   }
 
-  async getEvents(
-    aggregateId: string,
-    fromVersion = 1
-  ): Promise<EncryptedEvent[]> {
-    const events = await this.reader.readForAggregate(
-      this.db,
-      this.spec,
-      aggregateId,
-      fromVersion
-    );
+  async getEvents(aggregateId: string, fromVersion = 1): Promise<EncryptedEvent[]> {
+    const events = await this.reader.readForAggregate(this.db, this.spec, aggregateId, fromVersion);
     return [...events];
   }
 

@@ -9,9 +9,7 @@ import { BackupModal } from './components/goals/BackupModal';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { ToastProvider } from './components/ui/toast';
 
-const GoalsPage = lazy(() =>
-  import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
-);
+const GoalsPage = lazy(() => import('./features/goals/GoalsPage').then((m) => ({ default: m.GoalsPage })));
 const ProjectsPage = lazy(() =>
   import('./features/projects/ProjectsPage').then((m) => ({
     default: m.ProjectsPage,
@@ -33,9 +31,7 @@ export default function App() {
                 <Sparkles className="h-4 w-4 text-black" />
               </div>
               <div>
-                <div className="text-sm font-bold">
-                  Local-first / ES / ZK sync
-                </div>
+                <div className="text-sm font-bold">Local-first / ES / ZK sync</div>
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm">
@@ -57,9 +53,7 @@ export default function App() {
           <div className="mx-auto max-w-md px-4 py-10">
             <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 p-4 shadow-sm">
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-sm font-medium text-foreground">
-                Loading identity…
-              </span>
+              <span className="text-sm font-medium text-foreground">Loading identity…</span>
             </div>
           </div>
         )}
@@ -71,18 +65,13 @@ export default function App() {
               <div className="mx-auto max-w-md px-4 py-10">
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-card/80 p-4 shadow-sm">
                   <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm font-medium text-foreground">
-                    Loading…
-                  </span>
+                  <span className="text-sm font-medium text-foreground">Loading…</span>
                 </div>
               </div>
             }
           >
             <div className="mx-auto max-w-6xl px-4 pt-4">
-              <Tabs
-                value={tab}
-                onValueChange={(v) => setTab(v as 'goals' | 'projects')}
-              >
+              <Tabs value={tab} onValueChange={(v) => setTab(v as 'goals' | 'projects')}>
                 <TabsList>
                   <TabsTrigger value="goals">Goals</TabsTrigger>
                   <TabsTrigger value="projects">Projects</TabsTrigger>
@@ -90,10 +79,7 @@ export default function App() {
               </Tabs>
             </div>
             {tab === 'goals' ? <GoalsPage /> : <ProjectsPage />}
-            <BackupModal
-              open={backupOpen}
-              onClose={() => setBackupOpen(false)}
-            />
+            <BackupModal open={backupOpen} onClose={() => setBackupOpen(false)} />
           </Suspense>
         )}
       </div>

@@ -1,8 +1,5 @@
 import { SliceValue } from '@mo/domain';
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type ChangeGoalSlicePayload = {
   goalId: string;
@@ -11,10 +8,7 @@ export type ChangeGoalSlicePayload = {
   knownVersion: number;
 };
 
-export class ChangeGoalSlice
-  extends BaseCommand<ChangeGoalSlicePayload>
-  implements Readonly<ChangeGoalSlicePayload>
-{
+export class ChangeGoalSlice extends BaseCommand<ChangeGoalSlicePayload> implements Readonly<ChangeGoalSlicePayload> {
   readonly goalId: string;
   readonly slice: SliceValue;
   readonly timestamp: number;

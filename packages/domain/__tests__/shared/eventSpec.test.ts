@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  numberField,
-  nullable,
-  stringField,
-  voNumber,
-  voString,
-} from '../../src/shared/eventSpec';
+import { numberField, nullable, stringField, voNumber, voString } from '../../src/shared/eventSpec';
 
 type StubStringVO = { readonly value: string };
 type StubNumberVO = { readonly value: number };
@@ -36,12 +30,8 @@ describe('eventSpec field mappers', () => {
   it('voNumber rejects non-finite numbers', () => {
     const mapper = voNumber(makeNumberVO);
     expect(() => mapper.decode('1')).toThrowError('Expected finite number');
-    expect(() => mapper.decode(Number.NaN)).toThrowError(
-      'Expected finite number'
-    );
-    expect(() => mapper.decode(Number.POSITIVE_INFINITY)).toThrowError(
-      'Expected finite number'
-    );
+    expect(() => mapper.decode(Number.NaN)).toThrowError('Expected finite number');
+    expect(() => mapper.decode(Number.POSITIVE_INFINITY)).toThrowError('Expected finite number');
   });
 
   it('stringField round-trips', () => {

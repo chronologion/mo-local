@@ -14,10 +14,7 @@ export type ProcessManagerStateRecord = Readonly<{
 export class ProcessManagerStateStore {
   constructor(private readonly db: SqliteDbPort) {}
 
-  async get(
-    processManagerId: string,
-    scopeKey: ScopeKey
-  ): Promise<ProcessManagerStateRecord | null> {
+  async get(processManagerId: string, scopeKey: ScopeKey): Promise<ProcessManagerStateRecord | null> {
     const rows = await this.db.query<
       Readonly<{
         process_manager_id: string;
@@ -92,16 +89,13 @@ export class ProcessManagerStateStore {
   }
 
   async remove(processManagerId: string, scopeKey: ScopeKey): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM process_manager_state WHERE process_manager_id = ? AND scope_key = ?',
-      [processManagerId, scopeKey]
-    );
+    await this.db.execute('DELETE FROM process_manager_state WHERE process_manager_id = ? AND scope_key = ?', [
+      processManagerId,
+      scopeKey,
+    ]);
   }
 
   async removeAll(processManagerId: string): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM process_manager_state WHERE process_manager_id = ?',
-      [processManagerId]
-    );
+    await this.db.execute('DELETE FROM process_manager_state WHERE process_manager_id = ?', [processManagerId]);
   }
 }

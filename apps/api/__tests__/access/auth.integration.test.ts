@@ -17,8 +17,7 @@ type Session = {
   email?: string;
 };
 
-const makeConfigService = () =>
-  new ConfigService({ KRATOS_PUBLIC_URL: 'http://localhost:4455' });
+const makeConfigService = () => new ConfigService({ KRATOS_PUBLIC_URL: 'http://localhost:4455' });
 
 class StubKratosPasswordService extends KratosPasswordService {
   constructor(
@@ -61,8 +60,7 @@ class StubIdentityRepository extends IdentityRepository {
   }
 }
 
-const makeContext = (request: Request) =>
-  new ExecutionContextHost([request, {}]);
+const makeContext = (request: Request) => new ExecutionContextHost([request, {}]);
 
 describe('auth service + guard', () => {
   const session: Session = {
@@ -95,9 +93,7 @@ describe('auth service + guard', () => {
       new StubKratosClient(identity),
       identities
     );
-    await expect(
-      authService.register(session.email ?? '', 'password123')
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(authService.register(session.email ?? '', 'password123')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('guard accepts valid sessions and stores identity on request', async () => {
@@ -108,8 +104,7 @@ describe('auth service + guard', () => {
       identities
     );
     const guard = new KratosSessionGuard(authService, new SessionCache());
-    const request: Request & { authIdentity?: AuthenticatedIdentity } =
-      Object.create(express.request);
+    const request: Request & { authIdentity?: AuthenticatedIdentity } = Object.create(express.request);
     request.headers = { 'x-session-token': session.sessionToken };
     const allowed = await guard.canActivate(makeContext(request));
     expect(allowed).toBe(true);
@@ -126,8 +121,6 @@ describe('auth service + guard', () => {
     const guard = new KratosSessionGuard(authService, new SessionCache());
     const request: Request = Object.create(express.request);
     request.headers = {};
-    await expect(
-      guard.canActivate(makeContext(request))
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(makeContext(request))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

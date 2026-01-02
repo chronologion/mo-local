@@ -44,19 +44,10 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
   ) {}
 
   select(): FakeSelectBuilder<T> {
-    return new FakeSelectBuilder(
-      this.rows,
-      this.clauses,
-      this.limitValue,
-      this.orderByClause
-    );
+    return new FakeSelectBuilder(this.rows, this.clauses, this.limitValue, this.orderByClause);
   }
 
-  where(
-    column: string,
-    op: '=' | '>' | 'in',
-    value: WhereClause['value']
-  ): this {
+  where(column: string, op: '=' | '>' | 'in', value: WhereClause['value']): this {
     return new FakeSelectBuilder(
       this.rows,
       [...this.clauses, { column, op, value }],
@@ -73,12 +64,7 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
   }
 
   limit(value: number): this {
-    return new FakeSelectBuilder(
-      this.rows,
-      this.clauses,
-      value,
-      this.orderByClause
-    ) as this;
+    return new FakeSelectBuilder(this.rows, this.clauses, value, this.orderByClause) as this;
   }
 
   forUpdate(): this {
@@ -125,9 +111,7 @@ class FakeSelectBuilder<T extends { [key: string]: unknown }> {
 }
 
 type FakeTrx = {
-  selectFrom: (
-    table: 'sync.stores' | 'sync.events'
-  ) => FakeSelectBuilder<StoreRow | EventRow>;
+  selectFrom: (table: 'sync.stores' | 'sync.events') => FakeSelectBuilder<StoreRow | EventRow>;
   insertInto: (table: 'sync.events') => {
     values: (row: EventRow) => {
       onConflict: () => {
@@ -139,11 +123,7 @@ type FakeTrx = {
   };
   updateTable: (table: 'sync.stores') => {
     set: (values: Partial<StoreRow>) => {
-      where: (
-        column: string,
-        _op: '=',
-        value: string
-      ) => { execute: () => Promise<void> };
+      where: (column: string, _op: '=', value: string) => { execute: () => Promise<void> };
     };
   };
 };
@@ -258,9 +238,7 @@ describe('KyselySyncEventRepository', () => {
       events: [{ eventId: 'e1', recordJson: '{"a":1}' }],
     });
 
-    expect(result.assigned).toEqual([
-      { eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) },
-    ]);
+    expect(result.assigned).toEqual([{ eventId: 'e1', globalSequence: GlobalSequenceNumber.from(1) }]);
     expect(result.head.unwrap()).toBe(1);
   });
 

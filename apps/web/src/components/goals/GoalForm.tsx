@@ -2,19 +2,8 @@ import { FormEvent, useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
-import {
-  GoalFormValues,
-  getDefaultTargetMonth,
-  priorityOptions,
-  sliceOptions,
-} from './goalFormTypes';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { GoalFormValues, getDefaultTargetMonth, priorityOptions, sliceOptions } from './goalFormTypes';
 import { Sparkles } from 'lucide-react';
 import { MonthPicker } from '../ui/month-picker';
 
@@ -31,14 +20,8 @@ const defaultValues: GoalFormValues = {
   targetMonth: getDefaultTargetMonth(),
 };
 
-export function GoalForm({
-  onSubmit,
-  initialValues,
-  submitLabel = 'Create goal',
-}: GoalFormProps) {
-  const [values, setValues] = useState<GoalFormValues>(
-    initialValues ?? defaultValues
-  );
+export function GoalForm({ onSubmit, initialValues, submitLabel = 'Create goal' }: GoalFormProps) {
+  const [values, setValues] = useState<GoalFormValues>(initialValues ?? defaultValues);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -58,9 +41,7 @@ export function GoalForm({
         <Label>Summary</Label>
         <Input
           value={values.summary}
-          onChange={(e) =>
-            setValues((prev) => ({ ...prev, summary: e.target.value }))
-          }
+          onChange={(e) => setValues((prev) => ({ ...prev, summary: e.target.value }))}
           required
           placeholder="Define a concrete goal"
         />
@@ -115,9 +96,7 @@ export function GoalForm({
         <Label>Target month</Label>
         <MonthPicker
           value={values.targetMonth}
-          onChange={(next) =>
-            setValues((prev) => ({ ...prev, targetMonth: next }))
-          }
+          onChange={(next) => setValues((prev) => ({ ...prev, targetMonth: next }))}
         />
       </div>
       <div className="md:col-span-2">

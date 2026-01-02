@@ -14,10 +14,7 @@ import {
 } from '@mo/domain';
 import type { EncryptedEvent } from '@mo/application';
 import type { EffectiveCursor } from '@mo/eventstore-core';
-import {
-  ProjectionCacheStore,
-  IndexArtifactStore,
-} from '../../../src/platform/derived-state';
+import { ProjectionCacheStore, IndexArtifactStore } from '../../../src/platform/derived-state';
 import { buildProjectionCacheAad } from '../../../src/platform/derived-state/aad';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
 import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
@@ -37,9 +34,7 @@ const cursor: EffectiveCursor = {
   pendingCommitSequence: 0,
 };
 
-const baseDate = Timestamp.fromMillis(
-  new Date('2025-01-01T00:00:00Z').getTime()
-);
+const baseDate = Timestamp.fromMillis(new Date('2025-01-01T00:00:00Z').getTime());
 const goalId = GoalId.from('00000000-0000-0000-0000-000000000001');
 const meta = () => ({
   aggregateId: goalId,
@@ -48,10 +43,7 @@ const meta = () => ({
   actorId: ActorId.from('user-1'),
 });
 
-const makeEncryptedEvent = (
-  eventId: string,
-  aggregateId: string
-): EncryptedEvent => ({
+const makeEncryptedEvent = (eventId: string, aggregateId: string): EncryptedEvent => ({
   id: eventId,
   aggregateId,
   eventType: 'GoalCreated',
@@ -88,26 +80,16 @@ describe('Goals derived-state projectors', () => {
       meta()
     );
 
-    await projector.applyEvent(
-      makeEncryptedEvent('e1', aggregateId),
-      createdEvent,
-      kGoal,
-      cursor,
-      1
-    );
+    await projector.applyEvent(makeEncryptedEvent('e1', aggregateId), createdEvent, kGoal, cursor, 1);
 
-    expect(projector.getProjection(aggregateId)?.summary).toBe(
-      'Run a marathon'
-    );
+    expect(projector.getProjection(aggregateId)?.summary).toBe('Run a marathon');
     expect(await cacheStore.get('goal_snapshot', aggregateId)).not.toBeNull();
 
     projector.clearCaches();
     expect(projector.getProjection(aggregateId)).toBeNull();
 
     await projector.bootstrapFromCache();
-    expect(projector.getProjection(aggregateId)?.summary).toBe(
-      'Run a marathon'
-    );
+    expect(projector.getProjection(aggregateId)?.summary).toBe('Run a marathon');
 
     await projector.applyEvent(
       makeEncryptedEvent('e2', aggregateId),
@@ -147,13 +129,7 @@ describe('Goals derived-state projectors', () => {
       meta()
     );
 
-    await projector.applyEvent(
-      makeEncryptedEvent('e1', aggregateId),
-      createdEvent,
-      kGoal,
-      cursor,
-      1
-    );
+    await projector.applyEvent(makeEncryptedEvent('e1', aggregateId), createdEvent, kGoal, cursor, 1);
 
     const row = db.getProjectionCacheRow('goal_snapshot', aggregateId);
     expect(row).not.toBeNull();
@@ -204,17 +180,8 @@ describe('Goals derived-state projectors', () => {
     expect(row).not.toBeNull();
     if (!row) return;
 
-    const aad = buildProjectionCacheAad(
-      'goal_analytics',
-      'global',
-      row.cacheVersion,
-      row.lastEffectiveCursor
-    );
-    const plaintext = await crypto.decrypt(
-      row.cacheEncrypted,
-      analyticsKey,
-      aad
-    );
+    const aad = buildProjectionCacheAad('goal_analytics', 'global', row.cacheVersion, row.lastEffectiveCursor);
+    const plaintext = await crypto.decrypt(row.cacheEncrypted, analyticsKey, aad);
     const payload = JSON.parse(new TextDecoder().decode(plaintext)) as {
       monthlyTotals: Record<string, Record<string, number>>;
       categoryRollups: Record<string, Record<string, number>>;
@@ -228,28 +195,14 @@ describe('Goals derived-state projectors', () => {
       targetMonth: '2026-02',
       version: 2,
     };
-    await projector.updateAnalytics(
-      created,
-      moved,
-      { globalSequence: 11, pendingCommitSequence: 0 },
-      2
-    );
+    await projector.updateAnalytics(created, moved, { globalSequence: 11, pendingCommitSequence: 0 }, 2);
 
     const row2 = await cacheStore.get('goal_analytics', 'global');
     expect(row2).not.toBeNull();
     if (!row2) return;
 
-    const aad2 = buildProjectionCacheAad(
-      'goal_analytics',
-      'global',
-      row2.cacheVersion,
-      row2.lastEffectiveCursor
-    );
-    const plaintext2 = await crypto.decrypt(
-      row2.cacheEncrypted,
-      analyticsKey,
-      aad2
-    );
+    const aad2 = buildProjectionCacheAad('goal_analytics', 'global', row2.cacheVersion, row2.lastEffectiveCursor);
+    const plaintext2 = await crypto.decrypt(row2.cacheEncrypted, analyticsKey, aad2);
     const payload2 = JSON.parse(new TextDecoder().decode(plaintext2)) as {
       monthlyTotals: Record<string, Record<string, number>>;
       categoryRollups: Record<string, Record<string, number>>;
@@ -299,9 +252,7 @@ describe('Goals derived-state projectors', () => {
     await projector.ensureBuilt(projections.values());
 
     expect(projector.searchGoals('marathon', projections)).toHaveLength(1);
-    expect(projector.searchGoals('', projections, { slice: 'Work' })).toEqual([
-      itemB,
-    ]);
+    expect(projector.searchGoals('', projections, { slice: 'Work' })).toEqual([itemB]);
 
     await projector.persistIndex(cursor);
 

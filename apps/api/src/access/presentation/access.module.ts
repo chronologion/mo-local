@@ -24,12 +24,6 @@ import { AccessDatabaseModule } from '../infrastructure/database.module';
       useClass: KyselyIdentityRepository,
     },
   ],
-  exports: [
-    KratosClient,
-    KratosSessionGuard,
-    KratosPasswordService,
-    AuthService,
-    SessionCache,
-  ],
+  exports: [KratosClient, KratosSessionGuard, KratosPasswordService, AuthService, SessionCache],
 })
 export class AccessModule {}

@@ -11,20 +11,14 @@ export interface ProjectDescribedPayload {
   changedAt: Timestamp;
 }
 
-export class ProjectDescribed
-  extends DomainEvent<ProjectId>
-  implements ProjectDescribedPayload
-{
+export class ProjectDescribed extends DomainEvent<ProjectId> implements ProjectDescribedPayload {
   readonly eventType = projectEventTypes.projectDescribed;
 
   readonly projectId: ProjectId;
   readonly description: ProjectDescription;
   readonly changedAt: Timestamp;
 
-  constructor(
-    payload: ProjectDescribedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectDescribedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.description = payload.description;
@@ -33,11 +27,7 @@ export class ProjectDescribed
   }
 }
 
-export const ProjectDescribedSpec = payloadEventSpec<
-  ProjectDescribed,
-  ProjectDescribedPayload,
-  ProjectId
->(
+export const ProjectDescribedSpec = payloadEventSpec<ProjectDescribed, ProjectDescribedPayload, ProjectId>(
   projectEventTypes.projectDescribed,
   (p, meta) => new ProjectDescribed(p, meta),
   {

@@ -18,8 +18,7 @@ export class AuthService {
       await this.identities.ensureExists({ id: session.identityId });
       return session;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Registration failed';
+      const message = error instanceof Error ? error.message : 'Registration failed';
       throw new BadRequestException(message);
     }
   }
@@ -39,9 +38,7 @@ export class AuthService {
     await this.kratosPassword.logout(sessionToken);
   }
 
-  async validateSession(
-    sessionToken: string
-  ): Promise<AuthenticatedIdentity & { email?: string }> {
+  async validateSession(sessionToken: string): Promise<AuthenticatedIdentity & { email?: string }> {
     const sessionIdentity = await this.kratosClient.whoAmI(sessionToken);
     await this.identities.ensureExists({ id: sessionIdentity.id });
     return sessionIdentity;

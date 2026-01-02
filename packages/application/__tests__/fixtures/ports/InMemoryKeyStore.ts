@@ -21,10 +21,7 @@ export class InMemoryKeyStore implements KeyStorePort {
     return this.identityKeys.get(userId) ?? null;
   }
 
-  async saveAggregateKey(
-    aggregateId: string,
-    wrappedKey: Uint8Array
-  ): Promise<void> {
+  async saveAggregateKey(aggregateId: string, wrappedKey: Uint8Array): Promise<void> {
     this.aggregateKeys.set(aggregateId, wrappedKey);
   }
 

@@ -1,7 +1,4 @@
-import type {
-  CloudIdentitySession,
-  CloudAccessClientPort,
-} from '@mo/application';
+import type { CloudIdentitySession, CloudAccessClientPort } from '@mo/application';
 import { z } from 'zod';
 
 const sessionResponseSchema = z.object({
@@ -18,8 +15,7 @@ const logoutResponseSchema = z.object({
   revoked: z.boolean(),
 });
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const parseJson = async (response: Response): Promise<unknown> => {
   const text = await response.text();
@@ -41,10 +37,7 @@ const extractErrorMessage = (payload: unknown): string | null => {
   if (typeof message === 'string') {
     return message;
   }
-  if (
-    Array.isArray(message) &&
-    message.every((item) => typeof item === 'string')
-  ) {
+  if (Array.isArray(message) && message.every((item) => typeof item === 'string')) {
     return message.join(' | ');
   }
   return null;
@@ -74,11 +67,7 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
     return `${this.baseUrl}${path}`;
   }
 
-  private async requestJson<T>(
-    path: string,
-    init: RequestInit,
-    schema: z.ZodSchema<T>
-  ): Promise<T> {
+  private async requestJson<T>(path: string, init: RequestInit, schema: z.ZodSchema<T>): Promise<T> {
     let response: Response;
     const url = this.buildUrl(path);
 
@@ -93,9 +82,7 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
       });
     } catch (err) {
       const message =
-        err instanceof Error
-          ? `Network error calling ${path}: ${err.message}`
-          : `Network error calling ${path}`;
+        err instanceof Error ? `Network error calling ${path}: ${err.message}` : `Network error calling ${path}`;
       throw new CloudAccessError(message);
     }
 
@@ -112,10 +99,7 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
                 return null;
               }
             })());
-      const isAuthPath =
-        path === '/auth/login' ||
-        path === '/auth/register' ||
-        path === '/auth/logout';
+      const isAuthPath = path === '/auth/login' || path === '/auth/register' || path === '/auth/logout';
       let message: string;
       if (reason) {
         const normalized = reason.toLowerCase();
@@ -143,21 +127,14 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
 
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
-      throw new CloudAccessError(
-        `Unexpected response from ${path}`,
-        response.status
-      );
+      throw new CloudAccessError(`Unexpected response from ${path}`, response.status);
     }
     return parsed.data;
   }
 
   async whoAmI(): Promise<CloudIdentitySession | null> {
     try {
-      const result = await this.requestJson(
-        '/auth/whoami',
-        { method: 'GET' },
-        whoamiResponseSchema
-      );
+      const result = await this.requestJson('/auth/whoami', { method: 'GET' }, whoamiResponseSchema);
       return result;
     } catch (error) {
       if (error instanceof CloudAccessError && error.status === 401) {
@@ -167,10 +144,7 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
     }
   }
 
-  async register(params: {
-    email: string;
-    password: string;
-  }): Promise<CloudIdentitySession> {
+  async register(params: { email: string; password: string }): Promise<CloudIdentitySession> {
     const session = await this.requestJson(
       '/auth/register',
       {
@@ -185,10 +159,7 @@ export class HttpCloudAccessClient implements CloudAccessClientPort {
     return session;
   }
 
-  async login(params: {
-    email: string;
-    password: string;
-  }): Promise<CloudIdentitySession> {
+  async login(params: { email: string; password: string }): Promise<CloudIdentitySession> {
     const session = await this.requestJson(
       '/auth/login',
       {

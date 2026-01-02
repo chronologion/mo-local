@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  ChangeHint,
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from '@mo/eventstore-web';
+import type { ChangeHint, SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { ProjectionOrderings } from '@mo/eventstore-core';
 import {
   ProjectionRuntime,
@@ -43,10 +37,7 @@ class FakeDb implements SqliteDbPort {
   private readonly projectionMeta = new Map<string, ProjectionMetaRow>();
   private readonly syncMap = new Map<string, number>();
 
-  constructor(seed?: {
-    events?: ReadonlyArray<EventRow>;
-    syncMap?: Map<string, number>;
-  }) {
+  constructor(seed?: { events?: ReadonlyArray<EventRow>; syncMap?: Map<string, number> }) {
     if (seed?.events) {
       this.events.push(...seed.events);
     }
@@ -73,13 +64,7 @@ class FakeDb implements SqliteDbPort {
       const [aggregateType, sinceGlobal, sincePending, syncedMinCommit, limit] =
         params.length >= 5
           ? (params as [string, number, number, number, number])
-          : ([params[0], params[1], params[2], params[2], params[3]] as [
-              string,
-              number,
-              number,
-              number,
-              number,
-            ]);
+          : ([params[0], params[1], params[2], params[2], params[3]] as [string, number, number, number, number]);
       const rows = this.events
         .filter((row) => row.aggregate_type === aggregateType)
         .map((row) => ({
@@ -88,10 +73,7 @@ class FakeDb implements SqliteDbPort {
         }))
         .filter((row) => {
           if (row.global_seq !== null) {
-            return (
-              row.global_seq > Number(sinceGlobal) &&
-              row.commit_sequence > Number(syncedMinCommit)
-            );
+            return row.global_seq > Number(sinceGlobal) && row.commit_sequence > Number(syncedMinCommit);
           }
           return row.commit_sequence > Number(sincePending);
         })
@@ -109,17 +91,9 @@ class FakeDb implements SqliteDbPort {
     }
 
     if (normalized.includes('FROM EVENTS')) {
-      const [aggregateType, sinceCommit, limit] = params as [
-        string,
-        number,
-        number,
-      ];
+      const [aggregateType, sinceCommit, limit] = params as [string, number, number];
       const rows = this.events
-        .filter(
-          (row) =>
-            row.aggregate_type === aggregateType &&
-            row.commit_sequence > Number(sinceCommit)
-        )
+        .filter((row) => row.aggregate_type === aggregateType && row.commit_sequence > Number(sinceCommit))
         .sort((a, b) => a.commit_sequence - b.commit_sequence)
         .slice(0, Number(limit));
       return rows as unknown as T[];
@@ -128,21 +102,18 @@ class FakeDb implements SqliteDbPort {
     throw new Error(`Unhandled query: ${sql}`);
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     const normalized = sql.trim().toUpperCase();
     if (normalized.startsWith('INSERT INTO PROJECTION_META')) {
-      const [
-        projectionId,
-        ordering,
-        lastGlobal,
-        lastPending,
-        lastCommit,
-        phase,
-        updatedAt,
-      ] = params as [string, string, number, number, number, string, number];
+      const [projectionId, ordering, lastGlobal, lastPending, lastCommit, phase, updatedAt] = params as [
+        string,
+        string,
+        number,
+        number,
+        number,
+        string,
+        number,
+      ];
       this.projectionMeta.set(projectionId, {
         projection_id: projectionId,
         ordering,
@@ -162,16 +133,11 @@ class FakeDb implements SqliteDbPort {
     throw new Error(`Unhandled execute: ${sql}`);
   }
 
-  async batch(
-    _statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(_statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     throw new Error('Not implemented in FakeDb');
   }
 
-  subscribeToTables(
-    _tables: ReadonlyArray<string>,
-    _listener: () => void
-  ): () => void {
+  subscribeToTables(_tables: ReadonlyArray<string>, _listener: () => void): () => void {
     return () => undefined;
   }
 

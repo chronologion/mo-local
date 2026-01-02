@@ -16,10 +16,7 @@ import {
 } from '@mo/domain';
 import type { EncryptedEvent } from '@mo/application';
 import type { EffectiveCursor } from '@mo/eventstore-core';
-import {
-  ProjectionCacheStore,
-  IndexArtifactStore,
-} from '../../../src/platform/derived-state';
+import { ProjectionCacheStore, IndexArtifactStore } from '../../../src/platform/derived-state';
 import { WebCryptoService } from '../../../src/crypto/WebCryptoService';
 import { InMemoryKeyStore } from '../../fixtures/InMemoryKeyStore';
 import { TestDerivedStateDb } from '../../derived-state/TestDerivedStateDb';
@@ -32,9 +29,7 @@ const cursor: EffectiveCursor = {
   pendingCommitSequence: 0,
 };
 
-const baseDate = Timestamp.fromMillis(
-  new Date('2025-01-01T00:00:00Z').getTime()
-);
+const baseDate = Timestamp.fromMillis(new Date('2025-01-01T00:00:00Z').getTime());
 const goalId = GoalId.from('00000000-0000-0000-0000-000000000101');
 const projectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
 const meta = () => ({
@@ -44,10 +39,7 @@ const meta = () => ({
   actorId: ActorId.from('user-1'),
 });
 
-const makeEncryptedEvent = (
-  eventId: string,
-  aggregateId: string
-): EncryptedEvent => ({
+const makeEncryptedEvent = (eventId: string, aggregateId: string): EncryptedEvent => ({
   id: eventId,
   aggregateId,
   eventType: 'ProjectCreated',
@@ -65,11 +57,7 @@ describe('Projects derived-state projectors', () => {
     const cacheStore = new ProjectionCacheStore(db);
     const crypto = new WebCryptoService();
     const keyStore = new InMemoryKeyStore();
-    const projector = new ProjectSnapshotProjector(
-      cacheStore,
-      crypto,
-      keyStore
-    );
+    const projector = new ProjectSnapshotProjector(cacheStore, crypto, keyStore);
 
     const aggregateId = projectId.value;
     const kProject = await crypto.generateKey();
@@ -90,18 +78,10 @@ describe('Projects derived-state projectors', () => {
       meta()
     );
 
-    await projector.applyEvent(
-      makeEncryptedEvent('e1', aggregateId),
-      createdEvent,
-      kProject,
-      cursor,
-      1
-    );
+    await projector.applyEvent(makeEncryptedEvent('e1', aggregateId), createdEvent, kProject, cursor, 1);
 
     expect(projector.getProjection(aggregateId)?.goalId).toBe(goalId.value);
-    expect(projector.listByGoalId(goalId.value).map((item) => item.id)).toEqual(
-      [aggregateId]
-    );
+    expect(projector.listByGoalId(goalId.value).map((item) => item.id)).toEqual([aggregateId]);
 
     await projector.applyEvent(
       makeEncryptedEvent('e2', aggregateId),
@@ -125,11 +105,7 @@ describe('Projects derived-state projectors', () => {
     const cacheStore = new ProjectionCacheStore(db);
     const crypto = new WebCryptoService();
     const keyStore = new InMemoryKeyStore();
-    const projector = new ProjectSnapshotProjector(
-      cacheStore,
-      crypto,
-      keyStore
-    );
+    const projector = new ProjectSnapshotProjector(cacheStore, crypto, keyStore);
 
     const aggregateId = projectId.value;
     const kProject = await crypto.generateKey();
@@ -150,13 +126,7 @@ describe('Projects derived-state projectors', () => {
       meta()
     );
 
-    await projector.applyEvent(
-      makeEncryptedEvent('e1', aggregateId),
-      createdEvent,
-      kProject,
-      cursor,
-      1
-    );
+    await projector.applyEvent(makeEncryptedEvent('e1', aggregateId), createdEvent, kProject, cursor, 1);
     await projector.applyEvent(
       makeEncryptedEvent('e2', aggregateId),
       new ProjectArchived({ projectId, archivedAt: baseDate }, meta()),
@@ -207,17 +177,13 @@ describe('Projects derived-state projectors', () => {
       },
     ];
 
-    const projections = new Map<string, ProjectListItem>(
-      items.map((item) => [item.id, item])
-    );
+    const projections = new Map<string, ProjectListItem>(items.map((item) => [item.id, item]));
 
     const projector = new ProjectSearchProjector(indexStore, crypto, keyStore);
     await projector.ensureBuilt(items);
 
     expect(projector.searchProjects('Alpha', projections)).toHaveLength(1);
-    expect(projector.searchProjects('', projections, { goalId: null })).toEqual(
-      [items[1]]
-    );
+    expect(projector.searchProjects('', projections, { goalId: null })).toEqual([items[1]]);
 
     await projector.persistIndex(cursor);
 

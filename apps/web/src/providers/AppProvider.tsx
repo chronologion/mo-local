@@ -2,23 +2,12 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { uuidv7 } from '@mo/domain';
 import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
-import {
-  decodeSalt,
-  encodeSalt,
-  generateRandomSalt,
-} from '@mo/infrastructure/crypto/deriveSalt';
+import { decodeSalt, encodeSalt, generateRandomSalt } from '@mo/infrastructure/crypto/deriveSalt';
 import { parseBackupEnvelope } from '@mo/presentation';
 import { z } from 'zod';
-import {
-  InterfaceProvider,
-  type InterfaceContextValue,
-  type InterfaceServices,
-} from '@mo/presentation/react';
+import { InterfaceProvider, type InterfaceContextValue, type InterfaceServices } from '@mo/presentation/react';
 import { useRemoteAuth } from './RemoteAuthProvider';
-import {
-  wipeAllMoLocalOpfs,
-  wipeEventStoreDb,
-} from '../utils/resetEventStoreDb';
+import { wipeAllMoLocalOpfs, wipeEventStoreDb } from '../utils/resetEventStoreDb';
 import { parseBackupPayload } from '../backup/backupPayload';
 import { Button } from '../components/ui/button';
 
@@ -132,10 +121,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setUserMeta(meta);
       setSession({ status: 'locked', userId: meta.userId });
       const nextStoreId = meta.userId;
-      if (
-        typeof localStorage !== 'undefined' &&
-        storedStoreId !== nextStoreId
-      ) {
+      if (typeof localStorage !== 'undefined' && storedStoreId !== nextStoreId) {
         localStorage.setItem(STORE_ID_KEY, nextStoreId);
       }
       setStoreId(nextStoreId);
@@ -151,10 +137,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }
       return uuidv7();
     })();
-    if (
-      typeof localStorage !== 'undefined' &&
-      storedStoreId !== fallbackStoreId
-    ) {
+    if (typeof localStorage !== 'undefined' && storedStoreId !== fallbackStoreId) {
       localStorage.setItem(STORE_ID_KEY, fallbackStoreId);
     }
     setStoreId(fallbackStoreId);
@@ -191,9 +174,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           })();
           const eventCount = await (async () => {
             try {
-              const res = await svc.db.query<Readonly<{ count: number }>>(
-                'SELECT COUNT(*) as count FROM events'
-              );
+              const res = await svc.db.query<Readonly<{ count: number }>>('SELECT COUNT(*) as count FROM events');
               return Number(res?.[0]?.count ?? 0);
             } catch {
               return 0;
@@ -276,18 +257,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           servicesRef.current = svc;
           setServices(svc);
           setServicesConfig({ storeId });
-          if (
-            pendingInitResolver.current &&
-            pendingInitResolver.current.targetStoreId === svc.storeId
-          ) {
+          if (pendingInitResolver.current && pendingInitResolver.current.targetStoreId === svc.storeId) {
             pendingInitResolver.current.resolve(svc);
             pendingInitResolver.current = null;
           }
         }
         createdServices = svc;
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to initialize app';
+        const message = error instanceof Error ? error.message : 'Failed to initialize app';
         if (!signal.aborted) {
           setInitError(message);
           setServicesConfig(null);
@@ -313,24 +290,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.warn('Failed to shutdown event store cleanly', error);
       }
-      if (
-        pendingInitResolver.current &&
-        pendingInitResolver.current.targetStoreId === storeId
-      ) {
-        pendingInitResolver.current.reject(
-          new Error('Store initialization aborted')
-        );
+      if (pendingInitResolver.current && pendingInitResolver.current.targetStoreId === storeId) {
+        pendingInitResolver.current.reject(new Error('Store initialization aborted'));
         pendingInitResolver.current = null;
       }
     };
   }, [storeId]);
 
   const switchToStore = async (targetStoreId: string): Promise<Services> => {
-    if (
-      servicesRef.current &&
-      servicesRef.current.storeId === targetStoreId &&
-      services
-    ) {
+    if (servicesRef.current && servicesRef.current.storeId === targetStoreId && services) {
       return servicesRef.current;
     }
     return await new Promise<Services>((resolve, reject) => {
@@ -365,10 +333,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         if (cancelled) return;
         if (servicesRef.current !== currentServices) return;
-        if (
-          error instanceof Error &&
-          error.message.includes('Store has been shut down')
-        ) {
+        if (error instanceof Error && error.message.includes('Store has been shut down')) {
           return;
         }
         console.warn('Failed to start projections', error);
@@ -401,9 +366,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     const parsedStoreId = storeIdSchema.safeParse(storeId);
     if (!parsedStoreId.success) {
-      throw new Error(
-        'Invalid store id; please reset local state and re-onboard'
-      );
+      throw new Error('Invalid store id; please reset local state and re-onboard');
     }
     const userId = parsedStoreId.data;
     const salt = generateRandomSalt();
@@ -437,10 +400,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
     const saltForUnlock = decodeSalt(meta.pwdSalt);
-    const kek = await services.crypto.deriveKeyFromPassword(
-      password,
-      saltForUnlock
-    );
+    const kek = await services.crypto.deriveKeyFromPassword(password, saltForUnlock);
     services.keyStore.setMasterKey(kek);
     const keys = await services.keyStore.getIdentityKeys(meta.userId);
     if (!keys) {
@@ -501,58 +461,30 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const cipherB64 = parsedEnvelope.cipher;
     const meta = loadMeta();
     const decryptSalt =
-      (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ??
-      (meta ? decodeSalt(meta.pwdSalt) : null);
+      (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ?? (meta ? decodeSalt(meta.pwdSalt) : null);
     if (!decryptSalt) {
-      throw new Error(
-        'Backup missing salt and no local metadata available to derive one'
-      );
+      throw new Error('Backup missing salt and no local metadata available to derive one');
     }
 
-    const decryptKek = await services.crypto.deriveKeyFromPassword(
-      password,
-      decryptSalt
-    );
+    const decryptKek = await services.crypto.deriveKeyFromPassword(password, decryptSalt);
     services.keyStore.setMasterKey(decryptKek);
     const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
-    const payload = parseBackupPayload(
-      JSON.parse(new TextDecoder().decode(decrypted))
-    );
+    const payload = parseBackupPayload(JSON.parse(new TextDecoder().decode(decrypted)));
 
-    const aggregateEntries: Array<[string, string]> = Object.entries(
-      payload.aggregateKeys
-    );
-    const persistSalt =
-      parsedEnvelope.salt !== undefined
-        ? decodeSalt(parsedEnvelope.salt)
-        : generateRandomSalt();
+    const aggregateEntries: Array<[string, string]> = Object.entries(payload.aggregateKeys);
+    const persistSalt = parsedEnvelope.salt !== undefined ? decodeSalt(parsedEnvelope.salt) : generateRandomSalt();
     const persistSaltB64 = encodeSalt(persistSalt);
-    const persistKek = await services.crypto.deriveKeyFromPassword(
-      password,
-      persistSalt
-    );
+    const persistKek = await services.crypto.deriveKeyFromPassword(password, persistSalt);
     services.keyStore.setMasterKey(persistKek);
 
     await services.keyStore.clearAll();
     if (payload.identityKeys) {
       await services.keyStore.saveIdentityKeys(payload.userId, {
-        signingPrivateKey: Uint8Array.from(
-          atob(payload.identityKeys.signingPrivateKey),
-          (c) => c.charCodeAt(0)
-        ),
-        signingPublicKey: Uint8Array.from(
-          atob(payload.identityKeys.signingPublicKey),
-          (c) => c.charCodeAt(0)
-        ),
-        encryptionPrivateKey: Uint8Array.from(
-          atob(payload.identityKeys.encryptionPrivateKey),
-          (c) => c.charCodeAt(0)
-        ),
-        encryptionPublicKey: Uint8Array.from(
-          atob(payload.identityKeys.encryptionPublicKey),
-          (c) => c.charCodeAt(0)
-        ),
+        signingPrivateKey: Uint8Array.from(atob(payload.identityKeys.signingPrivateKey), (c) => c.charCodeAt(0)),
+        signingPublicKey: Uint8Array.from(atob(payload.identityKeys.signingPublicKey), (c) => c.charCodeAt(0)),
+        encryptionPrivateKey: Uint8Array.from(atob(payload.identityKeys.encryptionPrivateKey), (c) => c.charCodeAt(0)),
+        encryptionPublicKey: Uint8Array.from(atob(payload.identityKeys.encryptionPublicKey), (c) => c.charCodeAt(0)),
       });
     }
     for (const [aggregateId, keyB64] of aggregateEntries) {
@@ -566,9 +498,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem(STORE_ID_KEY, payload.userId);
     }
     const targetServices =
-      servicesRef.current?.storeId === payload.userId
-        ? servicesRef.current
-        : await switchToStore(payload.userId);
+      servicesRef.current?.storeId === payload.userId ? servicesRef.current : await switchToStore(payload.userId);
     targetServices.keyStore.setMasterKey(persistKek);
 
     if (db) {
@@ -606,12 +536,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-10">
         <div className="rounded-lg border border-border bg-card/90 p-6 shadow-md">
           <div className="space-y-2">
-            <div className="text-sm font-semibold uppercase tracking-wide text-accent2">
-              Event store error
-            </div>
-            <div className="text-lg font-semibold">
-              Failed to initialize event store
-            </div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-accent2">Event store error</div>
+            <div className="text-lg font-semibold">Failed to initialize event store</div>
             <div className="text-sm text-muted-foreground">{initError}</div>
           </div>
           <div className="mt-6 flex items-center justify-between gap-4">
@@ -762,9 +688,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           restoreBackup,
         }}
       >
-        <InterfaceProvider value={interfaceContextValue}>
-          {children}
-        </InterfaceProvider>
+        <InterfaceProvider value={interfaceContextValue}>{children}</InterfaceProvider>
       </AppContext.Provider>
       {debugInfo && import.meta.env.DEV && session.status === 'ready' ? (
         <DebugPanel

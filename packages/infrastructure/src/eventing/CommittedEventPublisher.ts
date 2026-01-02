@@ -1,10 +1,6 @@
 import type { EventBusPort, EventStorePort } from '@mo/application';
 import type { SqliteDbPort } from '@mo/eventstore-web';
-import {
-  AggregateTypes,
-  ProjectionOrderings,
-  ZERO_EFFECTIVE_CURSOR,
-} from '@mo/eventstore-core';
+import { AggregateTypes, ProjectionOrderings, ZERO_EFFECTIVE_CURSOR } from '@mo/eventstore-core';
 import { ProjectionTaskRunner } from '../projection/ProjectionTaskRunner';
 import { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedEventToDomainAdapter';
 import { KeyringManager } from '../crypto/KeyringManager';
@@ -38,9 +34,7 @@ type StreamTrace = {
 };
 
 const nowMs = (): number =>
-  typeof performance !== 'undefined' && typeof performance.now === 'function'
-    ? performance.now()
-    : Date.now();
+  typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
 export class CommittedEventPublisher {
   private readonly streams: StreamState[];
@@ -64,19 +58,16 @@ export class CommittedEventPublisher {
         50,
         ({ durationMs, budgetMs }) => {
           const trace = stream?.lastTrace ?? null;
-          console.warn(
-            `[CommittedEventPublisher:${config.name}] Task processing exceeded budget`,
-            {
-              durationMs,
-              budgetMs,
-              eventsCount: trace?.eventsCount ?? 0,
-              readMs: trace?.readMs ?? 0,
-              keyringMs: trace?.keyringMs ?? 0,
-              decodeMs: trace?.decodeMs ?? 0,
-              publishMs: trace?.publishMs ?? 0,
-              metaWriteMs: trace?.metaWriteMs ?? 0,
-            }
-          );
+          console.warn(`[CommittedEventPublisher:${config.name}] Task processing exceeded budget`, {
+            durationMs,
+            budgetMs,
+            eventsCount: trace?.eventsCount ?? 0,
+            readMs: trace?.readMs ?? 0,
+            keyringMs: trace?.keyringMs ?? 0,
+            decodeMs: trace?.decodeMs ?? 0,
+            publishMs: trace?.publishMs ?? 0,
+            metaWriteMs: trace?.metaWriteMs ?? 0,
+          });
         }
       );
       stream = {
@@ -144,16 +135,11 @@ export class CommittedEventPublisher {
       } catch (err) {
         keyringMs += nowMs() - keyStart;
         if (err instanceof Error && err.message === 'Master key not set') {
-          console.warn(
-            '[CommittedEventPublisher] Master key not set; deferring publish'
-          );
+          console.warn('[CommittedEventPublisher] Master key not set; deferring publish');
           return;
         }
         if (err instanceof MissingKeyError) {
-          console.warn(
-            '[CommittedEventPublisher] Missing key, skipping event for aggregate',
-            event.aggregateId
-          );
+          console.warn('[CommittedEventPublisher] Missing key, skipping event for aggregate', event.aggregateId);
           if (event.sequence > processedMax) {
             processedMax = event.sequence;
           }
@@ -210,10 +196,7 @@ export class CommittedEventPublisher {
     return record.lastCommitSequence;
   }
 
-  private async saveLastSequence(
-    projectionId: string,
-    value: number
-  ): Promise<void> {
+  private async saveLastSequence(projectionId: string, value: number): Promise<void> {
     await this.metaStore.upsert({
       projectionId,
       ordering: ProjectionOrderings.commitSequence,

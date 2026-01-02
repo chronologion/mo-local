@@ -9,9 +9,7 @@ test.describe('stack health', () => {
     expect(apiJson).toMatchObject({ status: 'ok', db: true });
 
     const kratosContext = await request.newContext();
-    const kratosReady = await kratosContext.get(
-      'http://localhost:4455/health/ready'
-    );
+    const kratosReady = await kratosContext.get('http://localhost:4455/health/ready');
     expect(kratosReady.ok()).toBeTruthy();
 
     // Simple web reachability check (page load) to ensure Vite dev server is up

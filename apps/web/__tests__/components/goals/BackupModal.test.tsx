@@ -47,9 +47,7 @@ describe('BackupModal', () => {
     render(<BackupModal open={true} onClose={vi.fn()} />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Unlock with your passphrase to back up keys.')
-      ).not.toBeNull();
+      expect(screen.getByText('Unlock with your passphrase to back up keys.')).not.toBeNull();
     });
   });
 

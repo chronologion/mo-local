@@ -1,10 +1,4 @@
-import type {
-  ChangeHint,
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from './types';
+import type { ChangeHint, SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from './types';
 import {
   WorkerEnvelopeKinds,
   WorkerHelloKinds,
@@ -19,14 +13,8 @@ import {
 
 export type MessagePortLike = {
   postMessage: (message: unknown, transfer?: Transferable[]) => void;
-  addEventListener: (
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ) => void;
-  removeEventListener: (
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ) => void;
+  addEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
+  removeEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
   start?: () => void;
 };
 
@@ -44,11 +32,7 @@ export class DbClient implements SqliteDbPort {
   private readonly pending = new Map<string, PendingRequest>();
   private readonly subscriptions = new Map<string, Subscription>();
   private readonly onMessage = (event: MessageEvent) => {
-    const data = event.data as
-      | WorkerEnvelope
-      | WorkerNotify
-      | WorkerHello
-      | undefined;
+    const data = event.data as WorkerEnvelope | WorkerNotify | WorkerHello | undefined;
     if (!data || typeof data !== 'object') return;
 
     if ('kind' in data && data.kind === WorkerNotifyKinds.tablesChanged) {
@@ -78,10 +62,7 @@ export class DbClient implements SqliteDbPort {
     return data as ReadonlyArray<T>;
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     await this.request({
       kind: WorkerRequestKinds.dbExecute,
       sql,
@@ -89,9 +70,7 @@ export class DbClient implements SqliteDbPort {
     });
   }
 
-  async batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     const data = await this.request({
       kind: WorkerRequestKinds.dbBatch,
       statements,
@@ -99,10 +78,7 @@ export class DbClient implements SqliteDbPort {
     return data as ReadonlyArray<SqliteBatchResult>;
   }
 
-  subscribeToTables(
-    tables: ReadonlyArray<string>,
-    listener: () => void
-  ): () => void {
+  subscribeToTables(tables: ReadonlyArray<string>, listener: () => void): () => void {
     const subscriptionId = crypto.randomUUID();
     this.subscriptions.set(subscriptionId, {
       tables: tables.map((table) => table.toLowerCase()),
@@ -186,12 +162,8 @@ export class DbClient implements SqliteDbPort {
     if (!pending) return;
     this.pending.delete(envelope.requestId);
 
-    const payload = (
-      envelope as Extract<
-        WorkerEnvelope,
-        { kind: typeof WorkerEnvelopeKinds.response }
-      >
-    ).payload as WorkerResponse;
+    const payload = (envelope as Extract<WorkerEnvelope, { kind: typeof WorkerEnvelopeKinds.response }>)
+      .payload as WorkerResponse;
     if (payload.kind === 'error') {
       const err = new Error(payload.error.message) as Error & {
         code: string;

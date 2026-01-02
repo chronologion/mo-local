@@ -14,18 +14,13 @@ test.describe('Kratos auth flow', () => {
     await page.getByRole('button', { name: 'Finish onboarding' }).click();
 
     const loadingIdentity = page.getByText('Loading identity…');
-    await loadingIdentity
-      .waitFor({ state: 'hidden', timeout: 25_000 })
-      .catch(() => undefined);
+    await loadingIdentity.waitFor({ state: 'hidden', timeout: 25_000 }).catch(() => undefined);
 
     const unlockButton = page.getByRole('button', { name: 'Unlock' });
     const connectButton = page.getByRole('button', {
       name: 'Connect to cloud',
     });
-    await Promise.race([
-      connectButton.waitFor({ timeout: 25_000 }),
-      unlockButton.waitFor({ timeout: 25_000 }),
-    ]);
+    await Promise.race([connectButton.waitFor({ timeout: 25_000 }), unlockButton.waitFor({ timeout: 25_000 })]);
 
     if (await unlockButton.isVisible()) {
       await page.getByRole('textbox').fill(password);

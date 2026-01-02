@@ -12,10 +12,7 @@ export interface ProjectRescheduledPayload {
   changedAt: Timestamp;
 }
 
-export class ProjectRescheduled
-  extends DomainEvent<ProjectId>
-  implements ProjectRescheduledPayload
-{
+export class ProjectRescheduled extends DomainEvent<ProjectId> implements ProjectRescheduledPayload {
   readonly eventType = projectEventTypes.projectRescheduled;
 
   readonly projectId: ProjectId;
@@ -23,10 +20,7 @@ export class ProjectRescheduled
   readonly targetDate: LocalDate;
   readonly changedAt: Timestamp;
 
-  constructor(
-    payload: ProjectRescheduledPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectRescheduledPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.startDate = payload.startDate;
@@ -36,11 +30,7 @@ export class ProjectRescheduled
   }
 }
 
-export const ProjectRescheduledSpec = payloadEventSpec<
-  ProjectRescheduled,
-  ProjectRescheduledPayload,
-  ProjectId
->(
+export const ProjectRescheduledSpec = payloadEventSpec<ProjectRescheduled, ProjectRescheduledPayload, ProjectId>(
   projectEventTypes.projectRescheduled,
   (p, meta) => new ProjectRescheduled(p, meta),
   {

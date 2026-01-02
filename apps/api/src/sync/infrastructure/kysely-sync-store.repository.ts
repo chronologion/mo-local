@@ -11,10 +11,7 @@ export class KyselySyncStoreRepository extends SyncStoreRepository {
     super();
   }
 
-  async ensureStoreOwner(
-    storeId: SyncStoreId,
-    ownerId: SyncOwnerId
-  ): Promise<void> {
+  async ensureStoreOwner(storeId: SyncStoreId, ownerId: SyncOwnerId): Promise<void> {
     const db = this.dbService.getDb();
     const storeIdValue = storeId.unwrap();
     const ownerValue = ownerId.unwrap();
@@ -40,9 +37,7 @@ export class KyselySyncStoreRepository extends SyncStoreRepository {
       }
 
       if (existing.owner_identity_id !== ownerValue) {
-        throw new SyncAccessDeniedError(
-          `Store ${storeIdValue} is owned by a different identity`
-        );
+        throw new SyncAccessDeniedError(`Store ${storeIdValue} is owned by a different identity`);
       }
     });
   }

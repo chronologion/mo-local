@@ -25,11 +25,7 @@ import {
   ProjectStatusTransitionedSpec,
 } from '@mo/domain';
 
-const toRuntimeSpec = <
-  E extends DomainEvent,
-  P extends object,
-  TId extends AggregateId,
->(
+const toRuntimeSpec = <E extends DomainEvent, P extends object, TId extends AggregateId>(
   spec: PayloadEventSpec<E, P, TId>
 ): RuntimeEventSpec =>
   // eslint-disable-next-line no-restricted-syntax -- Generated registry erases per-event field typing into the runtime spec union.

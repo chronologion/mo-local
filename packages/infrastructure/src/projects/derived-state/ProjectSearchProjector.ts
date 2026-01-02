@@ -72,10 +72,7 @@ export class ProjectSearchProjector {
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  applyProjectionChange(
-    previousItem: ProjectListItem | null,
-    nextItem: ProjectListItem | null
-  ): void {
+  applyProjectionChange(previousItem: ProjectListItem | null, nextItem: ProjectListItem | null): void {
     if (!this.searchIndex) return;
     if (previousItem) {
       try {
@@ -117,10 +114,7 @@ export class ProjectSearchProjector {
     });
   }
 
-  private matchesFilter(
-    item: ProjectListItem,
-    filter?: { status?: string; goalId?: string | null }
-  ): boolean {
+  private matchesFilter(item: ProjectListItem, filter?: { status?: string; goalId?: string | null }): boolean {
     if (!filter) return true;
     if (filter.status && item.status !== filter.status) return false;
     if (filter.goalId !== undefined && item.goalId !== filter.goalId) {
@@ -140,18 +134,9 @@ export class ProjectSearchProjector {
   private async loadSearchIndex(key: Uint8Array): Promise<boolean> {
     const row = await this.indexStore.get(INDEX_ID, INDEX_SCOPE);
     if (!row) return false;
-    const aad = buildIndexArtifactAad(
-      INDEX_ID,
-      INDEX_SCOPE,
-      row.artifactVersion,
-      row.lastEffectiveCursor
-    );
+    const aad = buildIndexArtifactAad(INDEX_ID, INDEX_SCOPE, row.artifactVersion, row.lastEffectiveCursor);
     try {
-      const plaintext = await this.crypto.decrypt(
-        row.artifactEncrypted,
-        key,
-        aad
-      );
+      const plaintext = await this.crypto.decrypt(row.artifactEncrypted, key, aad);
       const json = new TextDecoder().decode(plaintext);
       this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(json, {
         idField: PROJECT_SEARCH_CONFIG.idField,
@@ -166,23 +151,11 @@ export class ProjectSearchProjector {
     }
   }
 
-  private async saveSearchIndex(
-    key: Uint8Array,
-    cursor: EffectiveCursor
-  ): Promise<void> {
+  private async saveSearchIndex(key: Uint8Array, cursor: EffectiveCursor): Promise<void> {
     if (!this.searchIndex) return;
     const serialized = JSON.stringify(this.searchIndex.toJSON());
-    const aad = buildIndexArtifactAad(
-      INDEX_ID,
-      INDEX_SCOPE,
-      INDEX_VERSION,
-      cursor
-    );
-    const cipher = await this.crypto.encrypt(
-      new TextEncoder().encode(serialized),
-      key,
-      aad
-    );
+    const aad = buildIndexArtifactAad(INDEX_ID, INDEX_SCOPE, INDEX_VERSION, cursor);
+    const cipher = await this.crypto.encrypt(new TextEncoder().encode(serialized), key, aad);
     await this.indexStore.put({
       indexId: INDEX_ID,
       scopeKey: INDEX_SCOPE,

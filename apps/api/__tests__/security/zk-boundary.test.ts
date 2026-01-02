@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import path from 'node:path';
 import { readdir, readFile, stat } from 'node:fs/promises';
 
-const firstExistingDirectory = async (
-  candidates: ReadonlyArray<string>
-): Promise<string> => {
+const firstExistingDirectory = async (candidates: ReadonlyArray<string>): Promise<string> => {
   for (const candidate of candidates) {
     try {
       const info = await stat(candidate);
@@ -15,9 +13,7 @@ const firstExistingDirectory = async (
       // ignore
     }
   }
-  throw new Error(
-    `Could not locate apps/api source root. Tried: ${candidates.join(', ')}`
-  );
+  throw new Error(`Could not locate apps/api source root. Tried: ${candidates.join(', ')}`);
 };
 
 const collectFilesRecursively = async (
@@ -48,9 +44,7 @@ describe('Security boundary: API is ZK (ciphertext-only)', () => {
       // When running tests from repo root.
       path.join(process.cwd(), 'apps', 'api', 'src'),
     ]);
-    const files = await collectFilesRecursively(srcRoot, (filePath) =>
-      filePath.endsWith('.ts')
-    );
+    const files = await collectFilesRecursively(srcRoot, (filePath) => filePath.endsWith('.ts'));
 
     const forbiddenImportHints: ReadonlyArray<string> = [
       // Client/runtime crypto and key backup code must never reach the server runtime.
@@ -68,13 +62,9 @@ describe('Security boundary: API is ZK (ciphertext-only)', () => {
     const violations: string[] = [];
     for (const filePath of files) {
       const contents = await readFile(filePath, 'utf8');
-      const matched = forbiddenImportHints.filter((needle) =>
-        contents.includes(needle)
-      );
+      const matched = forbiddenImportHints.filter((needle) => contents.includes(needle));
       if (matched.length > 0) {
-        violations.push(
-          `${path.relative(process.cwd(), filePath)}: ${matched.join(', ')}`
-        );
+        violations.push(`${path.relative(process.cwd(), filePath)}: ${matched.join(', ')}`);
       }
     }
 

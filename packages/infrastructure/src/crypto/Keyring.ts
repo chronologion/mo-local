@@ -1,8 +1,4 @@
-import type {
-  KeyringEpoch,
-  KeyringRecipientEnvelope,
-  KeyringState,
-} from '@mo/application';
+import type { KeyringEpoch, KeyringRecipientEnvelope, KeyringState } from '@mo/application';
 
 type KeyringEpochSerialized = {
   epochId: number;
@@ -27,17 +23,13 @@ const decodeBytes = (data: number[]): Uint8Array => new Uint8Array(data);
 const isNumberArray = (value: unknown): value is number[] =>
   Array.isArray(value) && value.every((entry) => Number.isFinite(entry));
 
-const isRecipientEnvelope = (
-  value: unknown
-): value is { recipientId: string; wrappedKey: number[] } => {
+const isRecipientEnvelope = (value: unknown): value is { recipientId: string; wrappedKey: number[] } => {
   if (!value || typeof value !== 'object') return false;
   const record = value as {
     recipientId?: unknown;
     wrappedKey?: unknown;
   };
-  return (
-    typeof record.recipientId === 'string' && isNumberArray(record.wrappedKey)
-  );
+  return typeof record.recipientId === 'string' && isNumberArray(record.wrappedKey);
 };
 
 const isEpochSerialized = (value: unknown): value is KeyringEpochSerialized => {
@@ -82,11 +74,7 @@ export class Keyring {
     private readonly epochs: KeyringEpoch[]
   ) {}
 
-  static createInitial(
-    aggregateId: string,
-    createdAt: number,
-    ownerEnvelope: Uint8Array
-  ): Keyring {
+  static createInitial(aggregateId: string, createdAt: number, ownerEnvelope: Uint8Array): Keyring {
     return new Keyring(aggregateId, 0, [
       {
         epochId: 0,

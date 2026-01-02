@@ -46,12 +46,7 @@ const setup = () => {
   const keyStore = new InMemoryKeyStore();
   const crypto = new MockCryptoService();
   const idempotencyStore = new InMemoryIdempotencyStore();
-  const handler = new GoalCommandHandler(
-    repo,
-    keyStore,
-    crypto,
-    idempotencyStore
-  );
+  const handler = new GoalCommandHandler(repo, keyStore, crypto, idempotencyStore);
   return { repo, keyStore, crypto, idempotencyStore, handler };
 };
 
@@ -61,12 +56,7 @@ describe('GoalCommandHandler', () => {
     const keyStore = new InMemoryKeyStore();
     const crypto = new CountingCryptoService();
     const idempotencyStore = new InMemoryIdempotencyStore();
-    const handler = new GoalCommandHandler(
-      repo,
-      keyStore,
-      crypto,
-      idempotencyStore
-    );
+    const handler = new GoalCommandHandler(repo, keyStore, crypto, idempotencyStore);
 
     const first = await handler.handleCreate(baseCreate);
     const second = await handler.handleCreate(
@@ -84,9 +74,7 @@ describe('GoalCommandHandler', () => {
     if (!('encryptionKey' in first) || !('encryptionKey' in second)) {
       throw new Error('Expected create result to include encryptionKey');
     }
-    expect(Array.from(second.encryptionKey)).toEqual(
-      Array.from(first.encryptionKey)
-    );
+    expect(Array.from(second.encryptionKey)).toEqual(Array.from(first.encryptionKey));
     expect(crypto.generateKeyCalls).toBe(1);
   });
 

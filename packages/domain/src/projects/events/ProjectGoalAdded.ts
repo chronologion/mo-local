@@ -11,20 +11,14 @@ export interface ProjectGoalAddedPayload {
   addedAt: Timestamp;
 }
 
-export class ProjectGoalAdded
-  extends DomainEvent<ProjectId>
-  implements ProjectGoalAddedPayload
-{
+export class ProjectGoalAdded extends DomainEvent<ProjectId> implements ProjectGoalAddedPayload {
   readonly eventType = projectEventTypes.projectGoalAdded;
 
   readonly projectId: ProjectId;
   readonly goalId: GoalId;
   readonly addedAt: Timestamp;
 
-  constructor(
-    payload: ProjectGoalAddedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectGoalAddedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.goalId = payload.goalId;
@@ -33,11 +27,7 @@ export class ProjectGoalAdded
   }
 }
 
-export const ProjectGoalAddedSpec = payloadEventSpec<
-  ProjectGoalAdded,
-  ProjectGoalAddedPayload,
-  ProjectId
->(
+export const ProjectGoalAddedSpec = payloadEventSpec<ProjectGoalAdded, ProjectGoalAddedPayload, ProjectId>(
   projectEventTypes.projectGoalAdded,
   (p, meta) => new ProjectGoalAdded(p, meta),
   {

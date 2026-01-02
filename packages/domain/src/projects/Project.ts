@@ -110,10 +110,7 @@ export class Project extends AggregateRoot<ProjectId> {
     return project;
   }
 
-  static reconstituteFromSnapshot(
-    snapshot: ProjectSnapshot,
-    tailEvents: readonly DomainEvent[]
-  ): Project {
+  static reconstituteFromSnapshot(snapshot: ProjectSnapshot, tailEvents: readonly DomainEvent[]): Project {
     const project = new Project(snapshot.id);
     project.hydrateFromSnapshot(snapshot);
     project.loadFromHistory(tailEvents as DomainEvent[]);
@@ -177,16 +174,9 @@ export class Project extends AggregateRoot<ProjectId> {
     return this._archivedAt !== null;
   }
 
-  changeName(params: {
-    name: ProjectName;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeName(params: { name: ProjectName; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.name.equals(this.name),
-      'ProjectName unchanged'
-    ).isFalse();
+    Assert.that(params.name.equals(this.name), 'ProjectName unchanged').isFalse();
     this.apply(
       new ProjectRenamed(
         {
@@ -204,16 +194,9 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  changeDescription(params: {
-    description: ProjectDescription;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeDescription(params: { description: ProjectDescription; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.description.equals(this.description),
-      'ProjectDescription unchanged'
-    ).isFalse();
+    Assert.that(params.description.equals(this.description), 'ProjectDescription unchanged').isFalse();
     this.apply(
       new ProjectDescribed(
         {
@@ -231,16 +214,9 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  changeStatus(params: {
-    status: ProjectStatus;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeStatus(params: { status: ProjectStatus; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      params.status.equals(this.status),
-      'ProjectStatus unchanged'
-    ).isFalse();
+    Assert.that(params.status.equals(this.status), 'ProjectStatus unchanged').isFalse();
     this.apply(
       new ProjectStatusTransitioned(
         {
@@ -258,25 +234,15 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  changeDates(params: {
-    startDate: LocalDate;
-    targetDate: LocalDate;
-    changedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  changeDates(params: { startDate: LocalDate; targetDate: LocalDate; changedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     if (!params.startDate.isSameOrBefore(params.targetDate)) {
       throw new Error('Start date must be on or before target date');
     }
     const milestonesWithinRange = this._milestones.every(
-      (m) =>
-        params.startDate.isSameOrBefore(m.targetDate) &&
-        params.targetDate.isSameOrAfter(m.targetDate)
+      (m) => params.startDate.isSameOrBefore(m.targetDate) && params.targetDate.isSameOrAfter(m.targetDate)
     );
-    Assert.that(
-      milestonesWithinRange,
-      'Existing milestones must remain within the new date range'
-    ).isTrue();
+    Assert.that(milestonesWithinRange, 'Existing milestones must remain within the new date range').isTrue();
 
     this.apply(
       new ProjectRescheduled(
@@ -296,16 +262,9 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  addGoal(params: {
-    goalId: GoalId;
-    addedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  addGoal(params: { goalId: GoalId; addedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
-    Assert.that(
-      this._goalId === null,
-      'Project already linked to a goal'
-    ).isTrue();
+    Assert.that(this._goalId === null, 'Project already linked to a goal').isTrue();
     this.apply(
       new ProjectGoalAdded(
         {
@@ -385,10 +344,7 @@ export class Project extends AggregateRoot<ProjectId> {
     this.assertNotArchived();
     const milestone = this.findMilestone(params.milestoneId);
     Assert.that(params.name, 'Milestone name').isDefined();
-    Assert.that(
-      milestone.name.equals(params.name),
-      'Milestone name unchanged'
-    ).isFalse();
+    Assert.that(milestone.name.equals(params.name), 'Milestone name unchanged').isFalse();
     this.apply(
       new ProjectMilestoneRenamed(
         {
@@ -416,10 +372,7 @@ export class Project extends AggregateRoot<ProjectId> {
     this.assertNotArchived();
     this.assertDateWithinRange(params.targetDate);
     const milestone = this.findMilestone(params.milestoneId);
-    Assert.that(
-      milestone.targetDate.equals(params.targetDate),
-      'Milestone target unchanged'
-    ).isFalse();
+    Assert.that(milestone.targetDate.equals(params.targetDate), 'Milestone target unchanged').isFalse();
     this.apply(
       new ProjectMilestoneRescheduled(
         {
@@ -438,11 +391,7 @@ export class Project extends AggregateRoot<ProjectId> {
     );
   }
 
-  archiveMilestone(params: {
-    milestoneId: MilestoneId;
-    archivedAt: Timestamp;
-    actorId: UserId;
-  }): void {
+  archiveMilestone(params: { milestoneId: MilestoneId; archivedAt: Timestamp; actorId: UserId }): void {
     this.assertNotArchived();
     this.findMilestone(params.milestoneId);
     this.apply(
@@ -535,9 +484,7 @@ export class Project extends AggregateRoot<ProjectId> {
     this._updatedAt = event.addedAt;
   }
 
-  private onProjectMilestoneRescheduled(
-    event: ProjectMilestoneRescheduled
-  ): void {
+  private onProjectMilestoneRescheduled(event: ProjectMilestoneRescheduled): void {
     const milestone = this.findMilestone(event.milestoneId);
     milestone.changeTargetDate(event.targetDate);
     this._updatedAt = event.changedAt;
@@ -550,9 +497,7 @@ export class Project extends AggregateRoot<ProjectId> {
   }
 
   private onProjectMilestoneArchived(event: ProjectMilestoneArchived): void {
-    this._milestones = this._milestones.filter(
-      (m) => !m.id.equals(event.milestoneId)
-    );
+    this._milestones = this._milestones.filter((m) => !m.id.equals(event.milestoneId));
     this._updatedAt = event.archivedAt;
   }
 
@@ -584,8 +529,7 @@ export class Project extends AggregateRoot<ProjectId> {
 
   private assertDateWithinRange(date: LocalDate): void {
     Assert.that(
-      this.startDate.isSameOrBefore(date) &&
-        this.targetDate.isSameOrAfter(date),
+      this.startDate.isSameOrBefore(date) && this.targetDate.isSameOrAfter(date),
       'Milestone target date must be within project dates'
     ).isTrue();
   }

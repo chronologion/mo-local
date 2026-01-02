@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ConflictException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { SyncController } from '../../src/sync/presentation/sync.controller';
 import { SyncService } from '../../src/sync/application/sync.service';
 import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
@@ -66,11 +62,7 @@ class TestSyncService extends SyncService {
     private readonly pushImpl?: SyncService['pushEvents'],
     private readonly pullImpl?: SyncService['pullEvents']
   ) {
-    super(
-      new DummySyncEventRepository(),
-      new DummySyncStoreRepository(),
-      new DummySyncAccessPolicy()
-    );
+    super(new DummySyncEventRepository(), new DummySyncStoreRepository(), new DummySyncAccessPolicy());
   }
 
   override async pushEvents(params: Parameters<SyncService['pushEvents']>[0]) {
@@ -157,9 +149,7 @@ describe('SyncController', () => {
       expectedHead: 0,
       events: [],
     };
-    await expect(controller.push(dto, makeIdentity())).rejects.toBeInstanceOf(
-      ConflictException
-    );
+    await expect(controller.push(dto, makeIdentity())).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('throws forbidden when access denied', async () => {
@@ -172,9 +162,7 @@ describe('SyncController', () => {
       expectedHead: 0,
       events: [],
     };
-    await expect(controller.push(dto, makeIdentity())).rejects.toBeInstanceOf(
-      ForbiddenException
-    );
+    await expect(controller.push(dto, makeIdentity())).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('rejects missing identity on push', async () => {
@@ -185,9 +173,9 @@ describe('SyncController', () => {
       expectedHead: 0,
       events: [],
     };
-    await expect(
-      controller.push(dto, undefined as unknown as AuthenticatedIdentity)
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.push(dto, undefined as unknown as AuthenticatedIdentity)).rejects.toBeInstanceOf(
+      BadRequestException
+    );
   });
 
   it('pulls events and returns next cursor info', async () => {
@@ -260,8 +248,8 @@ describe('SyncController', () => {
     const dto: PullEventsDto = {
       storeId: 'store-1',
     };
-    await expect(
-      controller.pull(dto, undefined as unknown as AuthenticatedIdentity)
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.pull(dto, undefined as unknown as AuthenticatedIdentity)).rejects.toBeInstanceOf(
+      BadRequestException
+    );
   });
 });

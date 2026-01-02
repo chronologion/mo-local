@@ -11,8 +11,7 @@ type DebugInfo = {
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
-  const tableCount =
-    info.tables && info.tables.length > 0 ? info.tables.length : 0;
+  const tableCount = info.tables && info.tables.length > 0 ? info.tables.length : 0;
   return (
     <div
       style={{
@@ -34,12 +33,8 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
       {info.storage ? <div>Storage: {info.storage}</div> : null}
       {info.storeId ? <div>StoreId: {info.storeId}</div> : null}
       <div>OPFS: {info.opfsAvailable ? 'yes' : 'no'}</div>
-      {typeof info.eventCount === 'number' ? (
-        <div>Events: {info.eventCount}</div>
-      ) : null}
-      {typeof info.aggregateCount === 'number' ? (
-        <div>Aggregates: {info.aggregateCount}</div>
-      ) : null}
+      {typeof info.eventCount === 'number' ? <div>Events: {info.eventCount}</div> : null}
+      {typeof info.aggregateCount === 'number' ? <div>Aggregates: {info.aggregateCount}</div> : null}
       <div>Tables: {tableCount}</div>
       {info.note ? <div>Note: {info.note}</div> : null}
       {info.onRebuild ? (

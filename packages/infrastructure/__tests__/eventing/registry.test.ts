@@ -50,15 +50,10 @@ describe('eventing registry + runtime', () => {
   it('round-trips all event specs', () => {
     const goalId = GoalId.from('00000000-0000-0000-0000-000000000101');
     const projectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
-    const milestoneId = MilestoneId.from(
-      '00000000-0000-0000-0000-000000000301'
-    );
+    const milestoneId = MilestoneId.from('00000000-0000-0000-0000-000000000301');
     const createdBy = UserId.from('user-1');
     const actorId = ActorId.from('user-1');
-    const meta = <TId extends GoalId | ProjectId>(
-      aggregateId: TId,
-      occurredAt: Timestamp
-    ) => ({
+    const meta = <TId extends GoalId | ProjectId>(aggregateId: TId, occurredAt: Timestamp) => ({
       aggregateId,
       occurredAt,
       eventId: EventId.create(),
@@ -256,10 +251,7 @@ describe('eventing registry + runtime', () => {
 
     for (const event of events) {
       const encoded = encodePersisted(event);
-      const decoded = decodePersisted(
-        encoded,
-        meta(event.aggregateId as GoalId | ProjectId, event.occurredAt)
-      );
+      const decoded = decodePersisted(encoded, meta(event.aggregateId as GoalId | ProjectId, event.occurredAt));
       const reencoded = encodePersisted(decoded);
       expect(reencoded).toEqual(encoded);
     }
@@ -272,14 +264,10 @@ describe('eventing registry + runtime', () => {
   });
 
   it('throws on future payload versions', () => {
-    expect(() => upcastPayload(goalEventTypes.goalCreated, 2, {})).toThrow(
-      /future version/
-    );
+    expect(() => upcastPayload(goalEventTypes.goalCreated, 2, {})).toThrow(/future version/);
   });
 
   it('throws on missing migration steps', () => {
-    expect(() => upcastPayload(goalEventTypes.goalCreated, 0, {})).toThrow(
-      /missing migration/
-    );
+    expect(() => upcastPayload(goalEventTypes.goalCreated, 0, {})).toThrow(/missing migration/);
   });
 });

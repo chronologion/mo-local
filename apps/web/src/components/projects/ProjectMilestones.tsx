@@ -21,10 +21,7 @@ export function MilestonesList({
   disabled,
 }: {
   milestones: Milestone[];
-  onUpdate: (
-    milestoneId: string,
-    changes: { name?: string; targetDate?: string }
-  ) => Promise<void>;
+  onUpdate: (milestoneId: string, changes: { name?: string; targetDate?: string }) => Promise<void>;
   onArchive: (milestoneId: string) => Promise<void>;
   startDate: string;
   targetDate: string;
@@ -37,9 +34,7 @@ export function MilestonesList({
   });
   const [error, setError] = useState<string | null>(null);
 
-  const sorted = [...milestones].sort((a, b) =>
-    a.targetDate.localeCompare(b.targetDate)
-  );
+  const sorted = [...milestones].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
 
   return (
     <div className="space-y-3">
@@ -49,14 +44,9 @@ export function MilestonesList({
         sorted.map((m) => {
           const isEditing = editingId === m.id;
           return (
-            <div
-              key={m.id}
-              className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5"
-            >
+            <div key={m.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
               <div className="flex items-center gap-3 overflow-hidden">
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {m.name}
-                </span>
+                <span className="min-w-0 flex-1 truncate font-medium">{m.name}</span>
                 <div className="flex shrink-0 items-center gap-2">
                   <Badge variant="secondary">{m.targetDate}</Badge>
                   <Button
@@ -92,18 +82,14 @@ export function MilestonesList({
                     <Label>Name</Label>
                     <Input
                       value={draft.name}
-                      onChange={(ev) =>
-                        setDraft((prev) => ({ ...prev, name: ev.target.value }))
-                      }
+                      onChange={(ev) => setDraft((prev) => ({ ...prev, name: ev.target.value }))}
                     />
                   </div>
                   <div className="space-y-1">
                     <Label>Target date</Label>
                     <DatePicker
                       value={draft.targetDate}
-                      onChange={(next) =>
-                        setDraft((prev) => ({ ...prev, targetDate: next }))
-                      }
+                      onChange={(next) => setDraft((prev) => ({ ...prev, targetDate: next }))}
                       min={startDate}
                       max={targetDate}
                       placeholder="Select milestone date"
@@ -114,8 +100,7 @@ export function MilestonesList({
                       size="sm"
                       onClick={async () => {
                         setError(null);
-                        const changes: { name?: string; targetDate?: string } =
-                          {};
+                        const changes: { name?: string; targetDate?: string } = {};
                         if (draft.name !== m.name) {
                           changes.name = draft.name;
                         }
@@ -131,9 +116,7 @@ export function MilestonesList({
                           return;
                         }
                         if (draft.targetDate > targetDate) {
-                          setError(
-                            'Milestone must be on/before project target'
-                          );
+                          setError('Milestone must be on/before project target');
                           return;
                         }
                         if (Object.keys(changes).length === 0) {
@@ -159,9 +142,7 @@ export function MilestonesList({
                       Cancel
                     </Button>
                   </div>
-                  {error ? (
-                    <p className="text-xs text-destructive">{error}</p>
-                  ) : null}
+                  {error ? <p className="text-xs text-destructive">{error}</p> : null}
                 </div>
               )}
             </div>

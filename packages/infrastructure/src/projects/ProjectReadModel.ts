@@ -20,10 +20,7 @@ export class ProjectReadModel implements ProjectReadModelPort {
     return this.projection.getProjectById(projectId);
   }
 
-  async search(
-    term: string,
-    filter?: ProjectListFilter
-  ): Promise<ProjectListItemDto[]> {
+  async search(term: string, filter?: ProjectListFilter): Promise<ProjectListItemDto[]> {
     await this.projection.whenReady();
     await this.projection.flush();
     return this.projection.searchProjects(term, filter);

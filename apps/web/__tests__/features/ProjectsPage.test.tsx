@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ProjectsPage } from '../../src/features/projects/ProjectsPage';
 import { ToastProvider } from '../../src/components/ui/toast';
-import {
-  useGoals,
-  useProjects,
-  useProjectCommands,
-} from '@mo/presentation/react';
+import { useGoals, useProjects, useProjectCommands } from '@mo/presentation/react';
 import type { ProjectListItemDto, GoalListItemDto } from '@mo/application';
 
 vi.mock('@mo/presentation/react', () => ({
@@ -16,11 +12,7 @@ vi.mock('@mo/presentation/react', () => ({
 }));
 
 vi.mock('../../src/components/projects/ProjectForm', () => ({
-  ProjectForm: ({
-    onSubmit,
-  }: {
-    onSubmit: (values: unknown) => Promise<void>;
-  }) => (
+  ProjectForm: ({ onSubmit }: { onSubmit: (values: unknown) => Promise<void> }) => (
     <button
       type="button"
       onClick={() =>
@@ -39,9 +31,7 @@ vi.mock('../../src/components/projects/ProjectForm', () => ({
 }));
 
 vi.mock('../../src/components/projects/ProjectCard', () => ({
-  ProjectCard: ({ project }: { project: ProjectListItemDto }) => (
-    <div>ProjectCard: {project.name}</div>
-  ),
+  ProjectCard: ({ project }: { project: ProjectListItemDto }) => <div>ProjectCard: {project.name}</div>,
 }));
 
 const mockedUseGoals = vi.mocked(useGoals);
@@ -126,11 +116,7 @@ describe('ProjectsPage', () => {
     });
 
     renderPage();
-    expect(
-      screen.getByText(
-        'No projects yet. Create one to link goals and milestones.'
-      )
-    ).not.toBeNull();
+    expect(screen.getByText('No projects yet. Create one to link goals and milestones.')).not.toBeNull();
   });
 
   it('filters projects by search term', () => {

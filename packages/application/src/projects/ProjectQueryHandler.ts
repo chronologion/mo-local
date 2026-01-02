@@ -5,20 +5,11 @@ import { ListProjectsQuery } from './queries/ListProjectsQuery';
 import { GetProjectByIdQuery } from './queries/GetProjectByIdQuery';
 import { SearchProjectsQuery } from './queries/SearchProjectsQuery';
 
-export type ProjectQuery =
-  | ListProjectsQuery
-  | GetProjectByIdQuery
-  | SearchProjectsQuery;
+export type ProjectQuery = ListProjectsQuery | GetProjectByIdQuery | SearchProjectsQuery;
 
-export type ProjectQueryResult =
-  | ProjectListItemDto[]
-  | ProjectListItemDto
-  | null;
+export type ProjectQueryResult = ProjectListItemDto[] | ProjectListItemDto | null;
 
-export class ProjectQueryHandler implements IQueryHandler<
-  ProjectQuery,
-  ProjectQueryResult
-> {
+export class ProjectQueryHandler implements IQueryHandler<ProjectQuery, ProjectQueryResult> {
   constructor(private readonly readModel: ProjectReadModelPort) {}
 
   execute(query: ProjectQuery): Promise<ProjectQueryResult> {
@@ -31,11 +22,7 @@ export class ProjectQueryHandler implements IQueryHandler<
         return this.readModel.search(query.term, query.filter);
       default: {
         const _exhaustive: never = query;
-        return Promise.reject(
-          new Error(
-            `Unsupported project query type: ${(query as ProjectQuery).type}`
-          )
-        );
+        return Promise.reject(new Error(`Unsupported project query type: ${(query as ProjectQuery).type}`));
       }
     }
   }

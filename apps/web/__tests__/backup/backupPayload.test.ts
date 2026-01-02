@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createBackupPayloadV2,
-  parseBackupPayload,
-} from '../../src/backup/backupPayload';
+import { createBackupPayloadV2, parseBackupPayload } from '../../src/backup/backupPayload';
 
 describe('backup payload', () => {
   it('omits aggregateKeys in v2 payloads', () => {

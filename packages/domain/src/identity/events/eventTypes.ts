@@ -2,5 +2,4 @@ export const identityEventTypes = {
   userRegistered: 'UserRegistered',
 } as const;
 
-export type IdentityEventType =
-  (typeof identityEventTypes)[keyof typeof identityEventTypes];
+export type IdentityEventType = (typeof identityEventTypes)[keyof typeof identityEventTypes];

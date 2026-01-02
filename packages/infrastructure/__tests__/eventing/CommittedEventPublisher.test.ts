@@ -77,10 +77,7 @@ class TestEncryptedEventToDomainAdapter extends EncryptedEventToDomainAdapter {
     super(new NodeCryptoService());
   }
 
-  async toDomain(
-    encryptedEvent: EncryptedEvent,
-    _aggregateKey: Uint8Array
-  ): Promise<DomainEvent> {
+  async toDomain(encryptedEvent: EncryptedEvent, _aggregateKey: Uint8Array): Promise<DomainEvent> {
     return new TestDomainEvent({
       eventType: encryptedEvent.eventType,
       aggregateId: GoalId.from(encryptedEvent.aggregateId),
@@ -142,33 +139,22 @@ describe('CommittedEventPublisher', () => {
       }),
     ]);
 
-    const publisher = new CommittedEventPublisher(
-      db,
-      eventBus,
-      adapter,
-      keyringManager,
-      [{ name: 'goals', eventStore }]
-    );
+    const publisher = new CommittedEventPublisher(db, eventBus, adapter, keyringManager, [
+      { name: 'goals', eventStore },
+    ]);
 
     await publisher.start();
 
-    expect(eventBus.published.map((event) => event.eventType)).toEqual([
-      'goal.created',
-      'goal.renamed',
-    ]);
+    expect(eventBus.published.map((event) => event.eventType)).toEqual(['goal.created', 'goal.renamed']);
 
     const metaStore = new ProjectionMetaStore(db);
     const meta = await metaStore.get('committed_publisher:goals');
     expect(meta?.lastCommitSequence).toBe(2);
 
     const secondBus = new CapturingEventBus();
-    const secondPublisher = new CommittedEventPublisher(
-      db,
-      secondBus,
-      adapter,
-      keyringManager,
-      [{ name: 'goals', eventStore }]
-    );
+    const secondPublisher = new CommittedEventPublisher(db, secondBus, adapter, keyringManager, [
+      { name: 'goals', eventStore },
+    ]);
     await secondPublisher.start();
     expect(secondBus.published).toHaveLength(0);
   });
@@ -201,19 +187,13 @@ describe('CommittedEventPublisher', () => {
     ]);
 
     const keyringManager = new MissingKeyringManager(['event-1']);
-    const publisher = new CommittedEventPublisher(
-      db,
-      eventBus,
-      adapter,
-      keyringManager,
-      [{ name: 'goals', eventStore }]
-    );
+    const publisher = new CommittedEventPublisher(db, eventBus, adapter, keyringManager, [
+      { name: 'goals', eventStore },
+    ]);
 
     await publisher.start();
 
-    expect(eventBus.published.map((event) => event.eventType)).toEqual([
-      'goal.renamed',
-    ]);
+    expect(eventBus.published.map((event) => event.eventType)).toEqual(['goal.renamed']);
 
     const metaStore = new ProjectionMetaStore(db);
     const meta = await metaStore.get('committed_publisher:goals');

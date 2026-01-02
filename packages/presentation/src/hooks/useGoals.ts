@@ -13,9 +13,7 @@ export const useGoals = () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await services.goalQueryBus.dispatch(
-        new ListGoalsQuery(undefined)
-      );
+      const list = await services.goalQueryBus.dispatch(new ListGoalsQuery(undefined));
       if (!Array.isArray(list)) {
         throw new Error('Invalid query result');
       }

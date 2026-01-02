@@ -30,15 +30,8 @@ export function RemoteAuthStatus() {
           <div className="flex items-center gap-2 rounded-full border border-green-700 bg-green-800 px-3 py-1 text-sm text-white shadow-sm">
             <Cloud className="h-4 w-4 text-white" />
             <span className="font-medium text-white">Connected</span>
-            <span className="text-xs text-white/80">
-              {state.email ?? state.identityId}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void logOut()}
-              className="ml-1 h-7 px-2 text-xs"
-            >
+            <span className="text-xs text-white/80">{state.email ?? state.identityId}</span>
+            <Button variant="ghost" size="sm" onClick={() => void logOut()} className="ml-1 h-7 px-2 text-xs">
               <LogOut className="mr-1 h-3 w-3" />
               Logout
             </Button>
@@ -62,11 +55,7 @@ export function RemoteAuthStatus() {
           </div>
         )}
       </div>
-      <RemoteAuthModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        mode={initialTab}
-      />
+      <RemoteAuthModal open={modalOpen} onClose={() => setModalOpen(false)} mode={initialTab} />
     </>
   );
 }

@@ -67,27 +67,10 @@ export const bootstrapGoalBoundedContext = ({
   toDomain,
 }: GoalBootstrapDeps): GoalBoundedContextServices => {
   const eventStore = new SqliteEventStore(db, AggregateTypes.goal);
-  const goalRepo = new GoalRepository(
-    eventStore,
-    db,
-    crypto,
-    keyStore,
-    keyringManager
-  );
+  const goalRepo = new GoalRepository(eventStore, db, crypto, keyStore, keyringManager);
   const idempotencyStore = new SqliteIdempotencyStore(db);
-  const goalHandler = new GoalCommandHandler(
-    goalRepo,
-    keyStore,
-    crypto,
-    idempotencyStore
-  );
-  const goalProjection = new GoalProjectionProcessor(
-    db,
-    crypto,
-    keyStore,
-    keyringManager,
-    toDomain
-  );
+  const goalHandler = new GoalCommandHandler(goalRepo, keyStore, crypto, idempotencyStore);
+  const goalProjection = new GoalProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
   const goalReadModel = new GoalReadModel(goalProjection);
   const goalCommandBus = buildGoalCommandBus(goalHandler);
   const goalQueryBus = buildGoalQueryBus(goalReadModel);
@@ -101,13 +84,8 @@ export const bootstrapGoalBoundedContext = ({
   };
 };
 
-const buildGoalCommandBus = (
-  handler: GoalCommandHandler
-): SimpleBus<GoalCommand, CommandResult<GoalCommandResult>> => {
-  const goalCommandBus = new SimpleBus<
-    GoalCommand,
-    CommandResult<GoalCommandResult>
-  >();
+const buildGoalCommandBus = (handler: GoalCommandHandler): SimpleBus<GoalCommand, CommandResult<GoalCommandResult>> => {
+  const goalCommandBus = new SimpleBus<GoalCommand, CommandResult<GoalCommandResult>>();
   const wrapGoal = async <TCommand extends GoalCommand>(
     fn: (command: TCommand) => Promise<GoalCommandResult>,
     command: TCommand
@@ -120,19 +98,15 @@ const buildGoalCommandBus = (
     }
   };
 
-  goalCommandBus.register('CreateGoal', (command: CreateGoal) =>
-    wrapGoal(handler.handleCreate.bind(handler), command)
-  );
+  goalCommandBus.register('CreateGoal', (command: CreateGoal) => wrapGoal(handler.handleCreate.bind(handler), command));
   goalCommandBus.register('ChangeGoalSummary', (command: ChangeGoalSummary) =>
     wrapGoal(handler.handleChangeSummary.bind(handler), command)
   );
   goalCommandBus.register('ChangeGoalSlice', (command: ChangeGoalSlice) =>
     wrapGoal(handler.handleChangeSlice.bind(handler), command)
   );
-  goalCommandBus.register(
-    'ChangeGoalTargetMonth',
-    (command: ChangeGoalTargetMonth) =>
-      wrapGoal(handler.handleChangeTargetMonth.bind(handler), command)
+  goalCommandBus.register('ChangeGoalTargetMonth', (command: ChangeGoalTargetMonth) =>
+    wrapGoal(handler.handleChangeTargetMonth.bind(handler), command)
   );
   goalCommandBus.register('ChangeGoalPriority', (command: ChangeGoalPriority) =>
     wrapGoal(handler.handleChangePriority.bind(handler), command)
@@ -156,19 +130,11 @@ const buildGoalCommandBus = (
   return goalCommandBus;
 };
 
-const buildGoalQueryBus = (
-  readModel: GoalReadModel
-): SimpleBus<GoalQuery, GoalQueryResult> => {
+const buildGoalQueryBus = (readModel: GoalReadModel): SimpleBus<GoalQuery, GoalQueryResult> => {
   const goalQueryBus = new SimpleBus<GoalQuery, GoalQueryResult>();
   const goalQueryHandler = new GoalQueryHandler(readModel);
-  goalQueryBus.register('ListGoals', (query: ListGoalsQuery) =>
-    goalQueryHandler.execute(query)
-  );
-  goalQueryBus.register('GetGoalById', (query: GetGoalByIdQuery) =>
-    goalQueryHandler.execute(query)
-  );
-  goalQueryBus.register('SearchGoals', (query: SearchGoalsQuery) =>
-    goalQueryHandler.execute(query)
-  );
+  goalQueryBus.register('ListGoals', (query: ListGoalsQuery) => goalQueryHandler.execute(query));
+  goalQueryBus.register('GetGoalById', (query: GetGoalByIdQuery) => goalQueryHandler.execute(query));
+  goalQueryBus.register('SearchGoals', (query: SearchGoalsQuery) => goalQueryHandler.execute(query));
   return goalQueryBus;
 };

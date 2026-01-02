@@ -34,8 +34,7 @@ const goals: GoalListItemDto[] = [
   },
 ];
 
-const renderWithToast = (ui: ReactElement) =>
-  render(<ToastProvider>{ui}</ToastProvider>);
+const renderWithToast = (ui: ReactElement) => render(<ToastProvider>{ui}</ToastProvider>);
 
 describe('ProjectCard', () => {
   it('renders project and triggers edit/archive', async () => {

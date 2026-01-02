@@ -27,14 +27,8 @@ import {
 
 type PortLike = {
   postMessage: (message: unknown, transfer?: Transferable[]) => void;
-  addEventListener: (
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ) => void;
-  removeEventListener: (
-    type: 'message',
-    listener: (event: MessageEvent) => void
-  ) => void;
+  addEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
+  removeEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
   start?: () => void;
 };
 
@@ -56,26 +50,20 @@ type OpfsDiagnostics = Readonly<{
   persisted?: boolean;
   rootEntries?: ReadonlyArray<string>;
   vfsDirEntries?: ReadonlyArray<string>;
-  errors?: ReadonlyArray<
-    Readonly<{ step: string; name: string; message: string }>
-  >;
+  errors?: ReadonlyArray<Readonly<{ step: string; name: string; message: string }>>;
 }>;
 
 type DirectoryHandleWithEntries = FileSystemDirectoryHandle & {
   entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
 };
 
-const hasDirectoryEntries = (
-  dir: FileSystemDirectoryHandle
-): dir is DirectoryHandleWithEntries => {
+const hasDirectoryEntries = (dir: FileSystemDirectoryHandle): dir is DirectoryHandleWithEntries => {
   // eslint-disable-next-line no-restricted-syntax -- TS lib typing for FileSystemDirectoryHandle iteration is incomplete here; runtime supports `entries()` where available.
   const entries = (dir as unknown as { entries?: unknown }).entries;
   return typeof entries === 'function';
 };
 
-const collectOpfsDiagnostics = async (
-  storeId: string
-): Promise<OpfsDiagnostics> => {
+const collectOpfsDiagnostics = async (storeId: string): Promise<OpfsDiagnostics> => {
   const errors: Array<{ step: string; name: string; message: string }> = [];
   const vfsDir = `mo-eventstore-${storeId}`;
   const rootEntries: string[] = [];
@@ -88,8 +76,7 @@ const collectOpfsDiagnostics = async (
   }
 
   const hasStorage = typeof navigator !== 'undefined' && 'storage' in navigator;
-  const hasGetDirectory =
-    hasStorage && typeof navigator.storage.getDirectory === 'function';
+  const hasGetDirectory = hasStorage && typeof navigator.storage.getDirectory === 'function';
   const hasLocks = typeof navigator !== 'undefined' && 'locks' in navigator;
 
   const estimate = await (async () => {
@@ -156,8 +143,7 @@ const collectOpfsDiagnostics = async (
       if (hasDirectoryEntries(root)) {
         let count = 0;
         for await (const [name, handle] of root.entries()) {
-          const kind =
-            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          const kind = typeof handle.kind === 'string' ? handle.kind : 'unknown';
           rootEntries.push(`${kind}:${name}`);
           count += 1;
           if (count >= 50) break;
@@ -179,8 +165,7 @@ const collectOpfsDiagnostics = async (
       if (hasDirectoryEntries(dir)) {
         let count = 0;
         for await (const [name, handle] of dir.entries()) {
-          const kind =
-            typeof handle.kind === 'string' ? handle.kind : 'unknown';
+          const kind = typeof handle.kind === 'string' ? handle.kind : 'unknown';
           vfsDirEntries.push(`${kind}:${name}`);
           count += 1;
           if (count >= 200) break;
@@ -264,10 +249,7 @@ class DbOwnerServer {
     this.connections.add(connection);
   }
 
-  private async handleHello(
-    connection: Connection,
-    message: WorkerHello
-  ): Promise<void> {
+  private async handleHello(connection: Connection, message: WorkerHello): Promise<void> {
     if (message.kind !== WorkerHelloKinds.hello) return;
 
     if (!this.ctx) {
@@ -305,25 +287,16 @@ class DbOwnerServer {
           typeof error === 'object' && error && 'name' in error
             ? String((error as { name?: unknown }).name)
             : 'UnknownError';
-        const messageText =
-          error instanceof Error ? error.message : String(error);
-        const initStage =
-          error instanceof SqliteInitError ? error.stage : undefined;
+        const messageText = error instanceof Error ? error.message : String(error);
+        const initStage = error instanceof SqliteInitError ? error.stage : undefined;
         const cause = error instanceof SqliteInitError ? error.cause : error;
         const causeName =
-          typeof cause === 'object' && cause && 'name' in cause
-            ? String((cause as { name?: unknown }).name)
-            : null;
-        const causeMessage =
-          cause instanceof Error ? cause.message : String(cause);
-        const causeCode =
-          cause instanceof DOMException && typeof cause.code === 'number'
-            ? cause.code
-            : null;
+          typeof cause === 'object' && cause && 'name' in cause ? String((cause as { name?: unknown }).name) : null;
+        const causeMessage = cause instanceof Error ? cause.message : String(cause);
+        const causeCode = cause instanceof DOMException && typeof cause.code === 'number' ? cause.code : null;
 
         const opfsDiagnostics = await collectOpfsDiagnostics(message.storeId);
-        const isInvalidStateError =
-          name === 'InvalidStateError' || causeName === 'InvalidStateError';
+        const isInvalidStateError = name === 'InvalidStateError' || causeName === 'InvalidStateError';
         console.error('[DbOwnerServer] initialization failed', {
           storeId: message.storeId,
           dbName: message.dbName,
@@ -409,10 +382,7 @@ class DbOwnerServer {
     connection.port.postMessage(helloOk);
   }
 
-  private async handleRequest(
-    connection: Connection,
-    envelope: WorkerEnvelope
-  ): Promise<void> {
+  private async handleRequest(connection: Connection, envelope: WorkerEnvelope): Promise<void> {
     if (envelope.kind !== WorkerEnvelopeKinds.request) return;
 
     if (this.canceledRequests.has(envelope.requestId)) {
@@ -485,11 +455,7 @@ class DbOwnerServer {
           });
           return;
         }
-        this.ctx = await replaceMainDatabaseBytes(
-          this.ctx,
-          this.dbName,
-          payload.bytes
-        );
+        this.ctx = await replaceMainDatabaseBytes(this.ctx, this.dbName, payload.bytes);
         this.sendResponse(connection, envelope.requestId, {
           kind: 'ok',
           data: null,
@@ -510,12 +476,7 @@ class DbOwnerServer {
       }
 
       if (payload.kind === WorkerRequestKinds.dbQuery) {
-        const rows = await runQuery(
-          this.ctx.sqlite3,
-          this.ctx.db,
-          payload.sql,
-          payload.params
-        );
+        const rows = await runQuery(this.ctx.sqlite3, this.ctx.db, payload.sql, payload.params);
         this.sendResponse(connection, envelope.requestId, {
           kind: 'ok',
           data: rows,
@@ -524,15 +485,8 @@ class DbOwnerServer {
       }
 
       if (payload.kind === WorkerRequestKinds.dbExecute) {
-        await runExecute(
-          this.ctx.sqlite3,
-          this.ctx.db,
-          payload.sql,
-          payload.params
-        );
-        const tables = extractTableNames(payload.sql).map((t) =>
-          t.toLowerCase()
-        );
+        await runExecute(this.ctx.sqlite3, this.ctx.db, payload.sql, payload.params);
+        const tables = extractTableNames(payload.sql).map((t) => t.toLowerCase());
         this.notifyTables(tables);
         this.sendResponse(connection, envelope.requestId, {
           kind: 'ok',
@@ -591,11 +545,7 @@ class DbOwnerServer {
     }
   }
 
-  private sendResponse(
-    connection: Connection,
-    requestId: string,
-    payload: WorkerResponse
-  ): void {
+  private sendResponse(connection: Connection, requestId: string, payload: WorkerResponse): void {
     const envelope: WorkerEnvelope = {
       v: 1,
       kind: WorkerEnvelopeKinds.response,
@@ -622,9 +572,8 @@ class DbOwnerServer {
   private notifyTables(tables: ReadonlyArray<string>): void {
     if (tables.length === 0) return;
     for (const connection of this.connections) {
-      const shouldNotify = Array.from(connection.subscriptions.values()).some(
-        (subscription) =>
-          subscription.tables.some((table) => tables.includes(table))
+      const shouldNotify = Array.from(connection.subscriptions.values()).some((subscription) =>
+        subscription.tables.some((table) => tables.includes(table))
       );
       if (!shouldNotify) continue;
       const message: WorkerNotify = {
@@ -655,14 +604,10 @@ class DbOwnerServer {
       const release = new Promise<void>((releaseResolve) => {
         this.releaseLock = releaseResolve;
       });
-      void navigator.locks.request(
-        lockName,
-        { mode: 'exclusive' },
-        async () => {
-          resolve();
-          await release;
-        }
-      );
+      void navigator.locks.request(lockName, { mode: 'exclusive' }, async () => {
+        resolve();
+        await release;
+      });
     });
   }
 }
@@ -702,8 +647,7 @@ const server = new DbOwnerServer(ownershipMode);
 if (isSharedWorker && 'onconnect' in self) {
   const sharedScope = self as SharedWorkerGlobalScope;
   sharedScope.onconnect = (event) => {
-    const port = (event as MessageEvent & { ports: readonly MessagePort[] })
-      .ports[0];
+    const port = (event as MessageEvent & { ports: readonly MessagePort[] }).ports[0];
     server.attachPort(wrapPort(port));
   };
 } else {
@@ -735,8 +679,7 @@ function wrapPort(port: MessagePort): PortLike {
       }
     },
     addEventListener: (type, listener) => port.addEventListener(type, listener),
-    removeEventListener: (type, listener) =>
-      port.removeEventListener(type, listener),
+    removeEventListener: (type, listener) => port.removeEventListener(type, listener),
     start: () => port.start(),
   };
 }

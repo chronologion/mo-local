@@ -1,25 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { PlatformErrorCodes } from '@mo/eventstore-core';
-import {
-  extractTableNames,
-  normalizeSqliteValue,
-  toPlatformError,
-} from '../src/worker/sqlite';
+import { extractTableNames, normalizeSqliteValue, toPlatformError } from '../src/worker/sqlite';
 
 describe('sqlite utils', () => {
   it('extracts table names from basic DML', () => {
-    expect(extractTableNames('INSERT INTO events (id) VALUES (1)')).toEqual([
-      'EVENTS',
-    ]);
-    expect(extractTableNames('update sync_meta set value = 1')).toEqual([
-      'SYNC_META',
-    ]);
-    expect(
-      extractTableNames('DELETE FROM projection_meta WHERE key = ?')
-    ).toEqual(['PROJECTION_META']);
-    expect(
-      extractTableNames('CREATE TABLE IF NOT EXISTS foo (id integer)')
-    ).toEqual(['FOO']);
+    expect(extractTableNames('INSERT INTO events (id) VALUES (1)')).toEqual(['EVENTS']);
+    expect(extractTableNames('update sync_meta set value = 1')).toEqual(['SYNC_META']);
+    expect(extractTableNames('DELETE FROM projection_meta WHERE key = ?')).toEqual(['PROJECTION_META']);
+    expect(extractTableNames('CREATE TABLE IF NOT EXISTS foo (id integer)')).toEqual(['FOO']);
     expect(extractTableNames('DROP TABLE IF EXISTS bar')).toEqual(['BAR']);
   });
 
@@ -27,17 +15,13 @@ describe('sqlite utils', () => {
     expect(normalizeSqliteValue('text')).toBe('text');
     expect(normalizeSqliteValue(42)).toBe(42);
     expect(normalizeSqliteValue(null)).toBeNull();
-    expect(normalizeSqliteValue(new Uint8Array([1, 2]))).toEqual(
-      new Uint8Array([1, 2])
-    );
+    expect(normalizeSqliteValue(new Uint8Array([1, 2]))).toEqual(new Uint8Array([1, 2]));
     expect(normalizeSqliteValue([4, 5, 6])).toEqual(new Uint8Array([4, 5, 6]));
     expect(normalizeSqliteValue(BigInt(12))).toBe(12);
-    expect(() =>
-      normalizeSqliteValue(BigInt(Number.MAX_SAFE_INTEGER) + 1n)
-    ).toThrow('SQLite integer exceeds JS safe integer range');
-    expect(() => normalizeSqliteValue({})).toThrow(
-      'Unsupported SQLite value type: object'
+    expect(() => normalizeSqliteValue(BigInt(Number.MAX_SAFE_INTEGER) + 1n)).toThrow(
+      'SQLite integer exceeds JS safe integer range'
     );
+    expect(() => normalizeSqliteValue({})).toThrow('Unsupported SQLite value type: object');
   });
 
   it('maps sqlite errors to platform errors', () => {

@@ -41,10 +41,7 @@ export type ProjectBoundedContextServices = {
   projectRepo: ProjectRepository;
   projectProjection: ProjectProjectionProcessor;
   projectReadModel: ProjectReadModel;
-  projectCommandBus: SimpleBus<
-    ProjectCommand,
-    CommandResult<ProjectCommandResult>
-  >;
+  projectCommandBus: SimpleBus<ProjectCommand, CommandResult<ProjectCommandResult>>;
   projectQueryBus: SimpleBus<ProjectQuery, ProjectQueryResult>;
 };
 
@@ -56,9 +53,7 @@ export type ProjectBootstrapDeps = {
   toDomain: EncryptedEventToDomainAdapter;
 };
 
-const toProjectFailure = (
-  error: unknown
-): CommandResult<ProjectCommandResult> => {
+const toProjectFailure = (error: unknown): CommandResult<ProjectCommandResult> => {
   if (error instanceof ValidationException) {
     return failure(error.details);
   }
@@ -74,27 +69,10 @@ export const bootstrapProjectBoundedContext = ({
   toDomain,
 }: ProjectBootstrapDeps): ProjectBoundedContextServices => {
   const eventStore = new SqliteEventStore(db, AggregateTypes.project);
-  const projectRepo = new ProjectRepository(
-    eventStore,
-    db,
-    crypto,
-    keyStore,
-    keyringManager
-  );
+  const projectRepo = new ProjectRepository(eventStore, db, crypto, keyStore, keyringManager);
   const idempotencyStore = new SqliteIdempotencyStore(db);
-  const projectHandler = new ProjectCommandHandler(
-    projectRepo,
-    keyStore,
-    crypto,
-    idempotencyStore
-  );
-  const projectProjection = new ProjectProjectionProcessor(
-    db,
-    crypto,
-    keyStore,
-    keyringManager,
-    toDomain
-  );
+  const projectHandler = new ProjectCommandHandler(projectRepo, keyStore, crypto, idempotencyStore);
+  const projectProjection = new ProjectProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
   const projectReadModel = new ProjectReadModel(projectProjection);
   const projectCommandBus = buildProjectCommandBus(projectHandler);
   const projectQueryBus = buildProjectQueryBus(projectReadModel);
@@ -111,10 +89,7 @@ export const bootstrapProjectBoundedContext = ({
 const buildProjectCommandBus = (
   handler: ProjectCommandHandler
 ): SimpleBus<ProjectCommand, CommandResult<ProjectCommandResult>> => {
-  const projectCommandBus = new SimpleBus<
-    ProjectCommand,
-    CommandResult<ProjectCommandResult>
-  >();
+  const projectCommandBus = new SimpleBus<ProjectCommand, CommandResult<ProjectCommandResult>>();
   const wrapProject = async <TCommand extends ProjectCommand>(
     fn: (command: TCommand) => Promise<ProjectCommandResult>,
     command: TCommand
@@ -131,65 +106,44 @@ const buildProjectCommandBus = (
     wrapProject(handler.handleCreate.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectStatus',
-    (command: ChangeProjectStatus) =>
-      wrapProject(handler.handleChangeStatus.bind(handler), command)
+  projectCommandBus.register('ChangeProjectStatus', (command: ChangeProjectStatus) =>
+    wrapProject(handler.handleChangeStatus.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectDates',
-    (command: ChangeProjectDates) =>
-      wrapProject(handler.handleChangeDates.bind(handler), command)
+  projectCommandBus.register('ChangeProjectDates', (command: ChangeProjectDates) =>
+    wrapProject(handler.handleChangeDates.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectName',
-    (command: ChangeProjectName) =>
-      wrapProject(handler.handleChangeName.bind(handler), command)
+  projectCommandBus.register('ChangeProjectName', (command: ChangeProjectName) =>
+    wrapProject(handler.handleChangeName.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectDescription',
-    (command: ChangeProjectDescription) =>
-      wrapProject(handler.handleChangeDescription.bind(handler), command)
+  projectCommandBus.register('ChangeProjectDescription', (command: ChangeProjectDescription) =>
+    wrapProject(handler.handleChangeDescription.bind(handler), command)
   );
 
   projectCommandBus.register('AddProjectGoal', (command: AddProjectGoal) =>
     wrapProject(handler.handleAddGoal.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'RemoveProjectGoal',
-    (command: RemoveProjectGoal) =>
-      wrapProject(handler.handleRemoveGoal.bind(handler), command)
+  projectCommandBus.register('RemoveProjectGoal', (command: RemoveProjectGoal) =>
+    wrapProject(handler.handleRemoveGoal.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'AddProjectMilestone',
-    (command: AddProjectMilestone) =>
-      wrapProject(handler.handleAddMilestone.bind(handler), command)
+  projectCommandBus.register('AddProjectMilestone', (command: AddProjectMilestone) =>
+    wrapProject(handler.handleAddMilestone.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectMilestoneTargetDate',
-    (command: ChangeProjectMilestoneTargetDate) =>
-      wrapProject(
-        handler.handleChangeMilestoneTargetDate.bind(handler),
-        command
-      )
+  projectCommandBus.register('ChangeProjectMilestoneTargetDate', (command: ChangeProjectMilestoneTargetDate) =>
+    wrapProject(handler.handleChangeMilestoneTargetDate.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ChangeProjectMilestoneName',
-    (command: ChangeProjectMilestoneName) =>
-      wrapProject(handler.handleChangeMilestoneName.bind(handler), command)
+  projectCommandBus.register('ChangeProjectMilestoneName', (command: ChangeProjectMilestoneName) =>
+    wrapProject(handler.handleChangeMilestoneName.bind(handler), command)
   );
 
-  projectCommandBus.register(
-    'ArchiveProjectMilestone',
-    (command: ArchiveProjectMilestone) =>
-      wrapProject(handler.handleArchiveMilestone.bind(handler), command)
+  projectCommandBus.register('ArchiveProjectMilestone', (command: ArchiveProjectMilestone) =>
+    wrapProject(handler.handleArchiveMilestone.bind(handler), command)
   );
 
   projectCommandBus.register('ArchiveProject', (command: ArchiveProject) =>
@@ -199,19 +153,11 @@ const buildProjectCommandBus = (
   return projectCommandBus;
 };
 
-const buildProjectQueryBus = (
-  readModel: ProjectReadModel
-): SimpleBus<ProjectQuery, ProjectQueryResult> => {
+const buildProjectQueryBus = (readModel: ProjectReadModel): SimpleBus<ProjectQuery, ProjectQueryResult> => {
   const projectQueryBus = new SimpleBus<ProjectQuery, ProjectQueryResult>();
   const projectQueryHandler = new ProjectQueryHandler(readModel);
-  projectQueryBus.register('ListProjects', (query: ListProjectsQuery) =>
-    projectQueryHandler.execute(query)
-  );
-  projectQueryBus.register('GetProjectById', (query: GetProjectByIdQuery) =>
-    projectQueryHandler.execute(query)
-  );
-  projectQueryBus.register('SearchProjects', (query: SearchProjectsQuery) =>
-    projectQueryHandler.execute(query)
-  );
+  projectQueryBus.register('ListProjects', (query: ListProjectsQuery) => projectQueryHandler.execute(query));
+  projectQueryBus.register('GetProjectById', (query: GetProjectByIdQuery) => projectQueryHandler.execute(query));
+  projectQueryBus.register('SearchProjects', (query: SearchProjectsQuery) => projectQueryHandler.execute(query));
   return projectQueryBus;
 };

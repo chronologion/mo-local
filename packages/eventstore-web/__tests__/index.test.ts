@@ -36,8 +36,7 @@ describe('createWebSqliteDb', () => {
   afterEach(() => {
     (globalThis as { window?: unknown }).window = originalWindow;
     (globalThis as { navigator?: unknown }).navigator = originalNavigator;
-    (globalThis as { SharedWorker?: unknown }).SharedWorker =
-      originalSharedWorker;
+    (globalThis as { SharedWorker?: unknown }).SharedWorker = originalSharedWorker;
     (globalThis as { Worker?: unknown }).Worker = originalWorker;
     (globalThis as { crypto?: unknown }).crypto = originalCrypto;
     vi.clearAllMocks();
@@ -62,9 +61,7 @@ describe('createWebSqliteDb', () => {
         dbName: 'db',
         requireOpfs: true,
       })
-    ).rejects.toThrow(
-      'OPFS is required but unavailable in this browser context'
-    );
+    ).rejects.toThrow('OPFS is required but unavailable in this browser context');
   });
 
   it('throws when OPFS is not in a secure context', async () => {
@@ -79,9 +76,7 @@ describe('createWebSqliteDb', () => {
         dbName: 'db',
         requireOpfs: true,
       })
-    ).rejects.toThrow(
-      'OPFS is required but unavailable in this browser context'
-    );
+    ).rejects.toThrow('OPFS is required but unavailable in this browser context');
   });
 
   it('uses SharedWorker when available', async () => {
@@ -103,8 +98,7 @@ describe('createWebSqliteDb', () => {
       constructor() {}
     }
 
-    (globalThis as { SharedWorker?: unknown }).SharedWorker =
-      FakeSharedWorker as unknown as typeof SharedWorker;
+    (globalThis as { SharedWorker?: unknown }).SharedWorker = FakeSharedWorker as unknown as typeof SharedWorker;
 
     const result = await createWebSqliteDb({
       storeId: 'store',
@@ -113,8 +107,7 @@ describe('createWebSqliteDb', () => {
     });
 
     expect(sendHello).toHaveBeenCalledTimes(1);
-    const hello = (sendHello as unknown as { mock: { calls: unknown[][] } })
-      .mock.calls[0]?.[1];
+    const hello = (sendHello as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[1];
     expect(hello).toMatchObject({
       kind: 'hello',
       storeId: 'store',

@@ -1,7 +1,4 @@
-import type {
-  IdempotencyStorePort,
-  IdempotencyRecord,
-} from '../../../src/shared/ports';
+import type { IdempotencyStorePort, IdempotencyRecord } from '../../../src/shared/ports';
 
 export class InMemoryIdempotencyStore implements IdempotencyStorePort {
   private readonly records = new Map<string, IdempotencyRecord>();
@@ -13,10 +10,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStorePort {
   async record(record: IdempotencyRecord): Promise<void> {
     const existing = this.records.get(record.key);
     if (existing) {
-      if (
-        existing.commandType !== record.commandType ||
-        existing.aggregateId !== record.aggregateId
-      ) {
+      if (existing.commandType !== record.commandType || existing.aggregateId !== record.aggregateId) {
         throw new Error(
           `Idempotency key reuse detected for ${record.key} (existing ${existing.commandType}/${existing.aggregateId}, new ${record.commandType}/${record.aggregateId})`
         );

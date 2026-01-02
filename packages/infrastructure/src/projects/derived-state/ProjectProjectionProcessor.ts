@@ -12,10 +12,7 @@ import {
   type IndexBuildPhase,
   type ProjectionStatus,
 } from '../../platform/derived-state';
-import {
-  IndexArtifactStore,
-  ProjectionCacheStore,
-} from '../../platform/derived-state';
+import { IndexArtifactStore, ProjectionCacheStore } from '../../platform/derived-state';
 import { ProjectionRuntime } from '../../platform/derived-state/runtime/ProjectionRuntime';
 import type {
   ProjectionApplyInput,
@@ -26,16 +23,11 @@ import type {
 } from '../../platform/derived-state/runtime/ProjectionRuntime';
 import { ProjectSearchProjector } from './ProjectSearchProjector';
 import { ProjectSnapshotProjector } from './ProjectSnapshotProjector';
-import {
-  isProjectEvent,
-  type ProjectListItem,
-} from '../projections/model/ProjectProjectionState';
+import { isProjectEvent, type ProjectListItem } from '../projections/model/ProjectProjectionState';
 
 const PROJECTION_ID = 'project_projection';
 
-export class ProjectProjectionProcessor
-  implements ProjectionRuntimePort, IndexingPort
-{
+export class ProjectProjectionProcessor implements ProjectionRuntimePort, IndexingPort {
   readonly projectionId = PROJECTION_ID;
   readonly ordering = ProjectionOrderings.effectiveTotalOrder;
   private readonly runtime: ProjectionRuntime;
@@ -54,16 +46,8 @@ export class ProjectProjectionProcessor
   ) {
     this.cacheStore = new ProjectionCacheStore(db);
     this.indexStore = new IndexArtifactStore(db);
-    this.snapshotProjector = new ProjectSnapshotProjector(
-      this.cacheStore,
-      crypto,
-      keyStore
-    );
-    this.searchProjector = new ProjectSearchProjector(
-      this.indexStore,
-      crypto,
-      keyStore
-    );
+    this.snapshotProjector = new ProjectSnapshotProjector(this.cacheStore, crypto, keyStore);
+    this.searchProjector = new ProjectSearchProjector(this.indexStore, crypto, keyStore);
 
     const processor: ProjectionProcessor = {
       projectionId: this.projectionId,
@@ -112,25 +96,18 @@ export class ProjectProjectionProcessor
     return this.runtime.getStatuses();
   }
 
-  listProjects(filter?: {
-    status?: string;
-    goalId?: string | null;
-  }): ProjectListItem[] {
+  listProjects(filter?: { status?: string; goalId?: string | null }): ProjectListItem[] {
     let items: ProjectListItem[];
     if (filter?.goalId !== undefined) {
       if (filter.goalId === null) {
-        items = [...this.snapshotProjector.listProjections()].filter(
-          (item) => item.goalId === null
-        );
+        items = [...this.snapshotProjector.listProjections()].filter((item) => item.goalId === null);
       } else {
         items = this.snapshotProjector.listByGoalId(filter.goalId);
       }
     } else {
       items = [...this.snapshotProjector.listProjections()];
     }
-    const filtered = filter?.status
-      ? items.filter((item) => item.status === filter.status)
-      : items;
+    const filtered = filter?.status ? items.filter((item) => item.status === filter.status) : items;
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
   }
 
@@ -138,30 +115,17 @@ export class ProjectProjectionProcessor
     return this.snapshotProjector.getProjection(projectId);
   }
 
-  async searchProjects(
-    term: string,
-    filter?: { status?: string; goalId?: string | null }
-  ): Promise<ProjectListItem[]> {
-    await this.searchProjector.ensureBuilt(
-      this.snapshotProjector.listProjections()
-    );
-    return this.searchProjector.searchProjects(
-      term,
-      this.snapshotProjector.getProjectionsMap(),
-      filter
-    );
+  async searchProjects(term: string, filter?: { status?: string; goalId?: string | null }): Promise<ProjectListItem[]> {
+    await this.searchProjector.ensureBuilt(this.snapshotProjector.listProjections());
+    return this.searchProjector.searchProjects(term, this.snapshotProjector.getProjectionsMap(), filter);
   }
 
   async ensureBuilt(indexId: string): Promise<void> {
     if (indexId !== 'project_search') return;
-    await this.searchProjector.ensureBuilt(
-      this.snapshotProjector.listProjections()
-    );
+    await this.searchProjector.ensureBuilt(this.snapshotProjector.listProjections());
   }
 
-  async status(
-    indexId: string
-  ): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>> {
+  async status(indexId: string): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>> {
     if (indexId !== 'project_search') {
       return { indexId, phase: IndexBuildPhases.missing };
     }
@@ -172,9 +136,7 @@ export class ProjectProjectionProcessor
     await this.snapshotProjector.bootstrapFromCache();
   }
 
-  private async applyEvent(
-    input: ProjectionApplyInput
-  ): Promise<ProjectionApplyResult> {
+  private async applyEvent(input: ProjectionApplyInput): Promise<ProjectionApplyResult> {
     const event = this.toEncryptedEvent(input.event);
     const cursor = input.cursorAfter;
     try {
@@ -195,20 +157,14 @@ export class ProjectProjectionProcessor
         return { changed: false };
       }
 
-      this.searchProjector.applyProjectionChange(
-        applyResult.previousItem,
-        applyResult.nextItem
-      );
+      this.searchProjector.applyProjectionChange(applyResult.previousItem, applyResult.nextItem);
       if (applyResult.changed) {
         this.emitProjectionChanged();
       }
       return { changed: applyResult.changed };
     } catch (error) {
       if (error instanceof MissingKeyError) {
-        console.warn(
-          '[ProjectProjectionProcessor] Missing key, skipping event for aggregate',
-          event.aggregateId
-        );
+        console.warn('[ProjectProjectionProcessor] Missing key, skipping event for aggregate', event.aggregateId);
         return { changed: false };
       }
       throw error;

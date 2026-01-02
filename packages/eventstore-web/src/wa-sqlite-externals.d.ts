@@ -15,12 +15,7 @@ declare module 'wa-sqlite/src/examples/AccessHandlePoolVFS.js' {
     xCheckReservedLock(fileId: number, pResOut: DataView): number;
     xFileControl(fileId: number, flags: number, pOut: DataView): number;
     xDeviceCharacteristics(fileId: number): number;
-    xOpen(
-      name: string | null,
-      fileId: number,
-      flags: number,
-      pOutFlags: DataView
-    ): number;
+    xOpen(name: string | null, fileId: number, flags: number, pOutFlags: DataView): number;
     xDelete(name: string, syncDir: number): number;
     xAccess(name: string, flags: number, pResOut: DataView): number;
   }
@@ -42,12 +37,7 @@ declare module 'wa-sqlite/src/examples/MemoryVFS.js' {
     xCheckReservedLock(fileId: number, pResOut: DataView): number;
     xFileControl(fileId: number, flags: number, pOut: DataView): number;
     xDeviceCharacteristics(fileId: number): number;
-    xOpen(
-      name: string | null,
-      fileId: number,
-      flags: number,
-      pOutFlags: DataView
-    ): number;
+    xOpen(name: string | null, fileId: number, flags: number, pOutFlags: DataView): number;
     xDelete(name: string, syncDir: number): number;
     xAccess(name: string, flags: number, pResOut: DataView): number;
   }

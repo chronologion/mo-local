@@ -1,11 +1,6 @@
 import { UserId } from '@mo/domain';
 import { KeyBackup } from '../../shared/ports/types';
-import {
-  CommandResult,
-  ValidationError,
-  failure,
-  success,
-} from '../../shared/ports/CommandResult';
+import { CommandResult, ValidationError, failure, success } from '../../shared/ports/CommandResult';
 import { safeConvert, validateTimestamp } from '../../shared/validation';
 
 export interface ImportUserKeysCommand {
@@ -25,11 +20,7 @@ export function validateImportUserKeysCommand(
 ): CommandResult<ValidatedImportUserKeysCommand> {
   const errors: ValidationError[] = [];
 
-  const actorId = safeConvert(
-    () => UserId.from(command.actorId),
-    'actorId',
-    errors
-  );
+  const actorId = safeConvert(() => UserId.from(command.actorId), 'actorId', errors);
   const backup = validateBackup(command.backup, 'backup', errors);
   const timestamp = validateTimestamp(command.timestamp, 'timestamp', errors);
 
@@ -40,11 +31,7 @@ export function validateImportUserKeysCommand(
   return success({ actorId, backup, timestamp });
 }
 
-const validateBackup = (
-  backup: KeyBackup,
-  field: string,
-  errors: ValidationError[]
-): KeyBackup | null => {
+const validateBackup = (backup: KeyBackup, field: string, errors: ValidationError[]): KeyBackup | null => {
   if (!backup || typeof backup !== 'object') {
     errors.push({ field, message: 'Backup is required' });
     return null;

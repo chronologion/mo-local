@@ -5,11 +5,7 @@ import type {
   EventRecord,
   ProjectionOrdering,
 } from '@mo/eventstore-core';
-import {
-  advanceEffectiveCursor,
-  ProjectionOrderings,
-  ZERO_EFFECTIVE_CURSOR,
-} from '@mo/eventstore-core';
+import { advanceEffectiveCursor, ProjectionOrderings, ZERO_EFFECTIVE_CURSOR } from '@mo/eventstore-core';
 import type { SqliteDbPort, SqliteTableName } from '@mo/eventstore-web';
 import { ProjectionTaskRunner } from '../../../projection/ProjectionTaskRunner';
 import type { ProjectionPhase, ProjectionStatus } from '../types';
@@ -17,10 +13,7 @@ import { ProjectionPhases } from '../types';
 import type { ProjectionMetaRecord } from '../stores/ProjectionMetaStore';
 import { ProjectionMetaStore } from '../stores/ProjectionMetaStore';
 import type { WorkSchedulerPolicy } from './WorkSchedulerPolicy';
-import {
-  DEFAULT_WORK_SCHEDULER_POLICY,
-  yieldToEventLoop,
-} from './WorkSchedulerPolicy';
+import { DEFAULT_WORK_SCHEDULER_POLICY, yieldToEventLoop } from './WorkSchedulerPolicy';
 
 export type ProjectionProcessor = Readonly<{
   projectionId: string;
@@ -151,9 +144,7 @@ export class ProjectionRuntime {
 
   private subscribeToTables(): void {
     const tables: ReadonlyArray<SqliteTableName> =
-      this.processor.ordering === ProjectionOrderings.effectiveTotalOrder
-        ? ['events', 'sync_event_map']
-        : ['events'];
+      this.processor.ordering === ProjectionOrderings.effectiveTotalOrder ? ['events', 'sync_event_map'] : ['events'];
     this.unsubscribe = this.db.subscribeToTables(tables, () => {
       void this.scheduleProcessing();
     });
@@ -181,15 +172,9 @@ export class ProjectionRuntime {
       for (const event of events) {
         const nextCursor =
           this.processor.ordering === ProjectionOrderings.effectiveTotalOrder
-            ? advanceEffectiveCursor(
-                this.cursorState.lastEffectiveCursor,
-                event
-              )
+            ? advanceEffectiveCursor(this.cursorState.lastEffectiveCursor, event)
             : this.cursorState.lastEffectiveCursor;
-        const lastCommitSequence = Math.max(
-          this.cursorState.lastCommitSequence,
-          event.commitSequence
-        );
+        const lastCommitSequence = Math.max(this.cursorState.lastCommitSequence, event.commitSequence);
         const applied = await this.processor.applyEvent({
           event,
           cursorAfter: nextCursor,
@@ -265,9 +250,7 @@ export class ProjectionRuntime {
     return this.readEffectiveOrdered(this.cursorState.lastEffectiveCursor);
   }
 
-  private async readCommitOrdered(
-    afterCommitSequence: number
-  ): Promise<ReadonlyArray<EventRecord>> {
+  private async readCommitOrdered(afterCommitSequence: number): Promise<ReadonlyArray<EventRecord>> {
     const rows = await this.db.query<
       Readonly<{
         id: string;
@@ -323,9 +306,7 @@ export class ProjectionRuntime {
     }));
   }
 
-  private async readEffectiveOrdered(
-    cursor: EffectiveCursor
-  ): Promise<ReadonlyArray<EventRecord>> {
+  private async readEffectiveOrdered(cursor: EffectiveCursor): Promise<ReadonlyArray<EventRecord>> {
     const rows = await this.db.query<
       Readonly<{
         id: string;

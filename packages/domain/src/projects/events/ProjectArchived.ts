@@ -9,10 +9,7 @@ export interface ProjectArchivedPayload {
   archivedAt: Timestamp;
 }
 
-export class ProjectArchived
-  extends DomainEvent<ProjectId>
-  implements ProjectArchivedPayload
-{
+export class ProjectArchived extends DomainEvent<ProjectId> implements ProjectArchivedPayload {
   readonly eventType = projectEventTypes.projectArchived;
 
   readonly projectId: ProjectId;
@@ -26,11 +23,7 @@ export class ProjectArchived
   }
 }
 
-export const ProjectArchivedSpec = payloadEventSpec<
-  ProjectArchived,
-  ProjectArchivedPayload,
-  ProjectId
->(
+export const ProjectArchivedSpec = payloadEventSpec<ProjectArchived, ProjectArchivedPayload, ProjectId>(
   projectEventTypes.projectArchived,
   (p, meta) => new ProjectArchived(p, meta),
   {

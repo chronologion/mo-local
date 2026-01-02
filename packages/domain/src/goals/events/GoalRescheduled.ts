@@ -11,10 +11,7 @@ export interface GoalRescheduledPayload {
   changedAt: Timestamp;
 }
 
-export class GoalRescheduled
-  extends DomainEvent<GoalId>
-  implements GoalRescheduledPayload
-{
+export class GoalRescheduled extends DomainEvent<GoalId> implements GoalRescheduledPayload {
   readonly eventType = goalEventTypes.goalRescheduled;
 
   readonly goalId: GoalId;
@@ -30,12 +27,12 @@ export class GoalRescheduled
   }
 }
 
-export const GoalRescheduledSpec = payloadEventSpec<
-  GoalRescheduled,
-  GoalRescheduledPayload,
-  GoalId
->(goalEventTypes.goalRescheduled, (p, meta) => new GoalRescheduled(p, meta), {
-  goalId: voString(GoalId.from),
-  targetMonth: voString(Month.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalRescheduledSpec = payloadEventSpec<GoalRescheduled, GoalRescheduledPayload, GoalId>(
+  goalEventTypes.goalRescheduled,
+  (p, meta) => new GoalRescheduled(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    targetMonth: voString(Month.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

@@ -1,10 +1,6 @@
 import { ColumnType } from 'kysely';
 
-type TimestampColumn = ColumnType<
-  Date,
-  Date | string | undefined,
-  Date | string
->;
+type TimestampColumn = ColumnType<Date, Date | string | undefined, Date | string>;
 
 export interface AccessIdentitiesTable {
   id: string;

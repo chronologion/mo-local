@@ -19,19 +19,9 @@ export class AccessEntry extends Entity<string> {
     super(id);
   }
 
-  static create(params: {
-    userId: UserId;
-    permission: Permission;
-    grantedAt: Timestamp;
-  }): AccessEntry {
+  static create(params: { userId: UserId; permission: Permission; grantedAt: Timestamp }): AccessEntry {
     const id = params.userId.value; // In practice, might be composite key
-    return new AccessEntry(
-      id,
-      params.userId,
-      params.permission,
-      params.grantedAt,
-      null
-    );
+    return new AccessEntry(id, params.userId, params.permission, params.grantedAt, null);
   }
 
   get userId(): UserId {

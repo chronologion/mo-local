@@ -11,5 +11,4 @@ export const goalEventTypes = {
   goalAccessRevoked: 'GoalAccessRevoked',
 } as const;
 
-export type GoalEventType =
-  (typeof goalEventTypes)[keyof typeof goalEventTypes];
+export type GoalEventType = (typeof goalEventTypes)[keyof typeof goalEventTypes];

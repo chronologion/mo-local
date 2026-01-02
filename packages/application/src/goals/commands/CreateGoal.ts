@@ -1,8 +1,5 @@
 import { PriorityLevel, SliceValue } from '@mo/domain';
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type CreateGoalPayload = {
   goalId: string;
@@ -13,10 +10,7 @@ export type CreateGoalPayload = {
   timestamp: number;
 };
 
-export class CreateGoal
-  extends BaseCommand<CreateGoalPayload>
-  implements Readonly<CreateGoalPayload>
-{
+export class CreateGoal extends BaseCommand<CreateGoalPayload> implements Readonly<CreateGoalPayload> {
   readonly goalId: string;
   readonly slice: SliceValue;
   readonly summary: string;

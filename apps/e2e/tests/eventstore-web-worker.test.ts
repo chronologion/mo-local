@@ -36,11 +36,7 @@ const serveStatic = (root: string): Promise<ServerHandle> => {
         const data = await fs.readFile(filePath);
         const ext = path.extname(filePath);
         const contentType =
-          ext === '.js'
-            ? 'application/javascript'
-            : ext === '.wasm'
-              ? 'application/wasm'
-              : 'application/octet-stream';
+          ext === '.js' ? 'application/javascript' : ext === '.wasm' ? 'application/wasm' : 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': contentType });
         res.end(data);
       } catch (error) {
@@ -96,15 +92,7 @@ if (typeof navigator !== 'undefined') {
     },
     sourcemap: false,
   });
-  const wasmSource = path.resolve(
-    process.cwd(),
-    '..',
-    '..',
-    'node_modules',
-    'wa-sqlite',
-    'dist',
-    'wa-sqlite.wasm'
-  );
+  const wasmSource = path.resolve(process.cwd(), '..', '..', 'node_modules', 'wa-sqlite', 'dist', 'wa-sqlite.wasm');
   await fs.copyFile(wasmSource, path.join(tmpRoot, 'wa-sqlite.wasm'));
   serverHandle = await serveStatic(tmpRoot);
 });
@@ -117,14 +105,9 @@ test.afterAll(async () => {
 });
 
 test.describe('eventstore-web worker', () => {
-  test.skip(
-    ({ browserName }) => browserName !== 'chromium',
-    'Worker/OPFS integration is Chromium-only'
-  );
+  test.skip(({ browserName }) => browserName !== 'chromium', 'Worker/OPFS integration is Chromium-only');
 
-  test('worker handles hello, execute, query, and table notifications', async ({
-    page,
-  }) => {
+  test('worker handles hello, execute, query, and table notifications', async ({ page }) => {
     if (!serverHandle) {
       throw new Error('Server not initialized');
     }
@@ -165,9 +148,7 @@ test.describe('eventstore-web worker', () => {
         }
       };
 
-      const waitFor = <T>(
-        predicate: (data: unknown) => data is T
-      ): Promise<T> =>
+      const waitFor = <T>(predicate: (data: unknown) => data is T): Promise<T> =>
         new Promise((resolve) => {
           const handler = (event: MessageEvent) => {
             if (predicate(event.data)) {
@@ -198,26 +179,20 @@ test.describe('eventstore-web worker', () => {
         'hello'
       );
 
-      const request = async <T>(
-        payload: Record<string, unknown>
-      ): Promise<T> => {
+      const request = async <T>(payload: Record<string, unknown>): Promise<T> => {
         const requestId = crypto.randomUUID();
         const response = withTimeout(
           waitFor<{
             kind: 'response';
             requestId: string;
-            payload:
-              | { kind: 'ok'; data: T }
-              | { kind: 'error'; error: unknown };
+            payload: { kind: 'ok'; data: T } | { kind: 'error'; error: unknown };
           }>(
             (
               data
             ): data is {
               kind: 'response';
               requestId: string;
-              payload:
-                | { kind: 'ok'; data: T }
-                | { kind: 'error'; error: unknown };
+              payload: { kind: 'ok'; data: T } | { kind: 'error'; error: unknown };
             } =>
               typeof data === 'object' &&
               data !== null &&

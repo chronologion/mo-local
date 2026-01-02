@@ -96,9 +96,9 @@ export async function applySchema(ctx: SqliteContext): Promise<void> {
   const currentVersion = await readUserVersion(ctx);
   if (currentVersion === SCHEMA_VERSION) return;
   if (currentVersion !== 0) {
-    const error = new Error(
-      `Unsupported schema version ${currentVersion}, expected ${SCHEMA_VERSION}`
-    ) as Error & { code?: string };
+    const error = new Error(`Unsupported schema version ${currentVersion}, expected ${SCHEMA_VERSION}`) as Error & {
+      code?: string;
+    };
     error.code = PlatformErrorCodes.MigrationError;
     throw error;
   }
@@ -124,12 +124,7 @@ async function readUserVersion(ctx: SqliteContext): Promise<number> {
   let version = 0;
   await ctx.sqlite3.exec(ctx.db, 'PRAGMA user_version', (row) => {
     const value = row[0];
-    const asNumber =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'bigint'
-          ? Number(value)
-          : Number.NaN;
+    const asNumber = typeof value === 'number' ? value : typeof value === 'bigint' ? Number(value) : Number.NaN;
     if (Number.isFinite(asNumber)) {
       version = Math.trunc(asNumber);
     }

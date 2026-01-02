@@ -7,10 +7,7 @@ export interface UserRegisteredPayload {
   registeredAt: Timestamp;
 }
 
-export class UserRegistered
-  extends DomainEvent<UserId>
-  implements UserRegisteredPayload
-{
+export class UserRegistered extends DomainEvent<UserId> implements UserRegisteredPayload {
   readonly eventType = 'UserRegistered';
   readonly userId: UserId;
   readonly registeredAt: Timestamp;

@@ -18,10 +18,7 @@ import { KeyringManager } from '../crypto/KeyringManager';
 import { MissingKeyError, PersistenceError } from '../errors';
 import { decodeGoalSnapshotDomain } from './snapshots/GoalSnapshotCodec';
 import { buildSnapshotAad } from '../eventing/aad';
-import {
-  SqliteSnapshotStore,
-  type SnapshotStore,
-} from '../eventstore/persistence/SnapshotStore';
+import { SqliteSnapshotStore, type SnapshotStore } from '../eventstore/persistence/SnapshotStore';
 
 /**
  * Browser-friendly goal repository that uses async adapters with encryption.
@@ -46,14 +43,9 @@ export class GoalRepository implements GoalRepositoryPort {
 
   async load(id: GoalId): Promise<Option<Goal>> {
     const snapshotKey = await this.keyStore.getAggregateKey(id.value);
-    const loadedSnapshot = snapshotKey
-      ? await this.loadSnapshot(id.value, snapshotKey)
-      : null;
+    const loadedSnapshot = snapshotKey ? await this.loadSnapshot(id.value, snapshotKey) : null;
     const tailEvents = loadedSnapshot
-      ? await this.eventStore.getEvents(
-          id.value,
-          loadedSnapshot.snapshot.version + 1
-        )
+      ? await this.eventStore.getEvents(id.value, loadedSnapshot.snapshot.version + 1)
       : await this.eventStore.getEvents(id.value, 1);
     if (!loadedSnapshot && tailEvents.length === 0) return none();
 
@@ -64,9 +56,7 @@ export class GoalRepository implements GoalRepositoryPort {
     }
 
     if (loadedSnapshot) {
-      return some(
-        Goal.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail)
-      );
+      return some(Goal.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail));
     }
     return some(Goal.reconstitute(id, domainTail));
   }
@@ -76,9 +66,7 @@ export class GoalRepository implements GoalRepositoryPort {
     if (pending.length === 0) return;
 
     const snapshot = await this.loadSnapshot(goal.id.value, encryptionKey);
-    const eventVersionRows = await this.db.query<
-      Readonly<{ version: number | null }>
-    >(
+    const eventVersionRows = await this.db.query<Readonly<{ version: number | null }>>(
       `
         SELECT MAX(version) as version
         FROM events
@@ -87,10 +75,7 @@ export class GoalRepository implements GoalRepositoryPort {
       [AggregateTypes.goal, goal.id.value]
     );
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
-    const baseVersion = Math.max(
-      maxEventVersion,
-      snapshot?.snapshot.version ?? 0
-    );
+    const baseVersion = Math.max(maxEventVersion, snapshot?.snapshot.version ?? 0);
     const startVersion = baseVersion + 1;
 
     try {
@@ -104,31 +89,18 @@ export class GoalRepository implements GoalRepositoryPort {
           event.occurredAt.value,
           encryptionKey
         );
-        encrypted.push(
-          await this.toEncrypted.toEncrypted(
-            event,
-            startVersion + idx,
-            encryptionKey,
-            options
-          )
-        );
+        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey, options));
       }
       await this.eventStore.append(goal.id.value, encrypted);
       goal.markEventsAsCommitted();
     } catch (error) {
       if (error instanceof ConcurrencyError) throw error;
-      const message =
-        error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new PersistenceError(
-        `Failed to save goal ${goal.id.value}: ${message}`
-      );
+      const message = error instanceof Error ? error.message : 'Unknown persistence error';
+      throw new PersistenceError(`Failed to save goal ${goal.id.value}: ${message}`);
     }
   }
 
-  private async loadSnapshot(
-    aggregateId: string,
-    kGoal: Uint8Array
-  ): Promise<{ snapshot: GoalSnapshot } | null> {
+  private async loadSnapshot(aggregateId: string, kGoal: Uint8Array): Promise<{ snapshot: GoalSnapshot } | null> {
     const record = await this.snapshotStore.get(
       this.db,
       { table: 'events', aggregateType: AggregateTypes.goal },
@@ -136,21 +108,13 @@ export class GoalRepository implements GoalRepositoryPort {
     );
     if (!record) return null;
     const aad = buildSnapshotAad(aggregateId, record.snapshotVersion);
-    const plaintext = await this.crypto.decrypt(
-      record.snapshotEncrypted,
-      kGoal,
-      aad
-    );
+    const plaintext = await this.crypto.decrypt(record.snapshotEncrypted, kGoal, aad);
     return {
       snapshot: decodeGoalSnapshotDomain(plaintext, record.snapshotVersion),
     };
   }
 
-  async archive(
-    id: GoalId,
-    archivedAt: Timestamp,
-    actorId: UserId
-  ): Promise<void> {
+  async archive(id: GoalId, archivedAt: Timestamp, actorId: UserId): Promise<void> {
     const goal = await this.load(id);
     if (goal.kind === 'none') return;
     goal.value.archive({ archivedAt, actorId });
@@ -169,11 +133,7 @@ export class GoalRepository implements GoalRepositoryPort {
   ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
     let keyringUpdate: Uint8Array | undefined;
     if (eventType === goalEventTypes.goalCreated) {
-      const update = await this.keyringManager.createInitialUpdate(
-        aggregateId,
-        encryptionKey,
-        occurredAt
-      );
+      const update = await this.keyringManager.createInitialUpdate(aggregateId, encryptionKey, occurredAt);
       keyringUpdate = update?.keyringUpdate;
     }
     const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);

@@ -7,9 +7,7 @@ import { AuthenticatedIdentity } from '../../application/authenticated-identity'
 @UseGuards(KratosSessionGuard)
 export class MeController {
   @Get()
-  getProfile(
-    @AuthIdentity() identity: AuthenticatedIdentity | undefined
-  ): AuthenticatedIdentity {
+  getProfile(@AuthIdentity() identity: AuthenticatedIdentity | undefined): AuthenticatedIdentity {
     if (!identity) {
       throw new Error('Authenticated identity is missing from request context');
     }
