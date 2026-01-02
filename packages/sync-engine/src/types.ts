@@ -106,13 +106,15 @@ export type SyncPushConflictResponseV1 = Readonly<{
 
 export interface SyncTransportPort {
   push(
-    request: SyncPushRequestV1
+    request: SyncPushRequestV1,
+    options?: Readonly<{ signal?: AbortSignal }>
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1>;
   pull(params: {
     storeId: string;
     since: number;
     limit: number;
     waitMs?: number;
+    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1>;
   ping(): Promise<void>;
 }

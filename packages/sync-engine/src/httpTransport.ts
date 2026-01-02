@@ -38,13 +38,15 @@ export class HttpSyncTransport implements SyncTransportPort {
   }
 
   async push(
-    request: SyncPushRequestV1
+    request: SyncPushRequestV1,
+    options?: Readonly<{ signal?: AbortSignal }>
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     const response = await this.fetchImpl(`${this.baseUrl}/sync/push`, {
       method: 'POST',
       credentials: this.credentials,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(request),
+      signal: options?.signal,
     });
     if (response.status === 401 || response.status === 403) {
       throw new Error(`Sync push unauthorized (${response.status})`);
@@ -70,6 +72,7 @@ export class HttpSyncTransport implements SyncTransportPort {
     since: number;
     limit: number;
     waitMs?: number;
+    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1> {
     const query = new URLSearchParams({
       storeId: params.storeId,
@@ -81,7 +84,7 @@ export class HttpSyncTransport implements SyncTransportPort {
     }
     const response = await this.fetchImpl(
       `${this.baseUrl}/sync/pull?${query.toString()}`,
-      { credentials: this.credentials }
+      { credentials: this.credentials, signal: params.signal }
     );
     if (response.status === 401 || response.status === 403) {
       throw new Error(`Sync pull unauthorized (${response.status})`);

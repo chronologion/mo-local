@@ -98,6 +98,9 @@ const getLastError = (status: SyncStatus): SyncError | null => {
   return null;
 };
 
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === 'AbortError';
+
 type PullState = {
   inFlight: boolean;
   inFlightPromise: Promise<void> | null;
@@ -157,6 +160,8 @@ export class SyncEngine {
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
   private pullState: PullState = createPullState();
   private pushState: PushState = createPushState();
+  private pullAbortController: AbortController | null = null;
+  private pushAbortController: AbortController | null = null;
   private status: SyncStatus = {
     kind: SyncStatusKinds.idle,
     lastSuccessAt: null,
@@ -194,6 +199,10 @@ export class SyncEngine {
 
   stop(): void {
     this.running = false;
+    this.pullAbortController?.abort();
+    this.pullAbortController = null;
+    this.pushAbortController?.abort();
+    this.pushAbortController = null;
     this.pushUnsubscribe?.();
     this.pushUnsubscribe = null;
     if (this.pushTimer) {
@@ -289,11 +298,14 @@ export class SyncEngine {
       let keepPulling = true;
 
       while (keepPulling) {
+        this.pullAbortController?.abort();
+        this.pullAbortController = new AbortController();
         const response = await this.transport.pull({
           storeId: this.storeId,
           since,
           limit: this.pullLimit,
           waitMs: options.waitMs,
+          signal: this.pullAbortController.signal,
         });
         head = response.head;
         this.lastKnownHead = head;
@@ -333,6 +345,7 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
+      if (isAbortError(error) && !this.running) return;
       this.pullState.backoffMs = nextBackoffMs(
         this.pullState.backoffMs,
         MIN_PULL_BACKOFF_MS,
@@ -352,6 +365,7 @@ export class SyncEngine {
     } finally {
       this.pullState.inFlight = false;
       this.resolvePullWaiters();
+      this.pullAbortController = null;
     }
   }
 
@@ -377,11 +391,16 @@ export class SyncEngine {
           eventId: row.id,
           recordJson: toRecordJson(toSyncRecord(row)),
         }));
-        const response = await this.transport.push({
-          storeId: this.storeId,
-          expectedHead,
-          events,
-        });
+        this.pushAbortController?.abort();
+        this.pushAbortController = new AbortController();
+        const response = await this.transport.push(
+          {
+            storeId: this.storeId,
+            expectedHead,
+            events,
+          },
+          { signal: this.pushAbortController.signal }
+        );
 
         if (response.ok) {
           await this.applyAssignments(response);
@@ -413,6 +432,7 @@ export class SyncEngine {
       );
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
+      if (isAbortError(error) && !this.running) return;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.network,
@@ -424,6 +444,7 @@ export class SyncEngine {
       this.requestPush();
     } finally {
       this.pushState.inFlight = false;
+      this.pushAbortController = null;
     }
   }
 

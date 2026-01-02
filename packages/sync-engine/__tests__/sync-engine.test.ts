@@ -321,7 +321,8 @@ class FakeTransport implements SyncTransportPort {
   pushRequests: SyncPushRequestV1[] = [];
 
   async push(
-    request: SyncPushRequestV1
+    request: SyncPushRequestV1,
+    _options?: Readonly<{ signal?: AbortSignal }>
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     this.pushRequests.push(request);
     const response = this.pushResponses.shift();
@@ -336,6 +337,7 @@ class FakeTransport implements SyncTransportPort {
     since: number;
     limit: number;
     waitMs?: number;
+    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1> {
     const response = this.pullResponses.shift();
     if (!response) {
