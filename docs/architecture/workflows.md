@@ -97,4 +97,4 @@ We intentionally have **two different orderings**:
 
 ## Implementation notes
 
-- Pending rewrite mechanics (when rebase causes per-aggregate version shifts requiring AAD re-encryption) are specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in `ALC-339`.
+- Pending rewrite mechanics (when rebase causes per-aggregate version shifts requiring AAD re-encryption) are specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in the sync stack.

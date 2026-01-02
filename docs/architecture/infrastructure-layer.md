@@ -155,7 +155,7 @@ Constraint:
   - ciphertext bytes and metadata are never rewritten.
 - Events that are still **pending** (no `globalSequence`) are durable local drafts and may be rewritten during rebase:
   - per-aggregate version shifts require re-encryption because AAD binds to `{aggregateId, eventType, version}`.
-  - Implemented: per-aggregate “pending rewrite” during rebase is specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in `ALC-339`.
+  - per-aggregate “pending rewrite” during rebase is specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in the sync stack.
 
 **Protocol types (V1)**
 
