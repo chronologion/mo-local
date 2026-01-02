@@ -319,6 +319,74 @@ const makeRecordJson = (params: {
   });
 
 describe('SyncEngine', () => {
+  it('pushes pending events in commitSequence order (not causation/correlation)', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    const storeId = 'store-ordering';
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      // Intentionally points "forward" to demonstrate that we do NOT topologically sort.
+      causation_id: 'local-2',
+      correlation_id: 'corr-1',
+      epoch: null,
+    });
+
+    db.seedEvent({
+      id: 'local-2',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalRefined',
+      payload_encrypted: new Uint8Array([2]),
+      keyring_update: null,
+      version: 2,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: 'corr-1',
+      epoch: null,
+    });
+
+    transport.pullResponses.push({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.pushResponses.push({
+      ok: true,
+      head: 2,
+      assigned: [
+        { eventId: 'local-1', globalSequence: 1 },
+        { eventId: 'local-2', globalSequence: 2 },
+      ],
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId,
+      onRebaseRequired,
+      pushBatchSize: 10,
+    });
+
+    await engine.syncOnce();
+
+    expect(transport.pushRequests).toHaveLength(1);
+    expect(
+      transport.pushRequests[0]?.events.map((event) => event.eventId)
+    ).toEqual(['local-1', 'local-2']);
+  });
+
   it('runs pull/push loops and respects interval sleep', async () => {
     vi.useFakeTimers();
     const db = new MemoryDb();
