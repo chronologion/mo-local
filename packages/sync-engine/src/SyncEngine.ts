@@ -431,17 +431,28 @@ export class SyncEngine {
     response: SyncPushConflictResponseV1,
     expectedHead: number
   ): Promise<void> {
+    console.debug('[SyncEngine] push conflict', {
+      expectedHead,
+      serverHead: response.head,
+      missingCount: response.missing?.length ?? 0,
+    });
     const missing = response.missing ?? [];
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
+      const cursorBefore = await this.readLastPulledGlobalSeq();
       const applied = await this.applyRemoteEvents(missing);
-      await this.writeLastPulledGlobalSeq(
-        Math.max(await this.readLastPulledGlobalSeq(), response.head)
-      );
+      const nextCursor = Math.max(cursorBefore, response.head);
+      await this.writeLastPulledGlobalSeq(nextCursor);
       this.lastKnownHead = response.head;
       if (applied && hadPending) {
         const stillPending = await this.hasPendingEvents();
         if (stillPending) {
+          console.debug('[SyncEngine] rebase required after pull', {
+            cursorBefore,
+            cursorAfter: nextCursor,
+            hadPending,
+            stillPending,
+          });
           await this.onRebaseRequired();
         }
       }
@@ -451,9 +462,17 @@ export class SyncEngine {
     await this.awaitPullIfInFlight();
     let current = await this.readLastPulledGlobalSeq();
     if (current <= expectedHead) {
+      console.debug('[SyncEngine] conflict without missing; requesting pull', {
+        expectedHead,
+        cursorBefore: current,
+      });
       await this.requestImmediatePull();
       current = await this.readLastPulledGlobalSeq();
     }
+    console.debug('[SyncEngine] conflict pull result', {
+      expectedHead,
+      cursorAfter: current,
+    });
     if (current <= expectedHead) {
       throw new Error('Sync conflict did not advance cursor');
     }
