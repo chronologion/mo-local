@@ -10,7 +10,6 @@ import {
   type SyncPushOkResponseV1,
   type SyncPullResponseV1,
   type PendingVersionRewriterPort,
-  type SyncEventRecord,
 } from './types';
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
 import type { Unsubscribe } from '@mo/eventstore-core';
@@ -800,6 +799,12 @@ export class SyncEngine {
     const existingMap = new Set(existingMapRows.map((row) => row.event_id));
     const now = nowMs();
 
+    const statements: SqliteStatement[] = [];
+    const insertedEventIds: string[] = [];
+    const insertedEventContextById = new Map<
+      string,
+      { aggregateType: string; aggregateId: string; version: number }
+    >();
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
@@ -807,105 +812,137 @@ export class SyncEngine {
           `Sync record id mismatch: ${record.id} !== ${incoming.eventId}`
         );
       }
-      await this.insertRemoteEvent(record);
-      await this.db.execute(
-        `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
-        [incoming.eventId, incoming.globalSequence, now]
+
+      const existingById = await this.db.query<{ id: string }>(
+        'SELECT id FROM events WHERE id = ? LIMIT 1',
+        [record.id]
       );
+      if (existingById.length === 0) {
+        const maxRewriteAttempts = 128;
+        let collisionResolved = false;
+        for (let attempt = 0; attempt < maxRewriteAttempts; attempt += 1) {
+          const occupying = await this.db.query<{ id: string }>(
+            'SELECT id FROM events WHERE aggregate_type = ? AND aggregate_id = ? AND version = ? LIMIT 1',
+            [record.aggregateType, record.aggregateId, record.version]
+          );
+          const occupyingId = occupying[0]?.id ?? null;
+          if (!occupyingId) {
+            collisionResolved = true;
+            break;
+          }
+
+          const occupyingIsSynced = await this.db.query<{ event_id: string }>(
+            'SELECT event_id FROM sync_event_map WHERE event_id = ? LIMIT 1',
+            [occupyingId]
+          );
+          if (occupyingIsSynced.length > 0) {
+            throw new Error(
+              `Remote version collision with synced event: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} existingEventId=${occupyingId} incomingEventId=${record.id}`
+            );
+          }
+
+          if (!this.pendingVersionRewriter) {
+            throw new Error(
+              `Pending version rewrite required but no rewriter configured: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version}`
+            );
+          }
+
+          const result =
+            await this.pendingVersionRewriter.rewritePendingVersions({
+              aggregateType: record.aggregateType,
+              aggregateId: record.aggregateId,
+              fromVersionInclusive: record.version,
+            });
+          console.info('[SyncEngine] pending rewrite applied', {
+            aggregateType: result.aggregateType,
+            aggregateId: result.aggregateId,
+            fromVersionInclusive: result.fromVersionInclusive,
+            shiftedCount: result.shiftedCount,
+            oldMaxVersion: result.oldMaxVersion,
+            newMaxVersion: result.newMaxVersion,
+          });
+        }
+        if (!collisionResolved) {
+          throw new Error(
+            `Pending version rewrite did not resolve collision after ${maxRewriteAttempts} attempts: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} incomingEventId=${record.id}`
+          );
+        }
+
+        const payload = decodeRecordPayload(record);
+        const keyringUpdate = decodeRecordKeyringUpdate(record);
+        statements.push({
+          kind: SqliteStatementKinds.execute,
+          sql: `INSERT OR IGNORE INTO events (
+            id,
+            aggregate_type,
+            aggregate_id,
+            event_type,
+            payload_encrypted,
+            keyring_update,
+            version,
+            occurred_at,
+            actor_id,
+            causation_id,
+            correlation_id,
+            epoch
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          params: [
+            record.id,
+            record.aggregateType,
+            record.aggregateId,
+            record.eventType,
+            payload,
+            keyringUpdate,
+            record.version,
+            record.occurredAt,
+            record.actorId,
+            record.causationId,
+            record.correlationId,
+            record.epoch,
+          ],
+        });
+        insertedEventIds.push(record.id);
+        insertedEventContextById.set(record.id, {
+          aggregateType: record.aggregateType,
+          aggregateId: record.aggregateId,
+          version: record.version,
+        });
+      }
+
+      statements.push({
+        kind: SqliteStatementKinds.execute,
+        sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at)
+          SELECT ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM events WHERE id = ?)`,
+        params: [
+          incoming.eventId,
+          incoming.globalSequence,
+          now,
+          incoming.eventId,
+        ],
+      });
+    }
+    await this.db.batch(statements);
+
+    if (insertedEventIds.length > 0) {
+      for (const eventId of insertedEventIds) {
+        const inserted = await this.db.query<{ id: string }>(
+          'SELECT id FROM events WHERE id = ? LIMIT 1',
+          [eventId]
+        );
+        if (inserted.length === 0) {
+          const ctx = insertedEventContextById.get(eventId);
+          const suffix = ctx
+            ? ` aggregate=${ctx.aggregateType}:${ctx.aggregateId} version=${ctx.version}`
+            : '';
+          throw new Error(
+            `Remote event insert did not persist; possible version collision: eventId=${eventId}${suffix}`
+          );
+        }
+      }
     }
 
     return events.some((event) => !existingMap.has(event.eventId));
-  }
-
-  private async insertRemoteEvent(record: SyncEventRecord): Promise<void> {
-    const existingById = await this.db.query<{ id: string }>(
-      'SELECT id FROM events WHERE id = ? LIMIT 1',
-      [record.id]
-    );
-    if (existingById.length > 0) return;
-
-    const maxRewriteAttempts = 128;
-    for (let attempt = 0; attempt < maxRewriteAttempts; attempt += 1) {
-      const occupying = await this.db.query<{ id: string }>(
-        'SELECT id FROM events WHERE aggregate_type = ? AND aggregate_id = ? AND version = ? LIMIT 1',
-        [record.aggregateType, record.aggregateId, record.version]
-      );
-      const occupyingId = occupying[0]?.id ?? null;
-      if (!occupyingId) break;
-
-      const occupyingIsSynced = await this.db.query<{ event_id: string }>(
-        'SELECT event_id FROM sync_event_map WHERE event_id = ? LIMIT 1',
-        [occupyingId]
-      );
-      if (occupyingIsSynced.length > 0) {
-        throw new Error(
-          `Remote version collision with synced event: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} existingEventId=${occupyingId} incomingEventId=${record.id}`
-        );
-      }
-
-      if (!this.pendingVersionRewriter) {
-        throw new Error(
-          `Pending version rewrite required but no rewriter configured: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version}`
-        );
-      }
-
-      const result = await this.pendingVersionRewriter.rewritePendingVersions({
-        aggregateType: record.aggregateType,
-        aggregateId: record.aggregateId,
-        fromVersionInclusive: record.version,
-      });
-      console.info('[SyncEngine] pending rewrite applied', {
-        aggregateType: result.aggregateType,
-        aggregateId: result.aggregateId,
-        fromVersionInclusive: result.fromVersionInclusive,
-        shiftedCount: result.shiftedCount,
-        oldMaxVersion: result.oldMaxVersion,
-        newMaxVersion: result.newMaxVersion,
-      });
-    }
-
-    const payload = decodeRecordPayload(record);
-    const keyringUpdate = decodeRecordKeyringUpdate(record);
-    await this.db.execute(
-      `INSERT OR IGNORE INTO events (
-        id,
-        aggregate_type,
-        aggregate_id,
-        event_type,
-        payload_encrypted,
-        keyring_update,
-        version,
-        occurred_at,
-        actor_id,
-        causation_id,
-        correlation_id,
-        epoch
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        record.id,
-        record.aggregateType,
-        record.aggregateId,
-        record.eventType,
-        payload,
-        keyringUpdate,
-        record.version,
-        record.occurredAt,
-        record.actorId,
-        record.causationId,
-        record.correlationId,
-        record.epoch,
-      ]
-    );
-
-    const inserted = await this.db.query<{ id: string }>(
-      'SELECT id FROM events WHERE id = ? LIMIT 1',
-      [record.id]
-    );
-    if (inserted.length === 0) {
-      throw new Error(
-        `Remote event insert did not persist; possible version collision: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} eventId=${record.id}`
-      );
-    }
   }
 
   private async applyAssignments(
