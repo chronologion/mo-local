@@ -137,6 +137,7 @@ export type SyncEngineOptions = Readonly<{
   transport: SyncTransportPort;
   storeId: string;
   onRebaseRequired: () => Promise<void>;
+  pendingVersionRewriter?: PendingVersionRewriterPort;
   pullLimit?: number;
   pullWaitMs?: number;
   pullIntervalMs?: number;
@@ -146,3 +147,13 @@ export type SyncEngineOptions = Readonly<{
   maxPushRetries?: number;
   onStatusChange?: (status: SyncStatus) => void;
 }>;
+
+export type PendingVersionRewriteRequest = Readonly<{
+  aggregateType: string;
+  aggregateId: string;
+  fromVersionInclusive: number;
+}>;
+
+export interface PendingVersionRewriterPort {
+  rewritePendingVersions(request: PendingVersionRewriteRequest): Promise<void>;
+}

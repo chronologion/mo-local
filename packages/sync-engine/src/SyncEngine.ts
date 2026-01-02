@@ -9,6 +9,8 @@ import {
   type SyncPushConflictResponseV1,
   type SyncPushOkResponseV1,
   type SyncPullResponseV1,
+  type PendingVersionRewriterPort,
+  type SyncEventRecord,
 } from './types';
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
 import type { Unsubscribe } from '@mo/eventstore-core';
@@ -149,6 +151,7 @@ export class SyncEngine {
   private readonly pushBatchSize: number;
   private readonly maxPushRetries: number;
   private readonly onStatusChange?: (status: SyncStatus) => void;
+  private readonly pendingVersionRewriter: PendingVersionRewriterPort | null;
   private running = false;
   private pushUnsubscribe: Unsubscribe | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -166,6 +169,7 @@ export class SyncEngine {
     this.transport = options.transport;
     this.storeId = options.storeId;
     this.onRebaseRequired = options.onRebaseRequired;
+    this.pendingVersionRewriter = options.pendingVersionRewriter ?? null;
     this.pullLimit = options.pullLimit ?? DEFAULT_PULL_LIMIT;
     this.pullWaitMs = options.pullWaitMs ?? DEFAULT_PULL_WAIT_MS;
     this.pullIntervalMs = options.pullIntervalMs ?? DEFAULT_PULL_INTERVAL_MS;
@@ -743,7 +747,6 @@ export class SyncEngine {
     const existingMap = new Set(existingMapRows.map((row) => row.event_id));
     const now = nowMs();
 
-    const statements: SqliteStatement[] = [];
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
@@ -751,48 +754,97 @@ export class SyncEngine {
           `Sync record id mismatch: ${record.id} !== ${incoming.eventId}`
         );
       }
-      const payload = decodeRecordPayload(record);
-      const keyringUpdate = decodeRecordKeyringUpdate(record);
-      statements.push({
-        kind: SqliteStatementKinds.execute,
-        sql: `INSERT OR IGNORE INTO events (
-            id,
-            aggregate_type,
-            aggregate_id,
-            event_type,
-            payload_encrypted,
-            keyring_update,
-            version,
-            occurred_at,
-            actor_id,
-            causation_id,
-            correlation_id,
-            epoch
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        params: [
-          record.id,
-          record.aggregateType,
-          record.aggregateId,
-          record.eventType,
-          payload,
-          keyringUpdate,
-          record.version,
-          record.occurredAt,
-          record.actorId,
-          record.causationId,
-          record.correlationId,
-          record.epoch,
-        ],
-      });
-      statements.push({
-        kind: SqliteStatementKinds.execute,
-        sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
-        params: [incoming.eventId, incoming.globalSequence, now],
-      });
+      await this.insertRemoteEvent(record);
+      await this.db.execute(
+        `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
+        [incoming.eventId, incoming.globalSequence, now]
+      );
     }
-    await this.db.batch(statements);
 
     return events.some((event) => !existingMap.has(event.eventId));
+  }
+
+  private async insertRemoteEvent(record: SyncEventRecord): Promise<void> {
+    const existingById = await this.db.query<{ id: string }>(
+      'SELECT id FROM events WHERE id = ? LIMIT 1',
+      [record.id]
+    );
+    if (existingById.length > 0) return;
+
+    const maxRewriteAttempts = 128;
+    for (let attempt = 0; attempt < maxRewriteAttempts; attempt += 1) {
+      const occupying = await this.db.query<{ id: string }>(
+        'SELECT id FROM events WHERE aggregate_type = ? AND aggregate_id = ? AND version = ? LIMIT 1',
+        [record.aggregateType, record.aggregateId, record.version]
+      );
+      const occupyingId = occupying[0]?.id ?? null;
+      if (!occupyingId) break;
+
+      const occupyingIsSynced = await this.db.query<{ event_id: string }>(
+        'SELECT event_id FROM sync_event_map WHERE event_id = ? LIMIT 1',
+        [occupyingId]
+      );
+      if (occupyingIsSynced.length > 0) {
+        throw new Error(
+          `Remote version collision with synced event: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} existingEventId=${occupyingId} incomingEventId=${record.id}`
+        );
+      }
+
+      if (!this.pendingVersionRewriter) {
+        throw new Error(
+          `Pending version rewrite required but no rewriter configured: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version}`
+        );
+      }
+
+      await this.pendingVersionRewriter.rewritePendingVersions({
+        aggregateType: record.aggregateType,
+        aggregateId: record.aggregateId,
+        fromVersionInclusive: record.version,
+      });
+    }
+
+    const payload = decodeRecordPayload(record);
+    const keyringUpdate = decodeRecordKeyringUpdate(record);
+    await this.db.execute(
+      `INSERT OR IGNORE INTO events (
+        id,
+        aggregate_type,
+        aggregate_id,
+        event_type,
+        payload_encrypted,
+        keyring_update,
+        version,
+        occurred_at,
+        actor_id,
+        causation_id,
+        correlation_id,
+        epoch
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        record.aggregateType,
+        record.aggregateId,
+        record.eventType,
+        payload,
+        keyringUpdate,
+        record.version,
+        record.occurredAt,
+        record.actorId,
+        record.causationId,
+        record.correlationId,
+        record.epoch,
+      ]
+    );
+
+    const inserted = await this.db.query<{ id: string }>(
+      'SELECT id FROM events WHERE id = ? LIMIT 1',
+      [record.id]
+    );
+    if (inserted.length === 0) {
+      throw new Error(
+        `Remote event insert did not persist; possible version collision: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} eventId=${record.id}`
+      );
+    }
   }
 
   private async applyAssignments(
