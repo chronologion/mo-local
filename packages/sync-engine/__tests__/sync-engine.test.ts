@@ -4,12 +4,13 @@ import { encodeBase64Url } from '../src/base64url';
 import type { SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
+  type SyncDirection,
+  SyncAbortableTransportPort,
   SyncStatus,
   SyncPullResponseV1,
   SyncPushConflictResponseV1,
   SyncPushOkResponseV1,
   SyncPushRequestV1,
-  SyncTransportPort,
 } from '../src/types';
 
 type EventRow = Readonly<{
@@ -61,6 +62,35 @@ class MemoryDb implements SqliteDbPort {
     return this.syncEventMap.find((row) => row.event_id === eventId);
   }
 
+  getEvent(eventId: string): EventRow | undefined {
+    return this.events.find((row) => row.id === eventId);
+  }
+
+  shiftPendingVersions(params: { aggregateType: string; aggregateId: string; fromVersionInclusive: number }): void {
+    const pendingIds = new Set(
+      this.events
+        .filter(
+          (row) =>
+            row.aggregate_type === params.aggregateType &&
+            row.aggregate_id === params.aggregateId &&
+            row.version >= params.fromVersionInclusive &&
+            !this.syncEventMap.some((map) => map.event_id === row.id)
+        )
+        .sort((a, b) => b.version - a.version)
+        .map((row) => row.id)
+    );
+
+    this.events = this.events.map((row) => {
+      if (!pendingIds.has(row.id)) return row;
+      const nextVersion = row.version + 1;
+      return {
+        ...row,
+        version: nextVersion,
+        payload_encrypted: new Uint8Array([nextVersion]),
+      };
+    });
+  }
+
   async query<T extends Readonly<Record<string, unknown>>>(
     sql: string,
     params: ReadonlyArray<SqliteValue> = []
@@ -88,6 +118,26 @@ class MemoryDb implements SqliteDbPort {
         .filter((row) => ids.includes(row.event_id))
         .map((row) => ({ event_id: row.event_id }));
       return rows as unknown as T[];
+    }
+    if (normalized.startsWith('SELECT ID FROM EVENTS WHERE ID = ?')) {
+      const id = String(params[0] ?? '');
+      const row = this.getEvent(id);
+      return row ? ([{ id: row.id }] as unknown as T[]) : [];
+    }
+    if (normalized.startsWith('SELECT ID FROM EVENTS WHERE AGGREGATE_TYPE = ? AND AGGREGATE_ID = ? AND VERSION = ?')) {
+      const aggregateType = String(params[0] ?? '');
+      const aggregateId = String(params[1] ?? '');
+      const version = Number(params[2] ?? 0);
+      const row = this.events.find(
+        (event) =>
+          event.aggregate_type === aggregateType && event.aggregate_id === aggregateId && event.version === version
+      );
+      return row ? ([{ id: row.id }] as unknown as T[]) : [];
+    }
+    if (normalized.startsWith('SELECT EVENT_ID FROM SYNC_EVENT_MAP WHERE EVENT_ID = ?')) {
+      const id = String(params[0] ?? '');
+      const row = this.getEventMap(id);
+      return row ? ([{ event_id: row.event_id }] as unknown as T[]) : [];
     }
     throw new Error(`Unhandled query: ${sql}`);
   }
@@ -120,7 +170,7 @@ class MemoryDb implements SqliteDbPort {
       }
       return;
     }
-    throw new Error(`Unhandled execute: ${sql}`);
+    await this.executeStatement(sql, params);
   }
 
   async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
@@ -159,6 +209,17 @@ class MemoryDb implements SqliteDbPort {
         epoch,
       ] = params;
       if (this.events.some((row) => row.id === id)) {
+        return;
+      }
+      if (
+        this.events.some(
+          (row) =>
+            row.aggregate_type === String(aggregateType) &&
+            row.aggregate_id === String(aggregateId) &&
+            row.version === Number(version)
+        )
+      ) {
+        // Simulate the `events_aggregate_version` unique index.
         return;
       }
       const payload = toUint8Array(payloadEncrypted, 'payload_encrypted');
@@ -219,7 +280,7 @@ class TestDb extends MemoryDb {
   }
 }
 
-class FakeTransport implements SyncTransportPort {
+class FakeTransport implements SyncAbortableTransportPort {
   pullResponses: SyncPullResponseV1[] = [];
   pushResponses: Array<SyncPushOkResponseV1 | SyncPushConflictResponseV1> = [];
   pushRequests: SyncPushRequestV1[] = [];
@@ -247,6 +308,10 @@ class FakeTransport implements SyncTransportPort {
   }
 
   async ping(): Promise<void> {}
+
+  setAbortSignal(_direction: SyncDirection, _signal: AbortSignal | null): void {
+    // no-op in tests
+  }
 }
 
 const normalizeSql = (sql: string): string => sql.replace(/\s+/g, ' ').trim().toUpperCase();
@@ -285,7 +350,150 @@ const makeRecordJson = (params: {
     keyringUpdate: null,
   });
 
+type ParsedRecord = Readonly<{
+  id: string;
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  payload: string;
+  version: number;
+}>;
+
+const parseRecord = (recordJson: string): ParsedRecord => {
+  const parsed: unknown = JSON.parse(recordJson);
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid record JSON');
+  }
+  const record = parsed as Record<string, unknown>;
+  const version = record.version;
+  if (typeof version !== 'number') {
+    throw new Error('Record version missing');
+  }
+  const id = record.id;
+  const aggregateType = record.aggregateType;
+  const aggregateId = record.aggregateId;
+  const eventType = record.eventType;
+  const payload = record.payload;
+  if (
+    typeof id !== 'string' ||
+    typeof aggregateType !== 'string' ||
+    typeof aggregateId !== 'string' ||
+    typeof eventType !== 'string' ||
+    typeof payload !== 'string'
+  ) {
+    throw new Error('Record shape invalid');
+  }
+  return {
+    id,
+    aggregateType,
+    aggregateId,
+    eventType,
+    payload,
+    version,
+  };
+};
+
 describe('SyncEngine', () => {
+  it('rewrites pending versions to avoid per-aggregate version collisions when applying remote events', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+    const storeId = 'store-collision';
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    transport.pullResponses.push({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.pushResponses.push({
+      ok: false,
+      head: 1,
+      reason: 'server_ahead',
+      missing: [
+        {
+          globalSequence: 1,
+          eventId: 'remote-1',
+          recordJson: makeRecordJson({
+            id: 'remote-1',
+            aggregateType: 'goal',
+            aggregateId: 'goal-1',
+            eventType: 'GoalCreated',
+            payload: new Uint8Array([9]),
+            version: 1,
+          }),
+        },
+      ],
+    });
+    transport.pushResponses.push({
+      ok: true,
+      head: 2,
+      assigned: [{ eventId: 'local-1', globalSequence: 2 }],
+    });
+
+    const pendingVersionRewriter = {
+      rewritePendingVersions: async (request: {
+        aggregateType: string;
+        aggregateId: string;
+        fromVersionInclusive: number;
+      }): Promise<{
+        aggregateType: string;
+        aggregateId: string;
+        fromVersionInclusive: number;
+        shiftedCount: number;
+        oldMaxVersion: number | null;
+        newMaxVersion: number | null;
+      }> => {
+        db.shiftPendingVersions(request);
+        return {
+          aggregateType: request.aggregateType,
+          aggregateId: request.aggregateId,
+          fromVersionInclusive: request.fromVersionInclusive,
+          shiftedCount: 1,
+          oldMaxVersion: 1,
+          newMaxVersion: 2,
+        };
+      },
+    };
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId,
+      onRebaseRequired,
+      pendingVersionRewriter,
+    });
+
+    await engine.syncOnce();
+
+    expect(db.getEvent('remote-1')?.version).toBe(1);
+    expect(db.getEvent('local-1')?.version).toBe(2);
+    expect(db.getEventMap('remote-1')?.global_seq).toBe(1);
+    expect(db.getEventMap('local-1')?.global_seq).toBe(2);
+
+    const retryPush = transport.pushRequests.at(1);
+    expect(retryPush).toBeDefined();
+    if (retryPush) {
+      const versions = retryPush.events.map((event) => parseRecord(event.recordJson).version);
+      expect(versions).toContain(2);
+    }
+  });
+
   it('pushes pending events in commitSequence order (not causation/correlation)', async () => {
     const db = new MemoryDb();
     const transport = new FakeTransport();

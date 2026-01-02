@@ -89,11 +89,26 @@ const setProjectStatus = async (
     has: page.getByText(projectName, { exact: true }),
   });
   const trigger = card.getByRole('combobox');
-  await trigger.click();
-  const listbox = page.getByRole('listbox');
-  await expect(listbox).toBeVisible();
-  await listbox.getByRole('option', { name: status }).click();
-  await expect(trigger).toContainText(status, { timeout: 10_000 });
+
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await trigger.click();
+      const listbox = page.getByRole('listbox');
+      await expect(listbox).toBeVisible({ timeout: 10_000 });
+      await listbox.getByRole('option', { name: status, exact: true }).click({ force: true });
+      await expect(trigger).toContainText(status, { timeout: 10_000 });
+      return;
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      lastError = error;
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
+    }
+  }
+  throw lastError ?? new Error('Failed to set project status');
 };
 
 const expectGoalAchieved = async (page: Page, summary: string, expected: boolean): Promise<void> => {
@@ -151,6 +166,29 @@ const syncOnce = async (page: Page): Promise<void> => {
   });
 };
 
+const stopSync = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const w = window as { __moSyncStop?: () => void };
+    w.__moSyncStop?.();
+  });
+};
+
+const startSync = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const w = window as { __moSyncStart?: () => void };
+    w.__moSyncStart?.();
+  });
+};
+
+const pushOnceOnly = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    const w = window as { __moPushOnce?: () => Promise<void> };
+    if (w.__moPushOnce) {
+      await w.__moPushOnce();
+    }
+  });
+};
+
 const getPendingCount = async (page: Page): Promise<number | null> => {
   return await page.evaluate(async () => {
     const w = window as { __moPendingCount?: () => Promise<number> };
@@ -182,7 +220,7 @@ const pullHead = async (page: Page, storeId: string): Promise<number> => {
 };
 
 test.describe('offline rebase goal edit', () => {
-  test('offline local edit + online edit + reconnect does not leave stale knownVersion', async () => {
+  test('offline local edits + online edit + reconnect does not leave stale knownVersion', async () => {
     test.setTimeout(180_000);
     const mark = (label: string) => {
       console.log(`[offline-rebase] ${label}`);
@@ -213,6 +251,18 @@ test.describe('offline rebase goal edit', () => {
       mark('creating pages');
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
+      let pushConflicts = 0;
+      const recordPushConflict = (url: string, status: number) => {
+        if (!url.includes('/sync/push')) return;
+        if (status !== 409) return;
+        pushConflicts += 1;
+      };
+      pageA.on('response', (response) => {
+        recordPushConflict(response.url(), response.status());
+      });
+      pageB.on('response', (response) => {
+        recordPushConflict(response.url(), response.status());
+      });
       attachConsoleErrorTrap(pageA, errorsA);
       attachConsoleErrorTrap(pageB, errorsB);
       await ctxA.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -304,11 +354,23 @@ test.describe('offline rebase goal edit', () => {
         throw new Error('Goal did not sync to device B');
       }
 
+      const storeIdA = await pageA.evaluate(() => localStorage.getItem('mo-local-store-id'));
+      if (!storeIdA || !storeIdB) {
+        throw new Error('Missing storeId after cloud connection');
+      }
+      const headA1 = await pullHead(pageA, storeIdA);
+      const headB1 = await pullHead(pageB, storeIdB);
+      expect(headA1).toBe(headB1);
+
       // Device A goes offline and edits locally.
       mark('offline A and edit A1');
       await ctxA.setOffline(true);
       const summaryA1 = `${goalSummary} (A1)`;
       await editGoalSummary(pageA, summaryA1);
+
+      mark('offline A and edit A2');
+      const summaryA2 = `${goalSummary} (A2)`;
+      await editGoalSummary(pageA, summaryA2);
 
       // Device B edits online and pushes.
       mark('edit B1');
@@ -317,19 +379,24 @@ test.describe('offline rebase goal edit', () => {
 
       // Device A reconnects -> local pending event rebases.
       mark('online A');
+      await stopSync(pageA);
       await ctxA.setOffline(false);
+      await pushOnceOnly(pageA);
+      await startSync(pageA);
 
       // Give sync a moment to pull/rebase before issuing another update.
       mark('wait for sync settle');
       await pageA.waitForTimeout(2_000);
+      await syncOnce(pageA);
+      await syncOnce(pageB);
 
       // This update used to fail with a stale knownVersion mismatch after rebase.
-      mark('edit A2');
-      const summaryA2 = `${goalSummary} (A2)`;
+      mark('edit A3');
+      const summaryA3 = `${goalSummary} (A3)`;
       let lastError: Error | null = null;
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
-          await editGoalSummary(pageA, summaryA2);
+          await editGoalSummary(pageA, summaryA3);
           lastError = null;
           break;
         } catch (error) {
@@ -340,7 +407,7 @@ test.describe('offline rebase goal edit', () => {
           if (!error.message.toLowerCase().includes('version mismatch')) {
             throw error;
           }
-          mark(`retry edit A2 after mismatch (attempt ${attempt})`);
+          mark(`retry edit A3 after mismatch (attempt ${attempt})`);
           await pageA.keyboard.press('Escape');
           await pageA
             .getByRole('dialog', { name: 'Edit goal' })
@@ -354,14 +421,30 @@ test.describe('offline rebase goal edit', () => {
       }
 
       // Device B receives A's rebased edit and should be able to keep editing.
-      mark('wait for A2 on B');
-      await expect(pageB.getByText(summaryA2, { exact: true })).toBeVisible({
+      mark('wait for A3 on B');
+      await expect(pageB.getByText(summaryA3, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+      await expect(pageA.getByText(summaryA3, { exact: true })).toBeVisible({
         timeout: 25_000,
       });
 
       mark('edit B2');
       const summaryB2 = `${goalSummary} (B2)`;
       await editGoalSummary(pageB, summaryB2);
+
+      await syncOnce(pageB);
+      await syncOnce(pageA);
+      await expect(pageA.getByText(summaryB2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+      await expect(pageB.getByText(summaryB2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+      const headA2 = await pullHead(pageA, storeIdA);
+      const headB2 = await pullHead(pageB, storeIdB);
+      expect(headA2).toBe(headB2);
+      expect(pushConflicts).toBeGreaterThan(0);
 
       mark('assert no version mismatch errors');
       expect([...errorsA, ...errorsB].filter((msg) => msg.toLowerCase().includes('version mismatch'))).toEqual([]);

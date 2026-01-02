@@ -122,9 +122,10 @@ export type SyncEventRecord = Readonly<{
 
 export type SyncEngineOptions = Readonly<{
   db: import('@mo/eventstore-web').SqliteDbPort;
-  transport: SyncTransportPort;
+  transport: SyncAbortableTransportPort;
   storeId: string;
   onRebaseRequired: () => Promise<void>;
+  pendingVersionRewriter?: PendingVersionRewriterPort;
   pullLimit?: number;
   pullWaitMs?: number;
   pullIntervalMs?: number;
@@ -134,3 +135,26 @@ export type SyncEngineOptions = Readonly<{
   maxPushRetries?: number;
   onStatusChange?: (status: SyncStatus) => void;
 }>;
+
+export type PendingVersionRewriteRequest = Readonly<{
+  aggregateType: string;
+  aggregateId: string;
+  fromVersionInclusive: number;
+}>;
+
+export type PendingVersionRewriteResult = Readonly<{
+  aggregateType: string;
+  aggregateId: string;
+  fromVersionInclusive: number;
+  shiftedCount: number;
+  oldMaxVersion: number | null;
+  newMaxVersion: number | null;
+}>;
+
+export interface PendingVersionRewriterPort {
+  rewritePendingVersions(request: PendingVersionRewriteRequest): Promise<PendingVersionRewriteResult>;
+}
+
+export interface SyncAbortableTransportPort extends SyncTransportPort {
+  setAbortSignal(direction: SyncDirection, signal: AbortSignal | null): void;
+}

@@ -1,10 +1,11 @@
 # RFC: Pending-version rewrite during sync rebase
 
-**Status**: Draft
+**Status**: Implemented
 **Linear**: ALC-339
 **Related**: ALC-334, ALC-307
+**PR**: #41
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-02
 
 ## Scope
 
@@ -32,7 +33,9 @@ However, the local storage schema enforces:
 
 When two devices concurrently append to the same aggregate while both were at the same server head, they can each create pending events with the same per-aggregate `version`.
 
-On conflict (`server_ahead`), the “losing” device pulls remote events. Those remote events can collide on `(aggregate_type, aggregate_id, version)` with local pending rows. Current code inserts remote events using `INSERT OR IGNORE`, which can silently drop facts.
+On conflict (`server_ahead`), the “losing” device pulls remote events. Those remote events can collide on `(aggregate_type, aggregate_id, version)` with local pending rows. Prior to ALC-339, remote apply relied on `INSERT OR IGNORE` without verifying the row persisted, which could silently drop facts.
+
+ALC-339 removes the silent-drop behavior (by verifying inserts + gating sync mappings) and implements pending rewrite + retry on collision.
 
 This is rare in casual testing because it requires **same-aggregate, same-version** collisions across devices. When it happens, the current behavior risks:
 
@@ -61,24 +64,30 @@ This is rare in casual testing because it requires **same-aggregate, same-versio
 
 ### When rewriting happens
 
-Pending rewrite happens only when all of the following are true:
+Pending rewrite happens only when a **remote event cannot be persisted** because it collides with a **pending** local event on:
 
-- We have pending events locally.
-- We pull at least one remote event (typically after a push conflict).
-- The pulled remote events include at least one event for an aggregate that also has pending events.
+- `UNIQUE (aggregate_type, aggregate_id, version)`.
+
+This collision is typically encountered while applying missing remote events after a `server_ahead` push conflict (i.e. during rebase), but the trigger is **persistence collision**, not the conflict response itself.
 
 ### What rewriting does
 
-For each affected aggregate `(aggregate_type, aggregate_id)`:
+For the affected aggregate `(aggregate_type, aggregate_id)` and collision `version = V`:
 
-1. Load the maximum **synced** `version` for that aggregate (or 0 if none).
-2. Load the pending events for that aggregate ordered by `commit_sequence ASC`.
-3. Assign new versions deterministically:
-   - `newVersion = maxSyncedVersion + 1, +2, ...` in the same order as the pending list.
-4. For each pending event where `newVersion != oldVersion`:
+1. Select all pending events for that aggregate where `version >= V`, ordered by `version DESC`.
+2. Shift versions **up by 1** (to avoid intra-set collisions):
+   - for each pending row: `version = version + 1`.
+3. For each shifted pending event:
    - decrypt the payload using the aggregate key and AAD with `{ aggregateId, eventType, oldVersion }`;
    - re-encrypt the same plaintext using AAD with `{ aggregateId, eventType, newVersion }`;
    - update the `events` row: `version = newVersion`, `payload_encrypted = newCiphertext`.
+4. Delete any `snapshots` row for the aggregate (snapshots are derived state; version shifts invalidate them).
+
+This rewrite is **retry-driven**: if a later remote insert collides again (e.g. because multiple remote events for the same aggregate arrive), we repeat the shift from the new collision point until all missing remote events can be persisted.
+
+**Retry contract (critical)**:
+
+- After any pending rewrite, the subsequent push retry MUST re-read pending events from SQLite (not reuse a pre-rewrite in-memory pending snapshot), otherwise it may push stale per-aggregate `version` values and re-trigger collisions on other devices.
 
 ### Why this is safe
 
@@ -98,28 +107,24 @@ For each affected aggregate `(aggregate_type, aggregate_id)`:
 ## Implementation sketch
 
 - Change remote apply to never silently ignore version collisions:
-  - Detect `(aggregate_type, aggregate_id, version)` conflicts and surface a clear error/diagnostic (until pending rewrite is implemented), or
-  - Perform pending rewrite first, then insert remote events without `OR IGNORE`.
-- Add a `rewritePendingVersionsIfNeeded(...)` step in `SyncEngine.handleConflict(...)` after applying missing remote events and before retrying push.
-- Implement DB queries:
-  - get max synced version per affected aggregate;
-  - list pending rows per affected aggregate in commit order;
-  - batch update rewritten rows.
-- Ensure the rewrite step is idempotent and can be retried safely.
+  - Persist remote events without `OR IGNORE` (never drop facts silently).
+  - On `(aggregate_type, aggregate_id, version)` collision:
+    - if the colliding local row is **pending**, invoke a `PendingVersionRewriterPort` and retry the insert;
+    - if the colliding local row is **synced**, treat as a bug (synced immutability violation).
+- Implement pending rewrite behind a port:
+  - sync-engine owns the **policy**: detect collisions, decide when to rewrite, bound retries.
+  - infrastructure owns the **mechanism**: decrypt + re-encrypt with new AAD; update rows atomically.
 
 ## Testing
 
-Add tests that simulate two devices:
+Add unit tests that simulate the collision directly (since it’s a persistence-layer constraint):
 
-- both start from the same head;
-- both append pending events for the same aggregate (same versions);
-- device A pushes successfully;
-- device B gets `server_ahead`, pulls missing, rewrites pending, then pushes;
+- enforce `UNIQUE (aggregate_type, aggregate_id, version)` in the test DB;
+- create a local pending event at `(aggregate_type, aggregate_id, version=V)`;
+- apply a remote event at the same `(aggregate_type, aggregate_id, version=V)` but different `eventId`;
 - assert:
-  - no remote insert is silently ignored;
-  - device B’s pending versions are shifted deterministically;
-  - ciphertext changes when version changes;
-  - derived state rebuild is triggered as appropriate.
+  - the engine triggers a pending rewrite and persists the remote event (no silent drop),
+  - the pending row’s `version` shifts and its ciphertext is updated to match new AAD.
 
 ## Code pointers
 
@@ -129,5 +134,5 @@ Add tests that simulate two devices:
 
 ## Open questions
 
-- [ ] Where should the rewrite live long-term (sync-engine vs infrastructure adapter), given it requires decrypt/re-encrypt?
-- [ ] Should we move AAD/encryption responsibilities into a dedicated port so sync-engine remains crypto-agnostic?
+- [ ] Should pending rewrite be applied proactively (pre-apply) when we detect `server_ahead`, or only reactively on collision?
+- [ ] Should we add an explicit “rewrite happened” telemetry/diagnostic event (for debugging rare collisions)?

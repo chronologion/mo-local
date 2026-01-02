@@ -9,6 +9,7 @@ import {
   type SyncPushConflictResponseV1,
   type SyncPushOkResponseV1,
   type SyncPullResponseV1,
+  type PendingVersionRewriterPort,
 } from './types';
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
 import type { Unsubscribe } from '@mo/eventstore-core';
@@ -87,6 +88,41 @@ const createSyncError = (
   context?: Readonly<Record<string, unknown>>
 ): SyncError => ({ code, message, context });
 
+class SyncEngineError extends Error {
+  readonly syncError: SyncError;
+  readonly retryable: boolean;
+
+  constructor(syncError: SyncError, options?: Readonly<{ retryable?: boolean }>) {
+    super(syncError.message);
+    this.name = 'SyncEngineError';
+    this.syncError = syncError;
+    this.retryable = options?.retryable ?? false;
+  }
+}
+
+const isSyncEngineError = (error: unknown): error is SyncEngineError => error instanceof SyncEngineError;
+
+const isAuthTransportError = (error: unknown): boolean => error instanceof Error && /unauthorized/i.test(error.message);
+
+const toSyncEngineError = (
+  error: unknown,
+  fallback: Readonly<{ code: SyncError['code']; message: string }>
+): SyncEngineError => {
+  if (isSyncEngineError(error)) return error;
+  if (isAuthTransportError(error)) {
+    return new SyncEngineError(
+      createSyncError(SyncErrorCodes.auth, 'Sync unauthorized', {
+        message: error instanceof Error ? error.message : undefined,
+      }),
+      { retryable: false }
+    );
+  }
+  return new SyncEngineError(
+    createSyncError(fallback.code, fallback.message, error instanceof Error ? { message: error.message } : undefined),
+    { retryable: true }
+  );
+};
+
 const getLastError = (status: SyncStatus): SyncError | null => {
   if (status.kind === SyncStatusKinds.error) return status.error;
   if ('lastError' in status) return status.lastError;
@@ -146,11 +182,14 @@ export class SyncEngine {
   private readonly pushBatchSize: number;
   private readonly maxPushRetries: number;
   private readonly onStatusChange?: (status: SyncStatus) => void;
+  private readonly pendingVersionRewriter: PendingVersionRewriterPort | null;
   private running = false;
   private pushUnsubscribe: Unsubscribe | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
   private pullState: PullState = createPullState();
   private pushState: PushState = createPushState();
+  private pullAbortController: AbortController | null = null;
+  private pushAbortController: AbortController | null = null;
   private status: SyncStatus = {
     kind: SyncStatusKinds.idle,
     lastSuccessAt: null,
@@ -163,6 +202,7 @@ export class SyncEngine {
     this.transport = options.transport;
     this.storeId = options.storeId;
     this.onRebaseRequired = options.onRebaseRequired;
+    this.pendingVersionRewriter = options.pendingVersionRewriter ?? null;
     this.pullLimit = options.pullLimit ?? DEFAULT_PULL_LIMIT;
     this.pullWaitMs = options.pullWaitMs ?? DEFAULT_PULL_WAIT_MS;
     this.pullIntervalMs = options.pullIntervalMs ?? DEFAULT_PULL_INTERVAL_MS;
@@ -186,6 +226,12 @@ export class SyncEngine {
 
   stop(): void {
     this.running = false;
+    this.pullAbortController?.abort();
+    this.pullAbortController = null;
+    this.pushAbortController?.abort();
+    this.pushAbortController = null;
+    this.transport.setAbortSignal(SyncDirections.pull, null);
+    this.transport.setAbortSignal(SyncDirections.push, null);
     this.pushUnsubscribe?.();
     this.pushUnsubscribe = null;
     if (this.pushTimer) {
@@ -204,6 +250,16 @@ export class SyncEngine {
   async syncOnce(): Promise<void> {
     await this.ensureSyncMetaRow();
     await this.pullOnce({ waitMs: 0 });
+    await this.pushOnce();
+  }
+
+  async debugPullOnce(options?: Readonly<{ waitMs?: number }>): Promise<void> {
+    await this.ensureSyncMetaRow();
+    await this.pullOnce({ waitMs: options?.waitMs ?? 0 });
+  }
+
+  async debugPushOnce(): Promise<void> {
+    await this.ensureSyncMetaRow();
     await this.pushOnce();
   }
 
@@ -277,6 +333,9 @@ export class SyncEngine {
       let keepPulling = true;
 
       while (keepPulling) {
+        this.pullAbortController?.abort();
+        this.pullAbortController = new AbortController();
+        this.transport.setAbortSignal(SyncDirections.pull, this.pullAbortController.signal);
         const response = await this.transport.pull({
           storeId: this.storeId,
           since,
@@ -321,21 +380,27 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
+      const syncError = toSyncEngineError(error, {
+        code: SyncErrorCodes.server,
+        message: 'Sync pull failed',
+      });
+      if (!syncError.retryable) {
+        this.pullState.backoffMs = 0;
+        this.pullState.notBeforeMs = null;
+        this.pullState.requested = false;
+        this.setErrorStatus(syncError.syncError, null);
+        return;
+      }
       this.pullState.backoffMs = nextBackoffMs(this.pullState.backoffMs, MIN_PULL_BACKOFF_MS, MAX_PULL_BACKOFF_MS);
       const retryAt = nowMs() + this.pullState.backoffMs;
       this.pullState.notBeforeMs = retryAt;
       this.pullState.requested = true;
-      this.setErrorStatus(
-        createSyncError(
-          SyncErrorCodes.server,
-          'Sync pull failed',
-          error instanceof Error ? { message: error.message } : undefined
-        ),
-        retryAt
-      );
+      this.setErrorStatus(syncError.syncError, retryAt);
     } finally {
       this.pullState.inFlight = false;
       this.resolvePullWaiters();
+      this.pullAbortController = null;
+      this.transport.setAbortSignal(SyncDirections.pull, null);
     }
   }
 
@@ -344,23 +409,25 @@ export class SyncEngine {
     this.pushState.inFlight = true;
     this.setSyncing(SyncDirections.push);
     try {
-      const pending = await this.loadPendingEvents(this.pushBatchSize);
-      if (pending.length === 0) {
-        this.setIdle();
-        this.pushState.backoffMs = 0;
-        this.pushState.notBeforeMs = null;
-        this.pushState.requested = false;
-        return;
-      }
-
       let attempt = 0;
       while (attempt < this.maxPushRetries) {
         attempt += 1;
+        const pending = await this.loadPendingEvents(this.pushBatchSize);
+        if (pending.length === 0) {
+          this.setIdle();
+          this.pushState.backoffMs = 0;
+          this.pushState.notBeforeMs = null;
+          this.pushState.requested = false;
+          return;
+        }
         const expectedHead = await this.getExpectedHead();
         const events = pending.map((row) => ({
           eventId: row.id,
           recordJson: toRecordJson(toSyncRecord(row)),
         }));
+        this.pushAbortController?.abort();
+        this.pushAbortController = new AbortController();
+        this.transport.setAbortSignal(SyncDirections.push, this.pushAbortController.signal);
         const response = await this.transport.push({
           storeId: this.storeId,
           expectedHead,
@@ -388,33 +455,51 @@ export class SyncEngine {
         await this.handleConflict(response, expectedHead);
       }
     } catch (error) {
+      const syncError = toSyncEngineError(error, {
+        code: SyncErrorCodes.network,
+        message: 'Sync push failed',
+      });
+      if (!syncError.retryable) {
+        this.pushState.backoffMs = 0;
+        this.pushState.notBeforeMs = null;
+        this.pushState.requested = false;
+        this.setErrorStatus(syncError.syncError, null);
+        return;
+      }
       this.pushState.backoffMs = nextBackoffMs(this.pushState.backoffMs, MIN_PUSH_BACKOFF_MS, MAX_PUSH_BACKOFF_MS);
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
-      this.setErrorStatus(
-        createSyncError(
-          SyncErrorCodes.network,
-          'Sync push failed',
-          error instanceof Error ? { message: error.message } : undefined
-        ),
-        retryAt
-      );
+      this.setErrorStatus(syncError.syncError, retryAt);
       this.requestPush();
     } finally {
       this.pushState.inFlight = false;
+      this.pushAbortController = null;
+      this.transport.setAbortSignal(SyncDirections.push, null);
     }
   }
 
   private async handleConflict(response: SyncPushConflictResponseV1, expectedHead: number): Promise<void> {
     const missing = response.missing ?? [];
+    console.info('[SyncEngine] push conflict', {
+      expectedHead,
+      serverHead: response.head,
+      missingCount: missing.length,
+    });
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
+      const cursorBefore = await this.readLastPulledGlobalSeq();
       const applied = await this.applyRemoteEvents(missing);
       await this.writeLastPulledGlobalSeq(Math.max(await this.readLastPulledGlobalSeq(), response.head));
       this.lastKnownHead = response.head;
       if (applied && hadPending) {
         const stillPending = await this.hasPendingEvents();
         if (stillPending) {
+          console.info('[SyncEngine] rebase required after pull', {
+            cursorBefore,
+            cursorAfter: Math.max(cursorBefore, response.head),
+            hadPending,
+            stillPending,
+          });
           await this.onRebaseRequired();
         }
       }
@@ -424,11 +509,25 @@ export class SyncEngine {
     await this.awaitPullIfInFlight();
     let current = await this.readLastPulledGlobalSeq();
     if (current <= expectedHead) {
+      console.info('[SyncEngine] conflict without missing; requesting pull', {
+        expectedHead,
+        cursorBefore: current,
+      });
       await this.requestImmediatePull();
       current = await this.readLastPulledGlobalSeq();
     }
+    console.info('[SyncEngine] conflict pull result', {
+      expectedHead,
+      cursorAfter: current,
+    });
     if (current <= expectedHead) {
-      throw new Error('Sync conflict did not advance cursor');
+      throw new SyncEngineError(
+        createSyncError(SyncErrorCodes.conflict, 'Sync conflict did not advance cursor', {
+          expectedHead,
+          cursorAfter: current,
+        }),
+        { retryable: true }
+      );
     }
   }
 
@@ -707,16 +806,97 @@ export class SyncEngine {
     const now = nowMs();
 
     const statements: SqliteStatement[] = [];
+    const insertedEventIds: string[] = [];
+    const insertedEventContextById = new Map<string, { aggregateType: string; aggregateId: string; version: number }>();
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
-        throw new Error(`Sync record id mismatch: ${record.id} !== ${incoming.eventId}`);
+        throw new SyncEngineError(
+          createSyncError(SyncErrorCodes.unknown, 'Sync record id mismatch', {
+            recordId: record.id,
+            expectedEventId: incoming.eventId,
+          }),
+          { retryable: false }
+        );
       }
-      const payload = decodeRecordPayload(record);
-      const keyringUpdate = decodeRecordKeyringUpdate(record);
-      statements.push({
-        kind: SqliteStatementKinds.execute,
-        sql: `INSERT OR IGNORE INTO events (
+
+      const existingById = await this.db.query<{ id: string }>('SELECT id FROM events WHERE id = ? LIMIT 1', [
+        record.id,
+      ]);
+      if (existingById.length === 0) {
+        const maxRewriteAttempts = 128;
+        let collisionResolved = false;
+        for (let attempt = 0; attempt < maxRewriteAttempts; attempt += 1) {
+          const occupying = await this.db.query<{ id: string }>(
+            'SELECT id FROM events WHERE aggregate_type = ? AND aggregate_id = ? AND version = ? LIMIT 1',
+            [record.aggregateType, record.aggregateId, record.version]
+          );
+          const occupyingId = occupying[0]?.id ?? null;
+          if (!occupyingId) {
+            collisionResolved = true;
+            break;
+          }
+
+          const occupyingIsSynced = await this.db.query<{ event_id: string }>(
+            'SELECT event_id FROM sync_event_map WHERE event_id = ? LIMIT 1',
+            [occupyingId]
+          );
+          if (occupyingIsSynced.length > 0) {
+            throw new SyncEngineError(
+              createSyncError(SyncErrorCodes.conflict, 'Remote version collision with synced event', {
+                aggregateType: record.aggregateType,
+                aggregateId: record.aggregateId,
+                version: record.version,
+                existingEventId: occupyingId,
+                incomingEventId: record.id,
+              }),
+              { retryable: false }
+            );
+          }
+
+          if (!this.pendingVersionRewriter) {
+            throw new SyncEngineError(
+              createSyncError(SyncErrorCodes.conflict, 'Pending version rewrite required but no rewriter configured', {
+                aggregateType: record.aggregateType,
+                aggregateId: record.aggregateId,
+                version: record.version,
+              }),
+              { retryable: false }
+            );
+          }
+
+          const result = await this.pendingVersionRewriter.rewritePendingVersions({
+            aggregateType: record.aggregateType,
+            aggregateId: record.aggregateId,
+            fromVersionInclusive: record.version,
+          });
+          console.info('[SyncEngine] pending rewrite applied', {
+            aggregateType: result.aggregateType,
+            aggregateId: result.aggregateId,
+            fromVersionInclusive: result.fromVersionInclusive,
+            shiftedCount: result.shiftedCount,
+            oldMaxVersion: result.oldMaxVersion,
+            newMaxVersion: result.newMaxVersion,
+          });
+        }
+        if (!collisionResolved) {
+          throw new SyncEngineError(
+            createSyncError(SyncErrorCodes.conflict, 'Pending version rewrite did not resolve version collision', {
+              aggregateType: record.aggregateType,
+              aggregateId: record.aggregateId,
+              version: record.version,
+              incomingEventId: record.id,
+              maxRewriteAttempts,
+            }),
+            { retryable: false }
+          );
+        }
+
+        const payload = decodeRecordPayload(record);
+        const keyringUpdate = decodeRecordKeyringUpdate(record);
+        statements.push({
+          kind: SqliteStatementKinds.execute,
+          sql: `INSERT OR IGNORE INTO events (
             id,
             aggregate_type,
             aggregate_id,
@@ -730,28 +910,55 @@ export class SyncEngine {
             correlation_id,
             epoch
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        params: [
-          record.id,
-          record.aggregateType,
-          record.aggregateId,
-          record.eventType,
-          payload,
-          keyringUpdate,
-          record.version,
-          record.occurredAt,
-          record.actorId,
-          record.causationId,
-          record.correlationId,
-          record.epoch,
-        ],
-      });
+          params: [
+            record.id,
+            record.aggregateType,
+            record.aggregateId,
+            record.eventType,
+            payload,
+            keyringUpdate,
+            record.version,
+            record.occurredAt,
+            record.actorId,
+            record.causationId,
+            record.correlationId,
+            record.epoch,
+          ],
+        });
+        insertedEventIds.push(record.id);
+        insertedEventContextById.set(record.id, {
+          aggregateType: record.aggregateType,
+          aggregateId: record.aggregateId,
+          version: record.version,
+        });
+      }
+
       statements.push({
         kind: SqliteStatementKinds.execute,
-        sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at) VALUES (?, ?, ?)`,
-        params: [incoming.eventId, incoming.globalSequence, now],
+        sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at)
+          SELECT ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM events WHERE id = ?)`,
+        params: [incoming.eventId, incoming.globalSequence, now, incoming.eventId],
       });
     }
     await this.db.batch(statements);
+
+    if (insertedEventIds.length > 0) {
+      for (const eventId of insertedEventIds) {
+        const inserted = await this.db.query<{ id: string }>('SELECT id FROM events WHERE id = ? LIMIT 1', [eventId]);
+        if (inserted.length === 0) {
+          const ctx = insertedEventContextById.get(eventId);
+          throw new SyncEngineError(
+            createSyncError(
+              SyncErrorCodes.conflict,
+              'Remote event insert did not persist (possible version collision)',
+              { eventId, ...(ctx ?? {}) }
+            ),
+            { retryable: false }
+          );
+        }
+      }
+    }
 
     return events.some((event) => !existingMap.has(event.eventId));
   }

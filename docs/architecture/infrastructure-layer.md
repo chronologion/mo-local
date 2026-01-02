@@ -131,6 +131,7 @@ Notes:
 - “Pending” means: `events` rows that do not yet have a `sync_event_map` entry.
 - Push is triggered reactively from `events` invalidations (debounced), plus a low-frequency fallback interval as a safety net.
 - Pull uses long-polling (`waitMs`) and is guarded to avoid pull storms; push is not blocked by pull.
+- Retry safety: any retry attempt that follows a conflict-resolution step (apply remote events, pending-version rewrite) must treat SQLite as the source of truth and re-read pending events before pushing.
 
 **Server**
 
@@ -155,7 +156,7 @@ Constraint:
   - ciphertext bytes and metadata are never rewritten.
 - Events that are still **pending** (no `globalSequence`) are durable local drafts and may be rewritten during rebase:
   - per-aggregate version shifts require re-encryption because AAD binds to `{aggregateId, eventType, version}`.
-  - Current implementation note: per-aggregate “pending rewrite” during rebase is specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and tracked in Linear (`ALC-339`).
+  - per-aggregate “pending rewrite” during rebase is specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in the sync stack.
 
 **Protocol types (V1)**
 
@@ -199,18 +200,19 @@ AAD re-encryption during rebase (pending version shift):
 ```mermaid
 sequenceDiagram
   participant SE as SyncEngine
+  participant RW as PendingVersionRewriter (port)
   participant DB as OPFS SQLite
   participant Keys as Keyring/Key store
 
   SE->>DB: detect incoming remote for aggregate A
   Note over SE,DB: remote inserts before local pending in per-aggregate version space
-  SE->>DB: load pending events for aggregate A
-  loop each pending event
-    SE->>Keys: resolve K_aggregate for aggregate A
-    SE->>DB: decrypt pending payload (AAD uses old version)
-    SE->>DB: compute new version for this event
-    SE->>DB: re-encrypt payload (AAD uses new version)
-    SE->>DB: rewrite pending row (version + payload_encrypted)
+  SE->>RW: rewritePendingVersions({ aggregate A, fromVersionInclusive })
+  RW->>DB: load pending events where version >= fromVersionInclusive
+  loop each shifted pending event
+    RW->>Keys: resolve K_aggregate for aggregate A
+    RW->>DB: decrypt pending payload (AAD uses old version)
+    RW->>DB: re-encrypt payload (AAD uses new version)
+    RW->>DB: rewrite pending row (version + payload_encrypted)
   end
   Note over SE,DB: synced events (with globalSequence) are never rewritten
 ```
@@ -232,4 +234,4 @@ Sync “conflicts” are not domain merges:
 
 ## Open Questions
 
-- [ ] Implement the “pending rewrite” path for per-aggregate version collisions during rebase (required for cross-device concurrent writes; `ALC-339`).
+- [ ] Should we add explicit diagnostics/telemetry when pending rewrite happens (rare collision cases)?

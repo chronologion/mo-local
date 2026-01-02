@@ -11,6 +11,7 @@ import { SyncEngine, HttpSyncTransport } from '@mo/sync-engine';
 import { AggregateTypes } from '@mo/eventstore-core';
 import { MissingKeyError } from '@mo/infrastructure';
 import { DomainEvent } from '@mo/domain';
+import { PendingEventVersionRewriter } from '@mo/infrastructure';
 
 export type AppBoundedContext = 'goals' | 'projects';
 
@@ -191,6 +192,7 @@ export const createAppServices = async ({
     db,
     storeId,
     transport: new HttpSyncTransport({ baseUrl: apiBaseUrl }),
+    pendingVersionRewriter: new PendingEventVersionRewriter(db, crypto, keyringManager),
     onRebaseRequired: async () => {
       // Rebuild projections first so saga reconciliation reads consistent views.
       await Promise.all([
