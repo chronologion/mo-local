@@ -1,9 +1,10 @@
 import type {
   SyncPullResponseV1,
+  SyncDirection,
   SyncPushConflictResponseV1,
   SyncPushOkResponseV1,
   SyncPushRequestV1,
-  SyncTransportPort,
+  SyncAbortableTransportPort,
 } from './types';
 
 export type HttpSyncTransportOptions = Readonly<{
@@ -26,27 +27,56 @@ const safeParseJson = async (response: Response): Promise<unknown> => {
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-export class HttpSyncTransport implements SyncTransportPort {
+export class HttpSyncTransport implements SyncAbortableTransportPort {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly credentials: RequestCredentials;
+  private pullSignal: AbortSignal | null = null;
+  private pushSignal: AbortSignal | null = null;
 
   constructor(options: HttpSyncTransportOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl);
-    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+    const rawFetch: typeof fetch =
+      options.fetchImpl ?? ((input, init) => fetch(input, init));
+    this.fetchImpl = (input, init) => {
+      const requestCtor = globalThis.Request;
+      const url =
+        typeof input === 'string'
+          ? input
+          : typeof requestCtor === 'function' && input instanceof requestCtor
+            ? input.url
+            : String(input);
+      const method =
+        init?.method ??
+        (typeof requestCtor === 'function' && input instanceof requestCtor
+          ? input.method
+          : undefined);
+
+      const isPull = url.includes('/sync/pull');
+      const isPush = url.includes('/sync/push');
+      const signal =
+        isPull && (method === undefined || method === 'GET')
+          ? this.pullSignal
+          : isPush && method === 'POST'
+            ? this.pushSignal
+            : null;
+
+      const nextInit: RequestInit | undefined =
+        signal === null ? init : { ...(init ?? {}), signal };
+
+      return rawFetch(input, nextInit);
+    };
     this.credentials = options.credentials ?? 'include';
   }
 
   async push(
-    request: SyncPushRequestV1,
-    options?: Readonly<{ signal?: AbortSignal }>
+    request: SyncPushRequestV1
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     const response = await this.fetchImpl(`${this.baseUrl}/sync/push`, {
       method: 'POST',
       credentials: this.credentials,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(request),
-      signal: options?.signal,
     });
     if (response.status === 401 || response.status === 403) {
       throw new Error(`Sync push unauthorized (${response.status})`);
@@ -72,7 +102,6 @@ export class HttpSyncTransport implements SyncTransportPort {
     since: number;
     limit: number;
     waitMs?: number;
-    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1> {
     const query = new URLSearchParams({
       storeId: params.storeId,
@@ -84,7 +113,7 @@ export class HttpSyncTransport implements SyncTransportPort {
     }
     const response = await this.fetchImpl(
       `${this.baseUrl}/sync/pull?${query.toString()}`,
-      { credentials: this.credentials, signal: params.signal }
+      { credentials: this.credentials }
     );
     if (response.status === 401 || response.status === 403) {
       throw new Error(`Sync pull unauthorized (${response.status})`);
@@ -106,5 +135,13 @@ export class HttpSyncTransport implements SyncTransportPort {
     if (!response.ok) {
       throw new Error(`Sync ping failed with status ${response.status}`);
     }
+  }
+
+  setAbortSignal(direction: SyncDirection, signal: AbortSignal | null): void {
+    if (direction === 'pull') {
+      this.pullSignal = signal;
+      return;
+    }
+    this.pushSignal = signal;
   }
 }

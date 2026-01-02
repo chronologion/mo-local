@@ -9,12 +9,13 @@ import type {
 } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
+  type SyncDirection,
+  SyncAbortableTransportPort,
   SyncStatus,
   SyncPullResponseV1,
   SyncPushConflictResponseV1,
   SyncPushOkResponseV1,
   SyncPushRequestV1,
-  SyncTransportPort,
 } from '../src/types';
 
 type EventRow = Readonly<{
@@ -315,14 +316,13 @@ class TestDb extends MemoryDb {
   }
 }
 
-class FakeTransport implements SyncTransportPort {
+class FakeTransport implements SyncAbortableTransportPort {
   pullResponses: SyncPullResponseV1[] = [];
   pushResponses: Array<SyncPushOkResponseV1 | SyncPushConflictResponseV1> = [];
   pushRequests: SyncPushRequestV1[] = [];
 
   async push(
-    request: SyncPushRequestV1,
-    _options?: Readonly<{ signal?: AbortSignal }>
+    request: SyncPushRequestV1
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1> {
     this.pushRequests.push(request);
     const response = this.pushResponses.shift();
@@ -337,7 +337,6 @@ class FakeTransport implements SyncTransportPort {
     since: number;
     limit: number;
     waitMs?: number;
-    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1> {
     const response = this.pullResponses.shift();
     if (!response) {
@@ -352,6 +351,10 @@ class FakeTransport implements SyncTransportPort {
   }
 
   async ping(): Promise<void> {}
+
+  setAbortSignal(_direction: SyncDirection, _signal: AbortSignal | null): void {
+    // no-op in tests
+  }
 }
 
 const normalizeSql = (sql: string): string =>

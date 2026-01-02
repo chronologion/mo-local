@@ -98,9 +98,6 @@ const getLastError = (status: SyncStatus): SyncError | null => {
   return null;
 };
 
-const isAbortError = (error: unknown): boolean =>
-  error instanceof Error && error.name === 'AbortError';
-
 type PullState = {
   inFlight: boolean;
   inFlightPromise: Promise<void> | null;
@@ -203,6 +200,8 @@ export class SyncEngine {
     this.pullAbortController = null;
     this.pushAbortController?.abort();
     this.pushAbortController = null;
+    this.transport.setAbortSignal(SyncDirections.pull, null);
+    this.transport.setAbortSignal(SyncDirections.push, null);
     this.pushUnsubscribe?.();
     this.pushUnsubscribe = null;
     if (this.pushTimer) {
@@ -310,12 +309,15 @@ export class SyncEngine {
       while (keepPulling) {
         this.pullAbortController?.abort();
         this.pullAbortController = new AbortController();
+        this.transport.setAbortSignal(
+          SyncDirections.pull,
+          this.pullAbortController.signal
+        );
         const response = await this.transport.pull({
           storeId: this.storeId,
           since,
           limit: this.pullLimit,
           waitMs: options.waitMs,
-          signal: this.pullAbortController.signal,
         });
         head = response.head;
         this.lastKnownHead = head;
@@ -355,7 +357,6 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
-      if (isAbortError(error) && !this.running) return;
       this.pullState.backoffMs = nextBackoffMs(
         this.pullState.backoffMs,
         MIN_PULL_BACKOFF_MS,
@@ -376,6 +377,7 @@ export class SyncEngine {
       this.pullState.inFlight = false;
       this.resolvePullWaiters();
       this.pullAbortController = null;
+      this.transport.setAbortSignal(SyncDirections.pull, null);
     }
   }
 
@@ -402,14 +404,15 @@ export class SyncEngine {
         }));
         this.pushAbortController?.abort();
         this.pushAbortController = new AbortController();
-        const response = await this.transport.push(
-          {
-            storeId: this.storeId,
-            expectedHead,
-            events,
-          },
-          { signal: this.pushAbortController.signal }
+        this.transport.setAbortSignal(
+          SyncDirections.push,
+          this.pushAbortController.signal
         );
+        const response = await this.transport.push({
+          storeId: this.storeId,
+          expectedHead,
+          events,
+        });
 
         if (response.ok) {
           await this.applyAssignments(response);
@@ -441,7 +444,6 @@ export class SyncEngine {
       );
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
-      if (isAbortError(error) && !this.running) return;
       this.setErrorStatus(
         createSyncError(
           SyncErrorCodes.network,
@@ -454,6 +456,7 @@ export class SyncEngine {
     } finally {
       this.pushState.inFlight = false;
       this.pushAbortController = null;
+      this.transport.setAbortSignal(SyncDirections.push, null);
     }
   }
 
@@ -461,25 +464,26 @@ export class SyncEngine {
     response: SyncPushConflictResponseV1,
     expectedHead: number
   ): Promise<void> {
+    const missing = response.missing ?? [];
     console.info('[SyncEngine] push conflict', {
       expectedHead,
       serverHead: response.head,
-      missingCount: response.missing?.length ?? 0,
+      missingCount: missing.length,
     });
-    const missing = response.missing ?? [];
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
       const cursorBefore = await this.readLastPulledGlobalSeq();
       const applied = await this.applyRemoteEvents(missing);
-      const nextCursor = Math.max(cursorBefore, response.head);
-      await this.writeLastPulledGlobalSeq(nextCursor);
+      await this.writeLastPulledGlobalSeq(
+        Math.max(await this.readLastPulledGlobalSeq(), response.head)
+      );
       this.lastKnownHead = response.head;
       if (applied && hadPending) {
         const stillPending = await this.hasPendingEvents();
         if (stillPending) {
           console.info('[SyncEngine] rebase required after pull', {
             cursorBefore,
-            cursorAfter: nextCursor,
+            cursorAfter: Math.max(cursorBefore, response.head),
             hadPending,
             stillPending,
           });

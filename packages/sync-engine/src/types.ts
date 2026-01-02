@@ -106,15 +106,13 @@ export type SyncPushConflictResponseV1 = Readonly<{
 
 export interface SyncTransportPort {
   push(
-    request: SyncPushRequestV1,
-    options?: Readonly<{ signal?: AbortSignal }>
+    request: SyncPushRequestV1
   ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1>;
   pull(params: {
     storeId: string;
     since: number;
     limit: number;
     waitMs?: number;
-    signal?: AbortSignal;
   }): Promise<SyncPullResponseV1>;
   ping(): Promise<void>;
 }
@@ -136,7 +134,7 @@ export type SyncEventRecord = Readonly<{
 
 export type SyncEngineOptions = Readonly<{
   db: import('@mo/eventstore-web').SqliteDbPort;
-  transport: SyncTransportPort;
+  transport: SyncAbortableTransportPort;
   storeId: string;
   onRebaseRequired: () => Promise<void>;
   pendingVersionRewriter?: PendingVersionRewriterPort;
@@ -169,4 +167,8 @@ export interface PendingVersionRewriterPort {
   rewritePendingVersions(
     request: PendingVersionRewriteRequest
   ): Promise<PendingVersionRewriteResult>;
+}
+
+export interface SyncAbortableTransportPort extends SyncTransportPort {
+  setAbortSignal(direction: SyncDirection, signal: AbortSignal | null): void;
 }
