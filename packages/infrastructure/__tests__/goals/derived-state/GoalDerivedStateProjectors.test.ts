@@ -12,6 +12,7 @@ import {
   Timestamp,
   UserId,
 } from '@mo/domain';
+import type { EncryptedEvent } from '@mo/application';
 import type { EffectiveCursor } from '@mo/eventstore-core';
 import {
   ProjectionCacheStore,
@@ -47,7 +48,10 @@ const meta = () => ({
   actorId: ActorId.from('user-1'),
 });
 
-const makeEncryptedEvent = (eventId: string, aggregateId: string) => ({
+const makeEncryptedEvent = (
+  eventId: string,
+  aggregateId: string
+): EncryptedEvent => ({
   id: eventId,
   aggregateId,
   eventType: 'GoalCreated',
@@ -57,9 +61,6 @@ const makeEncryptedEvent = (eventId: string, aggregateId: string) => ({
   actorId: null,
   causationId: null,
   correlationId: null,
-  commitSequence: 1,
-  epoch: null,
-  keyringUpdate: null,
 });
 
 describe('Goals derived-state projectors', () => {
