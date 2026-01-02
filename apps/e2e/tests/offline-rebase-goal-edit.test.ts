@@ -170,6 +170,29 @@ const syncOnce = async (page: Page): Promise<void> => {
   });
 };
 
+const stopSync = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const w = window as { __moSyncStop?: () => void };
+    w.__moSyncStop?.();
+  });
+};
+
+const startSync = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    const w = window as { __moSyncStart?: () => void };
+    w.__moSyncStart?.();
+  });
+};
+
+const pushOnceOnly = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    const w = window as { __moPushOnce?: () => Promise<void> };
+    if (w.__moPushOnce) {
+      await w.__moPushOnce();
+    }
+  });
+};
+
 const getPendingCount = async (page: Page): Promise<number | null> => {
   return await page.evaluate(async () => {
     const w = window as { __moPendingCount?: () => Promise<number> };
@@ -206,7 +229,7 @@ const getStoreId = async (page: Page): Promise<string | null> => {
 };
 
 test.describe('offline rebase goal edit', () => {
-  test('offline local edit + online edit + reconnect does not leave stale knownVersion', async () => {
+  test('offline local edits + online edit + reconnect does not leave stale knownVersion', async () => {
     test.setTimeout(180_000);
     const mark = (label: string) => {
       console.log(`[offline-rebase] ${label}`);
@@ -237,6 +260,18 @@ test.describe('offline rebase goal edit', () => {
       mark('creating pages');
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
+      let pushConflicts = 0;
+      const recordPushConflict = (url: string, status: number) => {
+        if (!url.includes('/sync/push')) return;
+        if (status !== 409) return;
+        pushConflicts += 1;
+      };
+      pageA.on('response', (response) => {
+        recordPushConflict(response.url(), response.status());
+      });
+      pageB.on('response', (response) => {
+        recordPushConflict(response.url(), response.status());
+      });
       attachConsoleErrorTrap(pageA, errorsA);
       attachConsoleErrorTrap(pageB, errorsB);
       await ctxA.grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -350,6 +385,10 @@ test.describe('offline rebase goal edit', () => {
       const summaryA1 = `${goalSummary} (A1)`;
       await editGoalSummary(pageA, summaryA1);
 
+      mark('offline A and edit A2');
+      const summaryA2 = `${goalSummary} (A2)`;
+      await editGoalSummary(pageA, summaryA2);
+
       // Device B edits online and pushes.
       mark('edit B1');
       const summaryB1 = `${goalSummary} (B1)`;
@@ -357,7 +396,10 @@ test.describe('offline rebase goal edit', () => {
 
       // Device A reconnects -> local pending event rebases.
       mark('online A');
+      await stopSync(pageA);
       await ctxA.setOffline(false);
+      await pushOnceOnly(pageA);
+      await startSync(pageA);
 
       // Give sync a moment to pull/rebase before issuing another update.
       mark('wait for sync settle');
@@ -366,12 +408,12 @@ test.describe('offline rebase goal edit', () => {
       await syncOnce(pageB);
 
       // This update used to fail with a stale knownVersion mismatch after rebase.
-      mark('edit A2');
-      const summaryA2 = `${goalSummary} (A2)`;
+      mark('edit A3');
+      const summaryA3 = `${goalSummary} (A3)`;
       let lastError: Error | null = null;
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
-          await editGoalSummary(pageA, summaryA2);
+          await editGoalSummary(pageA, summaryA3);
           lastError = null;
           break;
         } catch (error) {
@@ -382,7 +424,7 @@ test.describe('offline rebase goal edit', () => {
           if (!error.message.toLowerCase().includes('version mismatch')) {
             throw error;
           }
-          mark(`retry edit A2 after mismatch (attempt ${attempt})`);
+          mark(`retry edit A3 after mismatch (attempt ${attempt})`);
           await pageA.keyboard.press('Escape');
           await pageA
             .getByRole('dialog', { name: 'Edit goal' })
@@ -396,11 +438,11 @@ test.describe('offline rebase goal edit', () => {
       }
 
       // Device B receives A's rebased edit and should be able to keep editing.
-      mark('wait for A2 on B');
-      await expect(pageB.getByText(summaryA2, { exact: true })).toBeVisible({
+      mark('wait for A3 on B');
+      await expect(pageB.getByText(summaryA3, { exact: true })).toBeVisible({
         timeout: 25_000,
       });
-      await expect(pageA.getByText(summaryA2, { exact: true })).toBeVisible({
+      await expect(pageA.getByText(summaryA3, { exact: true })).toBeVisible({
         timeout: 25_000,
       });
 
@@ -419,6 +461,7 @@ test.describe('offline rebase goal edit', () => {
       const headA2 = await pullHead(pageA, storeIdA);
       const headB2 = await pullHead(pageB, storeIdB);
       expect(headA2).toBe(headB2);
+      expect(pushConflicts).toBeGreaterThan(0);
 
       mark('assert no version mismatch errors');
       expect(
