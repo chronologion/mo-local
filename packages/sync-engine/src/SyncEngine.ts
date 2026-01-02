@@ -91,6 +91,50 @@ const createSyncError = (
   context?: Readonly<Record<string, unknown>>
 ): SyncError => ({ code, message, context });
 
+class SyncEngineError extends Error {
+  readonly syncError: SyncError;
+  readonly retryable: boolean;
+
+  constructor(
+    syncError: SyncError,
+    options?: Readonly<{ retryable?: boolean }>
+  ) {
+    super(syncError.message);
+    this.name = 'SyncEngineError';
+    this.syncError = syncError;
+    this.retryable = options?.retryable ?? false;
+  }
+}
+
+const isSyncEngineError = (error: unknown): error is SyncEngineError =>
+  error instanceof SyncEngineError;
+
+const isAuthTransportError = (error: unknown): boolean =>
+  error instanceof Error && /unauthorized/i.test(error.message);
+
+const toSyncEngineError = (
+  error: unknown,
+  fallback: Readonly<{ code: SyncError['code']; message: string }>
+): SyncEngineError => {
+  if (isSyncEngineError(error)) return error;
+  if (isAuthTransportError(error)) {
+    return new SyncEngineError(
+      createSyncError(SyncErrorCodes.auth, 'Sync unauthorized', {
+        message: error instanceof Error ? error.message : undefined,
+      }),
+      { retryable: false }
+    );
+  }
+  return new SyncEngineError(
+    createSyncError(
+      fallback.code,
+      fallback.message,
+      error instanceof Error ? { message: error.message } : undefined
+    ),
+    { retryable: true }
+  );
+};
+
 const getLastError = (status: SyncStatus): SyncError | null => {
   if (status.kind === SyncStatusKinds.error) return status.error;
   if ('lastError' in status) return status.lastError;
@@ -356,6 +400,17 @@ export class SyncEngine {
         lastError: null,
       });
     } catch (error) {
+      const syncError = toSyncEngineError(error, {
+        code: SyncErrorCodes.server,
+        message: 'Sync pull failed',
+      });
+      if (!syncError.retryable) {
+        this.pullState.backoffMs = 0;
+        this.pullState.notBeforeMs = null;
+        this.pullState.requested = false;
+        this.setErrorStatus(syncError.syncError, null);
+        return;
+      }
       this.pullState.backoffMs = nextBackoffMs(
         this.pullState.backoffMs,
         MIN_PULL_BACKOFF_MS,
@@ -364,14 +419,7 @@ export class SyncEngine {
       const retryAt = nowMs() + this.pullState.backoffMs;
       this.pullState.notBeforeMs = retryAt;
       this.pullState.requested = true;
-      this.setErrorStatus(
-        createSyncError(
-          SyncErrorCodes.server,
-          'Sync pull failed',
-          error instanceof Error ? { message: error.message } : undefined
-        ),
-        retryAt
-      );
+      this.setErrorStatus(syncError.syncError, retryAt);
     } finally {
       this.pullState.inFlight = false;
       this.resolvePullWaiters();
@@ -436,6 +484,17 @@ export class SyncEngine {
         await this.handleConflict(response, expectedHead);
       }
     } catch (error) {
+      const syncError = toSyncEngineError(error, {
+        code: SyncErrorCodes.network,
+        message: 'Sync push failed',
+      });
+      if (!syncError.retryable) {
+        this.pushState.backoffMs = 0;
+        this.pushState.notBeforeMs = null;
+        this.pushState.requested = false;
+        this.setErrorStatus(syncError.syncError, null);
+        return;
+      }
       this.pushState.backoffMs = nextBackoffMs(
         this.pushState.backoffMs,
         MIN_PUSH_BACKOFF_MS,
@@ -443,14 +502,7 @@ export class SyncEngine {
       );
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
-      this.setErrorStatus(
-        createSyncError(
-          SyncErrorCodes.network,
-          'Sync push failed',
-          error instanceof Error ? { message: error.message } : undefined
-        ),
-        retryAt
-      );
+      this.setErrorStatus(syncError.syncError, retryAt);
       this.requestPush();
     } finally {
       this.pushState.inFlight = false;
@@ -507,7 +559,17 @@ export class SyncEngine {
       cursorAfter: current,
     });
     if (current <= expectedHead) {
-      throw new Error('Sync conflict did not advance cursor');
+      throw new SyncEngineError(
+        createSyncError(
+          SyncErrorCodes.conflict,
+          'Sync conflict did not advance cursor',
+          {
+            expectedHead,
+            cursorAfter: current,
+          }
+        ),
+        { retryable: true }
+      );
     }
   }
 
@@ -808,8 +870,12 @@ export class SyncEngine {
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
-        throw new Error(
-          `Sync record id mismatch: ${record.id} !== ${incoming.eventId}`
+        throw new SyncEngineError(
+          createSyncError(SyncErrorCodes.unknown, 'Sync record id mismatch', {
+            recordId: record.id,
+            expectedEventId: incoming.eventId,
+          }),
+          { retryable: false }
         );
       }
 
@@ -836,14 +902,34 @@ export class SyncEngine {
             [occupyingId]
           );
           if (occupyingIsSynced.length > 0) {
-            throw new Error(
-              `Remote version collision with synced event: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} existingEventId=${occupyingId} incomingEventId=${record.id}`
+            throw new SyncEngineError(
+              createSyncError(
+                SyncErrorCodes.conflict,
+                'Remote version collision with synced event',
+                {
+                  aggregateType: record.aggregateType,
+                  aggregateId: record.aggregateId,
+                  version: record.version,
+                  existingEventId: occupyingId,
+                  incomingEventId: record.id,
+                }
+              ),
+              { retryable: false }
             );
           }
 
           if (!this.pendingVersionRewriter) {
-            throw new Error(
-              `Pending version rewrite required but no rewriter configured: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version}`
+            throw new SyncEngineError(
+              createSyncError(
+                SyncErrorCodes.conflict,
+                'Pending version rewrite required but no rewriter configured',
+                {
+                  aggregateType: record.aggregateType,
+                  aggregateId: record.aggregateId,
+                  version: record.version,
+                }
+              ),
+              { retryable: false }
             );
           }
 
@@ -863,8 +949,19 @@ export class SyncEngine {
           });
         }
         if (!collisionResolved) {
-          throw new Error(
-            `Pending version rewrite did not resolve collision after ${maxRewriteAttempts} attempts: aggregate=${record.aggregateType}:${record.aggregateId} version=${record.version} incomingEventId=${record.id}`
+          throw new SyncEngineError(
+            createSyncError(
+              SyncErrorCodes.conflict,
+              'Pending version rewrite did not resolve version collision',
+              {
+                aggregateType: record.aggregateType,
+                aggregateId: record.aggregateId,
+                version: record.version,
+                incomingEventId: record.id,
+                maxRewriteAttempts,
+              }
+            ),
+            { retryable: false }
           );
         }
 
@@ -932,11 +1029,13 @@ export class SyncEngine {
         );
         if (inserted.length === 0) {
           const ctx = insertedEventContextById.get(eventId);
-          const suffix = ctx
-            ? ` aggregate=${ctx.aggregateType}:${ctx.aggregateId} version=${ctx.version}`
-            : '';
-          throw new Error(
-            `Remote event insert did not persist; possible version collision: eventId=${eventId}${suffix}`
+          throw new SyncEngineError(
+            createSyncError(
+              SyncErrorCodes.conflict,
+              'Remote event insert did not persist (possible version collision)',
+              { eventId, ...(ctx ?? {}) }
+            ),
+            { retryable: false }
           );
         }
       }
