@@ -24,3 +24,4 @@ export * from './goals';
 export * from './projects';
 export * from './sagas/SqliteGoalAchievementSagaStore';
 export * from './cloud';
+export * from './sync/PendingEventVersionRewriter';
