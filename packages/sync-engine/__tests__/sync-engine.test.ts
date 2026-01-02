@@ -450,8 +450,23 @@ describe('SyncEngine', () => {
         aggregateType: string;
         aggregateId: string;
         fromVersionInclusive: number;
-      }): Promise<void> => {
+      }): Promise<{
+        aggregateType: string;
+        aggregateId: string;
+        fromVersionInclusive: number;
+        shiftedCount: number;
+        oldMaxVersion: number | null;
+        newMaxVersion: number | null;
+      }> => {
         db.shiftPendingVersions(request);
+        return {
+          aggregateType: request.aggregateType,
+          aggregateId: request.aggregateId,
+          fromVersionInclusive: request.fromVersionInclusive,
+          shiftedCount: 1,
+          oldMaxVersion: 1,
+          newMaxVersion: 2,
+        };
       },
     };
 

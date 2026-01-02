@@ -196,12 +196,20 @@ describe('PendingEventVersionRewriter', () => {
       crypto,
       keyringManager
     );
-    await rewriter.rewritePendingVersions({
+    const result = await rewriter.rewritePendingVersions({
       aggregateType,
       aggregateId,
       fromVersionInclusive: 1,
     });
 
+    expect(result).toEqual({
+      aggregateType,
+      aggregateId,
+      fromVersionInclusive: 1,
+      shiftedCount: 1,
+      oldMaxVersion: 1,
+      newMaxVersion: 2,
+    });
     expect(db.events[0]?.version).toBe(2);
     expect(db.snapshots).toEqual([]);
 

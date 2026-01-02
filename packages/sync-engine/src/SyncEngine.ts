@@ -796,10 +796,18 @@ export class SyncEngine {
         );
       }
 
-      await this.pendingVersionRewriter.rewritePendingVersions({
+      const result = await this.pendingVersionRewriter.rewritePendingVersions({
         aggregateType: record.aggregateType,
         aggregateId: record.aggregateId,
         fromVersionInclusive: record.version,
+      });
+      console.debug('[SyncEngine] pending rewrite applied', {
+        aggregateType: result.aggregateType,
+        aggregateId: result.aggregateId,
+        fromVersionInclusive: result.fromVersionInclusive,
+        shiftedCount: result.shiftedCount,
+        oldMaxVersion: result.oldMaxVersion,
+        newMaxVersion: result.newMaxVersion,
       });
     }
 

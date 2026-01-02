@@ -1,5 +1,9 @@
 import type { CryptoServicePort, EncryptedEvent } from '@mo/application';
 import type { SqliteDbPort } from '@mo/eventstore-web';
+import type {
+  PendingVersionRewriteRequest,
+  PendingVersionRewriteResult,
+} from '@mo/sync-engine';
 import { buildEventAad } from '../eventing/aad';
 import { KeyringManager } from '../crypto/KeyringManager';
 
@@ -26,12 +30,8 @@ export class PendingEventVersionRewriter {
   ) {}
 
   async rewritePendingVersions(
-    params: Readonly<{
-      aggregateType: string;
-      aggregateId: string;
-      fromVersionInclusive: number;
-    }>
-  ): Promise<void> {
+    params: PendingVersionRewriteRequest
+  ): Promise<PendingVersionRewriteResult> {
     // Rewrite must be atomic-ish: avoid leaving a partial shift applied.
     await this.db.execute('BEGIN');
     try {
@@ -61,6 +61,8 @@ export class PendingEventVersionRewriter {
         [params.aggregateType, params.aggregateId, params.fromVersionInclusive]
       );
 
+      const oldMaxVersion = pending[0]?.version ?? null;
+      const shiftedCount = pending.length;
       for (const row of pending) {
         const nextVersion = Number(row.version) + 1;
         const event: EncryptedEvent = {
@@ -102,6 +104,14 @@ export class PendingEventVersionRewriter {
       );
 
       await this.db.execute('COMMIT');
+      return {
+        aggregateType: params.aggregateType,
+        aggregateId: params.aggregateId,
+        fromVersionInclusive: params.fromVersionInclusive,
+        shiftedCount,
+        oldMaxVersion,
+        newMaxVersion: oldMaxVersion === null ? null : oldMaxVersion + 1,
+      };
     } catch (error) {
       try {
         await this.db.execute('ROLLBACK');

@@ -154,6 +154,17 @@ export type PendingVersionRewriteRequest = Readonly<{
   fromVersionInclusive: number;
 }>;
 
+export type PendingVersionRewriteResult = Readonly<{
+  aggregateType: string;
+  aggregateId: string;
+  fromVersionInclusive: number;
+  shiftedCount: number;
+  oldMaxVersion: number | null;
+  newMaxVersion: number | null;
+}>;
+
 export interface PendingVersionRewriterPort {
-  rewritePendingVersions(request: PendingVersionRewriteRequest): Promise<void>;
+  rewritePendingVersions(
+    request: PendingVersionRewriteRequest
+  ): Promise<PendingVersionRewriteResult>;
 }
