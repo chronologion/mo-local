@@ -1,8 +1,9 @@
 # RFC: Pending-version rewrite during sync rebase
 
-**Status**: Draft
+**Status**: Implemented
 **Linear**: ALC-339
 **Related**: ALC-334, ALC-307
+**PR**: #41
 **Created**: 2026-01-01
 **Last Updated**: 2026-01-02
 
@@ -32,7 +33,9 @@ However, the local storage schema enforces:
 
 When two devices concurrently append to the same aggregate while both were at the same server head, they can each create pending events with the same per-aggregate `version`.
 
-On conflict (`server_ahead`), the “losing” device pulls remote events. Those remote events can collide on `(aggregate_type, aggregate_id, version)` with local pending rows. Current code inserts remote events using `INSERT OR IGNORE`, which can silently drop facts.
+On conflict (`server_ahead`), the “losing” device pulls remote events. Those remote events can collide on `(aggregate_type, aggregate_id, version)` with local pending rows. Prior to ALC-339, remote apply used `INSERT OR IGNORE`, which could silently drop facts.
+
+ALC-339 removes this silent-drop behavior and implements pending rewrite + retry on collision.
 
 This is rare in casual testing because it requires **same-aggregate, same-version** collisions across devices. When it happens, the current behavior risks:
 
