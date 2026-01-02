@@ -9,7 +9,6 @@ import {
   IndexedDBKeyStore,
   InMemoryKeyringStore,
   KeyringManager,
-  PendingEventVersionRewriter,
   WebCryptoService,
 } from '@mo/infrastructure';
 import {
@@ -33,6 +32,7 @@ import { SyncEngine, HttpSyncTransport } from '@mo/sync-engine';
 import { AggregateTypes } from '@mo/eventstore-core';
 import { MissingKeyError } from '@mo/infrastructure';
 import { DomainEvent } from '@mo/domain';
+import { PendingEventVersionRewriter } from '@mo/infrastructure';
 
 export type AppBoundedContext = 'goals' | 'projects';
 
