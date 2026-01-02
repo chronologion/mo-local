@@ -452,7 +452,7 @@ export class SyncEngine {
     response: SyncPushConflictResponseV1,
     expectedHead: number
   ): Promise<void> {
-    console.debug('[SyncEngine] push conflict', {
+    console.info('[SyncEngine] push conflict', {
       expectedHead,
       serverHead: response.head,
       missingCount: response.missing?.length ?? 0,
@@ -468,7 +468,7 @@ export class SyncEngine {
       if (applied && hadPending) {
         const stillPending = await this.hasPendingEvents();
         if (stillPending) {
-          console.debug('[SyncEngine] rebase required after pull', {
+          console.info('[SyncEngine] rebase required after pull', {
             cursorBefore,
             cursorAfter: nextCursor,
             hadPending,
@@ -483,14 +483,14 @@ export class SyncEngine {
     await this.awaitPullIfInFlight();
     let current = await this.readLastPulledGlobalSeq();
     if (current <= expectedHead) {
-      console.debug('[SyncEngine] conflict without missing; requesting pull', {
+      console.info('[SyncEngine] conflict without missing; requesting pull', {
         expectedHead,
         cursorBefore: current,
       });
       await this.requestImmediatePull();
       current = await this.readLastPulledGlobalSeq();
     }
-    console.debug('[SyncEngine] conflict pull result', {
+    console.info('[SyncEngine] conflict pull result', {
       expectedHead,
       cursorAfter: current,
     });
@@ -841,7 +841,7 @@ export class SyncEngine {
         aggregateId: record.aggregateId,
         fromVersionInclusive: record.version,
       });
-      console.debug('[SyncEngine] pending rewrite applied', {
+      console.info('[SyncEngine] pending rewrite applied', {
         aggregateType: result.aggregateType,
         aggregateId: result.aggregateId,
         fromVersionInclusive: result.fromVersionInclusive,
