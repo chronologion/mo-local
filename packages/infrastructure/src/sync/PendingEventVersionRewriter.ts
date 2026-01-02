@@ -1,9 +1,6 @@
 import type { CryptoServicePort, EncryptedEvent } from '@mo/application';
 import type { SqliteDbPort } from '@mo/eventstore-web';
-import type {
-  PendingVersionRewriteRequest,
-  PendingVersionRewriteResult,
-} from '@mo/sync-engine';
+import type { PendingVersionRewriteRequest, PendingVersionRewriteResult } from '@mo/sync-engine';
 import { buildEventAad } from '../eventing/aad';
 import { KeyringManager } from '../crypto/KeyringManager';
 
@@ -29,9 +26,7 @@ export class PendingEventVersionRewriter {
     private readonly keyringManager: KeyringManager
   ) {}
 
-  async rewritePendingVersions(
-    params: PendingVersionRewriteRequest
-  ): Promise<PendingVersionRewriteResult> {
+  async rewritePendingVersions(params: PendingVersionRewriteRequest): Promise<PendingVersionRewriteResult> {
     // Rewrite must be atomic-ish: avoid leaving a partial shift applied.
     await this.db.execute('BEGIN');
     try {
@@ -91,17 +86,18 @@ export class PendingEventVersionRewriter {
           buildEventAad(row.aggregate_id, row.event_type, nextVersion)
         );
 
-        await this.db.execute(
-          'UPDATE events SET version = ?, payload_encrypted = ? WHERE id = ?',
-          [nextVersion, rewritten, row.id]
-        );
+        await this.db.execute('UPDATE events SET version = ?, payload_encrypted = ? WHERE id = ?', [
+          nextVersion,
+          rewritten,
+          row.id,
+        ]);
       }
 
       // Domain snapshots are derived state; version shifts invalidate them.
-      await this.db.execute(
-        'DELETE FROM snapshots WHERE aggregate_type = ? AND aggregate_id = ?',
-        [params.aggregateType, params.aggregateId]
-      );
+      await this.db.execute('DELETE FROM snapshots WHERE aggregate_type = ? AND aggregate_id = ?', [
+        params.aggregateType,
+        params.aggregateId,
+      ]);
 
       await this.db.execute('COMMIT');
       return {

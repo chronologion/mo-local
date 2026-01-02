@@ -96,9 +96,7 @@ const setProjectStatus = async (
       await trigger.click();
       const listbox = page.getByRole('listbox');
       await expect(listbox).toBeVisible({ timeout: 10_000 });
-      await listbox
-        .getByRole('option', { name: status, exact: true })
-        .click({ force: true });
+      await listbox.getByRole('option', { name: status, exact: true }).click({ force: true });
       await expect(trigger).toContainText(status, { timeout: 10_000 });
       return;
     } catch (error) {
@@ -356,9 +354,7 @@ test.describe('offline rebase goal edit', () => {
         throw new Error('Goal did not sync to device B');
       }
 
-      const storeIdA = await pageA.evaluate(() =>
-        localStorage.getItem('mo-local-store-id')
-      );
+      const storeIdA = await pageA.evaluate(() => localStorage.getItem('mo-local-store-id'));
       if (!storeIdA || !storeIdB) {
         throw new Error('Missing storeId after cloud connection');
       }

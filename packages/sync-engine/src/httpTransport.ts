@@ -34,8 +34,7 @@ export class HttpSyncTransport implements SyncAbortableTransportPort {
 
   constructor(options: HttpSyncTransportOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl);
-    const rawFetch: typeof fetch =
-      options.fetchImpl ?? ((input, init) => fetch(input, init));
+    const rawFetch: typeof fetch = options.fetchImpl ?? ((input, init) => fetch(input, init));
     this.fetchImpl = (input, init) => {
       const requestCtor = globalThis.Request;
       const url =
@@ -45,10 +44,7 @@ export class HttpSyncTransport implements SyncAbortableTransportPort {
             ? input.url
             : String(input);
       const method =
-        init?.method ??
-        (typeof requestCtor === 'function' && input instanceof requestCtor
-          ? input.method
-          : undefined);
+        init?.method ?? (typeof requestCtor === 'function' && input instanceof requestCtor ? input.method : undefined);
 
       const isPull = url.includes('/sync/pull');
       const isPush = url.includes('/sync/push');
@@ -59,8 +55,7 @@ export class HttpSyncTransport implements SyncAbortableTransportPort {
             ? this.pushSignal
             : null;
 
-      const nextInit: RequestInit | undefined =
-        signal === null ? init : { ...(init ?? {}), signal };
+      const nextInit: RequestInit | undefined = signal === null ? init : { ...(init ?? {}), signal };
 
       return rawFetch(input, nextInit);
     };

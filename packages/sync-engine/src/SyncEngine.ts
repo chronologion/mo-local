@@ -92,10 +92,7 @@ class SyncEngineError extends Error {
   readonly syncError: SyncError;
   readonly retryable: boolean;
 
-  constructor(
-    syncError: SyncError,
-    options?: Readonly<{ retryable?: boolean }>
-  ) {
+  constructor(syncError: SyncError, options?: Readonly<{ retryable?: boolean }>) {
     super(syncError.message);
     this.name = 'SyncEngineError';
     this.syncError = syncError;
@@ -103,11 +100,9 @@ class SyncEngineError extends Error {
   }
 }
 
-const isSyncEngineError = (error: unknown): error is SyncEngineError =>
-  error instanceof SyncEngineError;
+const isSyncEngineError = (error: unknown): error is SyncEngineError => error instanceof SyncEngineError;
 
-const isAuthTransportError = (error: unknown): boolean =>
-  error instanceof Error && /unauthorized/i.test(error.message);
+const isAuthTransportError = (error: unknown): boolean => error instanceof Error && /unauthorized/i.test(error.message);
 
 const toSyncEngineError = (
   error: unknown,
@@ -123,11 +118,7 @@ const toSyncEngineError = (
     );
   }
   return new SyncEngineError(
-    createSyncError(
-      fallback.code,
-      fallback.message,
-      error instanceof Error ? { message: error.message } : undefined
-    ),
+    createSyncError(fallback.code, fallback.message, error instanceof Error ? { message: error.message } : undefined),
     { retryable: true }
   );
 };
@@ -344,10 +335,7 @@ export class SyncEngine {
       while (keepPulling) {
         this.pullAbortController?.abort();
         this.pullAbortController = new AbortController();
-        this.transport.setAbortSignal(
-          SyncDirections.pull,
-          this.pullAbortController.signal
-        );
+        this.transport.setAbortSignal(SyncDirections.pull, this.pullAbortController.signal);
         const response = await this.transport.pull({
           storeId: this.storeId,
           since,
@@ -403,11 +391,7 @@ export class SyncEngine {
         this.setErrorStatus(syncError.syncError, null);
         return;
       }
-      this.pullState.backoffMs = nextBackoffMs(
-        this.pullState.backoffMs,
-        MIN_PULL_BACKOFF_MS,
-        MAX_PULL_BACKOFF_MS
-      );
+      this.pullState.backoffMs = nextBackoffMs(this.pullState.backoffMs, MIN_PULL_BACKOFF_MS, MAX_PULL_BACKOFF_MS);
       const retryAt = nowMs() + this.pullState.backoffMs;
       this.pullState.notBeforeMs = retryAt;
       this.pullState.requested = true;
@@ -443,10 +427,7 @@ export class SyncEngine {
         }));
         this.pushAbortController?.abort();
         this.pushAbortController = new AbortController();
-        this.transport.setAbortSignal(
-          SyncDirections.push,
-          this.pushAbortController.signal
-        );
+        this.transport.setAbortSignal(SyncDirections.push, this.pushAbortController.signal);
         const response = await this.transport.push({
           storeId: this.storeId,
           expectedHead,
@@ -485,11 +466,7 @@ export class SyncEngine {
         this.setErrorStatus(syncError.syncError, null);
         return;
       }
-      this.pushState.backoffMs = nextBackoffMs(
-        this.pushState.backoffMs,
-        MIN_PUSH_BACKOFF_MS,
-        MAX_PUSH_BACKOFF_MS
-      );
+      this.pushState.backoffMs = nextBackoffMs(this.pushState.backoffMs, MIN_PUSH_BACKOFF_MS, MAX_PUSH_BACKOFF_MS);
       const retryAt = nowMs() + this.pushState.backoffMs;
       this.pushState.notBeforeMs = retryAt;
       this.setErrorStatus(syncError.syncError, retryAt);
@@ -545,14 +522,10 @@ export class SyncEngine {
     });
     if (current <= expectedHead) {
       throw new SyncEngineError(
-        createSyncError(
-          SyncErrorCodes.conflict,
-          'Sync conflict did not advance cursor',
-          {
-            expectedHead,
-            cursorAfter: current,
-          }
-        ),
+        createSyncError(SyncErrorCodes.conflict, 'Sync conflict did not advance cursor', {
+          expectedHead,
+          cursorAfter: current,
+        }),
         { retryable: true }
       );
     }
@@ -834,10 +807,7 @@ export class SyncEngine {
 
     const statements: SqliteStatement[] = [];
     const insertedEventIds: string[] = [];
-    const insertedEventContextById = new Map<
-      string,
-      { aggregateType: string; aggregateId: string; version: number }
-    >();
+    const insertedEventContextById = new Map<string, { aggregateType: string; aggregateId: string; version: number }>();
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
       if (record.id !== incoming.eventId) {
@@ -850,10 +820,9 @@ export class SyncEngine {
         );
       }
 
-      const existingById = await this.db.query<{ id: string }>(
-        'SELECT id FROM events WHERE id = ? LIMIT 1',
-        [record.id]
-      );
+      const existingById = await this.db.query<{ id: string }>('SELECT id FROM events WHERE id = ? LIMIT 1', [
+        record.id,
+      ]);
       if (existingById.length === 0) {
         const maxRewriteAttempts = 128;
         let collisionResolved = false;
@@ -874,42 +843,33 @@ export class SyncEngine {
           );
           if (occupyingIsSynced.length > 0) {
             throw new SyncEngineError(
-              createSyncError(
-                SyncErrorCodes.conflict,
-                'Remote version collision with synced event',
-                {
-                  aggregateType: record.aggregateType,
-                  aggregateId: record.aggregateId,
-                  version: record.version,
-                  existingEventId: occupyingId,
-                  incomingEventId: record.id,
-                }
-              ),
+              createSyncError(SyncErrorCodes.conflict, 'Remote version collision with synced event', {
+                aggregateType: record.aggregateType,
+                aggregateId: record.aggregateId,
+                version: record.version,
+                existingEventId: occupyingId,
+                incomingEventId: record.id,
+              }),
               { retryable: false }
             );
           }
 
           if (!this.pendingVersionRewriter) {
             throw new SyncEngineError(
-              createSyncError(
-                SyncErrorCodes.conflict,
-                'Pending version rewrite required but no rewriter configured',
-                {
-                  aggregateType: record.aggregateType,
-                  aggregateId: record.aggregateId,
-                  version: record.version,
-                }
-              ),
+              createSyncError(SyncErrorCodes.conflict, 'Pending version rewrite required but no rewriter configured', {
+                aggregateType: record.aggregateType,
+                aggregateId: record.aggregateId,
+                version: record.version,
+              }),
               { retryable: false }
             );
           }
 
-          const result =
-            await this.pendingVersionRewriter.rewritePendingVersions({
-              aggregateType: record.aggregateType,
-              aggregateId: record.aggregateId,
-              fromVersionInclusive: record.version,
-            });
+          const result = await this.pendingVersionRewriter.rewritePendingVersions({
+            aggregateType: record.aggregateType,
+            aggregateId: record.aggregateId,
+            fromVersionInclusive: record.version,
+          });
           console.info('[SyncEngine] pending rewrite applied', {
             aggregateType: result.aggregateType,
             aggregateId: result.aggregateId,
@@ -921,17 +881,13 @@ export class SyncEngine {
         }
         if (!collisionResolved) {
           throw new SyncEngineError(
-            createSyncError(
-              SyncErrorCodes.conflict,
-              'Pending version rewrite did not resolve version collision',
-              {
-                aggregateType: record.aggregateType,
-                aggregateId: record.aggregateId,
-                version: record.version,
-                incomingEventId: record.id,
-                maxRewriteAttempts,
-              }
-            ),
+            createSyncError(SyncErrorCodes.conflict, 'Pending version rewrite did not resolve version collision', {
+              aggregateType: record.aggregateType,
+              aggregateId: record.aggregateId,
+              version: record.version,
+              incomingEventId: record.id,
+              maxRewriteAttempts,
+            }),
             { retryable: false }
           );
         }
@@ -982,22 +938,14 @@ export class SyncEngine {
         sql: `INSERT OR IGNORE INTO sync_event_map (event_id, global_seq, inserted_at)
           SELECT ?, ?, ?
           WHERE EXISTS (SELECT 1 FROM events WHERE id = ?)`,
-        params: [
-          incoming.eventId,
-          incoming.globalSequence,
-          now,
-          incoming.eventId,
-        ],
+        params: [incoming.eventId, incoming.globalSequence, now, incoming.eventId],
       });
     }
     await this.db.batch(statements);
 
     if (insertedEventIds.length > 0) {
       for (const eventId of insertedEventIds) {
-        const inserted = await this.db.query<{ id: string }>(
-          'SELECT id FROM events WHERE id = ? LIMIT 1',
-          [eventId]
-        );
+        const inserted = await this.db.query<{ id: string }>('SELECT id FROM events WHERE id = ? LIMIT 1', [eventId]);
         if (inserted.length === 0) {
           const ctx = insertedEventContextById.get(eventId);
           throw new SyncEngineError(

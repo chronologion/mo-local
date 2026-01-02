@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  ChangeHint,
-  SqliteBatchResult,
-  SqliteDbPort,
-  SqliteStatement,
-  SqliteValue,
-} from '@mo/eventstore-web';
+import type { ChangeHint, SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import { buildEventAad } from '../../src/eventing/aad';
 import { PendingEventVersionRewriter } from '../../src/sync/PendingEventVersionRewriter';
@@ -40,8 +34,7 @@ type SyncEventMapRow = Readonly<{
   inserted_at: number;
 }>;
 
-const normalizeSql = (sql: string): string =>
-  sql.replace(/\s+/g, ' ').trim().toUpperCase();
+const normalizeSql = (sql: string): string => sql.replace(/\s+/g, ' ').trim().toUpperCase();
 
 class FakeDb implements SqliteDbPort {
   events: EventRow[] = [];
@@ -54,11 +47,7 @@ class FakeDb implements SqliteDbPort {
   ): Promise<ReadonlyArray<T>> {
     const normalized = normalizeSql(sql);
     if (normalized.startsWith('SELECT E.ID')) {
-      const [aggregateType, aggregateId, fromVersion] = params as [
-        string,
-        string,
-        number,
-      ];
+      const [aggregateType, aggregateId, fromVersion] = params as [string, string, number];
       const rows = this.events
         .filter(
           (row) =>
@@ -73,25 +62,14 @@ class FakeDb implements SqliteDbPort {
     throw new Error(`Unhandled query: ${sql}`);
   }
 
-  async execute(
-    sql: string,
-    params: ReadonlyArray<SqliteValue> = []
-  ): Promise<void> {
+  async execute(sql: string, params: ReadonlyArray<SqliteValue> = []): Promise<void> {
     const normalized = normalizeSql(sql);
-    if (
-      normalized === 'BEGIN' ||
-      normalized === 'COMMIT' ||
-      normalized === 'ROLLBACK'
-    ) {
+    if (normalized === 'BEGIN' || normalized === 'COMMIT' || normalized === 'ROLLBACK') {
       return;
     }
 
     if (normalized.startsWith('UPDATE EVENTS SET VERSION = ?')) {
-      const [nextVersion, payloadEncrypted, id] = params as [
-        number,
-        Uint8Array,
-        string,
-      ];
+      const [nextVersion, payloadEncrypted, id] = params as [number, Uint8Array, string];
       this.events = this.events.map((row) =>
         row.id === id
           ? {
@@ -107,11 +85,7 @@ class FakeDb implements SqliteDbPort {
     if (normalized.startsWith('DELETE FROM SNAPSHOTS WHERE')) {
       const [aggregateType, aggregateId] = params as [string, string];
       this.snapshots = this.snapshots.filter(
-        (row) =>
-          !(
-            row.aggregate_type === aggregateType &&
-            row.aggregate_id === aggregateId
-          )
+        (row) => !(row.aggregate_type === aggregateType && row.aggregate_id === aggregateId)
       );
       return;
     }
@@ -119,9 +93,7 @@ class FakeDb implements SqliteDbPort {
     throw new Error(`Unhandled execute: ${sql}`);
   }
 
-  async batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>> {
+  async batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>> {
     const results: SqliteBatchResult[] = [];
     for (const statement of statements) {
       if (statement.kind === SqliteStatementKinds.execute) {
@@ -135,10 +107,7 @@ class FakeDb implements SqliteDbPort {
     return results;
   }
 
-  subscribeToTables(
-    _tables: ReadonlyArray<string>,
-    _listener: () => void
-  ): () => void {
+  subscribeToTables(_tables: ReadonlyArray<string>, _listener: () => void): () => void {
     return () => undefined;
   }
 
@@ -166,11 +135,7 @@ describe('PendingEventVersionRewriter', () => {
     await keyStore.saveAggregateKey(aggregateId, key);
 
     const plaintext = new TextEncoder().encode('hello');
-    const cipherV1 = await crypto.encrypt(
-      plaintext,
-      key,
-      buildEventAad(aggregateId, eventType, 1)
-    );
+    const cipherV1 = await crypto.encrypt(plaintext, key, buildEventAad(aggregateId, eventType, 1));
 
     db.events.push({
       id: 'local-1',
@@ -191,11 +156,7 @@ describe('PendingEventVersionRewriter', () => {
       aggregate_id: aggregateId,
     });
 
-    const rewriter = new PendingEventVersionRewriter(
-      db,
-      crypto,
-      keyringManager
-    );
+    const rewriter = new PendingEventVersionRewriter(db, crypto, keyringManager);
     const result = await rewriter.rewritePendingVersions({
       aggregateType,
       aggregateId,
@@ -217,12 +178,8 @@ describe('PendingEventVersionRewriter', () => {
     expect(cipherV2).toBeInstanceOf(Uint8Array);
     if (!cipherV2) return;
 
-    await expect(
-      crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 1))
-    ).rejects.toBeInstanceOf(Error);
+    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 1))).rejects.toBeInstanceOf(Error);
 
-    await expect(
-      crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 2))
-    ).resolves.toEqual(plaintext);
+    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 2))).resolves.toEqual(plaintext);
   });
 });

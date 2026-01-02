@@ -66,11 +66,7 @@ class MemoryDb implements SqliteDbPort {
     return this.events.find((row) => row.id === eventId);
   }
 
-  shiftPendingVersions(params: {
-    aggregateType: string;
-    aggregateId: string;
-    fromVersionInclusive: number;
-  }): void {
+  shiftPendingVersions(params: { aggregateType: string; aggregateId: string; fromVersionInclusive: number }): void {
     const pendingIds = new Set(
       this.events
         .filter(
@@ -128,27 +124,17 @@ class MemoryDb implements SqliteDbPort {
       const row = this.getEvent(id);
       return row ? ([{ id: row.id }] as unknown as T[]) : [];
     }
-    if (
-      normalized.startsWith(
-        'SELECT ID FROM EVENTS WHERE AGGREGATE_TYPE = ? AND AGGREGATE_ID = ? AND VERSION = ?'
-      )
-    ) {
+    if (normalized.startsWith('SELECT ID FROM EVENTS WHERE AGGREGATE_TYPE = ? AND AGGREGATE_ID = ? AND VERSION = ?')) {
       const aggregateType = String(params[0] ?? '');
       const aggregateId = String(params[1] ?? '');
       const version = Number(params[2] ?? 0);
       const row = this.events.find(
         (event) =>
-          event.aggregate_type === aggregateType &&
-          event.aggregate_id === aggregateId &&
-          event.version === version
+          event.aggregate_type === aggregateType && event.aggregate_id === aggregateId && event.version === version
       );
       return row ? ([{ id: row.id }] as unknown as T[]) : [];
     }
-    if (
-      normalized.startsWith(
-        'SELECT EVENT_ID FROM SYNC_EVENT_MAP WHERE EVENT_ID = ?'
-      )
-    ) {
+    if (normalized.startsWith('SELECT EVENT_ID FROM SYNC_EVENT_MAP WHERE EVENT_ID = ?')) {
       const id = String(params[0] ?? '');
       const row = this.getEventMap(id);
       return row ? ([{ event_id: row.event_id }] as unknown as T[]) : [];
@@ -503,9 +489,7 @@ describe('SyncEngine', () => {
     const retryPush = transport.pushRequests.at(1);
     expect(retryPush).toBeDefined();
     if (retryPush) {
-      const versions = retryPush.events.map(
-        (event) => parseRecord(event.recordJson).version
-      );
+      const versions = retryPush.events.map((event) => parseRecord(event.recordJson).version);
       expect(versions).toContain(2);
     }
   });

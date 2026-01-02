@@ -192,11 +192,7 @@ export const createAppServices = async ({
     db,
     storeId,
     transport: new HttpSyncTransport({ baseUrl: apiBaseUrl }),
-    pendingVersionRewriter: new PendingEventVersionRewriter(
-      db,
-      crypto,
-      keyringManager
-    ),
+    pendingVersionRewriter: new PendingEventVersionRewriter(db, crypto, keyringManager),
     onRebaseRequired: async () => {
       // Rebuild projections first so saga reconciliation reads consistent views.
       await Promise.all([

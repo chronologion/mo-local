@@ -152,9 +152,7 @@ export type PendingVersionRewriteResult = Readonly<{
 }>;
 
 export interface PendingVersionRewriterPort {
-  rewritePendingVersions(
-    request: PendingVersionRewriteRequest
-  ): Promise<PendingVersionRewriteResult>;
+  rewritePendingVersions(request: PendingVersionRewriteRequest): Promise<PendingVersionRewriteResult>;
 }
 
 export interface SyncAbortableTransportPort extends SyncTransportPort {
