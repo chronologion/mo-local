@@ -131,6 +131,7 @@ Notes:
 - “Pending” means: `events` rows that do not yet have a `sync_event_map` entry.
 - Push is triggered reactively from `events` invalidations (debounced), plus a low-frequency fallback interval as a safety net.
 - Pull uses long-polling (`waitMs`) and is guarded to avoid pull storms; push is not blocked by pull.
+- Retry safety: any retry attempt that follows a conflict-resolution step (apply remote events, pending-version rewrite) must treat SQLite as the source of truth and re-read pending events before pushing.
 
 **Server**
 

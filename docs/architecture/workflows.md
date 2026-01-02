@@ -14,6 +14,7 @@ Relevant invariants in `docs/invariants.md`:
 - `INV-002` — Derived state uses `effectiveTotalOrder`
 - `INV-003` — Publish-after-commit uses `commitSequence`
 - `INV-005` — No causality-based ordering
+- `INV-018` — Sync retries re-read pending from DB
 
 ## Details
 
@@ -73,6 +74,9 @@ Relevant invariants in `docs/invariants.md`:
 - **Cross-device concurrent writes are supported**: multiple devices may commit events for the same aggregate while offline/partitioned.
 - **Conflict resolution policy (MVP)**: rebase + **last-writer-wins by server global order** (`globalSequence`) for conflicting per-aggregate histories. This is a deliberate trade-off chosen for the current domain.
   - Future: some aggregate types may require stronger merge semantics than LWW (e.g. CRDT-style convergence for “notes”-like content). Treat LWW+rebase as the default, not a universal rule.
+- **DB is the source of truth for retries**:
+  - if a conflict resolution path rewrites local pending rows (e.g. pending-version rewrite), the retry push MUST re-read pending events from SQLite (do not reuse a stale in-memory snapshot).
+  - This avoids pushing old per-aggregate `version` values and prevents downstream local uniqueness collisions on other devices.
 
 ### Dual-order model (why publication and projections differ)
 

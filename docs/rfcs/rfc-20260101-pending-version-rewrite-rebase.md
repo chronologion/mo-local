@@ -85,6 +85,10 @@ For the affected aggregate `(aggregate_type, aggregate_id)` and collision `versi
 
 This rewrite is **retry-driven**: if a later remote insert collides again (e.g. because multiple remote events for the same aggregate arrive), we repeat the shift from the new collision point until all missing remote events can be persisted.
 
+**Retry contract (critical)**:
+
+- After any pending rewrite, the subsequent push retry MUST re-read pending events from SQLite (not reuse a pre-rewrite in-memory pending snapshot), otherwise it may push stale per-aggregate `version` values and re-trigger collisions on other devices.
+
 ### Why this is safe
 
 - Synced events remain immutable.
