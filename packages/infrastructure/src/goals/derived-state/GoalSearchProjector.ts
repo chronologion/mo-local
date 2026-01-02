@@ -155,7 +155,7 @@ export class GoalSearchProjector {
         aad
       );
       const json = new TextDecoder().decode(plaintext);
-      this.searchIndex = MiniSearch.loadJSON<GoalListItem>(JSON.parse(json), {
+      this.searchIndex = MiniSearch.loadJSON<GoalListItem>(json, {
         idField: GOAL_SEARCH_CONFIG.idField,
         fields: [...GOAL_SEARCH_CONFIG.fields],
         storeFields: [...GOAL_SEARCH_CONFIG.storeFields],

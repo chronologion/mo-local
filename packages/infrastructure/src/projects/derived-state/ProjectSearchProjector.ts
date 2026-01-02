@@ -153,15 +153,12 @@ export class ProjectSearchProjector {
         aad
       );
       const json = new TextDecoder().decode(plaintext);
-      this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(
-        JSON.parse(json),
-        {
-          idField: PROJECT_SEARCH_CONFIG.idField,
-          fields: [...PROJECT_SEARCH_CONFIG.fields],
-          storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],
-          searchOptions: PROJECT_SEARCH_CONFIG.searchOptions,
-        }
-      );
+      this.searchIndex = MiniSearch.loadJSON<ProjectListItem>(json, {
+        idField: PROJECT_SEARCH_CONFIG.idField,
+        fields: [...PROJECT_SEARCH_CONFIG.fields],
+        storeFields: [...PROJECT_SEARCH_CONFIG.storeFields],
+        searchOptions: PROJECT_SEARCH_CONFIG.searchOptions,
+      });
       return true;
     } catch {
       await this.indexStore.remove(INDEX_ID, INDEX_SCOPE);
