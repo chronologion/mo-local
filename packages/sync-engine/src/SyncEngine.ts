@@ -224,6 +224,16 @@ export class SyncEngine {
     await this.pushOnce();
   }
 
+  async debugPullOnce(options?: Readonly<{ waitMs?: number }>): Promise<void> {
+    await this.ensureSyncMetaRow();
+    await this.pullOnce({ waitMs: options?.waitMs ?? 0 });
+  }
+
+  async debugPushOnce(): Promise<void> {
+    await this.ensureSyncMetaRow();
+    await this.pushOnce();
+  }
+
   private async pullLoop(): Promise<void> {
     while (this.running) {
       const waitMs = this.consumePullRequest()
