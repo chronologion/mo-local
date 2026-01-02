@@ -201,6 +201,10 @@ const pullHead = async (page: Page, storeId: string): Promise<number> => {
   );
 };
 
+const getStoreId = async (page: Page): Promise<string | null> => {
+  return await page.evaluate(() => localStorage.getItem('mo-local-store-id'));
+};
+
 test.describe('offline rebase goal edit', () => {
   test('offline local edit + online edit + reconnect does not leave stale knownVersion', async () => {
     test.setTimeout(180_000);
@@ -299,9 +303,7 @@ test.describe('offline rebase goal edit', () => {
 
       mark('login cloud on B');
       await connectToCloudAsLogin(pageB, creds);
-      const storeIdB = await pageB.evaluate(() =>
-        localStorage.getItem('mo-local-store-id')
-      );
+      const storeIdB = await getStoreId(pageB);
       if (storeIdB) {
         const head = await pullHead(pageB, storeIdB);
         mark(`server head after login B: ${head}`);
@@ -334,6 +336,14 @@ test.describe('offline rebase goal edit', () => {
         throw new Error('Goal did not sync to device B');
       }
 
+      const storeIdA = await getStoreId(pageA);
+      if (!storeIdA || !storeIdB) {
+        throw new Error('Missing storeId after cloud connection');
+      }
+      const headA1 = await pullHead(pageA, storeIdA);
+      const headB1 = await pullHead(pageB, storeIdB);
+      expect(headA1).toBe(headB1);
+
       // Device A goes offline and edits locally.
       mark('offline A and edit A1');
       await ctxA.setOffline(true);
@@ -352,6 +362,8 @@ test.describe('offline rebase goal edit', () => {
       // Give sync a moment to pull/rebase before issuing another update.
       mark('wait for sync settle');
       await pageA.waitForTimeout(2_000);
+      await syncOnce(pageA);
+      await syncOnce(pageB);
 
       // This update used to fail with a stale knownVersion mismatch after rebase.
       mark('edit A2');
@@ -388,10 +400,25 @@ test.describe('offline rebase goal edit', () => {
       await expect(pageB.getByText(summaryA2, { exact: true })).toBeVisible({
         timeout: 25_000,
       });
+      await expect(pageA.getByText(summaryA2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
 
       mark('edit B2');
       const summaryB2 = `${goalSummary} (B2)`;
       await editGoalSummary(pageB, summaryB2);
+
+      await syncOnce(pageB);
+      await syncOnce(pageA);
+      await expect(pageA.getByText(summaryB2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+      await expect(pageB.getByText(summaryB2, { exact: true })).toBeVisible({
+        timeout: 25_000,
+      });
+      const headA2 = await pullHead(pageA, storeIdA);
+      const headB2 = await pullHead(pageB, storeIdB);
+      expect(headA2).toBe(headB2);
 
       mark('assert no version mismatch errors');
       expect(
