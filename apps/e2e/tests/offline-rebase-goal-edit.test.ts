@@ -101,11 +101,28 @@ const setProjectStatus = async (
     has: page.getByText(projectName, { exact: true }),
   });
   const trigger = card.getByRole('combobox');
-  await trigger.click();
-  const listbox = page.getByRole('listbox');
-  await expect(listbox).toBeVisible();
-  await listbox.getByRole('option', { name: status }).click();
-  await expect(trigger).toContainText(status, { timeout: 10_000 });
+
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await trigger.click();
+      const listbox = page.getByRole('listbox');
+      await expect(listbox).toBeVisible({ timeout: 10_000 });
+      await listbox
+        .getByRole('option', { name: status, exact: true })
+        .click({ force: true });
+      await expect(trigger).toContainText(status, { timeout: 10_000 });
+      return;
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      lastError = error;
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(250);
+    }
+  }
+  throw lastError ?? new Error('Failed to set project status');
 };
 
 const expectGoalAchieved = async (
@@ -224,10 +241,6 @@ const pullHead = async (page: Page, storeId: string): Promise<number> => {
   );
 };
 
-const getStoreId = async (page: Page): Promise<string | null> => {
-  return await page.evaluate(() => localStorage.getItem('mo-local-store-id'));
-};
-
 test.describe('offline rebase goal edit', () => {
   test('offline local edits + online edit + reconnect does not leave stale knownVersion', async () => {
     test.setTimeout(180_000);
@@ -338,7 +351,9 @@ test.describe('offline rebase goal edit', () => {
 
       mark('login cloud on B');
       await connectToCloudAsLogin(pageB, creds);
-      const storeIdB = await getStoreId(pageB);
+      const storeIdB = await pageB.evaluate(() =>
+        localStorage.getItem('mo-local-store-id')
+      );
       if (storeIdB) {
         const head = await pullHead(pageB, storeIdB);
         mark(`server head after login B: ${head}`);
@@ -371,7 +386,9 @@ test.describe('offline rebase goal edit', () => {
         throw new Error('Goal did not sync to device B');
       }
 
-      const storeIdA = await getStoreId(pageA);
+      const storeIdA = await pageA.evaluate(() =>
+        localStorage.getItem('mo-local-store-id')
+      );
       if (!storeIdA || !storeIdB) {
         throw new Error('Missing storeId after cloud connection');
       }
