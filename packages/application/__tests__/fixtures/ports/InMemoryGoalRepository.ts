@@ -33,11 +33,7 @@ export class InMemoryGoalRepository implements GoalRepositoryPort {
     this.store.set(goal.id.value, { goal, encryptionKey });
   }
 
-  async archive(
-    id: GoalId,
-    archivedAt: Timestamp,
-    actorId: UserId
-  ): Promise<void> {
+  async archive(id: GoalId, archivedAt: Timestamp, actorId: UserId): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
     stored.goal.archive({ archivedAt, actorId });

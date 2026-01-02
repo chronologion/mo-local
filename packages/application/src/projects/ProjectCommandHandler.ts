@@ -26,17 +26,11 @@ import {
   ArchiveProject,
 } from './commands';
 import { ProjectRepositoryPort } from './ports/ProjectRepositoryPort';
-import {
-  CryptoServicePort,
-  IdempotencyStorePort,
-  KeyStorePort,
-} from '../shared/ports';
+import { CryptoServicePort, IdempotencyStorePort, KeyStorePort } from '../shared/ports';
 import { NotFoundError } from '../errors/NotFoundError';
 import { BaseCommandHandler } from '../shared/ports/BaseCommandHandler';
 
-export type ProjectCommandResult =
-  | { projectId: string; encryptionKey: Uint8Array }
-  | { projectId: string };
+export type ProjectCommandResult = { projectId: string; encryptionKey: Uint8Array } | { projectId: string };
 
 export class ProjectCommandHandler extends BaseCommandHandler {
   constructor(
@@ -49,32 +43,19 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   }
 
   async handleCreate(command: CreateProject): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      name,
-      status,
-      startDate,
-      targetDate,
-      description,
-      goalId,
-      actorId,
-      timestamp,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      name: (c) => ProjectName.from(c.name),
-      status: (c) => ProjectStatus.from(c.status),
-      startDate: (c) => LocalDate.fromString(c.startDate),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      description: (c) => ProjectDescription.from(c.description ?? ''),
-      goalId: (c) =>
-        c.goalId === undefined || c.goalId === null
-          ? null
-          : GoalId.from(c.goalId),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+    const { projectId, name, status, startDate, targetDate, description, goalId, actorId, timestamp, idempotencyKey } =
+      this.parseCommand(command, {
+        projectId: (c) => ProjectId.from(c.projectId),
+        name: (c) => ProjectName.from(c.name),
+        status: (c) => ProjectStatus.from(c.status),
+        startDate: (c) => LocalDate.fromString(c.startDate),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        description: (c) => ProjectDescription.from(c.description ?? ''),
+        goalId: (c) => (c.goalId === undefined || c.goalId === null ? null : GoalId.from(c.goalId)),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
 
     const isDuplicate = await this.isDuplicateCommand({
       idempotencyKey,
@@ -84,9 +65,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     if (isDuplicate) {
       const existingKey = await this.keyStore.getAggregateKey(projectId.value);
       if (!existingKey) {
-        throw new NotFoundError(
-          `Aggregate key for ${projectId.value} not found`
-        );
+        throw new NotFoundError(`Aggregate key for ${projectId.value} not found`);
       }
       return { projectId: projectId.value, encryptionKey: existingKey };
     }
@@ -126,17 +105,8 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     return { projectId: project.id.value, encryptionKey: kProject };
   }
 
-  async handleChangeStatus(
-    command: ChangeProjectStatus
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      status,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangeStatus(command: ChangeProjectStatus): Promise<ProjectCommandResult> {
+    const { projectId, status, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       status: (c) => ProjectStatus.from(c.status),
       actorId: (c) => UserId.from(c.actorId),
@@ -169,26 +139,19 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeDates(
-    command: ChangeProjectDates
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      startDate,
-      targetDate,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      startDate: (c) => LocalDate.fromString(c.startDate),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+  async handleChangeDates(command: ChangeProjectDates): Promise<ProjectCommandResult> {
+    const { projectId, startDate, targetDate, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        startDate: (c) => LocalDate.fromString(c.startDate),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      }
+    );
 
     if (
       await this.isDuplicateCommand({
@@ -219,17 +182,8 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeName(
-    command: ChangeProjectName
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      name,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangeName(command: ChangeProjectName): Promise<ProjectCommandResult> {
+    const { projectId, name, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       name: (c) => ProjectName.from(c.name),
       actorId: (c) => UserId.from(c.actorId),
@@ -262,17 +216,8 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeDescription(
-    command: ChangeProjectDescription
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      description,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleChangeDescription(command: ChangeProjectDescription): Promise<ProjectCommandResult> {
+    const { projectId, description, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       description: (c) => ProjectDescription.from(c.description),
       actorId: (c) => UserId.from(c.actorId),
@@ -310,14 +255,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   }
 
   async handleAddGoal(command: AddProjectGoal): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      goalId,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+    const { projectId, goalId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       goalId: (c) => GoalId.from(c.goalId),
       actorId: (c) => UserId.from(c.actorId),
@@ -350,17 +288,14 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleRemoveGoal(
-    command: RemoveProjectGoal
-  ): Promise<ProjectCommandResult> {
-    const { projectId, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        projectId: (c) => ProjectId.from(c.projectId),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
+  async handleRemoveGoal(command: RemoveProjectGoal): Promise<ProjectCommandResult> {
+    const { projectId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      projectId: (c) => ProjectId.from(c.projectId),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
     if (
       await this.isDuplicateCommand({
@@ -386,28 +321,18 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleAddMilestone(
-    command: AddProjectMilestone
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      milestoneId,
-      name,
-      targetDate,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      name: (c) => MilestoneName.from(c.name),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+  async handleAddMilestone(command: AddProjectMilestone): Promise<ProjectCommandResult> {
+    const { projectId, milestoneId, name, targetDate, actorId, timestamp, knownVersion, idempotencyKey } =
+      this.parseCommand(command, {
+        projectId: (c) => ProjectId.from(c.projectId),
+        milestoneId: (c) => MilestoneId.from(c.milestoneId),
+        name: (c) => MilestoneName.from(c.name),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      });
 
     if (
       await this.isDuplicateCommand({
@@ -439,26 +364,19 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeMilestoneTargetDate(
-    command: ChangeProjectMilestoneTargetDate
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      milestoneId,
-      targetDate,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      targetDate: (c) => LocalDate.fromString(c.targetDate),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+  async handleChangeMilestoneTargetDate(command: ChangeProjectMilestoneTargetDate): Promise<ProjectCommandResult> {
+    const { projectId, milestoneId, targetDate, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        milestoneId: (c) => MilestoneId.from(c.milestoneId),
+        targetDate: (c) => LocalDate.fromString(c.targetDate),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      }
+    );
 
     if (
       await this.isDuplicateCommand({
@@ -489,26 +407,19 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleChangeMilestoneName(
-    command: ChangeProjectMilestoneName
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      milestoneId,
-      name,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
-      projectId: (c) => ProjectId.from(c.projectId),
-      milestoneId: (c) => MilestoneId.from(c.milestoneId),
-      name: (c) => MilestoneName.from(c.name),
-      actorId: (c) => UserId.from(c.actorId),
-      timestamp: (c) => this.parseTimestamp(c.timestamp),
-      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-    });
+  async handleChangeMilestoneName(command: ChangeProjectMilestoneName): Promise<ProjectCommandResult> {
+    const { projectId, milestoneId, name, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(
+      command,
+      {
+        projectId: (c) => ProjectId.from(c.projectId),
+        milestoneId: (c) => MilestoneId.from(c.milestoneId),
+        name: (c) => MilestoneName.from(c.name),
+        actorId: (c) => UserId.from(c.actorId),
+        timestamp: (c) => this.parseTimestamp(c.timestamp),
+        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+      }
+    );
 
     if (
       await this.isDuplicateCommand({
@@ -539,17 +450,8 @@ export class ProjectCommandHandler extends BaseCommandHandler {
     });
   }
 
-  async handleArchiveMilestone(
-    command: ArchiveProjectMilestone
-  ): Promise<ProjectCommandResult> {
-    const {
-      projectId,
-      milestoneId,
-      actorId,
-      timestamp,
-      knownVersion,
-      idempotencyKey,
-    } = this.parseCommand(command, {
+  async handleArchiveMilestone(command: ArchiveProjectMilestone): Promise<ProjectCommandResult> {
+    const { projectId, milestoneId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
       projectId: (c) => ProjectId.from(c.projectId),
       milestoneId: (c) => MilestoneId.from(c.milestoneId),
       actorId: (c) => UserId.from(c.actorId),
@@ -587,14 +489,13 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   }
 
   async handleArchive(command: ArchiveProject): Promise<ProjectCommandResult> {
-    const { projectId, actorId, timestamp, knownVersion, idempotencyKey } =
-      this.parseCommand(command, {
-        projectId: (c) => ProjectId.from(c.projectId),
-        actorId: (c) => UserId.from(c.actorId),
-        timestamp: (c) => this.parseTimestamp(c.timestamp),
-        knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
-        idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
-      });
+    const { projectId, actorId, timestamp, knownVersion, idempotencyKey } = this.parseCommand(command, {
+      projectId: (c) => ProjectId.from(c.projectId),
+      actorId: (c) => UserId.from(c.actorId),
+      timestamp: (c) => this.parseTimestamp(c.timestamp),
+      knownVersion: (c) => this.parseKnownVersion(c.knownVersion),
+      idempotencyKey: (c) => this.parseIdempotencyKey(c.idempotencyKey),
+    });
 
     if (
       await this.isDuplicateCommand({
@@ -660,9 +561,7 @@ export class ProjectCommandHandler extends BaseCommandHandler {
   ): Promise<ProjectCommandResult> {
     const kProject = await this.keyStore.getAggregateKey(project.id.value);
     if (!kProject) {
-      throw new NotFoundError(
-        `Aggregate key for ${project.id.value} not found`
-      );
+      throw new NotFoundError(`Aggregate key for ${project.id.value} not found`);
     }
     await this.projectRepo.save(project, kProject);
     project.markEventsAsCommitted();

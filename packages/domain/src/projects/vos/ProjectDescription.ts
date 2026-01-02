@@ -4,9 +4,7 @@ import { ValueObject } from '../../shared/vos/ValueObject';
 export class ProjectDescription extends ValueObject<string> {
   private constructor(private readonly _value: string) {
     super();
-    Assert.that(_value.length, 'ProjectDescription length').isLessThanOrEqual(
-      2000
-    );
+    Assert.that(_value.length, 'ProjectDescription length').isLessThanOrEqual(2000);
   }
 
   static empty(): ProjectDescription {

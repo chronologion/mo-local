@@ -27,10 +27,7 @@ export class SyncController {
   constructor(@Inject(SyncService) private readonly syncService: SyncService) {}
 
   @Post('push')
-  async push(
-    @Body() dto: PushEventsDto,
-    @AuthIdentity() identity: AuthenticatedIdentity
-  ) {
+  async push(@Body() dto: PushEventsDto, @AuthIdentity() identity: AuthenticatedIdentity) {
     if (!identity) {
       throw new BadRequestException('Authenticated identity missing');
     }
@@ -80,10 +77,7 @@ export class SyncController {
   }
 
   @Get('pull')
-  async pull(
-    @Query() dto: PullEventsDto,
-    @AuthIdentity() identity: AuthenticatedIdentity
-  ) {
+  async pull(@Query() dto: PullEventsDto, @AuthIdentity() identity: AuthenticatedIdentity) {
     if (!identity) {
       throw new BadRequestException('Authenticated identity missing');
     }
@@ -125,10 +119,7 @@ export class SyncController {
       eventId: event.eventId,
       recordJson: event.recordJson,
     }));
-    const lastSequence =
-      responseEvents.length > 0
-        ? responseEvents[responseEvents.length - 1]?.globalSequence
-        : null;
+    const lastSequence = responseEvents.length > 0 ? responseEvents[responseEvents.length - 1]?.globalSequence : null;
 
     return {
       events: responseEvents,

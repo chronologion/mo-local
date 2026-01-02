@@ -3,8 +3,7 @@ export const SyncDirections = {
   push: 'push',
 } as const;
 
-export type SyncDirection =
-  (typeof SyncDirections)[keyof typeof SyncDirections];
+export type SyncDirection = (typeof SyncDirections)[keyof typeof SyncDirections];
 
 export const SyncPauseReasons = {
   user: 'user',
@@ -12,8 +11,7 @@ export const SyncPauseReasons = {
   backoff: 'backoff',
 } as const;
 
-export type SyncPauseReason =
-  (typeof SyncPauseReasons)[keyof typeof SyncPauseReasons];
+export type SyncPauseReason = (typeof SyncPauseReasons)[keyof typeof SyncPauseReasons];
 
 export const SyncErrorCodes = {
   network: 'network',
@@ -23,8 +21,7 @@ export const SyncErrorCodes = {
   unknown: 'unknown',
 } as const;
 
-export type SyncErrorCode =
-  (typeof SyncErrorCodes)[keyof typeof SyncErrorCodes];
+export type SyncErrorCode = (typeof SyncErrorCodes)[keyof typeof SyncErrorCodes];
 
 export const SyncStatusKinds = {
   idle: 'idle',
@@ -33,8 +30,7 @@ export const SyncStatusKinds = {
   error: 'error',
 } as const;
 
-export type SyncStatusKind =
-  (typeof SyncStatusKinds)[keyof typeof SyncStatusKinds];
+export type SyncStatusKind = (typeof SyncStatusKinds)[keyof typeof SyncStatusKinds];
 
 export type SyncError = Readonly<{
   code: SyncErrorCode;
@@ -71,8 +67,7 @@ export const SyncPushConflictReasons = {
   serverAhead: 'server_ahead',
 } as const;
 
-export type SyncPushConflictReason =
-  (typeof SyncPushConflictReasons)[keyof typeof SyncPushConflictReasons];
+export type SyncPushConflictReason = (typeof SyncPushConflictReasons)[keyof typeof SyncPushConflictReasons];
 
 export type SyncPullResponseV1 = Readonly<{
   head: number;
@@ -105,15 +100,8 @@ export type SyncPushConflictResponseV1 = Readonly<{
 }>;
 
 export interface SyncTransportPort {
-  push(
-    request: SyncPushRequestV1
-  ): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1>;
-  pull(params: {
-    storeId: string;
-    since: number;
-    limit: number;
-    waitMs?: number;
-  }): Promise<SyncPullResponseV1>;
+  push(request: SyncPushRequestV1): Promise<SyncPushOkResponseV1 | SyncPushConflictResponseV1>;
+  pull(params: { storeId: string; since: number; limit: number; waitMs?: number }): Promise<SyncPullResponseV1>;
   ping(): Promise<void>;
 }
 

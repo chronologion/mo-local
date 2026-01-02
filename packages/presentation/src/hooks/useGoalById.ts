@@ -16,9 +16,7 @@ export const useGoalById = (goalId: string | null) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await services.goalQueryBus.dispatch(
-          new GetGoalByIdQuery(goalId)
-        );
+        const result = await services.goalQueryBus.dispatch(new GetGoalByIdQuery(goalId));
         if (!cancelled) {
           if (Array.isArray(result)) {
             throw new Error('Invalid query result');

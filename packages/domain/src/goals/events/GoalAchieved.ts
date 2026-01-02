@@ -9,10 +9,7 @@ export interface GoalAchievedPayload {
   achievedAt: Timestamp;
 }
 
-export class GoalAchieved
-  extends DomainEvent<GoalId>
-  implements GoalAchievedPayload
-{
+export class GoalAchieved extends DomainEvent<GoalId> implements GoalAchievedPayload {
   readonly eventType = goalEventTypes.goalAchieved;
 
   readonly goalId: GoalId;
@@ -26,11 +23,11 @@ export class GoalAchieved
   }
 }
 
-export const GoalAchievedSpec = payloadEventSpec<
-  GoalAchieved,
-  GoalAchievedPayload,
-  GoalId
->(goalEventTypes.goalAchieved, (p, meta) => new GoalAchieved(p, meta), {
-  goalId: voString(GoalId.from),
-  achievedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalAchievedSpec = payloadEventSpec<GoalAchieved, GoalAchievedPayload, GoalId>(
+  goalEventTypes.goalAchieved,
+  (p, meta) => new GoalAchieved(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    achievedAt: voNumber(Timestamp.fromMillis),
+  }
+);

@@ -25,50 +25,31 @@ const ensureKeyLength = (key: Uint8Array): void => {
  * Wrapping key is provided by caller (e.g., password-derived or identity key).
  */
 export class KeyWrapping {
-  static async wrapKey(
-    keyToWrap: Uint8Array,
-    wrappingKey: Uint8Array
-  ): Promise<Uint8Array> {
+  static async wrapKey(keyToWrap: Uint8Array, wrappingKey: Uint8Array): Promise<Uint8Array> {
     ensureKeyLength(keyToWrap);
     ensureKeyLength(wrappingKey);
 
     const subtle = getWebCrypto().subtle;
-    const keyMaterial = await subtle.importKey(
-      'raw',
-      toArrayBuffer(keyToWrap),
-      { name: 'AES-GCM' },
-      true,
-      ['encrypt', 'decrypt']
-    );
-    const wrapKey = await subtle.importKey(
-      'raw',
-      toArrayBuffer(wrappingKey),
-      { name: 'AES-KW' },
-      false,
-      ['wrapKey']
-    );
+    const keyMaterial = await subtle.importKey('raw', toArrayBuffer(keyToWrap), { name: 'AES-GCM' }, true, [
+      'encrypt',
+      'decrypt',
+    ]);
+    const wrapKey = await subtle.importKey('raw', toArrayBuffer(wrappingKey), { name: 'AES-KW' }, false, ['wrapKey']);
 
     const wrapped = await subtle.wrapKey('raw', keyMaterial, wrapKey, 'AES-KW');
     return new Uint8Array(wrapped);
   }
 
-  static async unwrapKey(
-    wrappedKey: Uint8Array,
-    unwrappingKey: Uint8Array
-  ): Promise<Uint8Array> {
+  static async unwrapKey(wrappedKey: Uint8Array, unwrappingKey: Uint8Array): Promise<Uint8Array> {
     ensureKeyLength(unwrappingKey);
     if (wrappedKey.length !== WRAPPED_LENGTH) {
       throw new Error(`Invalid wrapped key length: expected ${WRAPPED_LENGTH}`);
     }
 
     const subtle = getWebCrypto().subtle;
-    const unwrapKey = await subtle.importKey(
-      'raw',
-      toArrayBuffer(unwrappingKey),
-      { name: 'AES-KW' },
-      false,
-      ['unwrapKey']
-    );
+    const unwrapKey = await subtle.importKey('raw', toArrayBuffer(unwrappingKey), { name: 'AES-KW' }, false, [
+      'unwrapKey',
+    ]);
 
     const unwrapped = await subtle.unwrapKey(
       'raw',

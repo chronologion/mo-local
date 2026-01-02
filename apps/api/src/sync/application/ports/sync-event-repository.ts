@@ -1,8 +1,4 @@
-import {
-  SyncEvent,
-  SyncEventAssignment,
-  SyncIncomingEvent,
-} from '../../domain/SyncEvent';
+import { SyncEvent, SyncEventAssignment, SyncIncomingEvent } from '../../domain/SyncEvent';
 import { GlobalSequenceNumber } from '../../domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../../domain/value-objects/SyncStoreId';
@@ -33,10 +29,7 @@ export type SyncAppendResult = Readonly<{
 }>;
 
 export abstract class SyncEventRepository {
-  abstract getHeadSequence(
-    ownerId: SyncOwnerId,
-    storeId: SyncStoreId
-  ): Promise<GlobalSequenceNumber>;
+  abstract getHeadSequence(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<GlobalSequenceNumber>;
 
   abstract appendBatch(
     params: Readonly<{

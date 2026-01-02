@@ -8,9 +8,7 @@ type EnvelopeParseResult = Readonly<{
   data: unknown;
 }>;
 
-const isEnvelopeObject = (
-  value: unknown
-): value is { payloadVersion?: unknown; data?: unknown } =>
+const isEnvelopeObject = (value: unknown): value is { payloadVersion?: unknown; data?: unknown } =>
   typeof value === 'object' && value !== null;
 
 export function encodePayloadEnvelope(envelope: PayloadEnvelope): Uint8Array {
@@ -26,8 +24,7 @@ export function decodePayloadEnvelope(bytes: Uint8Array): EnvelopeParseResult {
   try {
     parsed = JSON.parse(new TextDecoder().decode(bytes));
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Invalid JSON payload';
+    const message = error instanceof Error ? error.message : 'Invalid JSON payload';
     throw new Error(`Malformed payload envelope: ${message}`);
   }
 
@@ -36,11 +33,7 @@ export function decodePayloadEnvelope(bytes: Uint8Array): EnvelopeParseResult {
   }
 
   const payloadVersion = parsed.payloadVersion;
-  if (
-    typeof payloadVersion !== 'number' ||
-    !Number.isInteger(payloadVersion) ||
-    payloadVersion < 1
-  ) {
+  if (typeof payloadVersion !== 'number' || !Number.isInteger(payloadVersion) || payloadVersion < 1) {
     throw new Error('Malformed payload envelope: invalid payloadVersion');
   }
 

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ChangeGoalSummary,
-  CreateGoal,
-  type CreateGoalPayload,
-  GrantGoalAccess,
-} from '../../../src/goals/commands';
+import { ChangeGoalSummary, CreateGoal, type CreateGoalPayload, GrantGoalAccess } from '../../../src/goals/commands';
 import { GoalCommandHandler } from '../../../src/goals/GoalCommandHandler';
 import {
   InMemoryGoalRepository,
@@ -34,8 +29,7 @@ const createGoalPayload: CreateGoalPayload = {
   priority: 'must' as const,
   timestamp: now,
 };
-const createGoal = () =>
-  new CreateGoal(createGoalPayload, { actorId, idempotencyKey: 'idem-create' });
+const createGoal = () => new CreateGoal(createGoalPayload, { actorId, idempotencyKey: 'idem-create' });
 
 describe('CreateGoal', () => {
   it('is a lean DTO with assigned payload', () => {

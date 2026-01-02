@@ -9,8 +9,7 @@ export const AggregateTypes = {
   project: 'project',
 } as const;
 
-export type AggregateType =
-  (typeof AggregateTypes)[keyof typeof AggregateTypes];
+export type AggregateType = (typeof AggregateTypes)[keyof typeof AggregateTypes];
 
 export type CommitCursor = Readonly<{
   commitSequence: number;
@@ -42,8 +41,7 @@ export const ProjectionOrderings = {
   commitSequence: 'commitSequence',
 } as const;
 
-export type ProjectionOrdering =
-  (typeof ProjectionOrderings)[keyof typeof ProjectionOrderings];
+export type ProjectionOrdering = (typeof ProjectionOrderings)[keyof typeof ProjectionOrderings];
 
 export const CursorComparisons = {
   before: 'before',
@@ -51,8 +49,7 @@ export const CursorComparisons = {
   after: 'after',
 } as const;
 
-export type CursorComparison =
-  (typeof CursorComparisons)[keyof typeof CursorComparisons];
+export type CursorComparison = (typeof CursorComparisons)[keyof typeof CursorComparisons];
 
 export type EventRecord = Readonly<{
   id: string;
@@ -89,17 +86,14 @@ export const EventRecordDerivedKeys = {
   globalSequence: 'globalSequence',
 } as const;
 
-export type EventRecordDerivedKey =
-  (typeof EventRecordDerivedKeys)[keyof typeof EventRecordDerivedKeys];
+export type EventRecordDerivedKey = (typeof EventRecordDerivedKeys)[keyof typeof EventRecordDerivedKeys];
 
 /**
  * Low-level event log for append + read.
  * Implemented by platform-specific adapters (@mo/eventstore-web, etc.).
  */
 export interface EventLogPort {
-  append(
-    events: ReadonlyArray<Omit<EventRecord, EventRecordDerivedKey>>
-  ): Promise<ReadonlyArray<EventRecord>>;
+  append(events: ReadonlyArray<Omit<EventRecord, EventRecordDerivedKey>>): Promise<ReadonlyArray<EventRecord>>;
   read(filter: EventFilter): Promise<ReadonlyArray<EventRecord>>;
 }
 
@@ -123,8 +117,7 @@ export const PlatformErrorCodes = {
   SyncConflictError: 'SyncConflictError',
 } as const;
 
-export type PlatformErrorCode =
-  (typeof PlatformErrorCodes)[keyof typeof PlatformErrorCodes];
+export type PlatformErrorCode = (typeof PlatformErrorCodes)[keyof typeof PlatformErrorCodes];
 
 export type PlatformError = Readonly<{
   code: PlatformErrorCode;
@@ -136,10 +129,7 @@ export type PlatformError = Readonly<{
   context?: Readonly<Record<string, unknown>>;
 }>;
 
-export function compareCommitCursor(
-  a: CommitCursor,
-  b: CommitCursor
-): CursorComparison {
+export function compareCommitCursor(a: CommitCursor, b: CommitCursor): CursorComparison {
   if (a.commitSequence < b.commitSequence) return CursorComparisons.before;
   if (a.commitSequence > b.commitSequence) return CursorComparisons.after;
 
@@ -152,10 +142,7 @@ export function compareCommitCursor(
   return CursorComparisons.equal;
 }
 
-export function compareEffectiveCursor(
-  a: EffectiveCursor,
-  b: EffectiveCursor
-): CursorComparison {
+export function compareEffectiveCursor(a: EffectiveCursor, b: EffectiveCursor): CursorComparison {
   if (a.globalSequence < b.globalSequence) return CursorComparisons.before;
   if (a.globalSequence > b.globalSequence) return CursorComparisons.after;
 
@@ -177,10 +164,7 @@ export function commitCursorFromRecord(record: EventRecord): CommitCursor {
   };
 }
 
-export function advanceEffectiveCursor(
-  cursor: EffectiveCursor,
-  record: EventRecord
-): EffectiveCursor {
+export function advanceEffectiveCursor(cursor: EffectiveCursor, record: EventRecord): EffectiveCursor {
   if (record.globalSequence !== null) {
     return {
       globalSequence: record.globalSequence,

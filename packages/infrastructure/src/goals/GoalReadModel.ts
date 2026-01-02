@@ -23,19 +23,13 @@ export class GoalReadModel implements GoalReadModelPort {
     return this.projection.getGoalById(goalId);
   }
 
-  async search(
-    term: string,
-    filter?: GoalListFilter
-  ): Promise<GoalListItemDto[]> {
+  async search(term: string, filter?: GoalListFilter): Promise<GoalListItemDto[]> {
     await this.projection.whenReady();
     await this.projection.flush();
     return this.projection.searchGoals(term, filter);
   }
 
-  private matchesFilter(
-    item: GoalListItemDto,
-    filter: GoalListFilter
-  ): boolean {
+  private matchesFilter(item: GoalListItemDto, filter: GoalListFilter): boolean {
     if (filter.slice && item.slice !== filter.slice) return false;
     if (filter.month && item.targetMonth !== filter.month) return false;
     if (filter.priority && item.priority !== filter.priority) return false;

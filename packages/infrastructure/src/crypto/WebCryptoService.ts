@@ -1,10 +1,5 @@
 import { CryptoServicePort, KeyPair, SymmetricKey } from '@mo/application';
-import {
-  decodeEnvelope,
-  encodeEnvelope,
-  ECIES_EPHEMERAL_LENGTH,
-  ECIES_IV_LENGTH,
-} from './eciesEnvelope';
+import { decodeEnvelope, encodeEnvelope, ECIES_EPHEMERAL_LENGTH, ECIES_IV_LENGTH } from './eciesEnvelope';
 
 const resolveCrypto = (): Crypto => {
   const cryptoLike = globalThis.crypto;
@@ -61,29 +56,15 @@ const ensureKeyLength = (key: Uint8Array): void => {
  */
 export class WebCryptoService implements CryptoServicePort {
   async generateKey(): Promise<SymmetricKey> {
-    const key = await subtle.generateKey(
-      { name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS },
-      true,
-      AES_GCM_USAGES
-    );
+    const key = await subtle.generateKey({ name: AES_GCM_ALGO, length: AES_GCM_KEY_BITS }, true, AES_GCM_USAGES);
     const exported = await subtle.exportKey(KEY_FORMAT_RAW, key);
     return new Uint8Array(exported);
   }
 
   async generateSigningKeyPair(): Promise<KeyPair> {
-    const keyPair = await subtle.generateKey(
-      { name: ECDSA_ALGO, namedCurve: ECDH_CURVE },
-      true,
-      ECDSA_USAGES
-    );
-    const publicKey = await subtle.exportKey(
-      KEY_FORMAT_SPKI,
-      keyPair.publicKey
-    );
-    const privateKey = await subtle.exportKey(
-      KEY_FORMAT_PKCS8,
-      keyPair.privateKey
-    );
+    const keyPair = await subtle.generateKey({ name: ECDSA_ALGO, namedCurve: ECDH_CURVE }, true, ECDSA_USAGES);
+    const publicKey = await subtle.exportKey(KEY_FORMAT_SPKI, keyPair.publicKey);
+    const privateKey = await subtle.exportKey(KEY_FORMAT_PKCS8, keyPair.privateKey);
     return {
       publicKey: new Uint8Array(publicKey),
       privateKey: new Uint8Array(privateKey),
@@ -95,27 +76,16 @@ export class WebCryptoService implements CryptoServicePort {
   }
 
   async generateKeyPair(): Promise<KeyPair> {
-    const keyPair = await subtle.generateKey(
-      { name: ECDH_ALGO, namedCurve: ECDH_CURVE },
-      true,
-      ECDH_DERIVE_USAGES
-    );
+    const keyPair = await subtle.generateKey({ name: ECDH_ALGO, namedCurve: ECDH_CURVE }, true, ECDH_DERIVE_USAGES);
     const publicKey = await subtle.exportKey(KEY_FORMAT_RAW, keyPair.publicKey);
-    const privateKey = await subtle.exportKey(
-      KEY_FORMAT_PKCS8,
-      keyPair.privateKey
-    );
+    const privateKey = await subtle.exportKey(KEY_FORMAT_PKCS8, keyPair.privateKey);
     return {
       publicKey: new Uint8Array(publicKey),
       privateKey: new Uint8Array(privateKey),
     };
   }
 
-  async encrypt(
-    plaintext: Uint8Array,
-    key: SymmetricKey,
-    aad?: Uint8Array
-  ): Promise<Uint8Array> {
+  async encrypt(plaintext: Uint8Array, key: SymmetricKey, aad?: Uint8Array): Promise<Uint8Array> {
     ensureKeyLength(key);
     const iv = cryptoApi.getRandomValues(new Uint8Array(IV_LENGTH));
     const cryptoKey = await subtle.importKey(
@@ -135,11 +105,7 @@ export class WebCryptoService implements CryptoServicePort {
       params.additionalData = new Uint8Array(aad);
     }
 
-    const ciphertext = await subtle.encrypt(
-      params,
-      cryptoKey,
-      toArrayBuffer(plaintext)
-    );
+    const ciphertext = await subtle.encrypt(params, cryptoKey, toArrayBuffer(plaintext));
 
     const result = new Uint8Array(iv.length + ciphertext.byteLength);
     result.set(iv, 0);
@@ -147,11 +113,7 @@ export class WebCryptoService implements CryptoServicePort {
     return result;
   }
 
-  async decrypt(
-    ciphertext: Uint8Array,
-    key: SymmetricKey,
-    aad?: Uint8Array
-  ): Promise<Uint8Array> {
+  async decrypt(ciphertext: Uint8Array, key: SymmetricKey, aad?: Uint8Array): Promise<Uint8Array> {
     ensureKeyLength(key);
     if (ciphertext.length <= IV_LENGTH) {
       throw new Error('Ciphertext too short');
@@ -176,19 +138,12 @@ export class WebCryptoService implements CryptoServicePort {
       params.additionalData = new Uint8Array(aad);
     }
 
-    const plaintext = await subtle.decrypt(
-      params,
-      cryptoKey,
-      toArrayBuffer(payload)
-    );
+    const plaintext = await subtle.decrypt(params, cryptoKey, toArrayBuffer(payload));
 
     return new Uint8Array(plaintext);
   }
 
-  async wrapKey(
-    keyToWrap: Uint8Array,
-    recipientPublicKey: Uint8Array
-  ): Promise<Uint8Array> {
+  async wrapKey(keyToWrap: Uint8Array, recipientPublicKey: Uint8Array): Promise<Uint8Array> {
     ensureKeyLength(keyToWrap);
     if (recipientPublicKey.length !== ECIES_EPHEMERAL_LENGTH) {
       throw new Error('Invalid recipient public key length');
@@ -219,22 +174,12 @@ export class WebCryptoService implements CryptoServicePort {
       aesKey,
       toArrayBuffer(keyToWrap)
     );
-    const ephemeralRaw = await subtle.exportKey(
-      KEY_FORMAT_RAW,
-      ephemeral.publicKey
-    );
+    const ephemeralRaw = await subtle.exportKey(KEY_FORMAT_RAW, ephemeral.publicKey);
 
-    return encodeEnvelope(
-      new Uint8Array(ephemeralRaw),
-      iv,
-      new Uint8Array(ciphertext)
-    );
+    return encodeEnvelope(new Uint8Array(ephemeralRaw), iv, new Uint8Array(ciphertext));
   }
 
-  async unwrapKey(
-    wrappedKey: Uint8Array,
-    recipientPrivateKey: Uint8Array
-  ): Promise<Uint8Array> {
+  async unwrapKey(wrappedKey: Uint8Array, recipientPrivateKey: Uint8Array): Promise<Uint8Array> {
     const { ephemeralRaw, iv, payload } = decodeEnvelope(wrappedKey);
     const ivCopy = new Uint8Array(iv);
 
@@ -270,10 +215,7 @@ export class WebCryptoService implements CryptoServicePort {
     return result;
   }
 
-  async deriveKey(
-    masterKey: Uint8Array,
-    context: string
-  ): Promise<SymmetricKey> {
+  async deriveKey(masterKey: Uint8Array, context: string): Promise<SymmetricKey> {
     ensureKeyLength(masterKey);
     const baseKey = await subtle.importKey(
       KEY_FORMAT_RAW,
@@ -300,10 +242,7 @@ export class WebCryptoService implements CryptoServicePort {
     return new Uint8Array(exported);
   }
 
-  async deriveKeyFromPassword(
-    password: string,
-    salt: Uint8Array
-  ): Promise<SymmetricKey> {
+  async deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<SymmetricKey> {
     const passwordKey = await subtle.importKey(
       KEY_FORMAT_RAW,
       DEFAULT_TEXT_ENCODER.encode(password),
@@ -329,10 +268,7 @@ export class WebCryptoService implements CryptoServicePort {
     return new Uint8Array(exported);
   }
 
-  async deriveSubKey(
-    rootKey: SymmetricKey,
-    info: 'remote' | 'local'
-  ): Promise<SymmetricKey> {
+  async deriveSubKey(rootKey: SymmetricKey, info: 'remote' | 'local'): Promise<SymmetricKey> {
     return this.deriveKey(rootKey, `subkey-${info}`);
   }
 
@@ -344,19 +280,11 @@ export class WebCryptoService implements CryptoServicePort {
       false,
       SIGN_KEY_USAGES
     );
-    const signature = await subtle.sign(
-      { name: ECDSA_ALGO, hash: ECDSA_HASH },
-      key,
-      toArrayBuffer(data)
-    );
+    const signature = await subtle.sign({ name: ECDSA_ALGO, hash: ECDSA_HASH }, key, toArrayBuffer(data));
     return new Uint8Array(signature);
   }
 
-  async verify(
-    data: Uint8Array,
-    signature: Uint8Array,
-    publicKey: Uint8Array
-  ): Promise<boolean> {
+  async verify(data: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean> {
     const key = await subtle.importKey(
       KEY_FORMAT_SPKI,
       toArrayBuffer(publicKey),
@@ -364,11 +292,6 @@ export class WebCryptoService implements CryptoServicePort {
       false,
       VERIFY_KEY_USAGES
     );
-    return subtle.verify(
-      { name: ECDSA_ALGO, hash: ECDSA_HASH },
-      key,
-      toArrayBuffer(signature),
-      toArrayBuffer(data)
-    );
+    return subtle.verify({ name: ECDSA_ALGO, hash: ECDSA_HASH }, key, toArrayBuffer(signature), toArrayBuffer(data));
   }
 }

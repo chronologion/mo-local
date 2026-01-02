@@ -1,32 +1,11 @@
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
 import { CommittedEventPublisher } from '@mo/infrastructure';
-import {
-  ConcurrencyError,
-  GoalAchievementSaga,
-  type ValidationError,
-} from '@mo/application';
-import {
-  IndexedDBKeyStore,
-  InMemoryKeyringStore,
-  KeyringManager,
-  WebCryptoService,
-} from '@mo/infrastructure';
-import {
-  EncryptedEventToDomainAdapter,
-  SqliteEventStore,
-} from '@mo/infrastructure';
-import {
-  bootstrapGoalBoundedContext,
-  type GoalBoundedContextServices,
-} from '@mo/infrastructure/goals';
-import {
-  bootstrapProjectBoundedContext,
-  type ProjectBoundedContextServices,
-} from '@mo/infrastructure/projects';
-import {
-  SqliteGoalAchievementSagaStore,
-  ProcessManagerStateStore,
-} from '@mo/infrastructure';
+import { ConcurrencyError, GoalAchievementSaga, type ValidationError } from '@mo/application';
+import { IndexedDBKeyStore, InMemoryKeyringStore, KeyringManager, WebCryptoService } from '@mo/infrastructure';
+import { EncryptedEventToDomainAdapter, SqliteEventStore } from '@mo/infrastructure';
+import { bootstrapGoalBoundedContext, type GoalBoundedContextServices } from '@mo/infrastructure/goals';
+import { bootstrapProjectBoundedContext, type ProjectBoundedContextServices } from '@mo/infrastructure/projects';
+import { SqliteGoalAchievementSagaStore, ProcessManagerStateStore } from '@mo/infrastructure';
 import { createWebSqliteDb, type SqliteDbPort } from '@mo/eventstore-web';
 import { SyncEngine, HttpSyncTransport } from '@mo/sync-engine';
 import { AggregateTypes } from '@mo/eventstore-core';
@@ -100,10 +79,7 @@ export const createAppServices = async ({
   const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
   const eventBus = new InMemoryEventBus();
   const toDomain = new EncryptedEventToDomainAdapter(crypto);
-  const apiBaseUrl =
-    import.meta.env.VITE_API_URL ??
-    import.meta.env.VITE_API_BASE_URL ??
-    'http://localhost:4000';
+  const apiBaseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
   const { db, shutdown } = await createWebSqliteDb({
     storeId,
@@ -136,10 +112,7 @@ export const createAppServices = async ({
     const seedEvents = async (): Promise<DomainEvent[]> => {
       const goalStore = new SqliteEventStore(db, AggregateTypes.goal);
       const projectStore = new SqliteEventStore(db, AggregateTypes.project);
-      const [goalEvents, projectEvents] = await Promise.all([
-        goalStore.getAllEvents(),
-        projectStore.getAllEvents(),
-      ]);
+      const [goalEvents, projectEvents] = await Promise.all([goalStore.getAllEvents(), projectStore.getAllEvents()]);
       const allEvents = [...goalEvents, ...projectEvents]
         .filter((event) => event.sequence !== undefined)
         .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
@@ -152,19 +125,11 @@ export const createAppServices = async ({
           domainEvents.push(domainEvent);
         } catch (error) {
           if (error instanceof MissingKeyError) {
-            console.warn(
-              '[GoalAchievementSaga] Missing key for seed event',
-              event.aggregateId
-            );
+            console.warn('[GoalAchievementSaga] Missing key for seed event', event.aggregateId);
             continue;
           }
-          if (
-            error instanceof Error &&
-            error.message === 'Master key not set'
-          ) {
-            console.warn(
-              '[GoalAchievementSaga] Master key not set; skipping seed'
-            );
+          if (error instanceof Error && error.message === 'Master key not set') {
+            console.warn('[GoalAchievementSaga] Master key not set; skipping seed');
             return [];
           }
           throw error;
@@ -173,17 +138,9 @@ export const createAppServices = async ({
 
       return domainEvents;
     };
-    const sagaStore = new SqliteGoalAchievementSagaStore(
-      new ProcessManagerStateStore(db),
-      crypto,
-      keyStore
-    );
+    const sagaStore = new SqliteGoalAchievementSagaStore(new ProcessManagerStateStore(db), crypto, keyStore);
     const isConcurrencyFailure = (errors: ValidationError[]): boolean =>
-      errors.some(
-        (error) =>
-          error.field === 'application' &&
-          error.message.includes('version mismatch')
-      );
+      errors.some((error) => error.field === 'application' && error.message.includes('version mismatch'));
 
     const saga = new GoalAchievementSaga(
       sagaStore,

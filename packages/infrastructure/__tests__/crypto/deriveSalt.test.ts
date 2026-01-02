@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  decodeSalt,
-  encodeSalt,
-  generateRandomSalt,
-} from '../../src/crypto/deriveSalt';
+import { decodeSalt, encodeSalt, generateRandomSalt } from '../../src/crypto/deriveSalt';
 
 describe('deriveSalt utilities', () => {
   it('encodes and decodes valid salts within bounds', () => {
@@ -20,9 +16,7 @@ describe('deriveSalt utilities', () => {
     const short = new Uint8Array([0]);
     const encoded = encodeSalt(short);
 
-    expect(() => decodeSalt(encoded)).toThrow(
-      /minimum 16 bytes required per NIST SP 800-132/
-    );
+    expect(() => decodeSalt(encoded)).toThrow(/minimum 16 bytes required per NIST SP 800-132/);
   });
 
   it('rejects salts longer than 64 bytes', () => {

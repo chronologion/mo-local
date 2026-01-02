@@ -38,9 +38,7 @@ const sanitizeValue = (value: unknown): unknown => {
 };
 
 const parseAndSanitizeJson = (backup: string): unknown => {
-  const parsed = JSON.parse(backup, (key, value) =>
-    POLLUTION_KEYS.has(key) ? undefined : value
-  );
+  const parsed = JSON.parse(backup, (key, value) => (POLLUTION_KEYS.has(key) ? undefined : value));
   return sanitizeValue(parsed);
 };
 

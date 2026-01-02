@@ -1,8 +1,5 @@
 import { ProjectStatusValue } from '@mo/domain';
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type ChangeProjectStatusPayload = {
   projectId: string;

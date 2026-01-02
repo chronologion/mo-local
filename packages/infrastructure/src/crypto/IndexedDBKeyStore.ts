@@ -30,9 +30,7 @@ interface IDBDatabaseLike {
 }
 
 interface IDBOpenDBRequestLike extends IDBRequestLike<IDBDatabaseLike> {
-  onupgradeneeded:
-    | ((this: IDBOpenDBRequestLike, ev: unknown) => unknown)
-    | null;
+  onupgradeneeded: ((this: IDBOpenDBRequestLike, ev: unknown) => unknown) | null;
   result: IDBDatabaseLike;
 }
 
@@ -111,8 +109,7 @@ export class IndexedDBKeyStore implements KeyStorePort {
       requestToPromise<T>(request),
       new Promise<never>((_, reject) => {
         // best-effort transaction error handling
-        tx.onerror = (ev) =>
-          reject((ev as { target?: { error?: unknown } }).target?.error);
+        tx.onerror = (ev) => reject((ev as { target?: { error?: unknown } }).target?.error);
       }),
     ]);
   }
@@ -129,9 +126,7 @@ export class IndexedDBKeyStore implements KeyStorePort {
     };
     const encoded = new TextEncoder().encode(JSON.stringify(payload));
     const encrypted = await this.crypto.encrypt(encoded, this.masterKey);
-    await this.withStore<void>(STORE_IDENTITY, 'readwrite', (store) =>
-      store.put({ userId, blob: encrypted })
-    );
+    await this.withStore<void>(STORE_IDENTITY, 'readwrite', (store) => store.put({ userId, blob: encrypted }));
   }
 
   async getIdentityKeys(userId: string): Promise<IdentityKeys | null> {
@@ -144,9 +139,7 @@ export class IndexedDBKeyStore implements KeyStorePort {
     } | null>(STORE_IDENTITY, 'readonly', (store) => store.get(userId));
     if (!record) return null;
     if (!('blob' in record)) {
-      throw new Error(
-        'Unsupported identity key record format detected; please clear local state and re-onboard.'
-      );
+      throw new Error('Unsupported identity key record format detected; please clear local state and re-onboard.');
     }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
     const json = new TextDecoder().decode(decrypted);
@@ -164,17 +157,12 @@ export class IndexedDBKeyStore implements KeyStorePort {
     } satisfies IdentityKeys;
   }
 
-  async saveAggregateKey(
-    aggregateId: string,
-    wrappedKey: Uint8Array
-  ): Promise<void> {
+  async saveAggregateKey(aggregateId: string, wrappedKey: Uint8Array): Promise<void> {
     if (!this.masterKey) {
       throw new Error('Master key not set');
     }
     const encrypted = await this.crypto.encrypt(wrappedKey, this.masterKey);
-    await this.withStore<void>(STORE_AGGREGATE, 'readwrite', (store) =>
-      store.put({ aggregateId, blob: encrypted })
-    );
+    await this.withStore<void>(STORE_AGGREGATE, 'readwrite', (store) => store.put({ aggregateId, blob: encrypted }));
   }
 
   async getAggregateKey(aggregateId: string): Promise<Uint8Array | null> {
@@ -187,18 +175,18 @@ export class IndexedDBKeyStore implements KeyStorePort {
     } | null>(STORE_AGGREGATE, 'readonly', (store) => store.get(aggregateId));
     if (!record) return null;
     if (!('blob' in record)) {
-      throw new Error(
-        'Unsupported aggregate key record format detected; please clear local state and re-onboard.'
-      );
+      throw new Error('Unsupported aggregate key record format detected; please clear local state and re-onboard.');
     }
     const decrypted = await this.crypto.decrypt(record.blob, this.masterKey);
     return new Uint8Array(decrypted);
   }
 
   async exportKeys(): Promise<KeyBackup> {
-    const aggregates = (await this.withStore<
-      { aggregateId: string; blob: Uint8Array }[]
-    >(STORE_AGGREGATE, 'readonly', (store) => store.getAll())) as {
+    const aggregates = (await this.withStore<{ aggregateId: string; blob: Uint8Array }[]>(
+      STORE_AGGREGATE,
+      'readonly',
+      (store) => store.getAll()
+    )) as {
       aggregateId: string;
       blob: Uint8Array;
     }[];
@@ -212,9 +200,9 @@ export class IndexedDBKeyStore implements KeyStorePort {
       aggregateKeys[aggregateId] = new Uint8Array(decrypted);
     }
 
-    const records = (await this.withStore<
-      { userId: string; blob: Uint8Array }[]
-    >(STORE_IDENTITY, 'readonly', (store) => store.getAll())) as {
+    const records = (await this.withStore<{ userId: string; blob: Uint8Array }[]>(STORE_IDENTITY, 'readonly', (store) =>
+      store.getAll()
+    )) as {
       userId: string;
       blob: Uint8Array;
     }[];
@@ -227,14 +215,9 @@ export class IndexedDBKeyStore implements KeyStorePort {
         throw new Error('Master key not set');
       }
       if (!('blob' in identityRecord)) {
-        throw new Error(
-          'Unsupported identity key record format detected; please clear local state and re-onboard.'
-        );
+        throw new Error('Unsupported identity key record format detected; please clear local state and re-onboard.');
       }
-      const decrypted = await this.crypto.decrypt(
-        identityRecord.blob,
-        this.masterKey
-      );
+      const decrypted = await this.crypto.decrypt(identityRecord.blob, this.masterKey);
       const json = new TextDecoder().decode(decrypted);
       const parsed = JSON.parse(json) as {
         signingPrivateKey: string;
@@ -281,11 +264,7 @@ export class IndexedDBKeyStore implements KeyStorePort {
     }
 
     const entries = Object.entries(backup.aggregateKeys);
-    await Promise.all(
-      entries.map(([aggregateId, wrappedKey]) =>
-        this.saveAggregateKey(aggregateId, wrappedKey)
-      )
-    );
+    await Promise.all(entries.map(([aggregateId, wrappedKey]) => this.saveAggregateKey(aggregateId, wrappedKey)));
   }
 
   async clearAll(): Promise<void> {

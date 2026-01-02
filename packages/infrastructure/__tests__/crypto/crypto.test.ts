@@ -26,14 +26,10 @@ describe('NodeCryptoService', () => {
 
     const ciphertext = await crypto.encrypt(plaintext, key, aad);
 
-    await expect(
-      crypto.decrypt(ciphertext, key, new TextEncoder().encode('x'))
-    ).rejects.toBeInstanceOf(Error);
+    await expect(crypto.decrypt(ciphertext, key, new TextEncoder().encode('x'))).rejects.toBeInstanceOf(Error);
 
     const truncated = ciphertext.slice(0, ciphertext.length - 1);
-    await expect(crypto.decrypt(truncated, key, aad)).rejects.toBeInstanceOf(
-      Error
-    );
+    await expect(crypto.decrypt(truncated, key, aad)).rejects.toBeInstanceOf(Error);
   });
 
   it('derives deterministic sub-keys', async () => {
@@ -93,9 +89,7 @@ describe('NodeCryptoService', () => {
 
     const tampered = wrapped.slice();
     tampered[tampered.length - 1] ^= 0xff;
-    await expect(
-      crypto.unwrapKey(tampered, recipient.privateKey)
-    ).rejects.toThrow();
+    await expect(crypto.unwrapKey(tampered, recipient.privateKey)).rejects.toThrow();
   });
 
   it('signs and verifies', async () => {
@@ -104,21 +98,13 @@ describe('NodeCryptoService', () => {
     const data = new TextEncoder().encode('message');
     const sig = await crypto.sign(data, keys.privateKey);
     const ok = await crypto.verify(data, sig, keys.publicKey);
-    const badData = await crypto.verify(
-      new TextEncoder().encode('tampered'),
-      sig,
-      keys.publicKey
-    );
+    const badData = await crypto.verify(new TextEncoder().encode('tampered'), sig, keys.publicKey);
     const badSig = await crypto.verify(
       data,
       new Uint8Array(sig.map((b, i) => (i === 0 ? b ^ 0xff : b))),
       keys.publicKey
     );
-    const badKey = await crypto.verify(
-      data,
-      sig,
-      (await crypto.generateSigningKeyPair()).publicKey
-    );
+    const badKey = await crypto.verify(data, sig, (await crypto.generateSigningKeyPair()).publicKey);
     expect(ok).toBe(true);
     expect(badData).toBe(false);
     expect(badSig).toBe(false);
@@ -133,14 +119,8 @@ describe('SharingCrypto', () => {
     const senderKeys = await crypto.generateEncryptionKeyPair();
     const recipientKeys = await crypto.generateEncryptionKeyPair();
 
-    const secretA = await sharing.deriveSharedSecret(
-      senderKeys.privateKey,
-      recipientKeys.publicKey
-    );
-    const secretB = await sharing.deriveSharedSecret(
-      recipientKeys.privateKey,
-      senderKeys.publicKey
-    );
+    const secretA = await sharing.deriveSharedSecret(senderKeys.privateKey, recipientKeys.publicKey);
+    const secretB = await sharing.deriveSharedSecret(recipientKeys.privateKey, senderKeys.publicKey);
 
     expect(secretA).toEqual(secretB);
 
@@ -177,10 +157,7 @@ describe('AggregateKeyManager', () => {
       getMasterKey(): Uint8Array | null {
         return this.masterKey ? new Uint8Array(this.masterKey) : null;
       }
-      async saveIdentityKeys(
-        userId: string,
-        keys: IdentityKeys
-      ): Promise<void> {
+      async saveIdentityKeys(userId: string, keys: IdentityKeys): Promise<void> {
         this.identityKeys.set(userId, keys);
       }
       async getIdentityKeys(userId: string): Promise<IdentityKeys | null> {
@@ -218,11 +195,7 @@ describe('AggregateKeyManager', () => {
     const ownerStore = new InMemoryKeyStoreStub();
     const recipientStore = new InMemoryKeyStoreStub();
     const ownerManager = new AggregateKeyManager(ownerStore, crypto, sharing);
-    const recipientManager = new AggregateKeyManager(
-      recipientStore,
-      crypto,
-      sharing
-    );
+    const recipientManager = new AggregateKeyManager(recipientStore, crypto, sharing);
 
     const ownerKeys = await crypto.generateKeyPair();
     const recipientKeys = await crypto.generateKeyPair();
@@ -264,11 +237,6 @@ describe('AggregateKeyManager', () => {
     const crypto = new NodeCryptoService();
     const sharing = new SharingCrypto(crypto);
     const senderKeys = await crypto.generateEncryptionKeyPair();
-    await expect(() =>
-      sharing.deriveSharedSecret(
-        senderKeys.privateKey,
-        new Uint8Array([1, 2, 3])
-      )
-    ).rejects.toThrow();
+    await expect(() => sharing.deriveSharedSecret(senderKeys.privateKey, new Uint8Array([1, 2, 3]))).rejects.toThrow();
   });
 });

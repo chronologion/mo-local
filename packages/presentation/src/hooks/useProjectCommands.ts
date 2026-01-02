@@ -77,9 +77,7 @@ export const useProjectCommands = () => {
 
   const loadKnownVersion = useCallback(
     async (projectId: string): Promise<number> => {
-      const current = await services.projectQueryBus.dispatch(
-        new GetProjectByIdQuery(projectId)
-      );
+      const current = await services.projectQueryBus.dispatch(new GetProjectByIdQuery(projectId));
       if (Array.isArray(current)) {
         throw new Error('Invalid query result');
       }
@@ -161,9 +159,7 @@ export const useProjectCommands = () => {
       }
       if (params.startDate !== undefined || params.targetDate !== undefined) {
         if (!params.startDate || !params.targetDate) {
-          throw new Error(
-            'Both start and target dates are required to change project dates'
-          );
+          throw new Error('Both start and target dates are required to change project dates');
         }
         await dispatch(
           new ChangeProjectDates(
@@ -229,10 +225,7 @@ export const useProjectCommands = () => {
   );
 
   const addMilestone = useCallback(
-    async (
-      projectId: string,
-      milestone: { name: string; targetDate: string }
-    ) => {
+    async (projectId: string, milestone: { name: string; targetDate: string }) => {
       const actorId = ensureUserId();
       const knownVersion = await loadKnownVersion(projectId);
       return dispatch(
@@ -253,11 +246,7 @@ export const useProjectCommands = () => {
   );
 
   const updateMilestone = useCallback(
-    async (
-      projectId: string,
-      milestoneId: string,
-      changes: { name?: string; targetDate?: string }
-    ) => {
+    async (projectId: string, milestoneId: string, changes: { name?: string; targetDate?: string }) => {
       const actorId = ensureUserId();
       let knownVersion = await loadKnownVersion(projectId);
       if (changes.name) {

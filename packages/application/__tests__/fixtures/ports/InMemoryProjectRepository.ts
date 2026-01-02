@@ -30,11 +30,7 @@ export class InMemoryProjectRepository implements ProjectRepositoryPort {
     this.store.set(project.id.value, { project, encryptionKey });
   }
 
-  async archive(
-    id: ProjectId,
-    archivedAt: Timestamp,
-    actorId: UserId
-  ): Promise<void> {
+  async archive(id: ProjectId, archivedAt: Timestamp, actorId: UserId): Promise<void> {
     const stored = this.store.get(id.value);
     if (!stored) return;
     stored.project.archive({ archivedAt, actorId });

@@ -77,20 +77,14 @@ export class Month extends ValueObject<string> {
    * ```
    */
   isBefore(other: Month): boolean {
-    return (
-      this._year < other._year ||
-      (this._year === other._year && this._month < other._month)
-    );
+    return this._year < other._year || (this._year === other._year && this._month < other._month);
   }
 
   /**
    * Check if this month is after another month.
    */
   isAfter(other: Month): boolean {
-    return (
-      this._year > other._year ||
-      (this._year === other._year && this._month > other._month)
-    );
+    return this._year > other._year || (this._year === other._year && this._month > other._month);
   }
 
   /**

@@ -6,10 +6,7 @@ import { EncryptedEvent, EventFilter } from './types';
 export interface EventStorePort {
   append(aggregateId: string, events: EncryptedEvent[]): Promise<void>;
 
-  getEvents(
-    aggregateId: string,
-    fromVersion?: number
-  ): Promise<EncryptedEvent[]>;
+  getEvents(aggregateId: string, fromVersion?: number): Promise<EncryptedEvent[]>;
 
   getAllEvents(filter?: EventFilter): Promise<EncryptedEvent[]>;
 }

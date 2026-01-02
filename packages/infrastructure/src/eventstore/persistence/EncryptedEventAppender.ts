@@ -1,12 +1,7 @@
 import { ConcurrencyError } from '@mo/application';
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
-import type {
-  AppendedEncryptedEvent,
-  EncryptedEventToAppend,
-  EventTableSpec,
-  KnownVersion,
-} from './types';
+import type { AppendedEncryptedEvent, EncryptedEventToAppend, EventTableSpec, KnownVersion } from './types';
 
 export interface EncryptedEventAppender {
   appendForAggregate(
@@ -27,24 +22,16 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     if (events.length === 0) return [];
 
     const sorted = [...events].sort((a, b) => a.version - b.version);
-    const expectedStartVersion = await this.readExpectedStartVersion(
-      db,
-      spec,
-      known
-    );
+    const expectedStartVersion = await this.readExpectedStartVersion(db, spec, known);
 
     if (sorted[0]?.version !== expectedStartVersion) {
-      throw new ConcurrencyError(
-        `Version conflict for ${known.aggregateId}: expected ${expectedStartVersion}`
-      );
+      throw new ConcurrencyError(`Version conflict for ${known.aggregateId}: expected ${expectedStartVersion}`);
     }
 
     for (let idx = 1; idx < sorted.length; idx += 1) {
       const expected = expectedStartVersion + idx;
       if (sorted[idx]?.version !== expected) {
-        throw new ConcurrencyError(
-          `Non-monotonic versions for ${known.aggregateId}: expected ${expected}`
-        );
+        throw new ConcurrencyError(`Non-monotonic versions for ${known.aggregateId}: expected ${expected}`);
       }
     }
 
@@ -118,11 +105,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     }));
   }
 
-  private async readExpectedStartVersion(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    known: KnownVersion
-  ): Promise<number> {
+  private async readExpectedStartVersion(db: SqliteDbPort, spec: EventTableSpec, known: KnownVersion): Promise<number> {
     const rows = await db.query<Readonly<{ version: number | null }>>(
       `SELECT MAX(version) as version FROM ${spec.table} WHERE aggregate_type = ? AND aggregate_id = ?`,
       [spec.aggregateType, known.aggregateId]
@@ -142,9 +125,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
       return String((error as { code?: unknown }).code).includes('CONSTRAINT');
     }
     if ('message' in error) {
-      return String((error as { message?: unknown }).message).includes(
-        'CONSTRAINT'
-      );
+      return String((error as { message?: unknown }).message).includes('CONSTRAINT');
     }
     return false;
   }
@@ -153,10 +134,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     if (!error || typeof error !== 'object') return false;
     if ('message' in error) {
       const message = String((error as { message?: unknown }).message);
-      return (
-        message.includes('RETURNING') &&
-        (message.includes('syntax') || message.includes('near'))
-      );
+      return message.includes('RETURNING') && (message.includes('syntax') || message.includes('near'));
     }
     return false;
   }
@@ -184,31 +162,25 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
   > {
     try {
       const results = await db.batch(statements);
-      const rows = results.flatMap((result) =>
-        result.kind === SqliteStatementKinds.query ? result.rows : []
-      );
+      const rows = results.flatMap((result) => (result.kind === SqliteStatementKinds.query ? result.rows : []));
       if (rows.length === eventIds.length) {
         return rows.map((row) => this.toReturningRow(row));
       }
       throw new Error('RETURNING did not return all rows');
     } catch (error) {
       if (this.isConstraintError(error)) {
-        throw new ConcurrencyError(
-          'Version conflict for aggregate: concurrent write detected'
-        );
+        throw new ConcurrencyError('Version conflict for aggregate: concurrent write detected');
       }
       if (!this.isReturningUnsupported(error)) {
         throw error;
       }
     }
 
-    const fallbackStatements: SqliteStatement[] = statements.map(
-      (statement) => ({
-        kind: SqliteStatementKinds.execute,
-        sql: statement.sql.replace(/\s+RETURNING[\s\S]*$/i, ''),
-        params: statement.params,
-      })
-    );
+    const fallbackStatements: SqliteStatement[] = statements.map((statement) => ({
+      kind: SqliteStatementKinds.execute,
+      sql: statement.sql.replace(/\s+RETURNING[\s\S]*$/i, ''),
+      params: statement.params,
+    }));
 
     await db.batch(fallbackStatements);
 
@@ -279,8 +251,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     }
 
     const keyringUpdateValue = row.keyring_update;
-    const keyringUpdate =
-      keyringUpdateValue instanceof Uint8Array ? keyringUpdateValue : null;
+    const keyringUpdate = keyringUpdateValue instanceof Uint8Array ? keyringUpdateValue : null;
 
     return {
       commit_sequence: commitSequence,
@@ -298,10 +269,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     };
   }
 
-  private readString(
-    row: Readonly<Record<string, unknown>>,
-    key: string
-  ): string {
+  private readString(row: Readonly<Record<string, unknown>>, key: string): string {
     const value = row[key];
     if (typeof value !== 'string') {
       throw new Error(`RETURNING row missing ${key}`);
@@ -309,10 +277,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     return value;
   }
 
-  private readNullableString(
-    row: Readonly<Record<string, unknown>>,
-    key: string
-  ): string | null {
+  private readNullableString(row: Readonly<Record<string, unknown>>, key: string): string | null {
     const value = row[key];
     if (value === null || value === undefined) return null;
     if (typeof value !== 'string') {
@@ -321,10 +286,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     return value;
   }
 
-  private readNumber(
-    row: Readonly<Record<string, unknown>>,
-    key: string
-  ): number {
+  private readNumber(row: Readonly<Record<string, unknown>>, key: string): number {
     const value = row[key];
     if (typeof value === 'number') return value;
     if (typeof value === 'bigint') {
@@ -337,10 +299,7 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     throw new Error(`RETURNING row ${key} is not numeric`);
   }
 
-  private readNullableNumber(
-    row: Readonly<Record<string, unknown>>,
-    key: string
-  ): number | null {
+  private readNullableNumber(row: Readonly<Record<string, unknown>>, key: string): number | null {
     const value = row[key];
     if (value === null || value === undefined) return null;
     return this.readNumber(row, key);

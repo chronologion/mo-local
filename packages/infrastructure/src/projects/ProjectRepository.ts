@@ -1,10 +1,4 @@
-import {
-  Project,
-  ProjectId,
-  Timestamp,
-  UserId,
-  projectEventTypes,
-} from '@mo/domain';
+import { Project, ProjectId, Timestamp, UserId, projectEventTypes } from '@mo/domain';
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
@@ -22,15 +16,9 @@ import { EncryptedEventToDomainAdapter } from '../eventstore/adapters/EncryptedE
 import { WebCryptoService } from '../crypto/WebCryptoService';
 import { KeyringManager } from '../crypto/KeyringManager';
 import { PersistenceError } from '../errors';
-import {
-  decodeProjectSnapshotDomain,
-  encodeProjectSnapshotPayload,
-} from './snapshots/ProjectSnapshotCodec';
+import { decodeProjectSnapshotDomain, encodeProjectSnapshotPayload } from './snapshots/ProjectSnapshotCodec';
 import { buildSnapshotAad } from '../eventing/aad';
-import {
-  SqliteSnapshotStore,
-  type SnapshotStore,
-} from '../eventstore/persistence/SnapshotStore';
+import { SqliteSnapshotStore, type SnapshotStore } from '../eventstore/persistence/SnapshotStore';
 
 /**
  * Browser-friendly project repository that uses encrypted event persistence.
@@ -56,14 +44,9 @@ export class ProjectRepository implements ProjectRepositoryPort {
 
   async load(id: ProjectId): Promise<Option<Project>> {
     const snapshotKey = await this.keyStore.getAggregateKey(id.value);
-    const loadedSnapshot = snapshotKey
-      ? await this.loadSnapshot(id.value, snapshotKey)
-      : null;
+    const loadedSnapshot = snapshotKey ? await this.loadSnapshot(id.value, snapshotKey) : null;
     const tailEvents = loadedSnapshot
-      ? await this.eventStore.getEvents(
-          id.value,
-          loadedSnapshot.snapshot.version + 1
-        )
+      ? await this.eventStore.getEvents(id.value, loadedSnapshot.snapshot.version + 1)
       : await this.eventStore.getEvents(id.value, 1);
     if (!loadedSnapshot && tailEvents.length === 0) return none();
 
@@ -74,9 +57,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     }
 
     if (loadedSnapshot) {
-      return some(
-        Project.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail)
-      );
+      return some(Project.reconstituteFromSnapshot(loadedSnapshot.snapshot, domainTail));
     }
     return some(Project.reconstitute(id, domainTail));
   }
@@ -86,9 +67,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     if (pending.length === 0) return;
 
     const snapshot = await this.loadSnapshot(project.id.value, encryptionKey);
-    const eventVersionRows = await this.db.query<
-      Readonly<{ version: number | null }>
-    >(
+    const eventVersionRows = await this.db.query<Readonly<{ version: number | null }>>(
       `
         SELECT MAX(version) as version
         FROM events
@@ -97,10 +76,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
       [AggregateTypes.project, project.id.value]
     );
     const maxEventVersion = Number(eventVersionRows[0]?.version ?? 0);
-    const baseVersion = Math.max(
-      maxEventVersion,
-      snapshot?.snapshot.version ?? 0
-    );
+    const baseVersion = Math.max(maxEventVersion, snapshot?.snapshot.version ?? 0);
     const startVersion = baseVersion + 1;
     try {
       const encrypted = [];
@@ -113,14 +89,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
           event.occurredAt.value,
           encryptionKey
         );
-        encrypted.push(
-          await this.toEncrypted.toEncrypted(
-            event,
-            startVersion + idx,
-            encryptionKey,
-            options
-          )
-        );
+        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey, options));
       }
       await this.eventStore.append(project.id.value, encrypted);
       await this.persistSnapshot(project, encryptionKey);
@@ -129,19 +98,12 @@ export class ProjectRepository implements ProjectRepositoryPort {
       if (error instanceof ConcurrencyError) {
         throw error;
       }
-      const message =
-        error instanceof Error ? error.message : 'Unknown persistence error';
-      throw new PersistenceError(
-        `Failed to save project ${project.id.value}: ${message}`
-      );
+      const message = error instanceof Error ? error.message : 'Unknown persistence error';
+      throw new PersistenceError(`Failed to save project ${project.id.value}: ${message}`);
     }
   }
 
-  async archive(
-    _id: ProjectId,
-    _archivedAt: Timestamp,
-    _actorId: UserId
-  ): Promise<void> {
+  async archive(_id: ProjectId, _archivedAt: Timestamp, _actorId: UserId): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
   }
 
@@ -153,11 +115,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
   ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
     let keyringUpdate: Uint8Array | undefined;
     if (eventType === projectEventTypes.projectCreated) {
-      const update = await this.keyringManager.createInitialUpdate(
-        aggregateId,
-        encryptionKey,
-        occurredAt
-      );
+      const update = await this.keyringManager.createInitialUpdate(aggregateId, encryptionKey, occurredAt);
       keyringUpdate = update?.keyringUpdate;
     }
     const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
@@ -168,10 +126,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     return { epoch, keyringUpdate };
   }
 
-  private async persistSnapshot(
-    project: Project,
-    encryptionKey: Uint8Array
-  ): Promise<void> {
+  private async persistSnapshot(project: Project, encryptionKey: Uint8Array): Promise<void> {
     const snapshotVersion = project.version;
     const payload = {
       id: project.id.value,
@@ -193,11 +148,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
       version: snapshotVersion,
     };
     const aad = buildSnapshotAad(project.id.value, snapshotVersion);
-    const cipher = await this.crypto.encrypt(
-      encodeProjectSnapshotPayload(payload),
-      encryptionKey,
-      aad
-    );
+    const cipher = await this.crypto.encrypt(encodeProjectSnapshotPayload(payload), encryptionKey, aad);
     await this.snapshotStore.put(
       this.db,
       { table: 'events', aggregateType: AggregateTypes.project },
@@ -211,10 +162,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     );
   }
 
-  private async loadSnapshot(
-    aggregateId: string,
-    key: Uint8Array
-  ): Promise<{ snapshot: ProjectSnapshot } | null> {
+  private async loadSnapshot(aggregateId: string, key: Uint8Array): Promise<{ snapshot: ProjectSnapshot } | null> {
     const record = await this.snapshotStore.get(
       this.db,
       { table: 'events', aggregateType: AggregateTypes.project },
@@ -234,10 +182,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     }
     try {
       return {
-        snapshot: decodeProjectSnapshotDomain(
-          plaintext,
-          record.snapshotVersion
-        ),
+        snapshot: decodeProjectSnapshotDomain(plaintext, record.snapshotVersion),
       };
     } catch {
       await this.purgeCorruptSnapshot(aggregateId);
@@ -256,13 +201,10 @@ export class ProjectRepository implements ProjectRepositoryPort {
   }
 
   private async purgeCorruptSnapshot(aggregateId: string): Promise<void> {
-    console.warn(
-      '[ProjectRepository] Corrupt snapshot detected; removing',
-      aggregateId
-    );
-    await this.db.execute(
-      'DELETE FROM snapshots WHERE aggregate_type = ? AND aggregate_id = ?',
-      [AggregateTypes.project, aggregateId]
-    );
+    console.warn('[ProjectRepository] Corrupt snapshot detected; removing', aggregateId);
+    await this.db.execute('DELETE FROM snapshots WHERE aggregate_type = ? AND aggregate_id = ?', [
+      AggregateTypes.project,
+      aggregateId,
+    ]);
   }
 }

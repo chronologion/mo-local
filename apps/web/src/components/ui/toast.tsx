@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 type Toast = {
@@ -25,9 +19,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback((input: Omit<Toast, 'id'>) => {
     const id = crypto.randomUUID();
     setToasts((prev) => {
-      const duplicate = prev.find(
-        (t) => t.title === input.title && t.description === input.description
-      );
+      const duplicate = prev.find((t) => t.title === input.title && t.description === input.description);
       if (duplicate) return prev;
       return [...prev, { id, ...input }];
     });
@@ -50,16 +42,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               'animate-in slide-in-from-top-2 fade-in-0'
             )}
           >
-            {item.title ? (
-              <div className="text-sm font-semibold text-foreground">
-                {item.title}
-              </div>
-            ) : null}
-            {item.description ? (
-              <p className="text-sm text-muted-foreground">
-                {item.description}
-              </p>
-            ) : null}
+            {item.title ? <div className="text-sm font-semibold text-foreground">{item.title}</div> : null}
+            {item.description ? <p className="text-sm text-muted-foreground">{item.description}</p> : null}
           </div>
         ))}
       </div>

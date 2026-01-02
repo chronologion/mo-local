@@ -18,11 +18,7 @@ export const sliceOptions: SliceValue[] = [
   'Leisure',
 ];
 
-export const priorityOptions: Array<GoalFormValues['priority']> = [
-  'must',
-  'should',
-  'maybe',
-];
+export const priorityOptions: Array<GoalFormValues['priority']> = ['must', 'should', 'maybe'];
 
 export const getDefaultTargetMonth = (): string => {
   const now = new Date();

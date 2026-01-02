@@ -11,10 +11,7 @@ export interface GoalRefinedPayload {
   changedAt: Timestamp;
 }
 
-export class GoalRefined
-  extends DomainEvent<GoalId>
-  implements GoalRefinedPayload
-{
+export class GoalRefined extends DomainEvent<GoalId> implements GoalRefinedPayload {
   readonly eventType = goalEventTypes.goalRefined;
 
   readonly goalId: GoalId;
@@ -30,12 +27,12 @@ export class GoalRefined
   }
 }
 
-export const GoalRefinedSpec = payloadEventSpec<
-  GoalRefined,
-  GoalRefinedPayload,
-  GoalId
->(goalEventTypes.goalRefined, (p, meta) => new GoalRefined(p, meta), {
-  goalId: voString(GoalId.from),
-  summary: voString(Summary.from),
-  changedAt: voNumber(Timestamp.fromMillis),
-});
+export const GoalRefinedSpec = payloadEventSpec<GoalRefined, GoalRefinedPayload, GoalId>(
+  goalEventTypes.goalRefined,
+  (p, meta) => new GoalRefined(p, meta),
+  {
+    goalId: voString(GoalId.from),
+    summary: voString(Summary.from),
+    changedAt: voNumber(Timestamp.fromMillis),
+  }
+);

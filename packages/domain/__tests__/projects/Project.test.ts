@@ -36,9 +36,7 @@ describe('Project aggregate', () => {
     expect(project.targetDate.equals(nextMonth)).toBe(true);
     expect(project.description.value).toBe('A sample project');
     expect(project.milestones).toHaveLength(0);
-    expect(project.createdAt.toISOString()).toBe(
-      project.updatedAt.toISOString()
-    );
+    expect(project.createdAt.toISOString()).toBe(project.updatedAt.toISOString());
     const events = project.getUncommittedEvents();
     expect(events).toHaveLength(1);
     expect(events[0].eventType).toBe('ProjectCreated');
@@ -150,11 +148,7 @@ describe('Project aggregate', () => {
       createdAt,
     });
 
-    const newTargetDate = LocalDate.from(
-      today.year,
-      today.month,
-      Math.min(today.day + 2, 28)
-    );
+    const newTargetDate = LocalDate.from(today.year, today.month, Math.min(today.day + 2, 28));
     project.changeDates({
       startDate: today,
       targetDate: newTargetDate,
@@ -195,20 +189,14 @@ describe('Project aggregate', () => {
     });
     expect(project.milestones[0]?.name.value).toBe('Renamed');
 
-    const rescheduledDate = LocalDate.from(
-      today.year,
-      today.month,
-      Math.min(today.day + 1, 28)
-    );
+    const rescheduledDate = LocalDate.from(today.year, today.month, Math.min(today.day + 1, 28));
     project.changeMilestoneTargetDate({
       milestoneId,
       targetDate: rescheduledDate,
       changedAt: laterAt,
       actorId: UserId.from('user-4c'),
     });
-    expect(project.milestones[0]?.targetDate.equals(rescheduledDate)).toBe(
-      true
-    );
+    expect(project.milestones[0]?.targetDate.equals(rescheduledDate)).toBe(true);
 
     project.archiveMilestone({
       milestoneId,
@@ -301,10 +289,7 @@ describe('Project aggregate', () => {
       actorId: UserId.from('user-7'),
     });
     expect(project.status.equals(ProjectStatus.InProgress)).toBe(true);
-    expect(
-      project.updatedAt.isAfter(initialUpdated) ||
-        project.updatedAt.equals(initialUpdated)
-    ).toBe(true);
+    expect(project.updatedAt.isAfter(initialUpdated) || project.updatedAt.equals(initialUpdated)).toBe(true);
 
     project.changeStatus({
       status: ProjectStatus.Planned,
@@ -340,8 +325,6 @@ describe('Project aggregate', () => {
     });
     project.archive({ archivedAt: changedAt, actorId: UserId.from('user-8') });
     expect(project.archivedAt).not.toBeNull();
-    expect(project.updatedAt.toISOString()).toBe(
-      project.archivedAt?.toISOString()
-    );
+    expect(project.updatedAt.toISOString()).toBe(project.archivedAt?.toISOString());
   });
 });

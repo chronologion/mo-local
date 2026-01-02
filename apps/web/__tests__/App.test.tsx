@@ -55,17 +55,13 @@ describe('App', () => {
   });
 
   it('shows unlock when locked', () => {
-    mockedUseApp.mockReturnValue(
-      makeContext({ status: 'locked', userId: 'user-1' })
-    );
+    mockedUseApp.mockReturnValue(makeContext({ status: 'locked', userId: 'user-1' }));
     render(<App />);
     expect(screen.getByText('Unlock Stub')).not.toBeNull();
   });
 
   it('renders tabs and switches pages when ready', async () => {
-    mockedUseApp.mockReturnValue(
-      makeContext({ status: 'ready', userId: 'user-1' })
-    );
+    mockedUseApp.mockReturnValue(makeContext({ status: 'ready', userId: 'user-1' }));
     render(<App />);
 
     expect(await screen.findByText('GoalsPage Stub')).not.toBeNull();

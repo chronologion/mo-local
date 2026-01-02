@@ -13,10 +13,7 @@ export interface ProjectMilestoneRenamedPayload {
   changedAt: Timestamp;
 }
 
-export class ProjectMilestoneRenamed
-  extends DomainEvent<ProjectId>
-  implements ProjectMilestoneRenamedPayload
-{
+export class ProjectMilestoneRenamed extends DomainEvent<ProjectId> implements ProjectMilestoneRenamedPayload {
   readonly eventType = projectEventTypes.projectMilestoneRenamed;
 
   readonly projectId: ProjectId;
@@ -24,10 +21,7 @@ export class ProjectMilestoneRenamed
   readonly name: MilestoneName;
   readonly changedAt: Timestamp;
 
-  constructor(
-    payload: ProjectMilestoneRenamedPayload,
-    meta: EventMetadata<ProjectId>
-  ) {
+  constructor(payload: ProjectMilestoneRenamedPayload, meta: EventMetadata<ProjectId>) {
     super(meta);
     this.projectId = this.aggregateId;
     this.milestoneId = payload.milestoneId;
@@ -41,13 +35,9 @@ export const ProjectMilestoneRenamedSpec = payloadEventSpec<
   ProjectMilestoneRenamed,
   ProjectMilestoneRenamedPayload,
   ProjectId
->(
-  projectEventTypes.projectMilestoneRenamed,
-  (p, meta) => new ProjectMilestoneRenamed(p, meta),
-  {
-    projectId: voString(ProjectId.from),
-    milestoneId: voString(MilestoneId.from),
-    name: voString(MilestoneName.from),
-    changedAt: voNumber(Timestamp.fromMillis),
-  }
-);
+>(projectEventTypes.projectMilestoneRenamed, (p, meta) => new ProjectMilestoneRenamed(p, meta), {
+  projectId: voString(ProjectId.from),
+  milestoneId: voString(MilestoneId.from),
+  name: voString(MilestoneName.from),
+  changedAt: voNumber(Timestamp.fromMillis),
+});

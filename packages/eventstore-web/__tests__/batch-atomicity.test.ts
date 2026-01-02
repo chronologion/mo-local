@@ -26,10 +26,7 @@ const describeIfBrowser = isNode ? describe.skip : describe;
 describeIfBrowser('batch atomicity', () => {
   it('rolls back when a statement fails', async () => {
     const ctx = await createMemoryContext();
-    await ctx.sqlite3.exec(
-      ctx.db,
-      'CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)'
-    );
+    await ctx.sqlite3.exec(ctx.db, 'CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)');
 
     await expect(
       executeStatements(ctx, [
@@ -46,39 +43,22 @@ describeIfBrowser('batch atomicity', () => {
       ])
     ).rejects.toThrow();
 
-    const rows = await runQuery(
-      ctx.sqlite3,
-      ctx.db,
-      'SELECT COUNT(*) as count FROM demo',
-      []
-    );
+    const rows = await runQuery(ctx.sqlite3, ctx.db, 'SELECT COUNT(*) as count FROM demo', []);
     expect(rows[0]?.count).toBe(0);
   });
 
   it('persists data across reopen within the same VFS', async () => {
     const ctx = await createMemoryContext();
-    await ctx.sqlite3.exec(
-      ctx.db,
-      'CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)'
-    );
-    await ctx.sqlite3.exec(
-      ctx.db,
-      'INSERT INTO demo (id, name) VALUES (1, "a")'
-    );
+    await ctx.sqlite3.exec(ctx.db, 'CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)');
+    await ctx.sqlite3.exec(ctx.db, 'INSERT INTO demo (id, name) VALUES (1, "a")');
     await ctx.sqlite3.close(ctx.db);
 
     const db2 = await ctx.sqlite3.open_v2(
       'test.db',
-      SQLiteConstants.SQLITE_OPEN_CREATE |
-        SQLiteConstants.SQLITE_OPEN_READWRITE,
+      SQLiteConstants.SQLITE_OPEN_CREATE | SQLiteConstants.SQLITE_OPEN_READWRITE,
       ctx.vfs.name
     );
-    const rows = await runQuery(
-      ctx.sqlite3,
-      db2,
-      'SELECT COUNT(*) as count FROM demo',
-      []
-    );
+    const rows = await runQuery(ctx.sqlite3, db2, 'SELECT COUNT(*) as count FROM demo', []);
     expect(rows[0]?.count).toBe(1);
   });
 });

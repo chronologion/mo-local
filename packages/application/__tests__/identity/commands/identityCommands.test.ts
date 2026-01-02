@@ -16,9 +16,7 @@ describe('RegisterUserCommand validation', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors.some((e) => e.field === 'signingPublicKey')).toBe(
-        true
-      );
+      expect(result.errors.some((e) => e.field === 'signingPublicKey')).toBe(true);
     }
   });
 });

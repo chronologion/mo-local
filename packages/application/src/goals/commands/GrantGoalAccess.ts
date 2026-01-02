@@ -1,7 +1,4 @@
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type AccessPermission = 'view' | 'edit';
 
@@ -13,10 +10,7 @@ export type GrantGoalAccessPayload = {
   knownVersion: number;
 };
 
-export class GrantGoalAccess
-  extends BaseCommand<GrantGoalAccessPayload>
-  implements Readonly<GrantGoalAccessPayload>
-{
+export class GrantGoalAccess extends BaseCommand<GrantGoalAccessPayload> implements Readonly<GrantGoalAccessPayload> {
   readonly goalId: string;
   readonly grantToUserId: string;
   readonly permission: AccessPermission;

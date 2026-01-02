@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ConcurrencyError } from '@mo/application';
 import { AggregateTypes } from '@mo/eventstore-core';
 import { SqliteEncryptedEventAppender } from '../../src/eventstore/persistence/EncryptedEventAppender';
-import type {
-  EncryptedEventToAppend,
-  EventTableSpec,
-} from '../../src/eventstore/persistence/types';
+import type { EncryptedEventToAppend, EventTableSpec } from '../../src/eventstore/persistence/types';
 import { TestSqliteDb } from './TestSqliteDb';
 
 const spec: EventTableSpec = {
@@ -13,9 +10,7 @@ const spec: EventTableSpec = {
   aggregateType: AggregateTypes.goal,
 };
 
-const buildEvent = (
-  overrides?: Partial<EncryptedEventToAppend>
-): EncryptedEventToAppend => ({
+const buildEvent = (overrides?: Partial<EncryptedEventToAppend>): EncryptedEventToAppend => ({
   eventId: overrides?.eventId ?? 'event-1',
   aggregateId: overrides?.aggregateId ?? 'goal-1',
   eventType: overrides?.eventType ?? 'GoalCreated',
@@ -53,12 +48,9 @@ describe('SqliteEncryptedEventAppender', () => {
     const appender = new SqliteEncryptedEventAppender();
 
     await expect(
-      appender.appendForAggregate(
-        db,
-        spec,
-        { aggregateId: 'goal-1', version: 1 },
-        [buildEvent({ version: 3, eventId: 'event-3' })]
-      )
+      appender.appendForAggregate(db, spec, { aggregateId: 'goal-1', version: 1 }, [
+        buildEvent({ version: 3, eventId: 'event-3' }),
+      ])
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 
@@ -67,12 +59,9 @@ describe('SqliteEncryptedEventAppender', () => {
     const appender = new SqliteEncryptedEventAppender();
 
     await expect(
-      appender.appendForAggregate(
-        db,
-        spec,
-        { aggregateId: 'goal-1', version: null },
-        [buildEvent({ version: 2, eventId: 'event-2' })]
-      )
+      appender.appendForAggregate(db, spec, { aggregateId: 'goal-1', version: null }, [
+        buildEvent({ version: 2, eventId: 'event-2' }),
+      ])
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 
@@ -80,15 +69,10 @@ describe('SqliteEncryptedEventAppender', () => {
     const db = new TestSqliteDb();
     const appender = new SqliteEncryptedEventAppender();
 
-    const appended = await appender.appendForAggregate(
-      db,
-      spec,
-      { aggregateId: 'goal-1', version: null },
-      [
-        buildEvent({ eventId: 'event-1', version: 1 }),
-        buildEvent({ eventId: 'event-2', version: 2 }),
-      ]
-    );
+    const appended = await appender.appendForAggregate(db, spec, { aggregateId: 'goal-1', version: null }, [
+      buildEvent({ eventId: 'event-1', version: 1 }),
+      buildEvent({ eventId: 'event-2', version: 2 }),
+    ]);
 
     expect(appended).toHaveLength(2);
     expect(appended[0]?.commitSequence).toBe(1);
@@ -118,12 +102,9 @@ describe('SqliteEncryptedEventAppender', () => {
     const appender = new SqliteEncryptedEventAppender();
 
     await expect(
-      appender.appendForAggregate(
-        db,
-        spec,
-        { aggregateId: 'goal-1', version: null },
-        [buildEvent({ eventId: 'event-2', version: 1 })]
-      )
+      appender.appendForAggregate(db, spec, { aggregateId: 'goal-1', version: null }, [
+        buildEvent({ eventId: 'event-2', version: 1 }),
+      ])
     ).rejects.toBeInstanceOf(ConcurrencyError);
   });
 });

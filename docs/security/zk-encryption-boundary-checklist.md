@@ -44,4 +44,3 @@ This is an audit checklist for `INV-006 ZK encryption boundary`: the server must
 
 - `apps/api/src/sync/**` — sync endpoints and persistence
 - `apps/api/__tests__/security/zk-boundary.test.ts` — automated guard for server-side imports
-

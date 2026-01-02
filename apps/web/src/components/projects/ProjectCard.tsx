@@ -6,13 +6,7 @@ import { RefreshCw, Archive, Pencil, Plus } from 'lucide-react';
 import { MilestonesList } from './ProjectMilestones';
 import { ProjectMilestoneInput } from './ProjectMilestoneInput';
 import { useToast } from '../ui/toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 type ProjectCardProps = {
@@ -33,10 +27,7 @@ type ProjectCardProps = {
   onArchive: (projectId: string) => Promise<void>;
   isUpdating: boolean;
   isArchiving: boolean;
-  onAddMilestone: (
-    projectId: string,
-    milestone: { name: string; targetDate: string }
-  ) => Promise<void>;
+  onAddMilestone: (projectId: string, milestone: { name: string; targetDate: string }) => Promise<void>;
   onUpdateMilestone: (
     projectId: string,
     milestoneId: string,
@@ -45,12 +36,7 @@ type ProjectCardProps = {
   onArchiveMilestone: (projectId: string, milestoneId: string) => Promise<void>;
 };
 
-const statusOptions: ProjectListItemDto['status'][] = [
-  'planned',
-  'in_progress',
-  'completed',
-  'canceled',
-];
+const statusOptions: ProjectListItemDto['status'][] = ['planned', 'in_progress', 'completed', 'canceled'];
 const statusLabels: Record<ProjectListItemDto['status'], string> = {
   planned: 'Planned',
   in_progress: 'In progress',
@@ -73,10 +59,7 @@ export function ProjectCard({
   const [milestoneOpen, setMilestoneOpen] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
   const toast = useToast();
-  const nextStatuses = useMemo(
-    () => statusOptions.filter((status) => status !== project.status),
-    [project.status]
-  );
+  const nextStatuses = useMemo(() => statusOptions.filter((status) => status !== project.status), [project.status]);
 
   const linkLabel = project.goalId
     ? (goals.find((g) => g.id === project.goalId)?.summary ?? project.goalId)
@@ -109,10 +92,7 @@ export function ProjectCard({
                     status: value as ProjectListItemDto['status'],
                   });
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to change status';
+                  const message = err instanceof Error ? err.message : 'Failed to change status';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -151,10 +131,7 @@ export function ProjectCard({
               try {
                 await onArchive(project.id);
               } catch (err) {
-                const message =
-                  err instanceof Error
-                    ? err.message
-                    : 'Failed to archive project';
+                const message = err instanceof Error ? err.message : 'Failed to archive project';
                 toast({
                   title: 'Project update failed',
                   description: message,
@@ -164,11 +141,7 @@ export function ProjectCard({
             disabled={isArchiving}
             aria-label="Archive project"
           >
-            {isArchiving ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Archive className="h-4 w-4" />
-            )}
+            {isArchiving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
             <span className="sr-only">Archive</span>
           </Button>
         </div>
@@ -194,15 +167,10 @@ export function ProjectCard({
             try {
               await onUpdateMilestone(project.id, milestoneId, changes);
             } catch (err) {
-              const message =
-                err instanceof Error
-                  ? err.message
-                  : 'Failed to update milestone';
+              const message = err instanceof Error ? err.message : 'Failed to update milestone';
               toast({
                 title: 'Milestone update failed',
-                description:
-                  message.replace(/must be true, got: false/i, '').trim() ||
-                  message,
+                description: message.replace(/must be true, got: false/i, '').trim() || message,
               });
             }
           }}
@@ -210,10 +178,7 @@ export function ProjectCard({
             try {
               await onArchiveMilestone(project.id, milestoneId);
             } catch (err) {
-              const message =
-                err instanceof Error
-                  ? err.message
-                  : 'Failed to archive milestone';
+              const message = err instanceof Error ? err.message : 'Failed to archive milestone';
               toast({
                 title: 'Milestone archive failed',
                 description: message,
@@ -235,19 +200,14 @@ export function ProjectCard({
                 await onAddMilestone(project.id, milestone);
                 setMilestoneOpen(false);
               } catch (err) {
-                const message =
-                  err instanceof Error
-                    ? err.message
-                    : 'Failed to add milestone';
+                const message = err instanceof Error ? err.message : 'Failed to add milestone';
                 setMilestoneError(message);
               }
             }}
             startDate={project.startDate}
             targetDate={project.targetDate}
           />
-          {milestoneError ? (
-            <p className="text-sm text-destructive">{milestoneError}</p>
-          ) : null}
+          {milestoneError ? <p className="text-sm text-destructive">{milestoneError}</p> : null}
         </DialogContent>
       </Dialog>
     </div>

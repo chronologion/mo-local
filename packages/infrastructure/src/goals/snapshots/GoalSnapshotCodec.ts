@@ -12,10 +12,7 @@ import {
   type GoalSnapshot,
 } from '@mo/domain';
 import type { GoalSnapshotState } from '../projections/model/GoalProjectionState';
-import {
-  decodeSnapshotEnvelope,
-  encodeSnapshotEnvelope,
-} from '../../snapshots/snapshotEnvelope';
+import { decodeSnapshotEnvelope, encodeSnapshotEnvelope } from '../../snapshots/snapshotEnvelope';
 
 const SNAPSHOT_VERSION = 2;
 
@@ -35,8 +32,7 @@ type GoalSnapshotPayloadV2 = GoalSnapshotPayloadV1 & {
   achievedAt: number | null;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const requireString = (value: unknown, label: string): string => {
   if (typeof value === 'string') return value;
@@ -48,10 +44,7 @@ const requireNumber = (value: unknown, label: string): number => {
   throw new Error(`Goal snapshot ${label} must be a number`);
 };
 
-const requireNullableNumber = (
-  value: unknown,
-  label: string
-): number | null => {
+const requireNullableNumber = (value: unknown, label: string): number | null => {
   if (value === null) return null;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   throw new Error(`Goal snapshot ${label} must be a number or null`);
@@ -63,9 +56,7 @@ const requireSlice = (value: unknown): SliceValue => {
   }
   const match = ALL_SLICES.find((slice) => slice === value);
   if (!match) {
-    throw new Error(
-      `Goal snapshot slice must be one of ${ALL_SLICES.join(', ')}`
-    );
+    throw new Error(`Goal snapshot slice must be one of ${ALL_SLICES.join(', ')}`);
   }
   return match;
 };
@@ -77,9 +68,7 @@ const requirePriority = (value: unknown): PriorityLevel => {
   const levels: PriorityLevel[] = ['must', 'should', 'maybe'];
   const match = levels.find((level) => level === value);
   if (!match) {
-    throw new Error(
-      `Goal snapshot priority must be one of ${levels.join(', ')}`
-    );
+    throw new Error(`Goal snapshot priority must be one of ${levels.join(', ')}`);
   }
   return match;
 };
@@ -112,10 +101,7 @@ const parsePayloadV2 = (data: unknown): GoalSnapshotPayloadV2 => {
   };
 };
 
-const upcastGoalSnapshot = (
-  snapshotVersion: number,
-  data: unknown
-): GoalSnapshotPayloadV2 => {
+const upcastGoalSnapshot = (snapshotVersion: number, data: unknown): GoalSnapshotPayloadV2 => {
   if (snapshotVersion === 1) {
     const v1 = parsePayloadV1(data);
     return {
@@ -142,18 +128,13 @@ const toPayloadV1 = (snapshot: GoalSnapshotState): GoalSnapshotPayloadV2 => ({
   version: snapshot.version,
 });
 
-export const encodeGoalSnapshotState = (
-  snapshot: GoalSnapshotState
-): Uint8Array =>
+export const encodeGoalSnapshotState = (snapshot: GoalSnapshotState): Uint8Array =>
   encodeSnapshotEnvelope({
     snapshotVersion: SNAPSHOT_VERSION,
     data: toPayloadV1(snapshot),
   });
 
-export const decodeGoalSnapshotState = (
-  payload: Uint8Array,
-  aggregateVersion: number
-): GoalSnapshotState => {
+export const decodeGoalSnapshotState = (payload: Uint8Array, aggregateVersion: number): GoalSnapshotState => {
   const { snapshotVersion, data } = decodeSnapshotEnvelope(payload);
   const parsed = upcastGoalSnapshot(snapshotVersion, data);
   return {
@@ -170,10 +151,7 @@ export const decodeGoalSnapshotState = (
   };
 };
 
-export const decodeGoalSnapshotDomain = (
-  payload: Uint8Array,
-  aggregateVersion: number
-): GoalSnapshot => {
+export const decodeGoalSnapshotDomain = (payload: Uint8Array, aggregateVersion: number): GoalSnapshot => {
   const snapshot = decodeGoalSnapshotState(payload, aggregateVersion);
   return {
     id: GoalId.from(snapshot.id),
@@ -183,14 +161,8 @@ export const decodeGoalSnapshotDomain = (
     targetMonth: Month.from(snapshot.targetMonth),
     createdBy: UserId.from(snapshot.createdBy),
     createdAt: Timestamp.fromMillis(snapshot.createdAt),
-    achievedAt:
-      snapshot.achievedAt === null
-        ? null
-        : Timestamp.fromMillis(snapshot.achievedAt),
-    archivedAt:
-      snapshot.archivedAt === null
-        ? null
-        : Timestamp.fromMillis(snapshot.archivedAt),
+    achievedAt: snapshot.achievedAt === null ? null : Timestamp.fromMillis(snapshot.achievedAt),
+    archivedAt: snapshot.archivedAt === null ? null : Timestamp.fromMillis(snapshot.archivedAt),
     version: snapshot.version,
   };
 };

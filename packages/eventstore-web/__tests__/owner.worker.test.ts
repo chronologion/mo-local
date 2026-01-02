@@ -81,8 +81,7 @@ const setupWorker = async () => {
     configurable: true,
     value: {
       locks: {
-        request: (_name: string, _opts: unknown, cb: () => Promise<void>) =>
-          Promise.resolve(cb()),
+        request: (_name: string, _opts: unknown, cb: () => Promise<void>) => Promise.resolve(cb()),
       },
       storage: {
         getDirectory: () => ({}),
@@ -93,16 +92,9 @@ const setupWorker = async () => {
   Object.defineProperty(globalThis, 'self', {
     configurable: true,
     value: {
-      addEventListener: (
-        _type: string,
-        listener: (event: MessageEvent) => void
-      ) => listeners.add(listener),
-      removeEventListener: (
-        _type: string,
-        listener: (event: MessageEvent) => void
-      ) => listeners.delete(listener),
-      postMessage: (message: unknown, transfer?: Transferable[]) =>
-        posted.push({ message, transfer }),
+      addEventListener: (_type: string, listener: (event: MessageEvent) => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: (event: MessageEvent) => void) => listeners.delete(listener),
+      postMessage: (message: unknown, transfer?: Transferable[]) => posted.push({ message, transfer }),
     },
   });
 
@@ -165,8 +157,7 @@ describe('owner.worker', () => {
 
     const response = posted.find(
       (entry) =>
-        (entry.message as WorkerEnvelope).kind ===
-          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).kind === WorkerEnvelopeKinds.response &&
         (entry.message as WorkerEnvelope).requestId === 'req-1'
     );
     expect(response?.message).toMatchObject({
@@ -205,10 +196,7 @@ describe('owner.worker', () => {
     });
     await flush();
 
-    const notify = posted.find(
-      (entry) =>
-        (entry.message as WorkerNotify).kind === WorkerNotifyKinds.tablesChanged
-    );
+    const notify = posted.find((entry) => (entry.message as WorkerNotify).kind === WorkerNotifyKinds.tablesChanged);
     expect(notify?.message).toMatchObject({
       kind: WorkerNotifyKinds.tablesChanged,
       tables: ['events'],
@@ -241,8 +229,7 @@ describe('owner.worker', () => {
 
     const response = posted.find(
       (entry) =>
-        (entry.message as WorkerEnvelope).kind ===
-          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).kind === WorkerEnvelopeKinds.response &&
         (entry.message as WorkerEnvelope).requestId === 'req-cancel'
     );
     expect(response?.message).toMatchObject({
@@ -277,8 +264,7 @@ describe('owner.worker', () => {
 
     const response = posted.find(
       (entry) =>
-        (entry.message as WorkerEnvelope).kind ===
-          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).kind === WorkerEnvelopeKinds.response &&
         (entry.message as WorkerEnvelope).requestId === 'shutdown-1'
     );
     expect(response?.message).toMatchObject({
@@ -307,17 +293,14 @@ describe('owner.worker', () => {
 
     const response = posted.find(
       (entry) =>
-        (entry.message as WorkerEnvelope).kind ===
-          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).kind === WorkerEnvelopeKinds.response &&
         (entry.message as WorkerEnvelope).requestId === 'export-1'
     )?.message as WorkerEnvelope | undefined;
 
     expect(response).toBeTruthy();
     if (response && response.kind === WorkerEnvelopeKinds.response) {
       expect(response.payload).toMatchObject({ kind: WorkerResponseKinds.ok });
-      expect(
-        (response.payload as { kind: string; data: unknown }).data
-      ).toBeInstanceOf(Uint8Array);
+      expect((response.payload as { kind: string; data: unknown }).data).toBeInstanceOf(Uint8Array);
     }
   });
 
@@ -341,8 +324,7 @@ describe('owner.worker', () => {
 
     const response = posted.find(
       (entry) =>
-        (entry.message as WorkerEnvelope).kind ===
-          WorkerEnvelopeKinds.response &&
+        (entry.message as WorkerEnvelope).kind === WorkerEnvelopeKinds.response &&
         (entry.message as WorkerEnvelope).requestId === 'import-1'
     )?.message as WorkerEnvelope | undefined;
 

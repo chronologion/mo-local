@@ -3,10 +3,7 @@ import type { ProjectListItemDto as ProjectListItem } from '@mo/application';
 import { ListProjectsQuery } from '@mo/application';
 import { useInterface } from '../context';
 
-export const useProjects = (filter?: {
-  status?: string;
-  goalId?: string | null;
-}) => {
+export const useProjects = (filter?: { status?: string; goalId?: string | null }) => {
   const { services } = useInterface();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,9 +13,7 @@ export const useProjects = (filter?: {
     setLoading(true);
     setError(null);
     try {
-      const list = await services.projectQueryBus.dispatch(
-        new ListProjectsQuery(filter)
-      );
+      const list = await services.projectQueryBus.dispatch(new ListProjectsQuery(filter));
       if (!Array.isArray(list)) {
         throw new Error('Invalid query result');
       }

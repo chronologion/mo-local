@@ -5,16 +5,8 @@ import type { IdempotencyRecord } from './IdempotencyStorePort';
 
 type FieldParser<TCommand, TResult> = (command: TCommand) => TResult;
 
-type ParsedFromSpec<
-  TCommand,
-  TSpec extends Record<string, FieldParser<TCommand, unknown>>,
-> = {
-  [TKey in keyof TSpec]: TSpec[TKey] extends FieldParser<
-    TCommand,
-    infer TResult
-  >
-    ? TResult
-    : never;
+type ParsedFromSpec<TCommand, TSpec extends Record<string, FieldParser<TCommand, unknown>>> = {
+  [TKey in keyof TSpec]: TSpec[TKey] extends FieldParser<TCommand, infer TResult> ? TResult : never;
 };
 
 /**
@@ -34,10 +26,10 @@ export abstract class BaseCommandHandler {
    * If any parser throws, the error is captured and re-thrown as a
    * ValidationException with field-scoped messages.
    */
-  protected parseCommand<
-    TCommand,
-    TSpec extends Record<string, FieldParser<TCommand, unknown>>,
-  >(command: TCommand, spec: TSpec): ParsedFromSpec<TCommand, TSpec> {
+  protected parseCommand<TCommand, TSpec extends Record<string, FieldParser<TCommand, unknown>>>(
+    command: TCommand,
+    spec: TSpec
+  ): ParsedFromSpec<TCommand, TSpec> {
     const errors: ValidationError[] = [];
     const result: Partial<ParsedFromSpec<TCommand, TSpec>> = {};
 
@@ -45,11 +37,9 @@ export abstract class BaseCommandHandler {
       const parser = spec[field];
       try {
         const value = parser(command);
-        (result as ParsedFromSpec<TCommand, TSpec>)[field] =
-          value as ParsedFromSpec<TCommand, TSpec>[typeof field];
+        (result as ParsedFromSpec<TCommand, TSpec>)[field] = value as ParsedFromSpec<TCommand, TSpec>[typeof field];
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Invalid value';
+        const message = error instanceof Error ? error.message : 'Invalid value';
         errors.push({ field: String(field), message });
       }
     });
@@ -84,10 +74,7 @@ export abstract class BaseCommandHandler {
     expectedAggregateId: string;
   }): void {
     const { existing, expectedCommandType, expectedAggregateId } = params;
-    if (
-      existing.commandType !== expectedCommandType ||
-      existing.aggregateId !== expectedAggregateId
-    ) {
+    if (existing.commandType !== expectedCommandType || existing.aggregateId !== expectedAggregateId) {
       throw new Error(
         `Idempotency key reuse detected for ${existing.key} (existing ${existing.commandType}/${existing.aggregateId}, new ${expectedCommandType}/${expectedAggregateId})`
       );

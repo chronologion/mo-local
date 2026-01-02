@@ -31,9 +31,7 @@ describe('Unlock', () => {
 
     render(<Unlock />);
 
-    const input = document.querySelector(
-      'input[type="password"]'
-    ) as HTMLInputElement | null;
+    const input = document.querySelector('input[type="password"]') as HTMLInputElement | null;
     expect(input).not.toBeNull();
     if (!input) return;
     fireEvent.change(input, { target: { value: 'secret123' } });

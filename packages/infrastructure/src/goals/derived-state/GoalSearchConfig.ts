@@ -24,25 +24,12 @@ type GoalSearchConfig = {
 export const GOAL_SEARCH_CONFIG: GoalSearchConfig = {
   idField: 'id',
   fields: ['summary'],
-  storeFields: [
-    'id',
-    'summary',
-    'slice',
-    'priority',
-    'targetMonth',
-    'createdAt',
-    'achievedAt',
-    'archivedAt',
-  ],
+  storeFields: ['id', 'summary', 'slice', 'priority', 'targetMonth', 'createdAt', 'achievedAt', 'archivedAt'],
   searchOptions: {
     combineWith: 'OR',
     prefix: true,
     fuzzy: 0.3,
     tokenize: (text: string): string[] =>
-      text
-        .split(/\s+/)
-        .flatMap((word) =>
-          word.length >= 3 ? (word.match(/.{1,3}/g) ?? [word]) : [word]
-        ),
+      text.split(/\s+/).flatMap((word) => (word.length >= 3 ? (word.match(/.{1,3}/g) ?? [word]) : [word])),
   },
 };

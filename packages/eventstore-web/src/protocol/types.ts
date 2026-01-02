@@ -12,8 +12,7 @@ export const WorkerEnvelopeKinds = {
   cancel: 'cancel',
 } as const;
 
-export type WorkerEnvelopeKind =
-  (typeof WorkerEnvelopeKinds)[keyof typeof WorkerEnvelopeKinds];
+export type WorkerEnvelopeKind = (typeof WorkerEnvelopeKinds)[keyof typeof WorkerEnvelopeKinds];
 
 export type WorkerEnvelope =
   | Readonly<{
@@ -41,8 +40,7 @@ export const WorkerHelloKinds = {
   helloError: 'hello.error',
 } as const;
 
-export type WorkerHelloKind =
-  (typeof WorkerHelloKinds)[keyof typeof WorkerHelloKinds];
+export type WorkerHelloKind = (typeof WorkerHelloKinds)[keyof typeof WorkerHelloKinds];
 
 export type WorkerHello =
   | Readonly<{
@@ -81,8 +79,7 @@ export const WorkerRequestKinds = {
   readModelGetById: 'readModel.getById',
 } as const;
 
-export type WorkerRequestKind =
-  (typeof WorkerRequestKinds)[keyof typeof WorkerRequestKinds];
+export type WorkerRequestKind = (typeof WorkerRequestKinds)[keyof typeof WorkerRequestKinds];
 
 export type WorkerRequest =
   | Readonly<{
@@ -139,8 +136,7 @@ export const WorkerResponseKinds = {
   error: 'error',
 } as const;
 
-export type WorkerResponseKind =
-  (typeof WorkerResponseKinds)[keyof typeof WorkerResponseKinds];
+export type WorkerResponseKind = (typeof WorkerResponseKinds)[keyof typeof WorkerResponseKinds];
 
 export type WorkerResponse =
   | Readonly<{ kind: typeof WorkerResponseKinds.ok; data: unknown }>
@@ -150,8 +146,7 @@ export const WorkerNotifyKinds = {
   tablesChanged: 'tables.changed',
 } as const;
 
-export type WorkerNotifyKind =
-  (typeof WorkerNotifyKinds)[keyof typeof WorkerNotifyKinds];
+export type WorkerNotifyKind = (typeof WorkerNotifyKinds)[keyof typeof WorkerNotifyKinds];
 
 export type WorkerNotify = Readonly<{
   v: 1;

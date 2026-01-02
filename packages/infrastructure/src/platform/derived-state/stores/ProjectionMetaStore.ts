@@ -128,9 +128,6 @@ export class ProjectionMetaStore {
   }
 
   async remove(projectionId: ProjectionId): Promise<void> {
-    await this.db.execute(
-      'DELETE FROM projection_meta WHERE projection_id = ?',
-      [projectionId]
-    );
+    await this.db.execute('DELETE FROM projection_meta WHERE projection_id = ?', [projectionId]);
   }
 }

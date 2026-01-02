@@ -38,14 +38,9 @@ class FakeProjectReadModel implements ProjectReadModelPort {
     return this.response.find((item) => item.id === id) ?? null;
   }
 
-  async search(
-    term: string,
-    filter?: { status?: string }
-  ): Promise<ProjectListItemDto[]> {
+  async search(term: string, filter?: { status?: string }): Promise<ProjectListItemDto[]> {
     this.searchCalls.push({ term, filter });
-    return this.response.filter((item) =>
-      item.name.toLowerCase().includes(term.toLowerCase())
-    );
+    return this.response.filter((item) => item.name.toLowerCase().includes(term.toLowerCase()));
   }
 }
 
@@ -76,9 +71,7 @@ describe('ProjectQueryHandler', () => {
     const handler = new ProjectQueryHandler(readModel);
     const filter = { status: 'planned' };
 
-    const result = await handler.execute(
-      new SearchProjectsQuery('project', filter)
-    );
+    const result = await handler.execute(new SearchProjectsQuery('project', filter));
 
     expect(result).toEqual([sampleProject]);
     expect(readModel.searchCalls).toEqual([{ term: 'project', filter }]);

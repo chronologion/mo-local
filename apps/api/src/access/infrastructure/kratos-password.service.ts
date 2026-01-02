@@ -9,11 +9,9 @@ type KratosSession = {
   email?: string;
 };
 
-const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null;
+const isObject = (value: unknown): value is JsonObject => typeof value === 'object' && value !== null;
 
-const isUnknownArray = (value: unknown): value is unknown[] =>
-  Array.isArray(value);
+const isUnknownArray = (value: unknown): value is unknown[] => Array.isArray(value);
 
 @Injectable()
 export class KratosPasswordService {
@@ -94,25 +92,21 @@ export class KratosPasswordService {
       .map((node) => (isObject(node) ? node.attributes : null))
       .filter(isObject)
       .find((attrs) => attrs.name === 'csrf_token');
-    const csrfValue =
-      csrfToken && typeof csrfToken.value === 'string' ? csrfToken.value : '';
+    const csrfValue = csrfToken && typeof csrfToken.value === 'string' ? csrfToken.value : '';
 
     const body: Record<string, unknown> = {
       ...params.payload,
       ...(csrfValue ? { csrf_token: csrfValue } : {}),
     };
 
-    const responsePayload = await this.requestJson(
-      `${params.submitPath}?flow=${flowId}`,
-      {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    const responsePayload = await this.requestJson(`${params.submitPath}?flow=${flowId}`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
     if (!isObject(responsePayload)) {
       throw new Error(params.errorMessage);
@@ -135,10 +129,7 @@ export class KratosPasswordService {
       throw new Error(params.errorMessage);
     }
     const traits = identity.traits;
-    const email =
-      isObject(traits) && typeof traits.email === 'string'
-        ? traits.email
-        : undefined;
+    const email = isObject(traits) && typeof traits.email === 'string' ? traits.email : undefined;
     return {
       sessionToken,
       identityId,
@@ -146,11 +137,7 @@ export class KratosPasswordService {
     };
   }
 
-  private async requestJson(
-    path: string,
-    init: RequestInit,
-    okStatuses: number[] = [200]
-  ): Promise<unknown> {
+  private async requestJson(path: string, init: RequestInit, okStatuses: number[] = [200]): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await fetch(url, init);
     const payload = await this.readJson(response);

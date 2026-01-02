@@ -10,11 +10,7 @@ export interface EncryptedEventReader {
     fromVersion?: number
   ): Promise<ReadonlyArray<EncryptedEvent>>;
 
-  readAll(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    filter?: EventFilter
-  ): Promise<ReadonlyArray<EncryptedEvent>>;
+  readAll(db: SqliteDbPort, spec: EventTableSpec, filter?: EventFilter): Promise<ReadonlyArray<EncryptedEvent>>;
 }
 
 export class SqliteEncryptedEventReader implements EncryptedEventReader {
@@ -64,11 +60,7 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
     return rows.map(this.toEncryptedEvent);
   }
 
-  async readAll(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    filter?: EventFilter
-  ): Promise<ReadonlyArray<EncryptedEvent>> {
+  async readAll(db: SqliteDbPort, spec: EventTableSpec, filter?: EventFilter): Promise<ReadonlyArray<EncryptedEvent>> {
     const conditions: string[] = ['aggregate_type = ?'];
     const params: Array<string | number> = [spec.aggregateType];
 
@@ -85,9 +77,7 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
       params.push(filter.since);
     }
 
-    const whereClause = conditions.length
-      ? `WHERE ${conditions.join(' AND ')}`
-      : '';
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const limitClause = filter?.limit ? 'LIMIT ?' : '';
     if (filter?.limit) {
       params.push(filter.limit);

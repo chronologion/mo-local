@@ -10,10 +10,7 @@ type FetchCall = {
 const hasMethod = (value: unknown): value is { method?: string } =>
   typeof value === 'object' && value !== null && 'method' in value;
 
-const makeService = () =>
-  new KratosPasswordService(
-    new ConfigService({ KRATOS_PUBLIC_URL: 'http://kratos.test' })
-  );
+const makeService = () => new KratosPasswordService(new ConfigService({ KRATOS_PUBLIC_URL: 'http://kratos.test' }));
 
 type FetchResponse = {
   status: number;
@@ -77,21 +74,15 @@ describe('KratosPasswordService', () => {
   it('throws when flow response is missing id', async () => {
     const service = makeService();
     fetchMock.mockResolvedValueOnce(responseJson({ ui: { nodes: [] } }));
-    await expect(service.register('a@b.com', 'password123')).rejects.toThrow(
-      'Kratos flow response missing flow id'
-    );
+    await expect(service.register('a@b.com', 'password123')).rejects.toThrow('Kratos flow response missing flow id');
   });
 
   it('throws when session token is missing', async () => {
     const service = makeService();
     fetchMock
       .mockResolvedValueOnce(responseJson({ id: 'flow-1', ui: { nodes: [] } }))
-      .mockResolvedValueOnce(
-        responseJson({ session: { identity: { id: 'id' } } })
-      );
-    await expect(service.login('a@b.com', 'password123')).rejects.toThrow(
-      'Login failed'
-    );
+      .mockResolvedValueOnce(responseJson({ session: { identity: { id: 'id' } } }));
+    await expect(service.login('a@b.com', 'password123')).rejects.toThrow('Login failed');
   });
 
   it('logs out via delete and accepts 204', async () => {

@@ -30,8 +30,7 @@ export type GoalEvent =
 
 const goalEventNames = new Set(Object.values(goalEventTypes) as string[]);
 
-export const isGoalEvent = (event: DomainEvent): event is GoalEvent =>
-  goalEventNames.has(event.eventType);
+export const isGoalEvent = (event: DomainEvent): event is GoalEvent => goalEventNames.has(event.eventType);
 
 export type GoalListItem = {
   id: string;
@@ -162,11 +161,7 @@ export const buildAnalyticsDeltas = (
   const prevSlice = prevActive ? previous.slice : null;
   const nextSlice = nextActive ? next.slice : null;
 
-  if (
-    prevMonth &&
-    prevSlice &&
-    (!nextMonth || prevMonth !== nextMonth || prevSlice !== nextSlice)
-  ) {
+  if (prevMonth && prevSlice && (!nextMonth || prevMonth !== nextMonth || prevSlice !== nextSlice)) {
     deltas.monthly.push({ yearMonth: prevMonth, slice: prevSlice, delta: -1 });
     deltas.category.push({
       year: parseYear(prevMonth),
@@ -175,11 +170,7 @@ export const buildAnalyticsDeltas = (
     });
   }
 
-  if (
-    nextMonth &&
-    nextSlice &&
-    (!prevMonth || prevMonth !== nextMonth || prevSlice !== nextSlice)
-  ) {
+  if (nextMonth && nextSlice && (!prevMonth || prevMonth !== nextMonth || prevSlice !== nextSlice)) {
     deltas.monthly.push({ yearMonth: nextMonth, slice: nextSlice, delta: 1 });
     deltas.category.push({
       year: parseYear(nextMonth),
@@ -191,9 +182,7 @@ export const buildAnalyticsDeltas = (
   return deltas;
 };
 
-export const snapshotToListItem = (
-  snapshot: GoalSnapshotState
-): GoalListItem => ({
+export const snapshotToListItem = (snapshot: GoalSnapshotState): GoalListItem => ({
   id: snapshot.id,
   summary: snapshot.summary,
   slice: snapshot.slice,

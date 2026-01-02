@@ -1,18 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
 import { Input } from './input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { cn } from '../../lib/utils';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -28,19 +18,13 @@ type DayCell = {
   disabled?: boolean;
 };
 
-const parseIsoDate = (
-  value: string
-): { year: number; monthIndex: number; day: number } | null => {
+const parseIsoDate = (value: string): { year: number; monthIndex: number; day: number } | null => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
   const year = Number.parseInt(match[1], 10);
   const month = Number.parseInt(match[2], 10);
   const day = Number.parseInt(match[3], 10);
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(month) ||
-    !Number.isFinite(day)
-  ) {
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
     return null;
   }
   return { year, monthIndex: month - 1, day };
@@ -70,15 +54,7 @@ export type DatePickerProps = {
   placeholder?: string;
 };
 
-export function DatePicker({
-  value,
-  onChange,
-  min,
-  max,
-  id,
-  className,
-  placeholder = 'Select date',
-}: DatePickerProps) {
+export function DatePicker({ value, onChange, min, max, id, className, placeholder = 'Select date' }: DatePickerProps) {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [activeMonth, setActiveMonth] = useState(() => {
@@ -126,27 +102,15 @@ export function DatePicker({
   }, [value, placeholder]);
 
   const days: DayCell[] = useMemo(() => {
-    const monthStart = new Date(
-      activeMonth.getFullYear(),
-      activeMonth.getMonth(),
-      1
-    );
+    const monthStart = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1);
     const startWeekday = monthStart.getDay(); // 0 sun
-    const daysInMonth = new Date(
-      activeMonth.getFullYear(),
-      activeMonth.getMonth() + 1,
-      0
-    ).getDate();
+    const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate();
     const cells: DayCell[] = [];
     for (let i = 0; i < startWeekday; i += 1) {
       cells.push({ key: `blank-${i}`, label: null });
     }
     for (let day = 1; day <= daysInMonth; day += 1) {
-      const date = new Date(
-        activeMonth.getFullYear(),
-        activeMonth.getMonth(),
-        day
-      );
+      const date = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day);
       const iso = [
         String(date.getFullYear()).padStart(4, '0'),
         String(date.getMonth() + 1).padStart(2, '0'),
@@ -163,17 +127,13 @@ export function DatePicker({
   }, [activeMonth, min, max]);
 
   const goMonth = (delta: number) => {
-    setActiveMonth(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1)
-    );
+    setActiveMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
   };
 
   const handleMonthChange = (next: string) => {
     const monthIndex = Number.parseInt(next, 10);
     if (Number.isNaN(monthIndex)) return;
-    setActiveMonth(
-      (prev) => new Date(prev.getFullYear(), monthIndex, prev.getDate())
-    );
+    setActiveMonth((prev) => new Date(prev.getFullYear(), monthIndex, prev.getDate()));
   };
 
   const handleYearChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,11 +148,7 @@ export function DatePicker({
         id={id}
         type="button"
         variant="outline"
-        className={cn(
-          'w-full justify-start gap-2 text-left font-normal',
-          !value && 'text-muted-foreground',
-          className
-        )}
+        className={cn('w-full justify-start gap-2 text-left font-normal', !value && 'text-muted-foreground', className)}
         onClick={() => setOpen((prev) => !prev)}
       >
         <CalendarIcon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
@@ -201,19 +157,10 @@ export function DatePicker({
       {open ? (
         <div className="absolute z-[160] mt-2 w-72 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              type="button"
-              onClick={() => goMonth(-1)}
-              aria-label="Previous month"
-            >
+            <Button variant="ghost" size="icon" type="button" onClick={() => goMonth(-1)} aria-label="Previous month">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Select
-              value={String(activeMonth.getMonth())}
-              onValueChange={handleMonthChange}
-            >
+            <Select value={String(activeMonth.getMonth())} onValueChange={handleMonthChange}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
@@ -227,19 +174,8 @@ export function DatePicker({
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="number"
-              className="w-20"
-              value={activeMonth.getFullYear()}
-              onChange={handleYearChange}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              type="button"
-              onClick={() => goMonth(1)}
-              aria-label="Next month"
-            >
+            <Input type="number" className="w-20" value={activeMonth.getFullYear()} onChange={handleYearChange} />
+            <Button variant="ghost" size="icon" type="button" onClick={() => goMonth(1)} aria-label="Next month">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -258,10 +194,7 @@ export function DatePicker({
                   type="button"
                   variant={day.date === value ? 'default' : 'ghost'}
                   disabled={day.disabled}
-                  className={cn(
-                    'h-9 w-full px-0 text-sm',
-                    day.date === value && 'font-semibold'
-                  )}
+                  className={cn('h-9 w-full px-0 text-sm', day.date === value && 'font-semibold')}
                   onClick={() => {
                     if (day.date) {
                       onChange(day.date);

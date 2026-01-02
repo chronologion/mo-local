@@ -3,24 +3,12 @@ import type { EffectiveCursor } from '@mo/eventstore-core';
 import type { EventTableSpec, SnapshotRecord } from './types';
 
 export interface SnapshotStore {
-  get(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    aggregateId: string
-  ): Promise<SnapshotRecord | null>;
-  put(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    record: SnapshotRecord
-  ): Promise<void>;
+  get(db: SqliteDbPort, spec: EventTableSpec, aggregateId: string): Promise<SnapshotRecord | null>;
+  put(db: SqliteDbPort, spec: EventTableSpec, record: SnapshotRecord): Promise<void>;
 }
 
 export class SqliteSnapshotStore implements SnapshotStore {
-  async get(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    aggregateId: string
-  ): Promise<SnapshotRecord | null> {
+  async get(db: SqliteDbPort, spec: EventTableSpec, aggregateId: string): Promise<SnapshotRecord | null> {
     const rows = await db.query<
       Readonly<{
         aggregate_id: string;
@@ -63,11 +51,7 @@ export class SqliteSnapshotStore implements SnapshotStore {
     };
   }
 
-  async put(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    record: SnapshotRecord
-  ): Promise<void> {
+  async put(db: SqliteDbPort, spec: EventTableSpec, record: SnapshotRecord): Promise<void> {
     await db.execute(
       `
         INSERT INTO snapshots (

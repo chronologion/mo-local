@@ -1,10 +1,6 @@
-const isNotFoundError = (error: unknown): boolean =>
-  error instanceof DOMException && error.name === 'NotFoundError';
+const isNotFoundError = (error: unknown): boolean => error instanceof DOMException && error.name === 'NotFoundError';
 
-const removeEntryIfExists = async (
-  dir: FileSystemDirectoryHandle,
-  name: string
-): Promise<void> => {
+const removeEntryIfExists = async (dir: FileSystemDirectoryHandle, name: string): Promise<void> => {
   try {
     await dir.removeEntry(name, { recursive: true });
   } catch (error) {
@@ -14,15 +10,10 @@ const removeEntryIfExists = async (
   }
 };
 
-type DirectoryAsyncIterable = FileSystemDirectoryHandle &
-  AsyncIterable<readonly [string, FileSystemHandle]>;
+type DirectoryAsyncIterable = FileSystemDirectoryHandle & AsyncIterable<readonly [string, FileSystemHandle]>;
 
-const isAsyncIterableDirectory = (
-  dir: FileSystemDirectoryHandle
-): dir is DirectoryAsyncIterable => {
-  const iterator = (
-    dir as FileSystemDirectoryHandle & { [Symbol.asyncIterator]?: unknown }
-  )[Symbol.asyncIterator];
+const isAsyncIterableDirectory = (dir: FileSystemDirectoryHandle): dir is DirectoryAsyncIterable => {
+  const iterator = (dir as FileSystemDirectoryHandle & { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator];
   return typeof iterator === 'function';
 };
 
@@ -57,9 +48,7 @@ export const wipeAllMoLocalOpfs = async (): Promise<void> => {
   }
 
   const shouldRemove = (name: string): boolean =>
-    name.startsWith('mo-eventstore-') ||
-    name.startsWith('livestore-') ||
-    name.startsWith('livestore-mo-local');
+    name.startsWith('mo-eventstore-') || name.startsWith('livestore-') || name.startsWith('livestore-mo-local');
 
   for (const [name] of entries) {
     if (!shouldRemove(name)) continue;

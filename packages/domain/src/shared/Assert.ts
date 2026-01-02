@@ -25,18 +25,14 @@ export class Assert<T> {
 
   isNonEmpty(): this {
     if (typeof this.value !== 'string' || this.value.length === 0) {
-      throw new Error(
-        this.formatError('must be a non-empty string', this.value)
-      );
+      throw new Error(this.formatError('must be a non-empty string', this.value));
     }
     return this;
   }
 
   matches(pattern: RegExp): this {
     if (typeof this.value !== 'string' || !pattern.test(this.value)) {
-      throw new Error(
-        this.formatError(`must match pattern ${pattern}`, this.value)
-      );
+      throw new Error(this.formatError(`must match pattern ${pattern}`, this.value));
     }
     return this;
   }
@@ -45,40 +41,28 @@ export class Assert<T> {
 
   isGreaterThan(min: number): this {
     if (typeof this.value !== 'number' || this.value <= min) {
-      throw new Error(
-        this.formatError(`must be greater than ${min}`, this.value)
-      );
+      throw new Error(this.formatError(`must be greater than ${min}`, this.value));
     }
     return this;
   }
 
   isGreaterThanOrEqual(min: number): this {
     if (typeof this.value !== 'number' || this.value < min) {
-      throw new Error(
-        this.formatError(`must be greater than or equal to ${min}`, this.value)
-      );
+      throw new Error(this.formatError(`must be greater than or equal to ${min}`, this.value));
     }
     return this;
   }
 
   isLessThanOrEqual(max: number): this {
     if (typeof this.value !== 'number' || this.value > max) {
-      throw new Error(
-        this.formatError(`must be less than or equal to ${max}`, this.value)
-      );
+      throw new Error(this.formatError(`must be less than or equal to ${max}`, this.value));
     }
     return this;
   }
 
   isBetween(min: number, max: number): this {
-    if (
-      typeof this.value !== 'number' ||
-      this.value < min ||
-      this.value > max
-    ) {
-      throw new Error(
-        this.formatError(`must be between ${min} and ${max}`, this.value)
-      );
+    if (typeof this.value !== 'number' || this.value < min || this.value > max) {
+      throw new Error(this.formatError(`must be between ${min} and ${max}`, this.value));
     }
     return this;
   }
@@ -94,9 +78,7 @@ export class Assert<T> {
 
   isOneOf(allowed: readonly T[]): this {
     if (!allowed.includes(this.value)) {
-      throw new Error(
-        this.formatError(`must be one of [${allowed.join(', ')}]`, this.value)
-      );
+      throw new Error(this.formatError(`must be one of [${allowed.join(', ')}]`, this.value));
     }
     return this;
   }
@@ -105,18 +87,14 @@ export class Assert<T> {
 
   equals(other: T): this {
     if (this.value !== other) {
-      throw new Error(
-        this.formatError(`must equal ${String(other)}`, this.value)
-      );
+      throw new Error(this.formatError(`must equal ${String(other)}`, this.value));
     }
     return this;
   }
 
   doesNotEqual(other: T): this {
     if (this.value === other) {
-      throw new Error(
-        this.formatError(`must not equal ${String(other)}`, this.value)
-      );
+      throw new Error(this.formatError(`must not equal ${String(other)}`, this.value));
     }
     return this;
   }
@@ -157,9 +135,7 @@ export class Assert<T> {
 
   satisfies(predicate: (value: T) => boolean, errorMessage?: string): this {
     if (!predicate(this.value)) {
-      throw new Error(
-        this.formatError(errorMessage || 'must satisfy predicate', this.value)
-      );
+      throw new Error(this.formatError(errorMessage || 'must satisfy predicate', this.value));
     }
     return this;
   }
@@ -168,12 +144,7 @@ export class Assert<T> {
 
   private formatError(message: string, value: unknown): string {
     const prefix = this.name ? `${this.name} ` : 'Value ';
-    const valueStr =
-      value === undefined
-        ? 'undefined'
-        : value === null
-          ? 'null'
-          : JSON.stringify(value);
+    const valueStr = value === undefined ? 'undefined' : value === null ? 'null' : JSON.stringify(value);
     return `${prefix}${message}, got: ${valueStr}`;
   }
 }

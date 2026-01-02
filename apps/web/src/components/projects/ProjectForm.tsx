@@ -3,13 +3,7 @@ import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { GoalListItemDto } from '@mo/application';
 import { DatePicker } from '../ui/date-picker';
 
@@ -30,12 +24,7 @@ type ProjectFormProps = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function ProjectForm({
-  onSubmit,
-  goals,
-  initialValues,
-  submitLabel = 'Create Project',
-}: ProjectFormProps) {
+export function ProjectForm({ onSubmit, goals, initialValues, submitLabel = 'Create Project' }: ProjectFormProps) {
   const [values, setValues] = useState<ProjectFormValues>(
     initialValues ?? {
       name: '',
@@ -72,9 +61,7 @@ export function ProjectForm({
         <Label>Name</Label>
         <Input
           value={values.name}
-          onChange={(ev) =>
-            setValues((prev) => ({ ...prev, name: ev.target.value }))
-          }
+          onChange={(ev) => setValues((prev) => ({ ...prev, name: ev.target.value }))}
           required
           placeholder="Project name"
         />
@@ -84,9 +71,7 @@ export function ProjectForm({
           <Label>Start date</Label>
           <DatePicker
             value={values.startDate}
-            onChange={(next) =>
-              setValues((prev) => ({ ...prev, startDate: next }))
-            }
+            onChange={(next) => setValues((prev) => ({ ...prev, startDate: next }))}
             max={values.targetDate}
           />
         </div>
@@ -94,9 +79,7 @@ export function ProjectForm({
           <Label>Target date</Label>
           <DatePicker
             value={values.targetDate}
-            onChange={(next) =>
-              setValues((prev) => ({ ...prev, targetDate: next }))
-            }
+            onChange={(next) => setValues((prev) => ({ ...prev, targetDate: next }))}
             min={values.startDate}
           />
         </div>
@@ -105,9 +88,7 @@ export function ProjectForm({
         <Label>Description</Label>
         <Textarea
           value={values.description}
-          onChange={(ev) =>
-            setValues((prev) => ({ ...prev, description: ev.target.value }))
-          }
+          onChange={(ev) => setValues((prev) => ({ ...prev, description: ev.target.value }))}
           rows={3}
         />
       </div>

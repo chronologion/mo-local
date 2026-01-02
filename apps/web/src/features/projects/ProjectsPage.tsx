@@ -1,20 +1,10 @@
 import { useMemo, useState } from 'react';
 import { RefreshCw, PlusCircle, Search } from 'lucide-react';
-import {
-  useGoals,
-  useProjects,
-  useProjectCommands,
-} from '@mo/presentation/react';
+import { useGoals, useProjects, useProjectCommands } from '@mo/presentation/react';
 import { Button } from '../../components/ui/button';
 import { ProjectForm } from '../../components/projects/ProjectForm';
 import { ProjectCard } from '../../components/projects/ProjectCard';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import type { ProjectListItemDto } from '@mo/application';
 import { useToast } from '../../components/ui/toast';
 
@@ -31,8 +21,7 @@ export function ProjectsPage() {
     loading: mutating,
   } = useProjectCommands();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingProject, setEditingProject] =
-    useState<ProjectListItemDto | null>(null);
+  const [editingProject, setEditingProject] = useState<ProjectListItemDto | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -45,10 +34,7 @@ export function ProjectsPage() {
         .filter((p) => {
           if (!search.trim()) return true;
           const needle = search.toLowerCase();
-          return (
-            p.name.toLowerCase().includes(needle) ||
-            (p.description ?? '').toLowerCase().includes(needle)
-          );
+          return p.name.toLowerCase().includes(needle) || (p.description ?? '').toLowerCase().includes(needle);
         }),
     [projects, search]
   );
@@ -67,35 +53,18 @@ export function ProjectsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button variant="secondary" size="sm" onClick={() => setCreateOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             New project
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refresh()}
-            aria-label="Refresh projects"
-          >
+          <Button variant="ghost" size="sm" onClick={() => refresh()} aria-label="Refresh projects">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      {search ? (
-        <span className="text-xs text-muted-foreground">
-          {activeProjects.length} result(s)
-        </span>
-      ) : null}
+      {search ? <span className="text-xs text-muted-foreground">{activeProjects.length} result(s)</span> : null}
 
-      {error && (
-        <div className="text-sm text-destructive">
-          Failed to load projects: {error}
-        </div>
-      )}
+      {error && <div className="text-sm text-destructive">Failed to load projects: {error}</div>}
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading projects…</div>
       ) : (
@@ -113,10 +82,7 @@ export function ProjectsPage() {
                   await addMilestone(projectId, milestone);
                   await refresh();
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to add milestone';
+                  const message = err instanceof Error ? err.message : 'Failed to add milestone';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -128,10 +94,7 @@ export function ProjectsPage() {
                   await updateMilestone(projectId, milestoneId, changes);
                   await refresh();
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to update milestone';
+                  const message = err instanceof Error ? err.message : 'Failed to update milestone';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -143,10 +106,7 @@ export function ProjectsPage() {
                   await archiveMilestone(projectId, milestoneId);
                   await refresh();
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to archive milestone';
+                  const message = err instanceof Error ? err.message : 'Failed to archive milestone';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -158,10 +118,7 @@ export function ProjectsPage() {
                   await updateProject({ projectId, ...changes });
                   await refresh();
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to update project';
+                  const message = err instanceof Error ? err.message : 'Failed to update project';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -173,10 +130,7 @@ export function ProjectsPage() {
                   await archiveProject(projectId);
                   await refresh();
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to archive project';
+                  const message = err instanceof Error ? err.message : 'Failed to archive project';
                   toast({
                     title: 'Project update failed',
                     description: message,
@@ -197,8 +151,7 @@ export function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>Create project</DialogTitle>
             <DialogDescription className="sr-only">
-              Create a new project by providing name, dates, description, and
-              optional goal link.
+              Create a new project by providing name, dates, description, and optional goal link.
             </DialogDescription>
           </DialogHeader>
           <ProjectForm
@@ -210,17 +163,12 @@ export function ProjectsPage() {
                 await refresh();
                 setCreateOpen(false);
               } catch (err) {
-                const message =
-                  err instanceof Error
-                    ? err.message
-                    : 'Failed to create project';
+                const message = err instanceof Error ? err.message : 'Failed to create project';
                 setCreateError(message);
               }
             }}
           />
-          {createError ? (
-            <p className="text-sm text-destructive">{createError}</p>
-          ) : null}
+          {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
         </DialogContent>
       </Dialog>
       <Dialog
@@ -234,8 +182,7 @@ export function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>Edit project</DialogTitle>
             <DialogDescription className="sr-only">
-              Edit project details including name, dates, description, and goal
-              link.
+              Edit project details including name, dates, description, and goal link.
             </DialogDescription>
           </DialogHeader>
           {editingProject ? (
@@ -263,10 +210,7 @@ export function ProjectsPage() {
                   if (values.name !== editingProject.name) {
                     changes.name = values.name;
                   }
-                  if (
-                    (values.description ?? '') !==
-                    (editingProject.description ?? '')
-                  ) {
+                  if ((values.description ?? '') !== (editingProject.description ?? '')) {
                     changes.description = values.description;
                   }
                   if (
@@ -284,18 +228,13 @@ export function ProjectsPage() {
                   await refresh();
                   setEditingProject(null);
                 } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : 'Failed to update project';
+                  const message = err instanceof Error ? err.message : 'Failed to update project';
                   setEditError(message);
                 }
               }}
             />
           ) : null}
-          {editError ? (
-            <p className="text-sm text-destructive">{editError}</p>
-          ) : null}
+          {editError ? <p className="text-sm text-destructive">{editError}</p> : null}
         </DialogContent>
       </Dialog>
     </div>

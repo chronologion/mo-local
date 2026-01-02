@@ -1,12 +1,7 @@
 import { Assert } from '../../shared/Assert';
 import { ValueObject } from '../../shared/vos/ValueObject';
 
-export const projectStatusValues = [
-  'planned',
-  'in_progress',
-  'completed',
-  'canceled',
-] as const;
+export const projectStatusValues = ['planned', 'in_progress', 'completed', 'canceled'] as const;
 export type ProjectStatusValue = (typeof projectStatusValues)[number];
 
 export class ProjectStatus extends ValueObject<ProjectStatusValue> {

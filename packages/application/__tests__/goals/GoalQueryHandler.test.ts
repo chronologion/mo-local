@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GoalQueryHandler } from '../../src/goals/GoalQueryHandler';
-import {
-  GetGoalByIdQuery,
-  ListGoalsQuery,
-  SearchGoalsQuery,
-} from '../../src/goals/queries';
+import { GetGoalByIdQuery, ListGoalsQuery, SearchGoalsQuery } from '../../src/goals/queries';
 import type { GoalReadModelPort } from '../../src/goals/ports/GoalReadModelPort';
 import type { GoalListItemDto } from '../../src/goals/dtos';
 
@@ -37,14 +33,9 @@ class FakeGoalReadModel implements GoalReadModelPort {
     return this.response.find((item) => item.id === id) ?? null;
   }
 
-  async search(
-    term: string,
-    filter?: { slice?: string }
-  ): Promise<GoalListItemDto[]> {
+  async search(term: string, filter?: { slice?: string }): Promise<GoalListItemDto[]> {
     this.searchCalls.push({ term, filter });
-    return this.response.filter((item) =>
-      item.summary.toLowerCase().includes(term.toLowerCase())
-    );
+    return this.response.filter((item) => item.summary.toLowerCase().includes(term.toLowerCase()));
   }
 }
 
@@ -86,8 +77,6 @@ describe('GoalQueryHandler', () => {
     const handler = new GoalQueryHandler(readModel);
 
     // @ts-expect-error - exercising runtime guard for unsupported query
-    await expect(handler.execute({ type: 'UnknownGoalQuery' })).rejects.toThrow(
-      /Unsupported goal query type/
-    );
+    await expect(handler.execute({ type: 'UnknownGoalQuery' })).rejects.toThrow(/Unsupported goal query type/);
   });
 });

@@ -10,16 +10,14 @@ export const ChangeOperations = {
   delete: 'delete',
 } as const;
 
-export type ChangeOperation =
-  (typeof ChangeOperations)[keyof typeof ChangeOperations];
+export type ChangeOperation = (typeof ChangeOperations)[keyof typeof ChangeOperations];
 
 export const ChangeHintKinds = {
   tableInvalidated: 'tableInvalidated',
   rowsChanged: 'rowsChanged',
 } as const;
 
-export type ChangeHintKind =
-  (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
+export type ChangeHintKind = (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
 
 export type ChangeHint =
   | Readonly<{
@@ -38,8 +36,7 @@ export const SqliteStatementKinds = {
   query: 'query',
 } as const;
 
-export type SqliteStatementKind =
-  (typeof SqliteStatementKinds)[keyof typeof SqliteStatementKinds];
+export type SqliteStatementKind = (typeof SqliteStatementKinds)[keyof typeof SqliteStatementKinds];
 
 export type SqliteStatement =
   | Readonly<{
@@ -78,17 +75,12 @@ export interface SqliteDbPort {
    * Execute multiple statements atomically in a single transaction.
    * All statements succeed or all are rolled back.
    */
-  batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>>;
+  batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>>;
 
   /**
    * Subscribe to table-level invalidations.
    */
-  subscribeToTables(
-    tables: ReadonlyArray<SqliteTableName>,
-    listener: () => void
-  ): Unsubscribe;
+  subscribeToTables(tables: ReadonlyArray<SqliteTableName>, listener: () => void): Unsubscribe;
 
   subscribeToChanges?(
     tables: ReadonlyArray<SqliteTableName>,

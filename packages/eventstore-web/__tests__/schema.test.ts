@@ -10,11 +10,7 @@ type ExecCall = {
 const createContext = (userVersion: number) => {
   const executed: ExecCall[] = [];
   const sqlite3 = {
-    exec: async (
-      _db: number,
-      sql: string,
-      callback?: (row: ReadonlyArray<unknown>) => void
-    ) => {
+    exec: async (_db: number, sql: string, callback?: (row: ReadonlyArray<unknown>) => void) => {
       if (sql.startsWith('PRAGMA user_version') && callback) {
         callback([userVersion]);
         return;
@@ -44,9 +40,7 @@ describe('schema', () => {
         expect.stringContaining('CREATE TABLE IF NOT EXISTS projection_cache'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS index_artifacts'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS projection_meta'),
-        expect.stringContaining(
-          'CREATE TABLE IF NOT EXISTS process_manager_state'
-        ),
+        expect.stringContaining('CREATE TABLE IF NOT EXISTS process_manager_state'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS idempotency_keys'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS sync_meta'),
         expect.stringContaining('CREATE TABLE IF NOT EXISTS sync_event_map'),

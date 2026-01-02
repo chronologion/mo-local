@@ -1,7 +1,4 @@
-import {
-  BaseCommand,
-  type CommandMetadata,
-} from '../../shared/ports/BaseCommand';
+import { BaseCommand, type CommandMetadata } from '../../shared/ports/BaseCommand';
 
 export type AddProjectGoalPayload = {
   projectId: string;
@@ -10,10 +7,7 @@ export type AddProjectGoalPayload = {
   knownVersion: number;
 };
 
-export class AddProjectGoal
-  extends BaseCommand<AddProjectGoalPayload>
-  implements Readonly<AddProjectGoalPayload>
-{
+export class AddProjectGoal extends BaseCommand<AddProjectGoalPayload> implements Readonly<AddProjectGoalPayload> {
   readonly projectId: string;
   readonly goalId: string;
   readonly timestamp: number;

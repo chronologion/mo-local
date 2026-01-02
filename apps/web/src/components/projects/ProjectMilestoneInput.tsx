@@ -43,11 +43,7 @@ export function ProjectMilestoneInput({
     <form className="grid gap-2" onSubmit={handleSubmit}>
       <div className="space-y-1">
         <Label>Name</Label>
-        <Input
-          value={name}
-          onChange={(ev) => setName(ev.target.value)}
-          placeholder="Milestone name"
-        />
+        <Input value={name} onChange={(ev) => setName(ev.target.value)} placeholder="Milestone name" />
       </div>
       <div className="space-y-1">
         <Label>Target date</Label>

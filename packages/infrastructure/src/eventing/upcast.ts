@@ -1,10 +1,6 @@
 import { migrations } from './migrations';
 
-export function upcastPayload(
-  type: string,
-  version: number,
-  payload: unknown
-): unknown {
+export function upcastPayload(type: string, version: number, payload: unknown): unknown {
   const plan = migrations[type];
   if (!plan) return payload;
 
@@ -17,9 +13,7 @@ export function upcastPayload(
   while (currentVersion < plan.latestVersion) {
     const step = plan.steps[currentVersion];
     if (!step) {
-      throw new Error(
-        `${type}: missing migration v${currentVersion} -> v${currentVersion + 1}`
-      );
+      throw new Error(`${type}: missing migration v${currentVersion} -> v${currentVersion + 1}`);
     }
     currentPayload = step(currentPayload);
     currentVersion += 1;

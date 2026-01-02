@@ -40,23 +40,15 @@ class InMemoryGoalAchievementStore implements GoalAchievementStorePort {
     return this.goals.get(goalId) ?? null;
   }
 
-  async saveGoalState(
-    state: GoalAchievementState,
-    _cursor?: GoalAchievementCursor
-  ): Promise<void> {
+  async saveGoalState(state: GoalAchievementState, _cursor?: GoalAchievementCursor): Promise<void> {
     this.goals.set(state.goalId, { ...state });
   }
 
-  async getProjectState(
-    projectId: string
-  ): Promise<ProjectAchievementState | null> {
+  async getProjectState(projectId: string): Promise<ProjectAchievementState | null> {
     return this.projects.get(projectId) ?? null;
   }
 
-  async saveProjectState(
-    state: ProjectAchievementState,
-    _cursor?: GoalAchievementCursor
-  ): Promise<void> {
+  async saveProjectState(state: ProjectAchievementState, _cursor?: GoalAchievementCursor): Promise<void> {
     this.projects.set(state.projectId, { ...state });
   }
 
@@ -87,10 +79,9 @@ class InMemoryEventBus implements EventBusPort {
   }
 }
 
-const seedEvents =
-  (events: DomainEvent[]) => async (): Promise<DomainEvent[]> => {
-    return events;
-  };
+const seedEvents = (events: DomainEvent[]) => async (): Promise<DomainEvent[]> => {
+  return events;
+};
 
 const dispatchNoop = async () => undefined;
 const metaFor = <TId extends GoalId | ProjectId | UserId>(
@@ -132,10 +123,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000101'),
-        Timestamp.fromMillis(1)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000101'), Timestamp.fromMillis(1))
     );
     const projectTwo = new ProjectCreated(
       {
@@ -149,10 +137,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000102'),
-        Timestamp.fromMillis(1)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000102'), Timestamp.fromMillis(1))
     );
     const dispatched: string[] = [];
 
@@ -199,10 +184,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000101'),
-        Timestamp.fromMillis(1)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000101'), Timestamp.fromMillis(1))
     );
     const goalAchieved = new GoalAchieved(
       {
@@ -270,10 +252,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000002'),
-        Timestamp.fromMillis(1000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000002'), Timestamp.fromMillis(1000))
     );
 
     await eventBus.publish([projectCreated]);
@@ -326,10 +305,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000011'),
-        Timestamp.fromMillis(1000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000011'), Timestamp.fromMillis(1000))
     );
     await eventBus.publish([projectOne]);
     expect(dispatched).toEqual([goalId]);
@@ -353,10 +329,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(3000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000012'),
-        Timestamp.fromMillis(3000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000012'), Timestamp.fromMillis(3000))
     );
     await eventBus.publish([projectTwo]);
 
@@ -406,10 +379,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000021'),
-        Timestamp.fromMillis(1000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000021'), Timestamp.fromMillis(1000))
     );
     await eventBus.publish([projectOne]);
     expect(dispatched).toEqual([goalId]);
@@ -433,10 +403,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(3000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000022'),
-        Timestamp.fromMillis(3000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000022'), Timestamp.fromMillis(3000))
     );
     await eventBus.publish([projectTwo]);
 
@@ -446,10 +413,7 @@ describe('GoalAchievementSaga', () => {
         status: ProjectStatus.Completed,
         changedAt: Timestamp.fromMillis(4000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000022'),
-        Timestamp.fromMillis(4000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000022'), Timestamp.fromMillis(4000))
     );
     await eventBus.publish([projectTwoCompleted]);
 
@@ -588,10 +552,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(1000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000031'),
-        Timestamp.fromMillis(1000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000031'), Timestamp.fromMillis(1000))
     );
     await eventBus.publish([projectOne]);
 
@@ -614,10 +575,7 @@ describe('GoalAchievementSaga', () => {
         createdBy: UserId.from('user-1'),
         createdAt: Timestamp.fromMillis(2000),
       },
-      metaFor(
-        ProjectId.from('00000000-0000-0000-0000-000000000032'),
-        Timestamp.fromMillis(2000)
-      )
+      metaFor(ProjectId.from('00000000-0000-0000-0000-000000000032'), Timestamp.fromMillis(2000))
     );
     await eventBus.publish([projectTwo]);
 

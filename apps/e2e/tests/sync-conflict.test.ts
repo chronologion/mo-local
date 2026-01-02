@@ -21,10 +21,7 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
   const connectButton = page.getByRole('button', {
     name: 'Connect to cloud',
   });
-  await Promise.race([
-    connectButton.waitFor({ timeout: 25_000 }),
-    unlockButton.waitFor({ timeout: 25_000 }),
-  ]);
+  await Promise.race([connectButton.waitFor({ timeout: 25_000 }), unlockButton.waitFor({ timeout: 25_000 })]);
 
   if (await unlockButton.isVisible()) {
     await page.getByRole('textbox').fill(password);
@@ -69,11 +66,7 @@ async function onboardAndConnect(page: Page): Promise<OnboardResult> {
 }
 
 const encodeBase64Url = (bytes: Uint8Array): string =>
-  Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+  Buffer.from(bytes).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
 type RecordJsonParams = {
   id: string;
@@ -102,8 +95,7 @@ const makeRecordJson = (params: RecordJsonParams): string =>
     keyringUpdate: null,
   });
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const getReason = (value: unknown): string | undefined => {
   if (!isRecord(value)) return undefined;
@@ -117,10 +109,7 @@ const getHead = (value: unknown): number | null => {
   return typeof head === 'number' ? head : null;
 };
 
-async function pushEvents(
-  page: Page,
-  payload: unknown
-): Promise<{ status: number; body: unknown }> {
+async function pushEvents(page: Page, payload: unknown): Promise<{ status: number; body: unknown }> {
   return page.evaluate(
     async ({ apiBase, body }) => {
       const resp = await fetch(`${apiBase}/sync/push`, {
@@ -144,10 +133,9 @@ async function pushEvents(
 async function pullEvents(page: Page, storeId: string) {
   return page.evaluate(
     async ({ apiBase, sid }) => {
-      const resp = await fetch(
-        `${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=100`,
-        { credentials: 'include' }
-      );
+      const resp = await fetch(`${apiBase}/sync/pull?storeId=${encodeURIComponent(sid)}&since=0&limit=100`, {
+        credentials: 'include',
+      });
       const data = (await resp.json()) as {
         events: Array<{
           globalSequence: number;

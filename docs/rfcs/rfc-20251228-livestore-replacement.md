@@ -733,8 +733,7 @@ export const AggregateTypes = {
   // calendar: 'calendar', // future
 } as const;
 
-export type AggregateType =
-  (typeof AggregateTypes)[keyof typeof AggregateTypes];
+export type AggregateType = (typeof AggregateTypes)[keyof typeof AggregateTypes];
 
 export type CommitCursor = Readonly<{
   commitSequence: number;
@@ -760,21 +759,16 @@ export const ProjectionOrderings = {
   effectiveTotalOrder: 'effectiveTotalOrder',
   commitSequence: 'commitSequence',
 } as const;
-export type ProjectionOrdering =
-  (typeof ProjectionOrderings)[keyof typeof ProjectionOrderings];
+export type ProjectionOrdering = (typeof ProjectionOrderings)[keyof typeof ProjectionOrderings];
 
 export const CursorComparisons = {
   before: 'before',
   equal: 'equal',
   after: 'after',
 } as const;
-export type CursorComparison =
-  (typeof CursorComparisons)[keyof typeof CursorComparisons];
+export type CursorComparison = (typeof CursorComparisons)[keyof typeof CursorComparisons];
 
-export function compareCommitCursor(
-  a: CommitCursor,
-  b: CommitCursor
-): CursorComparison;
+export function compareCommitCursor(a: CommitCursor, b: CommitCursor): CursorComparison;
 
 export const PlatformErrorCodes = {
   DbOwnershipError: 'DbOwnershipError',
@@ -789,8 +783,7 @@ export const PlatformErrorCodes = {
   IndexCorruptionError: 'IndexCorruptionError',
   SyncConflictError: 'SyncConflictError',
 } as const;
-export type PlatformErrorCode =
-  (typeof PlatformErrorCodes)[keyof typeof PlatformErrorCodes];
+export type PlatformErrorCode = (typeof PlatformErrorCodes)[keyof typeof PlatformErrorCodes];
 
 export type PlatformError = Readonly<{
   code: PlatformErrorCode;
@@ -844,13 +837,10 @@ export const EventRecordDerivedKeys = {
   commitSequence: 'commitSequence',
   globalSequence: 'globalSequence',
 } as const;
-export type EventRecordDerivedKey =
-  (typeof EventRecordDerivedKeys)[keyof typeof EventRecordDerivedKeys];
+export type EventRecordDerivedKey = (typeof EventRecordDerivedKeys)[keyof typeof EventRecordDerivedKeys];
 
 export interface EventLogPort {
-  append(
-    events: ReadonlyArray<Omit<EventRecord, EventRecordDerivedKey>>
-  ): Promise<ReadonlyArray<EventRecord>>;
+  append(events: ReadonlyArray<Omit<EventRecord, EventRecordDerivedKey>>): Promise<ReadonlyArray<EventRecord>>;
   read(filter: EventFilter): Promise<ReadonlyArray<EventRecord>>;
 }
 
@@ -876,15 +866,13 @@ export const ChangeOperations = {
   update: 'update',
   delete: 'delete',
 } as const;
-export type ChangeOperation =
-  (typeof ChangeOperations)[keyof typeof ChangeOperations];
+export type ChangeOperation = (typeof ChangeOperations)[keyof typeof ChangeOperations];
 
 export const ChangeHintKinds = {
   tableInvalidated: 'tableInvalidated',
   rowsChanged: 'rowsChanged',
 } as const;
-export type ChangeHintKind =
-  (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
+export type ChangeHintKind = (typeof ChangeHintKinds)[keyof typeof ChangeHintKinds];
 
 export type ChangeHint =
   | Readonly<{
@@ -906,8 +894,7 @@ export const SqliteStatementKinds = {
   execute: 'execute',
   query: 'query',
 } as const;
-export type SqliteStatementKind =
-  (typeof SqliteStatementKinds)[keyof typeof SqliteStatementKinds];
+export type SqliteStatementKind = (typeof SqliteStatementKinds)[keyof typeof SqliteStatementKinds];
 
 export type SqliteStatement =
   | Readonly<{
@@ -952,14 +939,9 @@ export interface SqliteDbPort {
    * - statements cannot depend on prior statement results (no “interactive transaction”),
    * - for multi-step logic, expose a dedicated worker operation (e.g. `eventStore.append`).
    */
-  batch(
-    statements: ReadonlyArray<SqliteStatement>
-  ): Promise<ReadonlyArray<SqliteBatchResult>>;
+  batch(statements: ReadonlyArray<SqliteStatement>): Promise<ReadonlyArray<SqliteBatchResult>>;
 
-  subscribeToTables(
-    tables: ReadonlyArray<SqliteTableName>,
-    listener: () => void
-  ): Unsubscribe;
+  subscribeToTables(tables: ReadonlyArray<SqliteTableName>, listener: () => void): Unsubscribe;
 
   /**
    * Optional extension point for future performance work (e.g., Notes BC).
@@ -1020,8 +1002,7 @@ export const WorkerEnvelopeKinds = {
   response: 'response',
   cancel: 'cancel',
 } as const;
-export type WorkerEnvelopeKind =
-  (typeof WorkerEnvelopeKinds)[keyof typeof WorkerEnvelopeKinds];
+export type WorkerEnvelopeKind = (typeof WorkerEnvelopeKinds)[keyof typeof WorkerEnvelopeKinds];
 
 export type WorkerEnvelope =
   | Readonly<{
@@ -1054,8 +1035,7 @@ export const WorkerHelloKinds = {
   hello: 'hello',
   helloOk: 'hello.ok',
 } as const;
-export type WorkerHelloKind =
-  (typeof WorkerHelloKinds)[keyof typeof WorkerHelloKinds];
+export type WorkerHelloKind = (typeof WorkerHelloKinds)[keyof typeof WorkerHelloKinds];
 
 export type WorkerHello =
   | Readonly<{
@@ -1081,8 +1061,7 @@ export const WorkerRequestKinds = {
   readModelListWindow: 'readModel.listWindow',
   readModelGetById: 'readModel.getById',
 } as const;
-export type WorkerRequestKind =
-  (typeof WorkerRequestKinds)[keyof typeof WorkerRequestKinds];
+export type WorkerRequestKind = (typeof WorkerRequestKinds)[keyof typeof WorkerRequestKinds];
 
 export type WorkerRequest =
   | Readonly<{
@@ -1119,8 +1098,7 @@ export const WorkerResponseKinds = {
   ok: 'ok',
   error: 'error',
 } as const;
-export type WorkerResponseKind =
-  (typeof WorkerResponseKinds)[keyof typeof WorkerResponseKinds];
+export type WorkerResponseKind = (typeof WorkerResponseKinds)[keyof typeof WorkerResponseKinds];
 
 export type WorkerResponse =
   | Readonly<{ kind: typeof WorkerResponseKinds.ok; data: unknown }>
@@ -1242,16 +1220,14 @@ export const SyncDirections = {
   pull: 'pull',
   push: 'push',
 } as const;
-export type SyncDirection =
-  (typeof SyncDirections)[keyof typeof SyncDirections];
+export type SyncDirection = (typeof SyncDirections)[keyof typeof SyncDirections];
 
 export const SyncPauseReasons = {
   user: 'user',
   offline: 'offline',
   backoff: 'backoff',
 } as const;
-export type SyncPauseReason =
-  (typeof SyncPauseReasons)[keyof typeof SyncPauseReasons];
+export type SyncPauseReason = (typeof SyncPauseReasons)[keyof typeof SyncPauseReasons];
 
 export const SyncErrorCodes = {
   network: 'network',
@@ -1260,8 +1236,7 @@ export const SyncErrorCodes = {
   server: 'server',
   unknown: 'unknown',
 } as const;
-export type SyncErrorCode =
-  (typeof SyncErrorCodes)[keyof typeof SyncErrorCodes];
+export type SyncErrorCode = (typeof SyncErrorCodes)[keyof typeof SyncErrorCodes];
 
 export const SyncStatusKinds = {
   idle: 'idle',
@@ -1269,8 +1244,7 @@ export const SyncStatusKinds = {
   paused: 'paused',
   error: 'error',
 } as const;
-export type SyncStatusKind =
-  (typeof SyncStatusKinds)[keyof typeof SyncStatusKinds];
+export type SyncStatusKind = (typeof SyncStatusKinds)[keyof typeof SyncStatusKinds];
 
 export type SyncError = Readonly<{
   code: SyncErrorCode;
@@ -1595,8 +1569,7 @@ export const ProjectionPhases = {
   rebuilding: 'rebuilding',
   failed: 'failed',
 } as const;
-export type ProjectionPhase =
-  (typeof ProjectionPhases)[keyof typeof ProjectionPhases];
+export type ProjectionPhase = (typeof ProjectionPhases)[keyof typeof ProjectionPhases];
 
 export type ProjectionStatus = Readonly<{
   projectionId: ProjectionId;
@@ -1631,9 +1604,7 @@ export interface IndexingPort {
   /** Ensure the index exists (build incrementally if missing/outdated). */
   ensureBuilt(indexId: string): Promise<void>;
   /** Debug/status only. */
-  status(
-    indexId: string
-  ): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>>;
+  status(indexId: string): Promise<Readonly<{ indexId: string; phase: IndexBuildPhase }>>;
 }
 
 export const IndexBuildPhases = {
@@ -1642,8 +1613,7 @@ export const IndexBuildPhases = {
   ready: 'ready',
   failed: 'failed',
 } as const;
-export type IndexBuildPhase =
-  (typeof IndexBuildPhases)[keyof typeof IndexBuildPhases];
+export type IndexBuildPhase = (typeof IndexBuildPhases)[keyof typeof IndexBuildPhases];
 ```
 
 Notes:
@@ -2033,8 +2003,7 @@ export type SyncPushConflictResponseV1 = Readonly<{
 export const SyncPushConflictReasons = {
   server_ahead: 'server_ahead',
 } as const;
-export type SyncPushConflictReason =
-  (typeof SyncPushConflictReasons)[keyof typeof SyncPushConflictReasons];
+export type SyncPushConflictReason = (typeof SyncPushConflictReasons)[keyof typeof SyncPushConflictReasons];
 ```
 
 #### 7.6.3 Server algorithm (MVP)
@@ -2407,25 +2376,12 @@ export interface EncryptedEventAppender {
 }
 
 export interface EncryptedEventReader {
-  readForAggregate(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    aggregateId: string
-  ): Promise<ReadonlyArray<EventRecord>>;
+  readForAggregate(db: SqliteDbPort, spec: EventTableSpec, aggregateId: string): Promise<ReadonlyArray<EventRecord>>;
 }
 
 export interface SnapshotStore {
-  get(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    aggregateId: string
-  ): Promise<Uint8Array | null>;
-  put(
-    db: SqliteDbPort,
-    spec: EventTableSpec,
-    aggregateId: string,
-    encrypted: Uint8Array
-  ): Promise<void>;
+  get(db: SqliteDbPort, spec: EventTableSpec, aggregateId: string): Promise<Uint8Array | null>;
+  put(db: SqliteDbPort, spec: EventTableSpec, aggregateId: string, encrypted: Uint8Array): Promise<void>;
 }
 ```
 
@@ -2479,10 +2435,10 @@ const events = store.query({
 After (`SqliteDbPort`):
 
 ```ts
-const events = await db.query<GoalEventRow>(
-  'SELECT * FROM events WHERE aggregate_type = ? AND aggregate_id = ?',
-  ['goal', goalId]
-);
+const events = await db.query<GoalEventRow>('SELECT * FROM events WHERE aggregate_type = ? AND aggregate_id = ?', [
+  'goal',
+  goalId,
+]);
 ```
 
 ### Phase 3: Verification

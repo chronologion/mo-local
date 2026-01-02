@@ -11,10 +11,7 @@ export interface GoalRecategorizedPayload {
   changedAt: Timestamp;
 }
 
-export class GoalRecategorized
-  extends DomainEvent<GoalId>
-  implements GoalRecategorizedPayload
-{
+export class GoalRecategorized extends DomainEvent<GoalId> implements GoalRecategorizedPayload {
   readonly eventType = goalEventTypes.goalRecategorized;
 
   readonly goalId: GoalId;
@@ -30,11 +27,7 @@ export class GoalRecategorized
   }
 }
 
-export const GoalRecategorizedSpec = payloadEventSpec<
-  GoalRecategorized,
-  GoalRecategorizedPayload,
-  GoalId
->(
+export const GoalRecategorizedSpec = payloadEventSpec<GoalRecategorized, GoalRecategorizedPayload, GoalId>(
   goalEventTypes.goalRecategorized,
   (p, meta) => new GoalRecategorized(p, meta),
   {

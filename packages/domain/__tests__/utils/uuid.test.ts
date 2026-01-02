@@ -4,9 +4,7 @@ import { uuidv7 } from '../../src/utils/uuid';
 describe('uuidv7', () => {
   it('generates a valid UUID string', () => {
     const id = uuidv7();
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-    );
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   it('sets version to 7 and RFC 4122 variant', () => {

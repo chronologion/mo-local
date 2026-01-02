@@ -2,13 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LogIn, UserPlus } from 'lucide-react';
 import { useRemoteAuth } from '../../providers/RemoteAuthProvider';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -19,11 +13,7 @@ type RemoteAuthModalProps = {
   mode?: 'login' | 'signup';
 };
 
-export function RemoteAuthModal({
-  open,
-  onClose,
-  mode = 'signup',
-}: RemoteAuthModalProps) {
+export function RemoteAuthModal({ open, onClose, mode = 'signup' }: RemoteAuthModalProps) {
   const { signUp, logIn, state } = useRemoteAuth();
   const [tab, setTab] = useState<'login' | 'signup'>(mode);
   const [email, setEmail] = useState('');
@@ -47,10 +37,7 @@ export function RemoteAuthModal({
     }
   }, [state.status, onClose]);
 
-  const disableActions = useMemo(
-    () => submitting || state.status === 'connecting',
-    [submitting, state.status]
-  );
+  const disableActions = useMemo(() => submitting || state.status === 'connecting', [submitting, state.status]);
 
   const handleTabChange = (value: string) => {
     if (value !== 'login' && value !== 'signup') return;
@@ -71,8 +58,7 @@ export function RemoteAuthModal({
       }
       setSuccess(intent === 'signup' ? 'Account created' : 'Logged in');
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Request failed, try again';
+      const message = err instanceof Error ? err.message : 'Request failed, try again';
       setLocalError(message);
       setSuccess(null);
     } finally {
@@ -93,33 +79,18 @@ export function RemoteAuthModal({
     >
       <DialogContent>
         <DialogHeader>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            Connect to cloud
-          </p>
-          <DialogTitle>
-            {tab === 'signup' ? 'Create account' : 'Log in'}
-          </DialogTitle>
-          <DialogDescription>
-            Accounts live in Kratos. Password stays with Kratos; keys stay
-            local.
-          </DialogDescription>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Connect to cloud</p>
+          <DialogTitle>{tab === 'signup' ? 'Create account' : 'Log in'}</DialogTitle>
+          <DialogDescription>Accounts live in Kratos. Password stays with Kratos; keys stay local.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger
-              value="signup"
-              disabled={disableActions}
-              className="gap-2"
-            >
+            <TabsTrigger value="signup" disabled={disableActions} className="gap-2">
               <UserPlus className="h-4 w-4" />
               Sign up
             </TabsTrigger>
-            <TabsTrigger
-              value="login"
-              disabled={disableActions}
-              className="gap-2"
-            >
+            <TabsTrigger value="login" disabled={disableActions} className="gap-2">
               <LogIn className="h-4 w-4" />
               Log in
             </TabsTrigger>
@@ -148,9 +119,7 @@ export function RemoteAuthModal({
                 />
               </div>
               {showError ? (
-                <p className="text-sm text-destructive">
-                  An error occurred: {showError}
-                </p>
+                <p className="text-sm text-destructive">An error occurred: {showError}</p>
               ) : success && tab === 'signup' ? (
                 <p className="text-sm text-green-600">{success}</p>
               ) : null}
@@ -159,9 +128,7 @@ export function RemoteAuthModal({
                 onClick={() => void handleSubmit('signup')}
                 disabled={!email || !password || disableActions}
               >
-                {state.status === 'connecting' || submitting
-                  ? 'Connecting…'
-                  : 'Create account'}
+                {state.status === 'connecting' || submitting ? 'Connecting…' : 'Create account'}
               </Button>
             </div>
           </TabsContent>
@@ -189,9 +156,7 @@ export function RemoteAuthModal({
                 />
               </div>
               {showError ? (
-                <p className="text-sm text-destructive">
-                  An error occurred: {showError}
-                </p>
+                <p className="text-sm text-destructive">An error occurred: {showError}</p>
               ) : success && tab === 'login' ? (
                 <p className="text-sm text-green-600">{success}</p>
               ) : null}
@@ -200,9 +165,7 @@ export function RemoteAuthModal({
                 onClick={() => void handleSubmit('login')}
                 disabled={!email || !password || disableActions}
               >
-                {state.status === 'connecting' || submitting
-                  ? 'Connecting…'
-                  : 'Log in'}
+                {state.status === 'connecting' || submitting ? 'Connecting…' : 'Log in'}
               </Button>
             </div>
           </TabsContent>
