@@ -374,18 +374,17 @@ export class SyncEngine {
     this.pushState.inFlight = true;
     this.setSyncing(SyncDirections.push);
     try {
-      const pending = await this.loadPendingEvents(this.pushBatchSize);
-      if (pending.length === 0) {
-        this.setIdle();
-        this.pushState.backoffMs = 0;
-        this.pushState.notBeforeMs = null;
-        this.pushState.requested = false;
-        return;
-      }
-
       let attempt = 0;
       while (attempt < this.maxPushRetries) {
         attempt += 1;
+        const pending = await this.loadPendingEvents(this.pushBatchSize);
+        if (pending.length === 0) {
+          this.setIdle();
+          this.pushState.backoffMs = 0;
+          this.pushState.notBeforeMs = null;
+          this.pushState.requested = false;
+          return;
+        }
         const expectedHead = await this.getExpectedHead();
         const events = pending.map((row) => ({
           eventId: row.id,

@@ -394,6 +394,49 @@ const makeRecordJson = (params: {
     keyringUpdate: null,
   });
 
+type ParsedRecord = Readonly<{
+  id: string;
+  aggregateType: string;
+  aggregateId: string;
+  eventType: string;
+  payload: string;
+  version: number;
+}>;
+
+const parseRecord = (recordJson: string): ParsedRecord => {
+  const parsed: unknown = JSON.parse(recordJson);
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid record JSON');
+  }
+  const record = parsed as Record<string, unknown>;
+  const version = record.version;
+  if (typeof version !== 'number') {
+    throw new Error('Record version missing');
+  }
+  const id = record.id;
+  const aggregateType = record.aggregateType;
+  const aggregateId = record.aggregateId;
+  const eventType = record.eventType;
+  const payload = record.payload;
+  if (
+    typeof id !== 'string' ||
+    typeof aggregateType !== 'string' ||
+    typeof aggregateId !== 'string' ||
+    typeof eventType !== 'string' ||
+    typeof payload !== 'string'
+  ) {
+    throw new Error('Record shape invalid');
+  }
+  return {
+    id,
+    aggregateType,
+    aggregateId,
+    eventType,
+    payload,
+    version,
+  };
+};
+
 describe('SyncEngine', () => {
   it('rewrites pending versions to avoid per-aggregate version collisions when applying remote events', async () => {
     const db = new MemoryDb();
@@ -486,6 +529,15 @@ describe('SyncEngine', () => {
     expect(db.getEvent('local-1')?.version).toBe(2);
     expect(db.getEventMap('remote-1')?.global_seq).toBe(1);
     expect(db.getEventMap('local-1')?.global_seq).toBe(2);
+
+    const retryPush = transport.pushRequests.at(1);
+    expect(retryPush).toBeDefined();
+    if (retryPush) {
+      const versions = retryPush.events.map(
+        (event) => parseRecord(event.recordJson).version
+      );
+      expect(versions).toContain(2);
+    }
   });
 
   it('pushes pending events in commitSequence order (not causation/correlation)', async () => {
