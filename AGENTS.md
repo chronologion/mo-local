@@ -19,5 +19,5 @@ Key rules:
 - Use the `yarn` scripts and control the Docker compose stack to run & debug the app, and run e2e tests.
 - Lint, typecheck, prettify before you declare something is ready.
 - For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
-- In PR descriptions, wrap code identifiers, filenames, and commands in backticks.
+- In PR descriptions, you MUST keep the original PR template, wrap code identifiers, filenames, and commands in backticks.
 - Use the Context7 MCP tools or web search in case you need to RTFM!
