@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -24,6 +24,8 @@ Relevant invariants in `docs/invariants.md`:
 ## Details
 
 - Identity is used for access control and stream scoping; payload confidentiality remains client-side.
+- `storeId` scopes a sync stream. In the current UX, the `storeId` is effectively the user identity for the local event store (restores/imports must ensure the same `storeId` to converge on the same stream).
+- Authentication must never become key escrow: the server authenticates and authorizes sync access but cannot decrypt payloads (`INV-017`).
 
 ## Code pointers
 

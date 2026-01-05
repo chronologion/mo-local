@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -30,8 +30,10 @@ Relevant invariants in `docs/invariants.md`:
 
 - **KEK / master key**: passphrase-derived key used to encrypt keys at rest in IndexedDB.
 - **Identity keys**: user root identity (signing/encryption keypairs) used for auth/ownership semantics.
-- **`K_aggregate`**: per-aggregate symmetric key used to encrypt event payloads + snapshots; shared across devices via key backup/restore.
-- **`K_cache`**: device-local keys intended for projection caches, indexes, and process-manager state; not synced.
+- **Per-aggregate DEKs**: per-aggregate symmetric keys used to encrypt event payloads + snapshots; shared across devices via key backup/restore.
+- **Derived-state keys (today)**: the current implementation also stores projection/index/process-manager keys in the same key store under “key IDs” (e.g. `goal_search_index`, `process_manager:goal_achievement`). These keys are encrypted at rest under the KEK and are currently included in key backups.
+
+This means “KeyStore” currently holds **more than aggregate DEKs**. If we later introduce a true device-local key domain (`K_cache`), we should explicitly separate export/import behavior (so derived-state keys are rebuildable and not part of recovery material).
 
 ### Backups
 
@@ -50,5 +52,5 @@ Restoring a DB backup without keys is expected to yield “locked/incomplete” 
 
 ## Open questions
 
-- [ ] Define explicit policy for when caches must use `K_cache` vs `K_aggregate` (target: caches/indexes/process-manager state are device-local).
+- [ ] Decide whether derived-state keys should be exportable or strictly device-local (privacy vs convenience tradeoff).
 - [ ] Key rotation and keyring epochs: define invariants and UX for multi-device rotation.

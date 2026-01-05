@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -39,6 +39,13 @@ To enable ordering and routing, the system exposes some metadata:
 - tracing (`causationId`, `correlationId`)
 
 This is intentional for MVP but must remain explicit in threat modeling.
+
+### Metadata minimization (roadmap)
+
+Some metadata is avoidable and is tracked as follow-up security work:
+
+- UUIDv7 identifiers leak time; migrating to UUIDv4 reduces timestamp leakage (`ALC-305`).
+- Explicit `eventType` and BC-specific shapes may be reducible depending on indexing strategy (`ALC-305`, `ALC-332`).
 
 ## Code pointers
 

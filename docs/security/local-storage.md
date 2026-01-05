@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -26,8 +26,14 @@ Relevant invariants in `docs/invariants.md`:
 
 ### OPFS + SQLite
 
-- Facts are stored as ciphertext bytes in SQLite in OPFS.
+- Facts are stored as ciphertext bytes in SQLite in OPFS (`payload_encrypted`).
+- **Important**: OPFS also stores plaintext metadata columns needed for routing and ordering (e.g. `aggregate_id`, `event_type`, `version`, timestamps). A stolen browser profile leaks this metadata even if payload bytes remain confidential.
 - SQLite is owned by a worker; multi-tab is coordinated by a SharedWorker owner (fallback: dedicated worker + Web Locks).
+
+### Derived state in SQLite
+
+- Snapshots, projection caches, search index artifacts, and process-manager state are stored as encrypted BLOBs (e.g. `snapshot_encrypted`, `cache_encrypted`, `artifact_encrypted`, `state_encrypted`) and integrity-bound via AES-GCM AAD.
+- The keys used for derived state are currently stored in the same key store as aggregate keys (see `docs/security/key-management.md`).
 
 ### IndexedDB (key storage)
 

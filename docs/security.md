@@ -3,11 +3,13 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
 This is the top-level security model for MO Local: what we protect, what we leak, what assumptions we make, and the security invariants that must remain true as the system evolves.
+
+For the detailed threat model, see `docs/security/threat-model.md`.
 
 ## Non-goals
 
@@ -76,8 +78,8 @@ The server necessarily learns plaintext metadata needed for sync mechanics:
 ## Key management overview (at a glance)
 
 - **KEK / master key**: derived from user passphrase + salt; used to encrypt keys at rest (IndexedDB).
-- **`K_aggregate`**: per-aggregate symmetric key used to encrypt event payloads and snapshots; shared across devices via key backup/restore.
-- **`K_cache`**: device-local keys intended for projection/index caches; never synced; loss must be recoverable via rebuild.
+- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; shared across devices via key backup/restore.
+- **Derived-state keys (today)**: projection/index/saga keys are currently also stored in the same key store and therefore included in key backups. Long-term, we may split these into a device-local key domain.
 
 See `docs/security/key-management.md`.
 
@@ -113,3 +115,4 @@ See `docs/security/incident-response-and-recovery.md`.
 
 - [ ] Define and document the minimum plaintext metadata we can tolerate at the sync boundary (privacy roadmap).
 - [ ] Formalize browser hardening requirements (CSP, Trusted Types, sanitization rules) and make them build-time enforced.
+- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. UUIDv7 timestamps, explicit `eventType`) (`ALC-305`).
