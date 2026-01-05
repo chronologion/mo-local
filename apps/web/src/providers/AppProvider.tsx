@@ -82,6 +82,17 @@ const saveMeta = (meta: UserMeta): void => {
   localStorage.setItem(USER_META_KEY, JSON.stringify(meta));
 };
 
+type DebugWindow = Window & {
+  __moSyncOnce?: () => Promise<void>;
+  __moPullOnce?: () => Promise<void>;
+  __moPushOnce?: () => Promise<void>;
+  __moSyncStart?: () => void;
+  __moSyncStop?: () => void;
+  __moPendingCount?: () => Promise<number>;
+  __moSyncStatus?: () => unknown;
+  __moResetSyncState?: () => Promise<void>;
+};
+
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const { state: remoteAuthState } = useRemoteAuth();
   const [services, setServices] = useState<Services | null>(null);
@@ -242,12 +253,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               })();
             },
             onResetSync: () => {
-              void (async () => {
-                svc.syncEngine.stop();
-                await svc.syncEngine.resetSyncState();
-                svc.syncEngine.start();
-                await svc.syncEngine.syncOnce().catch(() => undefined);
-              })();
+              void resetSyncState();
             },
           });
         };
@@ -586,107 +592,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (import.meta.env.DEV) {
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moSyncOnce = () => services.syncEngine.syncOnce();
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moPullOnce = () => services.syncEngine.debugPullOnce({ waitMs: 0 });
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moPushOnce = () => services.syncEngine.debugPushOnce();
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moSyncStart = () => services.syncEngine.start();
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moSyncStop = () => services.syncEngine.stop();
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moPendingCount = async () => {
+    const debugWindow = window as DebugWindow;
+    debugWindow.__moSyncOnce = () => services.syncEngine.syncOnce();
+    debugWindow.__moPullOnce = () => services.syncEngine.debugPullOnce({ waitMs: 0 });
+    debugWindow.__moPushOnce = () => services.syncEngine.debugPushOnce();
+    debugWindow.__moSyncStart = () => services.syncEngine.start();
+    debugWindow.__moSyncStop = () => services.syncEngine.stop();
+    debugWindow.__moPendingCount = async () => {
       const rows = await services.db.query<Readonly<{ count: number }>>(
         'SELECT COUNT(*) as count FROM events e LEFT JOIN sync_event_map m ON m.event_id = e.id WHERE m.event_id IS NULL'
       );
       return Number(rows[0]?.count ?? 0);
     };
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moSyncStatus = () => services.syncEngine.getStatus();
-    (
-      window as {
-        __moSyncOnce?: () => Promise<void>;
-        __moPullOnce?: () => Promise<void>;
-        __moPushOnce?: () => Promise<void>;
-        __moSyncStart?: () => void;
-        __moSyncStop?: () => void;
-        __moPendingCount?: () => Promise<number>;
-        __moSyncStatus?: () => unknown;
-        __moResetSyncState?: () => Promise<void>;
-      }
-    ).__moResetSyncState = resetSyncState;
+    debugWindow.__moSyncStatus = () => services.syncEngine.getStatus();
+    debugWindow.__moResetSyncState = resetSyncState;
   }
 
   const goalCtx = services.contexts.goals;
