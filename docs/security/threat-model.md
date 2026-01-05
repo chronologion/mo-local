@@ -14,6 +14,7 @@ Threat model for the current MO Local POC (browser + OPFS/SQLite + sync server).
 - Formal proofs or cryptographic verification.
 - “Perfect privacy” against metadata leakage (timing/size/access patterns).
 - Protecting a fully compromised unlocked runtime (XSS/MiTB can exfiltrate plaintext from memory).
+- Exhaustive DoS resilience (we acknowledge vectors but this is not a primary POC goal).
 
 ## Invariants
 
@@ -39,6 +40,7 @@ Relevant invariants in `docs/invariants.md`:
 
 - **Browser UI thread**: renders decrypted data while unlocked; initiates commands/queries.
 - **Workers** (DB owner / projections): hold SQLite handles; perform IO; handle sync and projection rebuilds.
+- **Crypto/HSM worker (planned)**: dedicated crypto boundary; owns non-extractable keys and enforces session policies (`ALC-299`).
 - **Browser storage**:
   - OPFS: SQLite DB file with ciphertext payloads and plaintext metadata columns (routing/order).
   - IndexedDB: encrypted-at-rest key material (requires KEK to decrypt).
@@ -71,6 +73,9 @@ We treat as out-of-scope to fully prevent (but we still harden the baseline):
 
 - Payload bytes remain encrypted end-to-end across local storage and sync (`INV-006`).
 - Key material is encrypted at rest under a passphrase-derived KEK (`INV-014`).
+  - **Crypto implementation notes**:
+    - AES‑GCM uses **unique random IVs** per encryption (96‑bit from `crypto.getRandomValues()`).
+    - All random values (keys, IVs) come from WebCrypto’s CSPRNG (`crypto.getRandomValues()`).
 
 ### Integrity
 
@@ -81,6 +86,11 @@ We treat as out-of-scope to fully prevent (but we still harden the baseline):
 
 - A user can recover on a new device with: (1) key backup + (2) sync pull (or DB restore) and rebuild derived state as needed.
 - “Escape hatches” exist (wipe/reset, rebuild projections, restore DB) and must remain safe-by-construction.
+
+### Communications assumptions
+
+- Sync traffic is over TLS (browser-default validation). We do **not** pin certificates.
+- TLS version policy (1.2+) is assumed via platform defaults; not explicitly enforced in the POC.
 
 ### Explicit metadata exposure
 
@@ -128,6 +138,37 @@ Roadmap:
 
 **Residual risk**: an attacker with code execution can still invoke decrypt/encrypt APIs while the session is open. This shifts the threat from passive memory dump to active runtime compromise.
 
+### Repudiation / event authorship
+
+- Events include `actorId` but are **not cryptographically signed** by identity keys.
+- MVP assumption: possession of KEK + aggregate DEK implies legitimate authorship within a user/device context.
+- Future work: sign event hashes with identity keys for non-repudiation (to be decided).
+
+### Aggregate isolation / key scope
+
+- Each aggregate uses its own DEK; compromise of one DEK should not unlock other aggregates.
+- **Current gap**: once unlocked, the app can access any stored DEK; there is no fine‑grained per‑aggregate authorization in the key store today.
+- Planned hardening: enforce access via worker policies and scoped APIs (`ALC-299`).
+
+### Denial of service (acknowledged)
+
+DoS is not a primary POC goal, but known vectors include:
+
+- Storage quota exhaustion (OPFS/IndexedDB).
+- Sync flooding (server rate limits are the primary control).
+- Local DB corruption requiring reset + rebuild.
+
+Mitigations are deferred to the hardening roadmap (`ALC-299`).
+
+### Local-first specific threats (needs explicit coverage)
+
+- **Fork attack**: attacker creates divergent history branch and attempts to re‑introduce it.
+- **Cursor manipulation**: attacker rewinds sync cursor to re‑fetch old state.
+- **Conflict injection**: malicious events designed to trigger problematic merges.
+- **Stale data injection**: server serves outdated events as “new”.
+
+Current posture: server‑assigned `globalSequence` + idempotency reduce some risks, but these scenarios require explicit protocol validation and UI handling beyond the POC.
+
 ### Malicious code delivery (compromised operator / CDN / supply chain)
 
 - A compromised deployment pipeline or CDN can serve modified JS that exfiltrates plaintext while the app is unlocked.
@@ -162,3 +203,4 @@ Roadmap:
 
 - [ ] What is the minimum plaintext metadata required at the sync boundary, and how do we migrate toward less metadata (`ALC-305`, `ALC-332`)?
 - [ ] What is our key rotation story (local + multi-device), and what invariants must hold (e.g. epoch monotonicity, re-encryption boundaries, recovery guarantees) (`ALC-290`)?
+- [ ] Define session lifecycle guarantees (idle timeout, re-auth for sensitive operations) and document them (planned in `ALC-299`).
