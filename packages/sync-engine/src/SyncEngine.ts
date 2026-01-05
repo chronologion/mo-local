@@ -2,6 +2,7 @@ import {
   SyncDirections,
   type SyncDirection,
   SyncErrorCodes,
+  SyncPushConflictReasons,
   SyncStatusKinds,
   type SyncEngineOptions,
   type SyncError,
@@ -263,6 +264,36 @@ export class SyncEngine {
     await this.pushOnce();
   }
 
+  async resetSyncState(): Promise<void> {
+    const now = nowMs();
+    await this.db.batch([
+      {
+        kind: SqliteStatementKinds.execute,
+        sql: 'DELETE FROM sync_event_map',
+      },
+      {
+        kind: SqliteStatementKinds.execute,
+        sql: 'DELETE FROM sync_meta WHERE store_id = ?',
+        params: [this.storeId],
+      },
+      {
+        kind: SqliteStatementKinds.execute,
+        sql: 'INSERT INTO sync_meta (store_id, last_pulled_global_seq, updated_at) VALUES (?, ?, ?)',
+        params: [this.storeId, 0, now],
+      },
+    ]);
+    this.lastKnownHead = null;
+    this.pullState.backoffMs = 0;
+    this.pullState.notBeforeMs = null;
+    this.pushState.backoffMs = 0;
+    this.pushState.notBeforeMs = null;
+    this.setStatus({
+      kind: SyncStatusKinds.idle,
+      lastSuccessAt: this.status.lastSuccessAt ?? null,
+      lastError: null,
+    });
+  }
+
   private async pullLoop(): Promise<void> {
     while (this.running) {
       const waitMs = this.consumePullRequest() ? 0 : this.pullWaitMs > 0 ? this.pullWaitMs : 0;
@@ -484,7 +515,18 @@ export class SyncEngine {
       expectedHead,
       serverHead: response.head,
       missingCount: missing.length,
+      reason: response.reason,
     });
+    if (response.reason === SyncPushConflictReasons.serverBehind) {
+      throw new SyncEngineError(
+        createSyncError(SyncErrorCodes.conflict, 'Sync server head behind expected; reset sync state to re-push', {
+          expectedHead,
+          serverHead: response.head,
+          reason: response.reason,
+        }),
+        { retryable: false }
+      );
+    }
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
       const cursorBefore = await this.readLastPulledGlobalSeq();
