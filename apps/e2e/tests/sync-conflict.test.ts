@@ -203,6 +203,16 @@ const resetSyncState = async (page: Page): Promise<void> => {
   });
 };
 
+const getPendingCount = async (page: Page): Promise<number | null> => {
+  return await page.evaluate(async () => {
+    const w = window as { __moPendingCount?: () => Promise<number> };
+    if (w.__moPendingCount) {
+      return await w.__moPendingCount();
+    }
+    return null;
+  });
+};
+
 const getSyncStatus = async (page: Page): Promise<unknown> => {
   return page.evaluate(() => (window as { __moSyncStatus?: () => unknown }).__moSyncStatus?.());
 };
@@ -306,9 +316,14 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     await page.getByRole('button', { name: 'Create goal' }).click();
     await expect(page.getByText('Goal A', { exact: true })).toBeVisible({ timeout: 25_000 });
 
-    await syncOnce(page);
-    const beforeReset = await pullEvents(page, storeId);
-    expect(beforeReset.head).toBeGreaterThan(0);
+    await expect.poll(async () => (await getPendingCount(page)) ?? 0).toBeGreaterThan(0);
+    await pushOnce(page);
+    await expect
+      .poll(async () => {
+        const beforeReset = await pullEvents(page, storeId);
+        return beforeReset.head ?? 0;
+      })
+      .toBeGreaterThan(0);
 
     await resetServerStore(page, storeId);
 
