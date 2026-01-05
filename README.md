@@ -2,7 +2,7 @@
 
 ## Overview
 
-MO Local is a local-first POC (Goals + Projects BCs) that combines a DDD/CQRS domain model with an event-sourced local store (SQLite in OPFS) and client-side encryption. The repo is a Yarn workspaces monorepo:
+MO Local is a local-first system that combines a DDD/CQRS domain model with an event-sourced local store (SQLite in OPFS) and client-side encryption. The repo is a Yarn workspaces monorepo:
 
 - **apps/web** – React + Vite client with onboarding, unlock, goals/projects dashboards (tabs, FTS search, per-goal/project modals, milestones), and key backup/restoration flows. Hosts the composition root.
 - **packages/domain** – Pure TypeScript domain for Goals (Balanced Wheel), Projects, and Identity (aggregates, value objects, fluent assertions).

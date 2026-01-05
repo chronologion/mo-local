@@ -56,7 +56,7 @@ See:
 ## Authentication and authorization
 
 - Identity is validated via Ory Kratos.
-- Sync access control is enforced as “owner-only” for the current POC.
+- Sync access control is enforced as "owner-only" (sharing is future work).
 
 ## Code pointers
 

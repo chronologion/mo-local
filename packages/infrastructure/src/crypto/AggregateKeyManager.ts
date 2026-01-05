@@ -17,7 +17,7 @@ type AcceptParams = {
 
 /**
  * Manages per-aggregate (goal) encryption keys and sharing flows.
- * Key rotation is out of scope for this POC; idempotent create/accept guards against accidental overwrites.
+ * Key rotation is not implemented yet; idempotent create/accept guards against accidental overwrites.
  */
 export class AggregateKeyManager {
   constructor(
