@@ -68,6 +68,7 @@ const toUint8Array = (value: SqliteValue): Uint8Array => {
   throw new Error(`Expected Uint8Array param, got ${typeof value}`);
 };
 
+// Test-only SqliteDbPort harness (not suitable for perf/benchmark use).
 export class TestProjectionDb implements SqliteDbPort {
   private readonly events: EventRow[] = [];
   private readonly syncEventMap = new Map<string, number>();
@@ -124,7 +125,7 @@ export class TestProjectionDb implements SqliteDbPort {
     const normalized = normalizeSql(sql);
     if (normalized.includes('FROM PROJECTION_META')) {
       if (normalized.includes('WHERE PROJECTION_ID = ?')) {
-        const id = toString(params[0] as SqliteValue);
+        const id = toString(params[0]);
         const row = this.projectionMeta.get(id);
         return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
       }
@@ -133,13 +134,13 @@ export class TestProjectionDb implements SqliteDbPort {
 
     if (normalized.includes('FROM PROJECTION_CACHE')) {
       if (normalized.includes('WHERE PROJECTION_ID = ? AND SCOPE_KEY = ?')) {
-        const projectionId = toString(params[0] as SqliteValue);
-        const scopeKey = toString(params[1] as SqliteValue);
+        const projectionId = toString(params[0]);
+        const scopeKey = toString(params[1]);
         const row = this.getProjectionCacheRow(projectionId, scopeKey);
         return row ? ([row] as unknown as T[]) : ([] as unknown as T[]);
       }
       if (normalized.includes('WHERE PROJECTION_ID = ?')) {
-        const projectionId = toString(params[0] as SqliteValue);
+        const projectionId = toString(params[0]);
         const rows = [...this.projectionCache.values()].filter((row) => row.projection_id === projectionId);
         return rows as unknown as T[];
       }
@@ -147,8 +148,8 @@ export class TestProjectionDb implements SqliteDbPort {
 
     if (normalized.includes('FROM INDEX_ARTIFACTS')) {
       if (normalized.includes('WHERE INDEX_ID = ? AND SCOPE_KEY = ?')) {
-        const indexId = toString(params[0] as SqliteValue);
-        const scopeKey = toString(params[1] as SqliteValue);
+        const indexId = toString(params[0]);
+        const scopeKey = toString(params[1]);
         const row = this.getIndexArtifactRow(indexId, scopeKey);
         if (!row) return [] as unknown as T[];
         return [row] as unknown as T[];
@@ -156,11 +157,11 @@ export class TestProjectionDb implements SqliteDbPort {
     }
 
     if (normalized.includes('FROM EVENTS E') && normalized.includes('LEFT JOIN SYNC_EVENT_MAP')) {
-      const aggregateType = toString(params[0] as SqliteValue);
-      const cursorGlobal = toNumber(params[1] as SqliteValue);
-      const cursorPending = toNumber(params[2] as SqliteValue);
-      const cursorPendingFallback = toNumber(params[3] as SqliteValue);
-      const limit = toNumber(params[4] as SqliteValue);
+      const aggregateType = toString(params[0]);
+      const cursorGlobal = toNumber(params[1]);
+      const cursorPending = toNumber(params[2]);
+      const cursorPendingFallback = toNumber(params[3]);
+      const limit = toNumber(params[4]);
       const pendingCursor = Math.max(cursorPending, cursorPendingFallback);
 
       const rows = this.events
@@ -225,22 +226,22 @@ export class TestProjectionDb implements SqliteDbPort {
     }
 
     if (normalized.startsWith('DELETE FROM PROJECTION_META')) {
-      const projectionId = toString(params[0] as SqliteValue);
+      const projectionId = toString(params[0]);
       this.projectionMeta.delete(projectionId);
       return;
     }
 
     if (normalized.startsWith('INSERT INTO PROJECTION_CACHE')) {
       const row: ProjectionCacheRow = {
-        projection_id: toString(params[0] as SqliteValue),
-        scope_key: toString(params[1] as SqliteValue),
-        cache_version: toNumber(params[2] as SqliteValue),
-        cache_encrypted: toUint8Array(params[3] as SqliteValue),
-        ordering: toString(params[4] as SqliteValue),
-        last_global_seq: toNumber(params[5] as SqliteValue),
-        last_pending_commit_seq: toNumber(params[6] as SqliteValue),
-        last_commit_sequence: toNumber(params[7] as SqliteValue),
-        written_at: toNumber(params[8] as SqliteValue),
+        projection_id: toString(params[0]),
+        scope_key: toString(params[1]),
+        cache_version: toNumber(params[2]),
+        cache_encrypted: toUint8Array(params[3]),
+        ordering: toString(params[4]),
+        last_global_seq: toNumber(params[5]),
+        last_pending_commit_seq: toNumber(params[6]),
+        last_commit_sequence: toNumber(params[7]),
+        written_at: toNumber(params[8]),
       };
       this.projectionCache.set(`${row.projection_id}:${row.scope_key}`, row);
       return;
@@ -248,13 +249,13 @@ export class TestProjectionDb implements SqliteDbPort {
 
     if (normalized.startsWith('DELETE FROM PROJECTION_CACHE')) {
       if (normalized.includes('WHERE PROJECTION_ID = ? AND SCOPE_KEY = ?')) {
-        const projectionId = toString(params[0] as SqliteValue);
-        const scopeKey = toString(params[1] as SqliteValue);
+        const projectionId = toString(params[0]);
+        const scopeKey = toString(params[1]);
         this.projectionCache.delete(`${projectionId}:${scopeKey}`);
         return;
       }
       if (normalized.includes('WHERE PROJECTION_ID = ?')) {
-        const projectionId = toString(params[0] as SqliteValue);
+        const projectionId = toString(params[0]);
         for (const key of [...this.projectionCache.keys()]) {
           if (key.startsWith(`${projectionId}:`)) {
             this.projectionCache.delete(key);
@@ -266,13 +267,13 @@ export class TestProjectionDb implements SqliteDbPort {
 
     if (normalized.startsWith('INSERT INTO INDEX_ARTIFACTS')) {
       const row: IndexArtifactRow = {
-        index_id: toString(params[0] as SqliteValue),
-        scope_key: toString(params[1] as SqliteValue),
-        artifact_version: toNumber(params[2] as SqliteValue),
-        artifact_encrypted: toUint8Array(params[3] as SqliteValue),
-        last_global_seq: toNumber(params[4] as SqliteValue),
-        last_pending_commit_seq: toNumber(params[5] as SqliteValue),
-        written_at: toNumber(params[6] as SqliteValue),
+        index_id: toString(params[0]),
+        scope_key: toString(params[1]),
+        artifact_version: toNumber(params[2]),
+        artifact_encrypted: toUint8Array(params[3]),
+        last_global_seq: toNumber(params[4]),
+        last_pending_commit_seq: toNumber(params[5]),
+        written_at: toNumber(params[6]),
       };
       this.indexArtifacts.set(`${row.index_id}:${row.scope_key}`, row);
       return;
@@ -280,13 +281,13 @@ export class TestProjectionDb implements SqliteDbPort {
 
     if (normalized.startsWith('DELETE FROM INDEX_ARTIFACTS')) {
       if (normalized.includes('WHERE INDEX_ID = ? AND SCOPE_KEY = ?')) {
-        const indexId = toString(params[0] as SqliteValue);
-        const scopeKey = toString(params[1] as SqliteValue);
+        const indexId = toString(params[0]);
+        const scopeKey = toString(params[1]);
         this.indexArtifacts.delete(`${indexId}:${scopeKey}`);
         return;
       }
       if (normalized.includes('WHERE INDEX_ID = ?')) {
-        const indexId = toString(params[0] as SqliteValue);
+        const indexId = toString(params[0]);
         for (const key of [...this.indexArtifacts.keys()]) {
           if (key.startsWith(`${indexId}:`)) {
             this.indexArtifacts.delete(key);

@@ -24,10 +24,10 @@ import { TestProjectionDb } from './TestProjectionDb';
 
 const baseDate = Timestamp.fromMillis(new Date('2025-01-01T00:00:00Z').getTime());
 
-const meta = (goalId: GoalId) => ({
+const meta = (goalId: GoalId, eventId: EventId) => ({
   aggregateId: goalId,
   occurredAt: baseDate,
-  eventId: EventId.create(),
+  eventId,
   actorId: ActorId.from('user-1'),
 });
 
@@ -60,11 +60,11 @@ describe('GoalProjectionProcessor', () => {
         createdBy: UserId.from('user-1'),
         createdAt: baseDate,
       },
-      meta(goalId)
+      meta(goalId, EventId.from('00000000-0000-0000-0000-0000000000a1'))
     );
     const refined = new GoalRefined(
       { goalId, summary: Summary.from('Run two marathons'), changedAt: baseDate },
-      meta(goalId)
+      meta(goalId, EventId.from('00000000-0000-0000-0000-0000000000a2'))
     );
 
     const encryptedCreated = await toEncrypted.toEncrypted(created, 1, kGoal, {
@@ -89,5 +89,57 @@ describe('GoalProjectionProcessor', () => {
     await processor.onRebaseRequired();
     const rebuiltGoal = processor.getGoalById(goalId.value);
     expect(rebuiltGoal?.summary).toBe('Run two marathons');
+  });
+
+  it('handles empty event stream without changes', async () => {
+    const db = new TestProjectionDb();
+    const crypto = new WebCryptoService();
+    const keyStore = new InMemoryKeyStore();
+    keyStore.setMasterKey(await crypto.generateKey());
+    const keyringStore = new InMemoryKeyringStore();
+    const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
+    const toDomain = new EncryptedEventToDomainAdapter(crypto);
+    const processor = new GoalProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
+
+    await processor.start();
+    await processor.whenReady();
+
+    expect(processor.listGoals()).toEqual([]);
+    expect(processor.getGoalById('missing')).toBeNull();
+  });
+
+  it('skips events when aggregate key is missing', async () => {
+    const db = new TestProjectionDb();
+    const crypto = new WebCryptoService();
+    const keyStore = new InMemoryKeyStore();
+    keyStore.setMasterKey(await crypto.generateKey());
+    const keyringStore = new InMemoryKeyringStore();
+    const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
+    const toDomain = new EncryptedEventToDomainAdapter(crypto);
+    const toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    const processor = new GoalProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
+
+    const goalId = GoalId.from('00000000-0000-0000-0000-000000000002');
+    const kGoal = await crypto.generateKey();
+    const created = new GoalCreated(
+      {
+        goalId,
+        slice: Slice.from('Health'),
+        summary: Summary.from('Missing key'),
+        targetMonth: Month.from('2025-12'),
+        priority: Priority.from('must'),
+        createdBy: UserId.from('user-1'),
+        createdAt: baseDate,
+      },
+      meta(goalId, EventId.from('00000000-0000-0000-0000-0000000000a3'))
+    );
+
+    const encryptedCreated = await toEncrypted.toEncrypted(created, 1, kGoal);
+    db.insertEvent(AggregateTypes.goal, encryptedCreated, { commitSequence: 1, globalSequence: 1 });
+
+    await processor.start();
+    await processor.whenReady();
+
+    expect(processor.getGoalById(goalId.value)).toBeNull();
   });
 });
