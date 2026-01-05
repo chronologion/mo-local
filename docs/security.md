@@ -37,6 +37,7 @@ Relevant invariants in `docs/invariants.md`:
 
 - **Browser UI thread**: renders UI, initiates commands/queries, holds decrypted data in memory while unlocked.
 - **DB owner worker**: holds the SQLite connection and performs DB IO; receives ciphertext bytes and plaintext metadata needed for indexing/order/cursors.
+- **Crypto/HSM worker (planned)**: dedicated crypto boundary; holds non-extractable key handles and enforces session TTL/auto-lock (`ALC-299`).
 - **Browser storage**:
   - OPFS: durable SQLite event store (`mo-eventstore-<storeId>.db`).
   - IndexedDB: key storage (encrypted at rest under KEK).
@@ -62,6 +63,7 @@ Threats that break the model (assumptions):
 
 - Domain payloads are encrypted client-side and remain ciphertext at rest locally (OPFS SQLite) and in transit to/from the server.
 - Key material is stored encrypted at rest in IndexedDB under a passphrase-derived KEK.
+- Planned hardening (`ALC-299`): keys live in a dedicated worker as non-extractable handles, with session TTL and auto-lock to reduce in-memory exposure.
 
 ### Integrity
 
