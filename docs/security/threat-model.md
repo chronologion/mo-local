@@ -94,4 +94,3 @@ We intentionally accept the following leakage as MVP:
 
 - [ ] What is the minimum plaintext metadata required at the sync boundary, and how do we migrate toward less metadata (`ALC-305`, `ALC-332`)?
 - [ ] What is our key rotation story (local + multi-device), and what invariants must hold (`ALC-290`)?
-
