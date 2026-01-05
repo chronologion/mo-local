@@ -19,6 +19,7 @@ import { SyncOwnerId } from '../domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../domain/value-objects/SyncStoreId';
 import { PullEventsDto } from './dto/PullEventsDto';
 import { PushEventsDto } from './dto/PushEventsDto';
+import { ResetSyncStoreDto } from './dto/ResetSyncStoreDto';
 import { SyncAccessDeniedError } from '../application/ports/sync-access-policy';
 
 @Controller('sync')
@@ -130,6 +131,20 @@ export class SyncController {
       head: head.unwrap(),
       nextSince: lastSequence,
     };
+  }
+
+  @Post('dev/reset')
+  async reset(@Body() dto: ResetSyncStoreDto, @AuthIdentity() identity: AuthenticatedIdentity) {
+    if (!identity) {
+      throw new BadRequestException('Authenticated identity missing');
+    }
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException('Dev-only endpoint');
+    }
+    const ownerId = SyncOwnerId.from(identity.id);
+    const storeId = SyncStoreId.from(dto.storeId);
+    await this.syncService.resetStore({ ownerId, storeId });
+    return { ok: true };
   }
 }
 

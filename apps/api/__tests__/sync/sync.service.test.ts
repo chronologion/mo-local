@@ -80,6 +80,13 @@ class InMemorySyncEventRepository extends SyncEventRepository {
       .sort((a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap())
       .slice(0, limit);
   }
+
+  async resetStore(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<void> {
+    this.events = this.events.filter((event) => {
+      return event.ownerId.unwrap() !== ownerId.unwrap() || event.storeId.unwrap() !== storeId.unwrap();
+    });
+    this.heads.set(`${ownerId.unwrap()}::${storeId.unwrap()}`, 0);
+  }
 }
 
 const ownerId = SyncOwnerId.from('owner-1');
@@ -170,6 +177,31 @@ describe('SyncService', () => {
       expect(result.reason).toBe('server_ahead');
       expect(result.head.unwrap()).toBe(1);
       expect(result.missing?.map((event) => event.eventId)).toEqual(['e1']);
+    }
+  });
+
+  it('returns conflict when server is behind', async () => {
+    await service.pushEvents({
+      ownerId,
+      storeId,
+      expectedHead: GlobalSequenceNumber.from(0),
+      events: [makeEvent('e1', 1)],
+    });
+
+    await repository.resetStore(ownerId, storeId);
+
+    const result = await service.pushEvents({
+      ownerId,
+      storeId,
+      expectedHead: GlobalSequenceNumber.from(1),
+      events: [makeEvent('e2', 2)],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('server_behind');
+      expect(result.head.unwrap()).toBe(0);
+      expect(result.missing).toBeUndefined();
     }
   });
 

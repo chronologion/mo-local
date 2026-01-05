@@ -89,6 +89,13 @@ class InMemorySyncEventRepository extends SyncEventRepository {
       .sort((a, b) => a.globalSequence.unwrap() - b.globalSequence.unwrap())
       .slice(0, limit);
   }
+
+  async resetStore(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<void> {
+    this.events = this.events.filter((event) => {
+      return event.ownerId.unwrap() !== ownerId.unwrap() || event.storeId.unwrap() !== storeId.unwrap();
+    });
+    this.heads.set(`${ownerId.unwrap()}::${storeId.unwrap()}`, 0);
+  }
 }
 
 class InMemorySyncStoreRepository extends SyncStoreRepository {
@@ -199,5 +206,36 @@ describe('SyncController (integration, in-memory repos)', () => {
 
     expect(pull.body.events).toEqual([expect.objectContaining({ eventId: 'e1', globalSequence: 1 })]);
     expect(pull.body.head).toBe(1);
+  });
+
+  it('returns server_behind after dev reset', async () => {
+    await request(app.getHttpServer())
+      .post('/sync/push')
+      .set('x-session-token', 'fake')
+      .send({
+        storeId: TEST_STORE_ID_V7,
+        expectedHead: 0,
+        events: [makeEvent('e10', 10)],
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/sync/dev/reset')
+      .set('x-session-token', 'fake')
+      .send({ storeId: TEST_STORE_ID_V7 })
+      .expect(201);
+
+    const conflict = await request(app.getHttpServer())
+      .post('/sync/push')
+      .set('x-session-token', 'fake')
+      .send({
+        storeId: TEST_STORE_ID_V7,
+        expectedHead: 1,
+        events: [makeEvent('e11', 11)],
+      })
+      .expect(409);
+
+    expect(conflict.body.reason).toBe('server_behind');
+    expect(conflict.body.head).toBe(0);
   });
 });
