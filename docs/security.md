@@ -79,8 +79,8 @@ The server necessarily learns some plaintext metadata needed for sync mechanics 
 ## Key management overview (at a glance)
 
 - **KEK / master key**: derived from user passphrase + salt; used to encrypt keys at rest (IndexedDB).
-- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; shared across devices via key backup/restore.
-- **Derived-state keys (today)**: projection/index/saga keys are currently also stored in the same key store and therefore included in key backups. Long-term, we may split these into a device-local key domain.
+- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; stored locally and recoverable on other devices via keyring updates synced in the event stream (not via key backup).
+- **Derived-state keys (today)**: projection/index/saga keys are currently stored in the same key store under dedicated key IDs, but key backups intentionally omit them (they are rebuildable device-local cache keys). Long-term, we may split these into a separate `K_cache` domain.
 
 See `docs/security/key-management.md`.
 

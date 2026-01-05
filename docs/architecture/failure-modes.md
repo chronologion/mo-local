@@ -16,11 +16,11 @@ This doc does not define new invariants. It relies on the invariant registry in 
 ### Key loss
 
 - If the user loses the passphrase and has no usable key backup, encrypted payloads are unrecoverable by design.
-- If aggregate keys are missing (e.g. syncing onto a fresh device without importing keys), projections will skip events for aggregates whose keys are not present; the UI will appear incomplete until keys are restored.
+- If aggregate keys are missing (e.g. syncing onto a fresh device before keyring updates are pulled), projections will skip events for aggregates whose keys are not present; the UI will appear incomplete until keyring updates are processed.
 
 Recovery:
 
-- Restore a key backup that includes identity + aggregate keys, then unlock; projections can replay from committed encrypted events.
+- Restore a key backup (identity keys only), then pull sync so keyring updates can rebuild aggregate keys; projections can replay from committed encrypted events.
 
 ### Sync divergence
 
@@ -39,7 +39,7 @@ Projections are derived state and are rebuildable from committed event tables.
 Recovery:
 
 - Use the derived-state runtime’s rebuild trigger (`onRebaseRequired()` / projection-level rebuild) to clear derived tables and replay from `events` (+ `sync_event_map` when using `effectiveTotalOrder`).
-- Note: rebuild requires the relevant aggregate keys; missing keys will cause those aggregates to remain absent.
+- Note: rebuild requires the relevant aggregate keys; missing keyring updates or missing local keyring state will cause those aggregates to remain absent.
 - If an index artifact is suspected to be corrupted, delete the relevant `index_artifacts` row(s) and rebuild; artifact encryption makes “partial reads” indistinguishable from corruption.
 
 ### Saga stuck state
