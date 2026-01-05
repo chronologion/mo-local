@@ -30,6 +30,15 @@ Relevant invariants in `docs/invariants.md`:
 - Event payloads and snapshots are encrypted client-side (AES‑GCM).
 - Ciphertext bytes cross the boundary as base64url strings inside `record_json`.
 
+### Integrity binding (AAD)
+
+We intentionally bind only selected metadata into the AES‑GCM AAD (`INV-013`):
+
+- `{aggregateId, eventType, version}` for event payload ciphertext
+- snapshot/projected artifacts have their own AAD schemes (projection id, scope key, artifact/cache version, cursor)
+
+Other metadata fields in `record_json` (e.g. `occurredAt`, `actorId`, tracing ids) are **not** cryptographically bound today and should be treated as advisory. The current MVP relies on the server byte-preserving `record_json` (`INV-004`) rather than attempting to defend against a malicious server rewriting metadata.
+
 ### What is plaintext (metadata)
 
 To enable ordering and routing, the system exposes some metadata:
