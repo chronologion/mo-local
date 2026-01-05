@@ -36,6 +36,14 @@ For an encryption-centric web app, XSS is equivalent to “attacker in the user�
 - Malicious extensions: cannot be fully prevented; document this risk.
 - Clickjacking: ensure appropriate frame protections in production.
 
+### In-memory key exposure (unlocked runtime)
+
+While the app is unlocked, key material can exist in memory. A memory dump or debugger snapshot combined with persisted ciphertext can enable offline decryption. This is not fully preventable in a browser, but we can raise the bar:
+
+- Move all key operations into a dedicated HSM worker (`ALC-299`).
+- Keep keys as non-extractable `CryptoKey` handles or wrapped under a non-extractable session key (`K_session`).
+- Auto-lock on idle/blur/sleep and clear key handles from memory.
+
 ## Code pointers
 
 - `apps/web/src/**` — UI rendering surfaces (primary XSS boundary)
