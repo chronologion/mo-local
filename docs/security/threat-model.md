@@ -116,6 +116,18 @@ Roadmap:
   - user guidance on passphrase strength
   - consider future KDF hardening / migration (e.g. Argon2id) as part of the browser hardening roadmap (`ALC-299`).
 
+### In-memory key exposure (unlocked runtime)
+
+**Current risk**: while unlocked, raw key bytes (KEK/DEKs) may exist in JS heap and can be captured by a memory dump or debugger snapshot. Combined with persisted ciphertext, this enables offline decryption.
+
+**Planned mitigation** (`ALC-299`):
+
+- Use a non-extractable session key (`K_session`) inside the HSM worker to wrap any in-memory key material.
+- Hold only non-extractable `CryptoKey` handles in memory (no raw key bytes in UI thread).
+- Auto-lock on idle/blur/sleep and clear key handles from memory.
+
+**Residual risk**: an attacker with code execution can still invoke decrypt/encrypt APIs while the session is open. This shifts the threat from passive memory dump to active runtime compromise.
+
 ### Malicious code delivery (compromised operator / CDN / supply chain)
 
 - A compromised deployment pipeline or CDN can serve modified JS that exfiltrates plaintext while the app is unlocked.
