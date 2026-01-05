@@ -68,7 +68,6 @@ export const useProjectCommands = () => {
           idempotencyKey: command.idempotencyKey,
           correlationId: command.correlationId ?? null,
           causationId: command.causationId ?? null,
-          message: errorMessage,
           errorCount: result.errors?.length ?? 0,
         };
         if ('projectId' in command && typeof command.projectId === 'string') {

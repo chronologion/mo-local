@@ -9,6 +9,7 @@
 ## Invariants
 
 - [ ] This change preserves existing invariants (or updates `docs/invariants.md` + tests)
+- [ ] Logging/diagnostics reviewed for plaintext leakage (`INV-019`, `INV-015`)
 
 ## Quality gates
 

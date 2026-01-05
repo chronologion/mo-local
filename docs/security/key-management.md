@@ -35,6 +35,21 @@ Relevant invariants in `docs/invariants.md`:
 
 This means “KeyStore” currently holds **more than aggregate DEKs**. If we later introduce a true device-local key domain (`K_cache`), we should explicitly separate export/import behavior (so derived-state keys are rebuildable and not part of recovery material).
 
+### Privacy note: derived-state keys in backups
+
+Because derived-state keys are currently included in key backups, a leaked backup can potentially decrypt device caches such as:
+
+- encrypted search index artifacts (may include plaintext tokens/terms depending on what we cache)
+- encrypted analytics aggregates
+- encrypted process-manager state
+
+The system remains end-to-end encrypted at the sync boundary, but this is a **backup-scope privacy** question: what extra data becomes decryptable if a user shares/loses a key backup file.
+
+We should decide whether derived-state keys are:
+
+- **excluded** from key backups by default (rebuildable device-local), or
+- **included** as today (convenience), with explicit UI warnings and documentation.
+
 ### Backups
 
 Backups must make recovery possible without leaking plaintext:

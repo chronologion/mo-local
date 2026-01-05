@@ -124,6 +124,7 @@ See: `docs/architecture/testing-strategy.md`.
 
 - Logs should be actionable and include stable context (storeId, stage, codes).
 - Never log plaintext domain content (names, descriptions, decrypted payload bytes). Treat logs as potentially shareable artifacts.
+- Avoid logging free-form error messages if they can embed user-provided strings; prefer error codes/counts and stable identifiers.
 - Diagnostics must never include secrets (see `INV-015`).
 
 ## Code Pointers
