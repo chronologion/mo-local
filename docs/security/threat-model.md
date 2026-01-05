@@ -7,14 +7,14 @@
 
 ## Scope
 
-Threat model for the current MO Local POC (browser + OPFS/SQLite + sync server). This document enumerates assets, trust boundaries, attacker capabilities, and the security properties we intend to preserve as the implementation evolves.
+Threat model for MO Local (browser + OPFS/SQLite + sync server). This document enumerates assets, trust boundaries, attacker capabilities, and the security properties we intend to preserve as the implementation evolves.
 
 ## Non-goals
 
 - Formal proofs or cryptographic verification.
 - “Perfect privacy” against metadata leakage (timing/size/access patterns).
 - Protecting a fully compromised unlocked runtime (XSS/MiTB can exfiltrate plaintext from memory).
-- Exhaustive DoS resilience (we acknowledge vectors but this is not a primary POC goal).
+- Exhaustive DoS resilience (we acknowledge vectors but defer hardening to `ALC-299`).
 
 ## Invariants
 
@@ -90,7 +90,7 @@ We treat as out-of-scope to fully prevent (but we still harden the baseline):
 ### Communications assumptions
 
 - Sync traffic is over TLS (browser-default validation). We do **not** pin certificates.
-- TLS version policy (1.2+) is assumed via platform defaults; not explicitly enforced in the POC.
+- TLS version policy (1.2+) is assumed via platform defaults; explicit enforcement is tracked in `ALC-299`.
 
 ### Explicit metadata exposure
 
@@ -152,7 +152,7 @@ Roadmap:
 
 ### Denial of service (acknowledged)
 
-DoS is not a primary POC goal, but known vectors include:
+DoS hardening is deferred to `ALC-299`. Known vectors include:
 
 - Storage quota exhaustion (OPFS/IndexedDB).
 - Sync flooding (server rate limits are the primary control).
@@ -167,7 +167,7 @@ Mitigations are deferred to the hardening roadmap (`ALC-299`).
 - **Conflict injection**: malicious events designed to trigger problematic merges.
 - **Stale data injection**: server serves outdated events as “new”.
 
-Current posture: server‑assigned `globalSequence` + idempotency reduce some risks, but these scenarios require explicit protocol validation and UI handling beyond the POC.
+Current posture: server‑assigned `globalSequence` + idempotency reduce some risks, but these scenarios require explicit protocol validation and UI handling (tracked in follow‑up work).
 
 ### Malicious code delivery (compromised operator / CDN / supply chain)
 

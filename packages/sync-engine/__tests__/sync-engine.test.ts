@@ -4,7 +4,7 @@ import { encodeBase64Url } from '../src/base64url';
 import type { SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
-  type SyncDirection,
+  SyncDirection,
   SyncAbortableTransportPort,
   SyncStatus,
   SyncPullResponseV1,

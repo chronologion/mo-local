@@ -11,7 +11,7 @@ How keys are derived, stored, backed up, and used across the system (KEK/master 
 
 ## Non-goals
 
-- Precise KDF parameter policy for production (we will harden as we move beyond POC).
+- Precise KDF parameter policy (hardening tracked in `ALC-299`).
 - Multi-user / multi-profile key separation (future feature).
 - Sharing key distribution (future).
 
