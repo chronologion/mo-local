@@ -97,6 +97,23 @@ const makeRecordJson = (params: RecordJsonParams): string =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
+const isSyncStatus = (
+  value: unknown
+): value is {
+  kind: string;
+  error?: { context?: { reason?: string } };
+} => {
+  if (!isRecord(value)) return false;
+  if (typeof value.kind !== 'string') return false;
+  if (!('error' in value) || value.error === undefined) return true;
+  if (!isRecord(value.error)) return false;
+  const context = value.error.context;
+  const hasValidContext =
+    context === undefined ||
+    (isRecord(context) && (context.reason === undefined || typeof context.reason === 'string'));
+  return hasValidContext;
+};
+
 const getReason = (value: unknown): string | undefined => {
   if (!isRecord(value)) return undefined;
   const reason = value.reason;
@@ -110,18 +127,13 @@ const getHead = (value: unknown): number | null => {
 };
 
 const getSyncStatusKind = (value: unknown): string | null => {
-  if (!isRecord(value)) return null;
-  const kind = value.kind;
-  return typeof kind === 'string' ? kind : null;
+  if (!isSyncStatus(value)) return null;
+  return value.kind;
 };
 
 const getSyncStatusReason = (value: unknown): string | null => {
-  if (!isRecord(value)) return null;
-  const error = value.error;
-  if (!isRecord(error)) return null;
-  const context = error.context;
-  if (!isRecord(context)) return null;
-  const reason = context.reason;
+  if (!isSyncStatus(value)) return null;
+  const reason = value.error?.context?.reason;
   return typeof reason === 'string' ? reason : null;
 };
 
@@ -341,6 +353,7 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     await syncOnce(page);
 
     const afterReset = await pullEvents(page, storeId);
+    // At minimum the two goal creation events should be re-pushed; other domain events may exist.
     expect(afterReset.head).toBeGreaterThanOrEqual(2);
     expect(afterReset.events.length).toBeGreaterThanOrEqual(2);
   });
