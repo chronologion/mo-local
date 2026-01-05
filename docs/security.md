@@ -115,4 +115,4 @@ See `docs/security/incident-response-and-recovery.md`.
 
 - [ ] Define and document the minimum plaintext metadata we can tolerate at the sync boundary (privacy roadmap).
 - [ ] Formalize browser hardening requirements (CSP, Trusted Types, sanitization rules) and make them build-time enforced.
-- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. UUIDv7 timestamps, explicit `eventType`) (`ALC-305`).
+- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. UUIDv7 timestamps, explicit `eventType`) (`ALC-305`, `ALC-332`).
