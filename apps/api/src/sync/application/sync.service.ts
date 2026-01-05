@@ -88,6 +88,9 @@ export class SyncService {
 
   async resetStore(params: { ownerId: SyncOwnerId; storeId: SyncStoreId }): Promise<void> {
     const { ownerId, storeId } = params;
+    if (process.env.NODE_ENV === 'production') {
+      throw new SyncAccessDeniedError('Reset sync store is disabled in production');
+    }
     await this.accessPolicy.ensureCanPush(ownerId, storeId);
     await this.storeRepository.ensureStoreOwner(storeId, ownerId);
     await this.repository.resetStore(ownerId, storeId);
