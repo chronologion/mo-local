@@ -123,6 +123,7 @@ See: `docs/architecture/testing-strategy.md`.
 ### Logging and diagnostics (principle)
 
 - Logs should be actionable and include stable context (storeId, stage, codes).
+- Never log plaintext domain content (names, descriptions, decrypted payload bytes). Treat logs as potentially shareable artifacts.
 - Diagnostics must never include secrets (see `INV-015`).
 
 ## Code Pointers
