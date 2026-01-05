@@ -675,6 +675,10 @@ export class SyncEngine {
   }
 
   private async waitForNextPull(): Promise<void> {
+    if (this.status.kind === SyncStatusKinds.error && this.status.retryAt === null) {
+      await this.waitForPullSignal();
+      return;
+    }
     const delay = this.getPullDelayMs();
     if (delay <= 0) {
       if (this.pullWaitMs === 0 && this.pullIntervalMs === 0) {
@@ -692,6 +696,10 @@ export class SyncEngine {
   }
 
   private async waitForNextPush(): Promise<void> {
+    if (this.status.kind === SyncStatusKinds.error && this.status.retryAt === null) {
+      await this.waitForPushSignal();
+      return;
+    }
     const delay = this.getPushDelayMs();
     if (this.pushState.requested) {
       if (delay > 0) {
