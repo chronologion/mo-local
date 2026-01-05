@@ -61,12 +61,26 @@ export const useProjectCommands = () => {
             ?.map((err) => err.message)
             .filter((msg) => msg && msg.trim().length > 0)
             .join(', ') || 'Unknown project command error';
-        // Surface details in dev console to aid debugging of silent failures.
-        console.error('[ProjectCommandBus] Dispatch failed', {
-          command,
-          errors: result.errors,
-          message: errorMessage,
-        });
+        // Never log plaintext command payloads (names/descriptions/etc). Log only safe metadata.
+        const safeContext: Record<string, unknown> = {
+          commandType: command.constructor.name,
+          actorId: command.actorId,
+          idempotencyKey: command.idempotencyKey,
+          correlationId: command.correlationId ?? null,
+          causationId: command.causationId ?? null,
+          errorCount: result.errors?.length ?? 0,
+        };
+        if ('projectId' in command && typeof command.projectId === 'string') {
+          safeContext.projectId = command.projectId;
+        }
+        if ('milestoneId' in command && typeof command.milestoneId === 'string') {
+          safeContext.milestoneId = command.milestoneId;
+        }
+        if ('goalId' in command && (typeof command.goalId === 'string' || command.goalId === null)) {
+          safeContext.goalId = command.goalId;
+        }
+
+        console.error('[ProjectCommandBus] Dispatch failed', safeContext);
         setError(errorMessage);
         throw new Error(errorMessage);
       }

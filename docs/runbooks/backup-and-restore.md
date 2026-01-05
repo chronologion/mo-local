@@ -16,7 +16,7 @@
 
 ### 1) Keys backup (recommended)
 
-Backs up identity keys and aggregate keys (what lets you decrypt payloads/snapshots).
+Backs up identity keys only. Per-aggregate DEKs are recovered later via keyring updates after a sync pull.
 
 What it does **not** include:
 

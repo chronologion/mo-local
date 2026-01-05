@@ -3,11 +3,13 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
 This is the top-level security model for MO Local: what we protect, what we leak, what assumptions we make, and the security invariants that must remain true as the system evolves.
+
+For the detailed threat model, see `docs/security/threat-model.md`.
 
 ## Non-goals
 
@@ -35,6 +37,7 @@ Relevant invariants in `docs/invariants.md`:
 
 - **Browser UI thread**: renders UI, initiates commands/queries, holds decrypted data in memory while unlocked.
 - **DB owner worker**: holds the SQLite connection and performs DB IO; receives ciphertext bytes and plaintext metadata needed for indexing/order/cursors.
+- **Crypto/HSM worker (planned)**: dedicated crypto boundary; holds non-extractable key handles and enforces session TTL/auto-lock (`ALC-299`).
 - **Browser storage**:
   - OPFS: durable SQLite event store (`mo-eventstore-<storeId>.db`).
   - IndexedDB: key storage (encrypted at rest under KEK).
@@ -60,24 +63,26 @@ Threats that break the model (assumptions):
 
 - Domain payloads are encrypted client-side and remain ciphertext at rest locally (OPFS SQLite) and in transit to/from the server.
 - Key material is stored encrypted at rest in IndexedDB under a passphrase-derived KEK.
+- Planned hardening (`ALC-299`): keys live in a dedicated worker as non-extractable handles, with session TTL and auto-lock to reduce in-memory exposure.
 
 ### Integrity
 
 - AES‑GCM integrity with AAD ties ciphertext to selected metadata and prevents cross-context replay.
 - Synced events are immutable; server ordering (`globalSequence`) creates a stable convergence stream.
 
-### What is observable (intentional leakage)
+### What is observable (required + current exposure)
 
-The server necessarily learns plaintext metadata needed for sync mechanics:
+The server necessarily learns some plaintext metadata needed for sync mechanics (ordering/idempotency). Some additional metadata is currently present due to the current envelope shape, but is explicitly targeted for removal (see `ALC-332`).
 
-- `storeId` / owner identity context, `globalSequence` ordering, timestamps, and basic event descriptors (e.g. `aggregateType`, `aggregateId`, `eventType`, `version`).
+- Required: `storeId` / owner identity context and `globalSequence` ordering.
+- Current (undesired, remove from server plaintext): event descriptors such as `eventType` and client timestamps such as `occurredAt` (tracked in `ALC-332`). We still need timestamps for product UX; they should live inside encrypted payloads/envelopes, not in server-visible metadata.
 - Traffic patterns: ciphertext length, timing, frequency.
 
 ## Key management overview (at a glance)
 
 - **KEK / master key**: derived from user passphrase + salt; used to encrypt keys at rest (IndexedDB).
-- **`K_aggregate`**: per-aggregate symmetric key used to encrypt event payloads and snapshots; shared across devices via key backup/restore.
-- **`K_cache`**: device-local keys intended for projection/index caches; never synced; loss must be recoverable via rebuild.
+- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; stored locally and recoverable on other devices via keyring updates synced in the event stream (not via key backup).
+- **Derived-state keys (today)**: projection/index/saga keys are currently stored in the same key store under dedicated key IDs, but key backups intentionally omit them (they are rebuildable device-local cache keys). Long-term, we may split these into a separate `K_cache` domain.
 
 See `docs/security/key-management.md`.
 
@@ -113,3 +118,4 @@ See `docs/security/incident-response-and-recovery.md`.
 
 - [ ] Define and document the minimum plaintext metadata we can tolerate at the sync boundary (privacy roadmap).
 - [ ] Formalize browser hardening requirements (CSP, Trusted Types, sanitization rules) and make them build-time enforced.
+- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. UUIDv7 timestamps, explicit `eventType`) (`ALC-305`, `ALC-332`).

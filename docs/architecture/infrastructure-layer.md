@@ -91,7 +91,7 @@ Current implementation:
 
 - Keys are stored in IndexedDB and are encrypted at rest using a passphrase-derived KEK (“master key”).
 - The KEK is derived from the user’s passphrase + a per-user random salt (PBKDF2). The salt is persisted in local metadata so the same KEK can be re-derived on unlock/restore.
-- Backup/restore moves **keys only** (identity + aggregate keys). Event logs and encrypted payloads remain in OPFS SQLite and/or flow via sync.
+- Backup/restore moves **identity keys only**. Per-aggregate DEKs are recovered via keyring updates embedded in the event stream after sync pull.
 
 ### Crypto and integrity binding
 
@@ -101,10 +101,10 @@ Current implementation:
 
 **Key categories (K_aggregate vs K_cache)**
 
-| Key type      | Used for                                 | Synced?                |
-| ------------- | ---------------------------------------- | ---------------------- |
-| `K_aggregate` | Event payloads + snapshots               | Yes (via key backup)   |
-| `K_cache`     | Projection caches + indexes + saga state | No (device-local only) |
+| Key type      | Used for                                 | Synced?                            |
+| ------------- | ---------------------------------------- | ---------------------------------- |
+| `K_aggregate` | Event payloads + snapshots               | No (recovered via keyring updates) |
+| `K_cache`     | Projection caches + indexes + saga state | No (device-local only)             |
 
 Notes:
 

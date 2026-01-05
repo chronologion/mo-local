@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -30,14 +30,28 @@ Relevant invariants in `docs/invariants.md`:
 
 - **KEK / master key**: passphrase-derived key used to encrypt keys at rest in IndexedDB.
 - **Identity keys**: user root identity (signing/encryption keypairs) used for auth/ownership semantics.
-- **`K_aggregate`**: per-aggregate symmetric key used to encrypt event payloads + snapshots; shared across devices via key backup/restore.
-- **`K_cache`**: device-local keys intended for projection caches, indexes, and process-manager state; not synced.
+- **Per-aggregate DEKs**: per-aggregate symmetric keys used to encrypt event payloads + snapshots. These keys are stored locally and can be recovered on other devices via keyring updates embedded in the event stream (not via key backup).
+- **Derived-state keys (today)**: the current implementation also stores projection/index/process-manager keys in the same key store under “key IDs” (e.g. `goal_search_index`, `process_manager:goal_achievement`). These keys are encrypted at rest under the KEK but key backups intentionally omit them because they are rebuildable device-local cache keys.
+
+This means “KeyStore” currently holds **more than aggregate DEKs**. If we later introduce a true device-local key domain (`K_cache`), we should explicitly separate export/import behavior (so derived-state keys stay rebuildable and out of recovery material).
+
+### Privacy note: derived-state keys in local storage
+
+Because derived-state keys are currently stored alongside aggregate keys, a leaked **device** (IndexedDB) can decrypt device caches such as:
+
+- encrypted search index artifacts (may include plaintext tokens/terms depending on what we cache)
+- encrypted analytics aggregates
+- encrypted process-manager state
+
+The system remains end-to-end encrypted at the sync boundary, but this is a **device-scope privacy** question: what extra data becomes decryptable if a device profile is exfiltrated.
+
+Derived-state keys are intentionally **excluded** from key backups. They are device-local and rebuildable by replaying encrypted events.
 
 ### Backups
 
 Backups must make recovery possible without leaking plaintext:
 
-- **Key backup**: contains identity + `K_aggregate` material (sufficient to decrypt synced/local payload ciphertext).
+- **Key backup**: contains identity keys only. Per-aggregate DEKs are recovered via keyring updates after a sync pull.
 - **DB backup**: contains the local SQLite DB file (OPFS) with ciphertext facts + derived state.
 
 Restoring a DB backup without keys is expected to yield “locked/incomplete” UI until keys are restored/unlocked.
@@ -50,5 +64,5 @@ Restoring a DB backup without keys is expected to yield “locked/incomplete” 
 
 ## Open questions
 
-- [ ] Define explicit policy for when caches must use `K_cache` vs `K_aggregate` (target: caches/indexes/process-manager state are device-local).
+- [ ] Decide whether derived-state keys should be exportable or strictly device-local (privacy vs convenience tradeoff).
 - [ ] Key rotation and keyring epochs: define invariants and UX for multi-device rotation.

@@ -5,6 +5,7 @@ Read `goals-poc-prd-v2.md` for the full PRD of what we're working on here.
 Key rules:
 
 - Use Linear MCP tools to read and edit issues.
+- If the Linear ticket has a label "Needs RFC", ensure that an RFC is prepared and approved before producing any code.
 - Follow the progress of each task by regularly committing and submitting comments to the Linear issue you're working on on what was achieved so far and what were the challenges.
 - Make a branch per Linear subissue and use short conventional commit messages per layer, don't create mega-commits with the whole change across all layers.
 - Execute professionally. No cutting corners!!! This POC will grow into a production app and there must be no crap.
@@ -18,6 +19,7 @@ Key rules:
 - Tests are located in `__tests__` on the same level as `src` for each app/module.
 - Use the `yarn` scripts and control the Docker compose stack to run & debug the app, and run e2e tests.
 - Lint, typecheck, prettify before you declare something is ready.
+- Before you concludue work, make sure that the references of the current Linear issue ID in the documentation are resolved.
 - For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
 - In PR descriptions, you MUST keep the original PR template, wrap code identifiers, filenames, and commands in backticks.
 - Use the Context7 MCP tools or web search in case you need to RTFM!
