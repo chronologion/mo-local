@@ -84,11 +84,20 @@ We treat as out-of-scope to fully prevent (but we still harden the baseline):
 
 ### Explicit metadata exposure
 
-We intentionally accept the following leakage as MVP:
+Some metadata is currently exposed in plaintext (locally and/or at the sync boundary). Not all of it is desired; where possible, we minimize it without breaking correctness or UX.
 
-- On server: stable identifiers and event descriptors needed for routing/order (e.g. `storeId`, `eventId`, `aggregateType`, `aggregateId`, `eventType`, `version`, timestamps).
-- On disk (OPFS): the same metadata is present in plaintext columns even though payload bytes are encrypted.
-- Identifiers may leak time if UUIDv7 is used; reducing this is tracked in `ALC-305`.
+Current posture:
+
+- **On disk (OPFS)**: plaintext metadata columns exist (e.g. `aggregate_id`, `event_type`, `version`, `occurred_at`) even though payload bytes are encrypted. A stolen browser profile leaks this metadata.
+- **On server (sync `record_json`)**:
+  - stable identifiers and ordering fields required for sync mechanics (e.g. `storeId`, `eventId`, `globalSequence`)
+  - _today_ we also include additional metadata such as `eventType` and `occurredAt` because the sync record is a mostly direct envelope of the local row shape.
+
+Roadmap:
+
+- **Do not expose `eventType` to the server** (tracked in `ALC-332`). We still need `event_type` locally for projections/AAD binding, but we should not ship it across the sync boundary.
+- UUIDv7 identifiers leak time; migrating to UUIDv4 reduces timestamp leakage (`ALC-305`).
+- Decide whether timestamps like `occurredAt` need to cross the sync boundary at all. We need timestamps for product UX, but they do not necessarily need to be server-visible.
 
 ## Controls / mitigations
 

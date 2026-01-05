@@ -41,13 +41,16 @@ Other metadata fields in `record_json` (e.g. `occurredAt`, `actorId`, tracing id
 
 ### What is plaintext (metadata)
 
-To enable ordering and routing, the system exposes some metadata:
+To enable ordering and routing, the system exposes some metadata.
 
 - identifiers (`storeId`, `eventId`, `aggregateType`, `aggregateId`)
-- event descriptors (`eventType`, `version`, timestamps)
+- ordering fields (`globalSequence`, `version`)
 - tracing (`causationId`, `correlationId`)
 
-This is intentional for MVP but must remain explicit in threat modeling.
+Additional fields are currently included but are targeted for minimization:
+
+- `eventType` (server does not need it; see `ALC-332`)
+- `occurredAt` (we need timestamps for UX, but they do not necessarily need to cross the sync boundary)
 
 ### Metadata minimization (roadmap)
 

@@ -70,9 +70,10 @@ Threats that break the model (assumptions):
 
 ### What is observable (intentional leakage)
 
-The server necessarily learns plaintext metadata needed for sync mechanics:
+The server necessarily learns some plaintext metadata needed for sync mechanics (ordering/idempotency). Some additional metadata is currently present but is targeted for minimization.
 
-- `storeId` / owner identity context, `globalSequence` ordering, timestamps, and basic event descriptors (e.g. `aggregateType`, `aggregateId`, `eventType`, `version`).
+- Required: `storeId` / owner identity context and `globalSequence` ordering.
+- Today (to be minimized): event descriptors such as `eventType` and `occurredAt` (see `ALC-332`).
 - Traffic patterns: ciphertext length, timing, frequency.
 
 ## Key management overview (at a glance)
