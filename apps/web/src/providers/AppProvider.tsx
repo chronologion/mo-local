@@ -108,6 +108,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     tables?: string[];
     onRebuild?: () => void;
     onDownloadDb?: () => void;
+    onResetSync?: () => void;
   } | null>(null);
 
   const [session, setSession] = useState<SessionState>({ status: 'loading' });
@@ -238,6 +239,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 } finally {
                   URL.revokeObjectURL(url);
                 }
+              })();
+            },
+            onResetSync: () => {
+              void (async () => {
+                svc.syncEngine.stop();
+                await svc.syncEngine.resetSyncState();
+                svc.syncEngine.start();
+                await svc.syncEngine.syncOnce().catch(() => undefined);
               })();
             },
           });
@@ -445,6 +454,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     await projectCtx.projectProjection.resetAndRebuild();
   };
 
+  const resetSyncState = async (): Promise<void> => {
+    if (!services) throw new Error('Services not initialized');
+    services.syncEngine.stop();
+    await services.syncEngine.resetSyncState();
+    services.syncEngine.start();
+    await services.syncEngine.syncOnce().catch(() => undefined);
+  };
+
   const restoreBackup = async ({
     password,
     backup,
@@ -578,6 +595,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moSyncOnce = () => services.syncEngine.syncOnce();
     (
@@ -589,6 +607,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moPullOnce = () => services.syncEngine.debugPullOnce({ waitMs: 0 });
     (
@@ -600,6 +619,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moPushOnce = () => services.syncEngine.debugPushOnce();
     (
@@ -611,6 +631,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moSyncStart = () => services.syncEngine.start();
     (
@@ -622,6 +643,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moSyncStop = () => services.syncEngine.stop();
     (
@@ -633,6 +655,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moPendingCount = async () => {
       const rows = await services.db.query<Readonly<{ count: number }>>(
@@ -649,8 +672,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         __moSyncStop?: () => void;
         __moPendingCount?: () => Promise<number>;
         __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
       }
     ).__moSyncStatus = () => services.syncEngine.getStatus();
+    (
+      window as {
+        __moSyncOnce?: () => Promise<void>;
+        __moPullOnce?: () => Promise<void>;
+        __moPushOnce?: () => Promise<void>;
+        __moSyncStart?: () => void;
+        __moSyncStop?: () => void;
+        __moPendingCount?: () => Promise<number>;
+        __moSyncStatus?: () => unknown;
+        __moResetSyncState?: () => Promise<void>;
+      }
+    ).__moResetSyncState = resetSyncState;
   }
 
   const goalCtx = services.contexts.goals;
@@ -702,6 +738,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             aggregateCount: debugInfo.aggregateCount,
             onRebuild: debugInfo.onRebuild,
             onDownloadDb: debugInfo.onDownloadDb,
+            onResetSync: debugInfo.onResetSync,
           }}
         />
       ) : null}
