@@ -68,12 +68,12 @@ Threats that break the model (assumptions):
 - AES‑GCM integrity with AAD ties ciphertext to selected metadata and prevents cross-context replay.
 - Synced events are immutable; server ordering (`globalSequence`) creates a stable convergence stream.
 
-### What is observable (intentional leakage)
+### What is observable (required + current exposure)
 
-The server necessarily learns some plaintext metadata needed for sync mechanics (ordering/idempotency). Some additional metadata is currently present but is targeted for minimization.
+The server necessarily learns some plaintext metadata needed for sync mechanics (ordering/idempotency). Some additional metadata is currently present due to the current envelope shape, but is explicitly targeted for removal (see `ALC-332`).
 
 - Required: `storeId` / owner identity context and `globalSequence` ordering.
-- Today (to be minimized): event descriptors such as `eventType` and `occurredAt` (see `ALC-332`).
+- Current (undesired, remove from server plaintext): event descriptors such as `eventType` and client timestamps such as `occurredAt` (tracked in `ALC-332`). We still need timestamps for product UX; they should live inside encrypted payloads/envelopes, not in server-visible metadata.
 - Traffic patterns: ciphertext length, timing, frequency.
 
 ## Key management overview (at a glance)

@@ -91,13 +91,13 @@ Current posture:
 - **On disk (OPFS)**: plaintext metadata columns exist (e.g. `aggregate_id`, `event_type`, `version`, `occurred_at`) even though payload bytes are encrypted. A stolen browser profile leaks this metadata.
 - **On server (sync `record_json`)**:
   - stable identifiers and ordering fields required for sync mechanics (e.g. `storeId`, `eventId`, `globalSequence`)
-  - _today_ we also include additional metadata such as `eventType` and `occurredAt` because the sync record is a mostly direct envelope of the local row shape.
+  - the current implementation also includes additional metadata such as `eventType` and `occurredAt` because the sync record is a mostly direct envelope of the local row shape; this is **undesired** and tracked for removal in `ALC-332`.
 
 Roadmap:
 
 - **Do not expose `eventType` to the server** (tracked in `ALC-332`). We still need `event_type` locally for projections/AAD binding, but we should not ship it across the sync boundary.
 - UUIDv7 identifiers leak time; migrating to UUIDv4 reduces timestamp leakage (`ALC-305`).
-- Decide whether timestamps like `occurredAt` need to cross the sync boundary at all. We need timestamps for product UX, but they do not necessarily need to be server-visible.
+- **Do not expose client timestamps like `occurredAt` to the server** (tracked in `ALC-332`). We need timestamps for product UX, but they should live inside encrypted payloads/envelopes. If the server needs a timestamp for ops/debug, it can rely on server-side `created_at`/`received_at`.
 
 ## Controls / mitigations
 

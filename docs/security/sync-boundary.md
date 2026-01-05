@@ -37,7 +37,7 @@ We intentionally bind only selected metadata into the AES‑GCM AAD (`INV-013`):
 - `{aggregateId, eventType, version}` for event payload ciphertext
 - snapshot/projected artifacts have their own AAD schemes (projection id, scope key, artifact/cache version, cursor)
 
-Other metadata fields in `record_json` (e.g. `occurredAt`, `actorId`, tracing ids) are **not** cryptographically bound today and should be treated as advisory. The current MVP relies on the server byte-preserving `record_json` (`INV-004`) rather than attempting to defend against a malicious server rewriting metadata.
+Other metadata fields that are currently present in `record_json` (e.g. `occurredAt`, `actorId`, tracing ids) are **not** cryptographically bound today and should be treated as advisory. The current MVP relies on the server byte-preserving `record_json` (`INV-004`) rather than attempting to defend against a malicious server rewriting metadata. Longer-term, we should avoid sending unnecessary server-visible metadata in the first place (see `ALC-332`).
 
 ### What is plaintext (metadata)
 
@@ -47,10 +47,10 @@ To enable ordering and routing, the system exposes some metadata.
 - ordering fields (`globalSequence`, `version`)
 - tracing (`causationId`, `correlationId`)
 
-Additional fields are currently included but are targeted for minimization:
+Some fields are currently included but are explicitly targeted for removal from server-visible plaintext:
 
-- `eventType` (server does not need it; see `ALC-332`)
-- `occurredAt` (we need timestamps for UX, but they do not necessarily need to cross the sync boundary)
+- `eventType` (server does not need it; keep locally for projections; see `ALC-332`)
+- client timestamps such as `occurredAt` (we need timestamps for UX, but they should not be server-visible in plaintext; keep them inside encrypted payloads/envelopes; see `ALC-332`)
 
 ### Metadata minimization (roadmap)
 
