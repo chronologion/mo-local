@@ -24,6 +24,7 @@ Relevant invariants in `docs/invariants.md`:
 - `INV-013` — Integrity binding via AES-GCM AAD
 - `INV-014` — Keys are encrypted at rest under a KEK
 - `INV-015` — Diagnostics are secret-free
+- `INV-019` — Logs avoid plaintext domain content
 
 ## Assets and trust boundaries
 
@@ -42,7 +43,7 @@ Relevant invariants in `docs/invariants.md`:
   - OPFS: SQLite DB file with ciphertext payloads and plaintext metadata columns (routing/order).
   - IndexedDB: encrypted-at-rest key material (requires KEK to decrypt).
   - localStorage: non-secret metadata (`storeId`/userId, passphrase salt).
-- **Server** (`apps/api` + Postgres + Kratos): stores `record_json` ciphertext blobs and plaintext metadata needed for ordering/routing; must not be able to decrypt payloads.
+- **Server** (`apps/api` + Postgres + Ory Kratos): stores `record_json` ciphertext blobs and plaintext metadata needed for ordering/routing; must not be able to decrypt payloads.
 
 ## Attacker models (capabilities)
 
@@ -58,6 +59,11 @@ We treat as out-of-scope to fully prevent (but we still harden the baseline):
 - **XSS / arbitrary JS execution while unlocked**.
 - **Malicious extensions / MiTB** (can exfiltrate what the page can read).
 - **Compromised OS/browser**.
+
+### Locked vs unlocked state (important distinction)
+
+- **Locked**: KEK is not in memory. An attacker with a stolen browser profile must perform an _offline_ attack (e.g. brute-force the passphrase) to decrypt key material and payloads.
+- **Unlocked**: decrypted data and keys exist in memory. A runtime compromise can exfiltrate plaintext (this is a fundamental limitation of browser apps).
 
 ## Security properties (what we guarantee)
 
@@ -89,8 +95,49 @@ We intentionally accept the following leakage as MVP:
 - **Encryption at rest**: encrypted payloads/snapshots/caches stored in SQLite BLOB columns; keys stored encrypted in IndexedDB.
 - **Single writer**: SharedWorker ownership or WebLocks fallback to prevent corruption (`INV-007`).
 - **Safe diagnostics**: user-facing diagnostics must be redacted-by-construction (`INV-015`, `ALC-340`).
+- **Logging hygiene**: logs must avoid plaintext domain content (`INV-019`).
+
+## Key threat scenarios (and current posture)
+
+### Offline passphrase attack (stolen IndexedDB / key backup)
+
+- The KEK is derived from the user passphrase using PBKDF2-SHA256 with 600k iterations (current implementation).
+- A weak passphrase remains vulnerable to offline guessing if an attacker exfiltrates IndexedDB and/or an encrypted key backup file.
+- Mitigations:
+  - user guidance on passphrase strength
+  - consider future KDF hardening / migration (e.g. Argon2id) as part of the browser hardening roadmap (`ALC-299`).
+
+### Malicious code delivery (compromised operator / CDN / supply chain)
+
+- A compromised deployment pipeline or CDN can serve modified JS that exfiltrates plaintext while the app is unlocked.
+- This is distinct from “user-content XSS”: it is an integrity/supply-chain attack.
+- Mitigations (future):
+  - Subresource Integrity (SRI) where applicable
+  - reproducible builds and artifact verification
+  - code signing / release attestation
+  - strict CSP + Trusted Types (see `docs/security/browser-security.md`, `ALC-299`).
+
+### Stolen key backup
+
+- Key backups are encrypted under the passphrase-derived KEK (see `docs/security/key-management.md`).
+- If the backup is exfiltrated and the passphrase is weak/guessed, historical payloads become decryptable.
+- Mitigations (future):
+  - strong passphrase guidance
+  - consider an explicit “backup encryption key” or second factor for exports (`ALC-290`, `ALC-293`).
+
+### Salt integrity / tampering
+
+- The passphrase salt is stored in localStorage and is not authenticated.
+- Tampering primarily causes an availability failure (KEK mismatch → cannot decrypt keys) rather than a confidentiality break.
+- In a runtime-compromise scenario, an attacker could also intercept passphrase entry; this is in the “compromised unlocked runtime” class.
+
+### Replay / reordering attacks
+
+- Duplicate insertion is prevented by idempotency on `eventId` (`INV-008`).
+- Canonical ordering is enforced by server-assigned `globalSequence` (`INV-009`).
+- Advisory metadata in `record_json` (timestamps, tracing ids) is not integrity-bound today; tampering is not cryptographically prevented (see `docs/security/sync-boundary.md`).
 
 ## Open questions
 
 - [ ] What is the minimum plaintext metadata required at the sync boundary, and how do we migrate toward less metadata (`ALC-305`, `ALC-332`)?
-- [ ] What is our key rotation story (local + multi-device), and what invariants must hold (`ALC-290`)?
+- [ ] What is our key rotation story (local + multi-device), and what invariants must hold (e.g. epoch monotonicity, re-encryption boundaries, recovery guarantees) (`ALC-290`)?
