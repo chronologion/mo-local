@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-05
 
 ## Scope
 
@@ -31,6 +31,7 @@ Diagnostics shared in bugs/support must never include key material or decrypted 
 - storeId, DB name, schema version
 - init stage + OPFS capability flags
 - `navigator.storage.persisted()` result and storage estimates (quota/usage)
+- avoid pasting raw console output unless it is known to contain only safe metadata (see `INV-019`); prefer a deliberate diagnostics export (`ALC-340`)
 
 ### Recovery paths
 
