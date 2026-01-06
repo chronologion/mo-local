@@ -1,5 +1,5 @@
 import { InMemoryEventBus } from '@mo/infrastructure/events/InMemoryEventBus';
-import { CommittedEventPublisher } from '@mo/infrastructure';
+import { CommittedEventPublisher, SyncRecordMaterializer } from '@mo/infrastructure';
 import { ConcurrencyError, GoalAchievementSaga, type ValidationError } from '@mo/application';
 import { IndexedDBKeyStore, InMemoryKeyringStore, KeyringManager, WebCryptoService } from '@mo/infrastructure';
 import { EncryptedEventToDomainAdapter, SqliteEventStore } from '@mo/infrastructure';
@@ -193,6 +193,7 @@ export const createAppServices = async ({
     storeId,
     transport: new HttpSyncTransport({ baseUrl: apiBaseUrl }),
     pendingVersionRewriter: new PendingEventVersionRewriter(db, crypto, keyringManager),
+    materializer: new SyncRecordMaterializer(crypto, keyringManager),
     onRebaseRequired: async () => {
       // Rebuild projections first so saga reconciliation reads consistent views.
       await Promise.all([
