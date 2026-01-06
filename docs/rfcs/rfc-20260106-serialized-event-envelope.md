@@ -62,8 +62,8 @@ We define a canonical encrypted payload envelope (versioned for forward evolutio
 
 ```
 EventEnvelope = {
-  eventEnvelopeVersion: 1,
-  header: {
+  envelopeVersion: 1,
+  meta: {
     eventType: string,
     occurredAt: number,
     actorId: string | null,
@@ -95,8 +95,7 @@ SyncRecord = {
   aggregateId: string,
   version: number,
   payloadCiphertext: string,   // base64url
-  keyringUpdate: string | null, // base64url
-  aadVersion: 1
+  keyringUpdate: string | null // base64url
 }
 ```
 
@@ -108,7 +107,7 @@ Key points:
 
 ### 4) AAD binding (remove eventType)
 
-We introduce a new AAD scheme to remove the dependency on plaintext `eventType`:
+We introduce an AAD scheme that removes the dependency on plaintext `eventType`:
 
 ```
 AAD = "{aggregateType}:{aggregateId}:{version}"
@@ -120,7 +119,7 @@ Rationale:
 - Including `aggregateType` provides additional context separation at minimal cost.
 - `eventType` is no longer required for AAD; its integrity is guaranteed by AES-GCM over ciphertext (it lives inside the encrypted envelope).
 
-AAD versioning is explicit (`aadVersion` in the sync record) for forward evolution.
+The AAD scheme is implied by `recordVersion` (we intentionally do not support older record versions yet).
 
 ### 5) Canonicalization rules (bytes that matter)
 
@@ -133,9 +132,55 @@ This RFC does not introduce cross-language canonicalization, but requires that `
 
 ## Implementation notes (non-normative, for follow-up)
 
-- Applying remote events now requires decrypting the payload envelope to extract `eventType` and `occurredAt` (for local OPFS columns).
-- This implies a clear boundary: the component applying remote events must have access to aggregate keys (or must delegate “decrypt + local insert” to an infrastructure service that does).
-- Pending version rewrite must use the new AAD scheme (since AAD binds to aggregate context and version).
+### Clean boundary: “decrypt + materialize local row”
+
+The cleanest boundary is to keep `@mo/sync-engine` responsible only for:
+
+- sync ordering/cursors,
+- conflict handling,
+- and atomic persistence of already-materialized rows into OPFS (`events`, `sync_event_map`).
+
+And delegate crypto/key concerns to an infra-owned port:
+
+```
+interface SyncRecordMaterializerPort {
+  materializeRemoteEvent(input: {
+    eventId: string;
+    recordJson: string;
+    globalSequence: number;
+  }): Promise<{
+    eventRow: {
+      id: string;
+      aggregate_type: string;
+      aggregate_id: string;
+      event_type: string;
+      payload_encrypted: Uint8Array;
+      keyring_update: Uint8Array | null;
+      version: number;
+      occurred_at: number;
+      actor_id: string | null;
+      causation_id: string | null;
+      correlation_id: string | null;
+      epoch: number | null;
+    };
+  }>;
+}
+```
+
+Materializer responsibilities (infra):
+
+- parse `recordJson`,
+- if `keyringUpdate` present: ingest it (so keys become available),
+- resolve the correct DEK for the aggregate/epoch,
+- decrypt payload ciphertext using AAD (`{aggregateType}:{aggregateId}:{version}`),
+- decode `EventEnvelope` and produce local plaintext columns (`event_type`, `occurred_at`, `actor_id`, ...),
+- return a fully-populated local `events` row insert spec.
+
+Sync engine then performs the DB batch insert + map insert atomically.
+
+### Pending rewrite
+
+Pending version rewrite continues to re-encrypt pending events when per-aggregate versions shift during rebase. Under this RFC, the AAD used for re-encryption is `{aggregateType}:{aggregateId}:{version}`.
 
 ## Security impact
 
@@ -143,16 +188,18 @@ This RFC does not introduce cross-language canonicalization, but requires that `
 - Preserves required sync metadata and byte stability (`INV-004`).
 - The new AAD scheme eliminates a plaintext dependency on `eventType` while maintaining integrity binding to aggregate context and version (`INV-013` with an updated scheme).
 
+Notes on sharing/invites:
+
+- Sharing must not be implemented by trusting plaintext event metadata on the server (e.g. “first event’s actorId implies owner”). The server is not allowed to interpret ciphertext-only records as an authorization source of truth.
+- When we add invites, server authorization should be based on explicit ACL state (server-side mapping `aggregateId -> members/roles`) + authenticated identity, while clients share keys via keyring updates.
+
 ## Key invariants
 
 1. `INV-004` — Sync record bytes are preserved (server stores `record_json` as TEXT without canonicalization changes).
 2. `INV-013` — AES-GCM AAD binds ciphertext to aggregate context and version.
 3. New invariant (to register): Sync records do not expose `eventType` or `occurredAt` in plaintext across the sync boundary.
 
-## Open Questions
+## Decisions
 
-- [ ] Do we keep `actorId` in plaintext locally only, or also move it inside the encrypted envelope? (Sync boundary should omit it.)
-- [ ] Do we need a dedicated `eventEnvelopeVersion` vs reusing `payloadVersion`? (The former allows metadata-only evolution.)
-- [ ] Should `aggregateType` be included in AADv2, or is `aggregateId` + `version` sufficient?
-- [ ] Should `record_json` include a compact `aadVersion` field or encode it in `recordVersion`?
-- [ ] What is the cleanest API boundary for “decrypt + materialize local row” in the sync engine?
+1. **Include `envelopeVersion` now**: the encrypted `EventEnvelope` includes `envelopeVersion: 1` for forward evolution of encrypted metadata (independent from per-event `payloadVersion`).
+2. **Keep `actorId` as local plaintext (not synced)**: the local OPFS `events.actor_id` column remains for local UX/debug/queries, but is treated as derived/cache data that must be materialized from the decrypted `EventEnvelope.meta.actorId` (and must never cross the sync boundary as plaintext).
