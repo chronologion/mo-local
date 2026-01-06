@@ -64,12 +64,12 @@ We define a canonical encrypted payload envelope (versioned for forward evolutio
 EventEnvelope = {
   envelopeVersion: 1,
   meta: {
+    eventId: string,
     eventType: string,
     occurredAt: number,
     actorId: string | null,
     causationId: string | null,
-    correlationId: string | null,
-    epoch: number | null
+    correlationId: string | null
   },
   payload: {
     payloadVersion: number,
@@ -83,6 +83,11 @@ Notes:
 - `eventType` and `occurredAt` move into ciphertext.
 - `actorId` and tracing fields (`causationId`, `correlationId`) also move into ciphertext unless required for sync mechanics.
 - `payloadVersion` and `data` remain the domain payload envelope (no change in the domain event spec layer).
+- `eventId` is included in ciphertext to allow clients to assert integrity against the sync transport envelope (see “eventId plaintext rationale” below).
+
+Trade-off:
+
+- This increases ciphertext size slightly (metadata moved into encrypted bytes). We accept this overhead for the security win; if it becomes a performance issue, we can revisit which fields must live inside ciphertext.
 
 ### 3) Sync record envelope (record_json) (canonical)
 
@@ -93,6 +98,7 @@ SyncRecord = {
   recordVersion: 1,
   aggregateType: string,
   aggregateId: string,
+  epoch: number | null,
   version: number,
   payloadCiphertext: string,   // base64url
   keyringUpdate: string | null // base64url
@@ -103,7 +109,35 @@ Key points:
 
 - `eventType` and `occurredAt` are not present in plaintext.
 - `eventId` is still transmitted separately in sync requests/responses and stored in the server row (for idempotency). It does not need to be duplicated in `record_json`.
+- `epoch` remains plaintext to allow deterministic key selection before decryption (see “epoch selection” below).
 - `aggregateType`, `aggregateId`, and `version` remain plaintext because they are required to compute AAD for decryption (see below).
+
+#### Why `eventId` remains plaintext (rationale)
+
+We keep `eventId` as a **plaintext sync transport/server column** because the server must support:
+
+- idempotent inserts (“same event pushed twice”),
+- mapping `eventId → globalSequence` assignments, and
+- conflict detection without decrypting payloads.
+
+Encrypting `eventId` would force the server to treat events as opaque blobs without a stable idempotency key, which breaks the current sync protocol mechanics.
+
+However, clients still include `eventId` inside the encrypted `EventEnvelope.meta.eventId` so the materializer can assert:
+
+- `EventEnvelope.meta.eventId === input.eventId`
+
+This provides a cheap defense-in-depth check against record tampering or transport bugs.
+
+#### Epoch selection (resolving the “circularity”)
+
+We keep `epoch` plaintext in `SyncRecord` because key selection must happen *before* payload decryption:
+
+1. Materializer parses `SyncRecord` → obtains `{aggregateId, epoch, version, payloadCiphertext, keyringUpdate}`.
+2. If `keyringUpdate` is present, materializer ingests it first (so the keyring store has the relevant epoch envelope).
+3. Materializer resolves the DEK for `{aggregateId, epoch}` from keyring store (or from key store fallback rules).
+4. Materializer decrypts payload ciphertext with AAD derived from `{aggregateType, aggregateId, version}`.
+
+If `epoch` were ciphertext-only, we’d either need “try all epochs” (DoS vector / complexity) or rely on implicit keyring state, which is brittle under sharing and key rotation.
 
 ### 4) AAD binding (remove eventType)
 
@@ -171,12 +205,28 @@ Materializer responsibilities (infra):
 
 - parse `recordJson`,
 - if `keyringUpdate` present: ingest it (so keys become available),
-- resolve the correct DEK for the aggregate/epoch,
+- resolve the correct DEK for the aggregate/epoch (epoch is plaintext in `SyncRecord`),
 - decrypt payload ciphertext using AAD (`{aggregateType}:{aggregateId}:{version}`),
 - decode `EventEnvelope` and produce local plaintext columns (`event_type`, `occurred_at`, `actor_id`, ...),
+- assert `EventEnvelope.meta.eventId === input.eventId` (defense against record tampering/mismatch),
 - return a fully-populated local `events` row insert spec.
 
 Sync engine then performs the DB batch insert + map insert atomically.
+
+### Symmetry: encoding `SyncRecord` on push
+
+Push does not require decryption. It needs a deterministic encoder that:
+
+- reads the local OPFS event row (including `payload_encrypted`, `keyring_update`, `epoch`),
+- emits the canonical `SyncRecord` JSON (property order stable), and
+- ships `{ eventId, recordJson }` to the server.
+
+This can live as a pure codec in `@mo/sync-engine` (replacing the current `recordCodec.ts` shape). If we later want more formal symmetry and test seams, we can define:
+
+- `SyncRecordEncoderPort` (row → `{ eventId, recordJson }`)
+- `SyncRecordMaterializerPort` (incoming `{ eventId, recordJson, globalSequence }` → local row)
+
+For now, the materializer port is the key architectural boundary (it owns crypto + key resolution).
 
 ### Pending rewrite
 
@@ -187,6 +237,21 @@ Pending version rewrite continues to re-encrypt pending events when per-aggregat
 - Removes server visibility of `eventType` and client timestamps (`occurredAt`).
 - Preserves required sync metadata and byte stability (`INV-004`).
 - The new AAD scheme eliminates a plaintext dependency on `eventType` while maintaining integrity binding to aggregate context and version (`INV-013` with an updated scheme).
+
+### Known limitations / residual leakage (explicit)
+
+Even with this RFC, the server still learns:
+
+- `aggregateType`, `aggregateId`, `version`, `epoch` (and therefore event counts + per-aggregate activity),
+- `eventId` (idempotency),
+- traffic timing + event size (side channels).
+
+These are accepted limitations for the POC. Removing them would require deeper protocol changes (e.g., different routing, batching/padding, different idempotency scheme).
+
+Notes on `aggregateType` leakage:
+
+- `aggregateType` is currently a small, low-cardinality taxonomy (e.g. `goal`, `project`). We keep it plaintext because it is bound into AAD and provides a simple integrity namespace separation.
+- Future hardening options (not part of this RFC): remove `aggregateType` from AAD if we guarantee globally unique `aggregateId` across all types, or replace it with an opaque deterministic tag.
 
 Notes on sharing/invites:
 
@@ -203,3 +268,22 @@ Notes on sharing/invites:
 
 1. **Include `envelopeVersion` now**: the encrypted `EventEnvelope` includes `envelopeVersion: 1` for forward evolution of encrypted metadata (independent from per-event `payloadVersion`).
 2. **Keep `actorId` as local plaintext (not synced)**: the local OPFS `events.actor_id` column remains for local UX/debug/queries, but is treated as derived/cache data that must be materialized from the decrypted `EventEnvelope.meta.actorId` (and must never cross the sync boundary as plaintext).
+3. **Keep `eventId` plaintext for sync mechanics**: server-side idempotency + assignment mapping requires a stable plaintext id (see rationale above). Clients also include `eventId` inside ciphertext to assert transport integrity.
+4. **Keep `epoch` plaintext for key selection**: decrypting payload requires selecting the correct DEK before decryption; `epoch` is not semantically sensitive like `eventType`/`occurredAt` and avoids “try all epochs” complexity/DoS risk.
+5. **Decryption/materialization failure behavior**:
+   - **Missing key material** (e.g. shared aggregate key not present yet): the client should surface a non-success sync status that is *actionable* (requires key import/invite acceptance) and retry becomes meaningful only after keys are available.
+   - **Corrupt ciphertext / AAD mismatch / envelope decode failure**: treat as non-recoverable corruption for this store/aggregate; require user/dev action (reset/restore/diagnostics). Do not silently skip events.
+
+## Code pointers (for implementation follow-up)
+
+- `packages/sync-engine/src/recordCodec.ts` — current `record_json` encoding/decoding to be replaced
+- `packages/infrastructure/src/eventing/aad.ts` — current AAD scheme (`{aggregateId}:{eventType}:{version}`) to be updated
+- `packages/infrastructure/src/crypto/KeyringManager.ts` — keyring update ingestion + DEK resolution (`epoch`)
+- `packages/sync-engine/src/SyncEngine.ts` — remote apply path (will delegate to materializer)
+- `packages/infrastructure/src/sync/PendingEventVersionRewriter.ts` — pending rewrite logic must use the new AAD scheme
+- `apps/api/src/sync/infrastructure/kysely-sync-event.repository.ts` — server storage of `record_json` (byte preservation)
+
+## Testing notes (for implementation follow-up)
+
+- Update AAD tests: `packages/infrastructure/__tests__/eventing/aad.test.ts`
+- Add/adjust sync-engine tests around record codec/materialization and “eventId mismatch” assertion
