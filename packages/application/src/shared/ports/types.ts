@@ -40,6 +40,7 @@ export interface KeyringState {
 
 export interface EncryptedEvent {
   id: string;
+  aggregateType?: string;
   aggregateId: string;
   eventType: string;
   payload: Uint8Array;
