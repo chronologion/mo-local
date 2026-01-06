@@ -138,9 +138,6 @@ export class SyncController {
     if (!identity) {
       throw new BadRequestException('Authenticated identity missing');
     }
-    if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException('Dev-only endpoint');
-    }
     const ownerId = SyncOwnerId.from(identity.id);
     const storeId = SyncStoreId.from(dto.storeId);
     await this.syncService.resetStore({ ownerId, storeId });

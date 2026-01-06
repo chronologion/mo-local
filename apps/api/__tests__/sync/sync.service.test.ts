@@ -2,6 +2,7 @@ import { SyncAccessPolicy } from '../../src/sync/application/ports/sync-access-p
 import { SyncStoreRepository } from '../../src/sync/application/ports/sync-store-repository';
 import { SyncService } from '../../src/sync/application/sync.service';
 import { SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
+import { GlobalSequenceNumber } from '../../src/sync/domain/value-objects/GlobalSequenceNumber';
 import { SyncOwnerId } from '../../src/sync/domain/value-objects/SyncOwnerId';
 import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
 import { InMemorySyncEventRepository } from './support/in-memory-sync-event-repository';

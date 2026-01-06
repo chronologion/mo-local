@@ -265,10 +265,14 @@ export class SyncEngine {
   }
 
   async resetSyncState(): Promise<void> {
+    if (this.running) {
+      throw new Error('Cannot reset sync state while sync engine is running');
+    }
     const now = nowMs();
     await this.db.batch([
       {
         kind: SqliteStatementKinds.execute,
+        // sync_event_map is global per local store; no per-store scoping exists today.
         sql: 'DELETE FROM sync_event_map',
       },
       {
@@ -511,10 +515,11 @@ export class SyncEngine {
 
   private async handleConflict(response: SyncPushConflictResponseV1, expectedHead: number): Promise<void> {
     const missing = response.missing ?? [];
+    const missingCount = response.reason === SyncPushConflictReasons.serverAhead ? missing.length : undefined;
     console.info('[SyncEngine] push conflict', {
       expectedHead,
       serverHead: response.head,
-      missingCount: missing.length,
+      ...(missingCount === undefined ? {} : { missingCount }),
       reason: response.reason,
     });
     if (response.reason === SyncPushConflictReasons.serverBehind) {
