@@ -28,6 +28,18 @@ The current sync record is a near-mirror of the local OPFS row shape. As a resul
 
 Additionally, the encryption integrity binding (AAD) is currently tied to `{aggregateId, eventType, version}`. This hard-codes a dependence on plaintext `eventType`, making it difficult to remove `eventType` from the sync record without rethinking the envelope and AAD scheme.
 
+### Folding `ALC-305` into this RFC: UUIDv7 timestamp leakage
+
+Even after removing `eventType` and `occurredAt`, the server would still see plaintext identifiers such as:
+
+- `storeId` (sync partition key),
+- `eventId` (idempotency key), and
+- `aggregateId` (routing/keying).
+
+Today these are UUIDv7 in many places, which encode time. This leaks client activity timing to the server (and to any observer of server logs/DB) even if we keep client timestamps encrypted.
+
+Therefore, we fold `ALC-305` into this RFC: **as part of the same breaking change, all newly generated UUIDs MUST be UUIDv4** (no embedded time). Ordering must never rely on lexicographic ID sort; it must use explicit orderings (`commitSequence`, `globalSequence`, and encrypted `occurredAt` for UX).
+
 We need a canonical envelope spec that:
 
 - decouples local row shape from sync/server shape,
@@ -273,6 +285,7 @@ Notes on sharing/invites:
 5. **Decryption/materialization failure behavior**:
    - **Missing key material** (e.g. shared aggregate key not present yet): the client should surface a non-success sync status that is *actionable* (requires key import/invite acceptance) and retry becomes meaningful only after keys are available.
    - **Corrupt ciphertext / AAD mismatch / envelope decode failure**: treat as non-recoverable corruption for this store/aggregate; require user/dev action (reset/restore/diagnostics). Do not silently skip events.
+6. **UUIDv4 everywhere (folded ALC-305)**: all newly generated UUIDs (including `storeId`, `eventId`, and aggregate IDs) MUST be UUIDv4 to avoid timestamp leakage. No ordering logic may rely on ID sort order.
 
 ## Code pointers (for implementation follow-up)
 
@@ -282,8 +295,11 @@ Notes on sharing/invites:
 - `packages/sync-engine/src/SyncEngine.ts` — remote apply path (will delegate to materializer)
 - `packages/infrastructure/src/sync/PendingEventVersionRewriter.ts` — pending rewrite logic must use the new AAD scheme
 - `apps/api/src/sync/infrastructure/kysely-sync-event.repository.ts` — server storage of `record_json` (byte preservation)
+- `packages/domain/src/utils/uuid.ts` + `packages/domain/src/**/vos/*Id.ts` — UUID generator + ID VOs (switch UUIDv7 → UUIDv4)
+- `apps/api/src/sync/presentation/dto/*.ts` — storeId validation currently UUIDv7-specific
 
 ## Testing notes (for implementation follow-up)
 
 - Update AAD tests: `packages/infrastructure/__tests__/eventing/aad.test.ts`
 - Add/adjust sync-engine tests around record codec/materialization and “eventId mismatch” assertion
+- Update tests that assume UUIDv7 shape/regexes (IDs should be treated as opaque strings, validated as UUIDv4 where required)
