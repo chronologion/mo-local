@@ -1,5 +1,5 @@
-export const buildEventAad = (aggregateId: string, eventType: string, version: number): Uint8Array => {
-  const value = `${aggregateId}:${eventType}:${version}`;
+export const buildEventAad = (aggregateType: string, aggregateId: string, version: number): Uint8Array => {
+  const value = `${aggregateType}:${aggregateId}:${version}`;
   return new TextEncoder().encode(value);
 };
 

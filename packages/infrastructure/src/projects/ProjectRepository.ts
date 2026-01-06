@@ -37,7 +37,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
     private readonly keyringManager: KeyringManager,
     snapshotStore: SnapshotStore = new SqliteSnapshotStore()
   ) {
-    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'project');
     this.toDomain = new EncryptedEventToDomainAdapter(crypto);
     this.snapshotStore = snapshotStore;
   }

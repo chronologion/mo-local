@@ -7,6 +7,7 @@ const baseDate = new Date('2025-01-01T00:00:00Z').getTime();
 
 const makeEvent = (id: string, aggregateId: string, version: number): EncryptedEvent => ({
   id,
+  aggregateType: AggregateTypes.goal,
   aggregateId,
   eventType: 'GoalCreated',
   payload: new Uint8Array([1]),

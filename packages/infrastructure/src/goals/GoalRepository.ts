@@ -36,7 +36,7 @@ export class GoalRepository implements GoalRepositoryPort {
     private readonly keyringManager: KeyringManager,
     snapshotStore: SnapshotStore = new SqliteSnapshotStore()
   ) {
-    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    this.toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'goal');
     this.toDomain = new EncryptedEventToDomainAdapter(crypto);
     this.snapshotStore = snapshotStore;
   }

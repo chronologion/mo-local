@@ -97,6 +97,7 @@ const buildEncryptedEvent = (params: {
   actorId: string;
 }): EncryptedEvent => ({
   id: params.id,
+  aggregateType: AggregateTypes.goal,
   aggregateId: params.aggregateId,
   eventType: params.eventType,
   payload: new Uint8Array([1, 2, 3]),

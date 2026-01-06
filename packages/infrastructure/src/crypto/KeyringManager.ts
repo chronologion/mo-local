@@ -54,35 +54,39 @@ export class KeyringManager {
     if (event.keyringUpdate) {
       await this.ingestKeyringUpdate(event.aggregateId, event.keyringUpdate);
     }
-    const epoch = event.epoch ?? 0;
-    const cached = this.getCachedKey(event.aggregateId, epoch);
+    return this.resolveKeyForEpoch(event.aggregateId, event.epoch ?? 0);
+  }
+
+  async resolveKeyForEpoch(aggregateId: string, epoch: number | null): Promise<Uint8Array> {
+    const epochId = epoch ?? 0;
+    const cached = this.getCachedKey(aggregateId, epochId);
     if (cached) return cached;
 
-    const keyringState = await this.keyringStore.getKeyring(event.aggregateId);
+    const keyringState = await this.keyringStore.getKeyring(aggregateId);
     if (keyringState) {
       const keyring = Keyring.fromState(keyringState);
-      const ownerKey = await this.deriveOwnerKey(event.aggregateId);
-      const epochRecord = keyring.getEpoch(epoch);
+      const ownerKey = await this.deriveOwnerKey(aggregateId);
+      const epochRecord = keyring.getEpoch(epochId);
       if (!epochRecord) {
-        throw new MissingKeyError(`Missing keyring epoch ${epoch} for ${event.aggregateId}`);
+        throw new MissingKeyError(`Missing keyring epoch ${epochId} for ${aggregateId}`);
       }
       const dek = await this.crypto.decrypt(epochRecord.ownerEnvelope, ownerKey);
-      this.cacheKey(event.aggregateId, epoch, dek);
-      if (epoch === keyring.getCurrentEpoch()) {
-        await this.keyStore.saveAggregateKey(event.aggregateId, dek);
+      this.cacheKey(aggregateId, epochId, dek);
+      if (epochId === keyring.getCurrentEpoch()) {
+        await this.keyStore.saveAggregateKey(aggregateId, dek);
       }
       return dek;
     }
 
-    if (epoch === 0) {
-      const fallback = await this.keyStore.getAggregateKey(event.aggregateId);
+    if (epochId === 0) {
+      const fallback = await this.keyStore.getAggregateKey(aggregateId);
       if (fallback) {
-        this.cacheKey(event.aggregateId, epoch, fallback);
+        this.cacheKey(aggregateId, epochId, fallback);
         return fallback;
       }
     }
 
-    throw new MissingKeyError(`Missing aggregate key for ${event.aggregateId} (epoch ${epoch})`);
+    throw new MissingKeyError(`Missing aggregate key for ${aggregateId} (epoch ${epochId})`);
   }
 
   async getCurrentEpoch(aggregateId: string): Promise<number> {

@@ -41,6 +41,7 @@ const meta = () => ({
 
 const makeEncryptedEvent = (eventId: string, aggregateId: string): EncryptedEvent => ({
   id: eventId,
+  aggregateType: 'project',
   aggregateId,
   eventType: 'ProjectCreated',
   payload: new Uint8Array([1]),

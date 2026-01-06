@@ -40,7 +40,7 @@ describe('GoalProjectionProcessor', () => {
     const keyringStore = new InMemoryKeyringStore();
     const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
     const toDomain = new EncryptedEventToDomainAdapter(crypto);
-    const toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    const toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'goal');
     const processor = new GoalProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
 
     const goalId = GoalId.from('00000000-0000-0000-0000-000000000001');
@@ -116,7 +116,7 @@ describe('GoalProjectionProcessor', () => {
     const keyringStore = new InMemoryKeyringStore();
     const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
     const toDomain = new EncryptedEventToDomainAdapter(crypto);
-    const toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    const toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'goal');
     const processor = new GoalProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
 
     const goalId = GoalId.from('00000000-0000-0000-0000-000000000002');

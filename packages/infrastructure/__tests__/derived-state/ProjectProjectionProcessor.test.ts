@@ -39,7 +39,7 @@ describe('ProjectProjectionProcessor', () => {
     const keyringStore = new InMemoryKeyringStore();
     const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
     const toDomain = new EncryptedEventToDomainAdapter(crypto);
-    const toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    const toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'project');
     const processor = new ProjectProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
 
     const projectId = ProjectId.from('00000000-0000-0000-0000-000000000201');
@@ -111,7 +111,7 @@ describe('ProjectProjectionProcessor', () => {
     const keyringStore = new InMemoryKeyringStore();
     const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
     const toDomain = new EncryptedEventToDomainAdapter(crypto);
-    const toEncrypted = new DomainToEncryptedEventAdapter(crypto);
+    const toEncrypted = new DomainToEncryptedEventAdapter(crypto, 'project');
     const processor = new ProjectProjectionProcessor(db, crypto, keyStore, keyringManager, toDomain);
 
     const projectId = ProjectId.from('00000000-0000-0000-0000-000000000202');
