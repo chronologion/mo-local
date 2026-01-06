@@ -1,18 +1,18 @@
 import { Assert } from '../../shared/Assert';
 import { AggregateId } from '../../shared/vos/AggregateId';
-import { uuidv7 } from '../../utils/uuid';
+import { uuidv4 } from '../../utils/uuid';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Value object representing a Goal's unique identifier.
  *
- * Uses UUIDv7-style identifiers for time-ordered, globally unique IDs.
+ * Uses UUIDv4 identifiers for globally unique IDs without timestamp leakage.
  *
  * @example
  * ```typescript
  * const id = GoalId.create();
- * const parsed = GoalId.from('123e4567-e89b-72d3-a456-426614174000');
+ * const parsed = GoalId.from('123e4567-e89b-42d3-a456-426614174000');
  * ```
  */
 export class GoalId extends AggregateId {
@@ -22,10 +22,10 @@ export class GoalId extends AggregateId {
   }
 
   /**
-   * Create a new GoalId with a UUIDv7 identifier.
+   * Create a new GoalId with a UUIDv4 identifier.
    */
   static create(): GoalId {
-    return new GoalId(uuidv7());
+    return new GoalId(uuidv4());
   }
 
   /**

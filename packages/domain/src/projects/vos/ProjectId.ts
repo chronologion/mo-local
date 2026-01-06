@@ -1,6 +1,6 @@
 import { Assert } from '../../shared/Assert';
 import { AggregateId } from '../../shared/vos/AggregateId';
-import { uuidv7 } from '../../utils/uuid';
+import { uuidv4 } from '../../utils/uuid';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -11,7 +11,7 @@ export class ProjectId extends AggregateId {
   }
 
   static create(): ProjectId {
-    return new ProjectId(uuidv7());
+    return new ProjectId(uuidv4());
   }
 
   static from(value: string): ProjectId {
