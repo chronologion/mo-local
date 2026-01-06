@@ -14,7 +14,12 @@ Define the canonical, versioned event serialization envelopes across:
 - sync transport (`SyncPushRequestV1`, `SyncPullResponseV1`), and
 - server persistence (`record_json`).
 
-The RFC explicitly defines the plaintext vs ciphertext split, integrity binding rules, and byte canonicalization requirements.
+The RFC explicitly defines:
+
+- the plaintext vs ciphertext split,
+- integrity binding rules (AAD),
+- byte canonicalization requirements, and
+- identifier generation requirements (UUIDv4 for newly generated ids).
 
 ## Non-goals
 
@@ -28,7 +33,7 @@ The current sync record is a near-mirror of the local OPFS row shape. As a resul
 
 Additionally, the encryption integrity binding (AAD) is currently tied to `{aggregateId, eventType, version}`. This hard-codes a dependence on plaintext `eventType`, making it difficult to remove `eventType` from the sync record without rethinking the envelope and AAD scheme.
 
-### Folding `ALC-305` into this RFC: UUIDv7 timestamp leakage
+### Identifier timestamp leakage (UUIDv7)
 
 Even after removing `eventType` and `occurredAt`, the server would still see plaintext identifiers such as:
 
@@ -38,7 +43,7 @@ Even after removing `eventType` and `occurredAt`, the server would still see pla
 
 Today these are UUIDv7 in many places, which encode time. This leaks client activity timing to the server (and to any observer of server logs/DB) even if we keep client timestamps encrypted.
 
-Therefore, we fold `ALC-305` into this RFC: **as part of the same breaking change, all newly generated UUIDs MUST be UUIDv4** (no embedded time). Ordering must never rely on lexicographic ID sort; it must use explicit orderings (`commitSequence`, `globalSequence`, and encrypted `occurredAt` for UX).
+As part of this RFC, **all newly generated UUIDs MUST be UUIDv4** (no embedded time). Ordering must never rely on lexicographic ID sort; it must use explicit orderings (`commitSequence`, `globalSequence`, and encrypted `occurredAt` for UX).
 
 We need a canonical envelope spec that:
 
