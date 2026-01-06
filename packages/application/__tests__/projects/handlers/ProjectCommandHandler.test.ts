@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   InMemoryIdempotencyStore,
   InMemoryKeyStore,
@@ -99,6 +99,26 @@ describe('ProjectCommandHandler', () => {
     const storedKey = await keyStore.getAggregateKey(projectId);
     expect(storedKey).toBeInstanceOf(Uint8Array);
     expect(repo.getStoredKey(ProjectId.from(projectId))).toBeDefined();
+  });
+
+  it('does not persist events or idempotency record when key store write fails', async () => {
+    class FailingKeyStore extends InMemoryKeyStore {
+      override async saveAggregateKey(): Promise<void> {
+        throw new Error('key store failed');
+      }
+    }
+
+    const repo = new InMemoryProjectRepository();
+    const keyStore = new FailingKeyStore();
+    const crypto = new MockCryptoService();
+    const idempotencyStore = new InMemoryIdempotencyStore();
+    const handler = new ProjectCommandHandler(repo, keyStore, crypto, idempotencyStore);
+    const saveSpy = vi.spyOn(repo, 'save');
+
+    await expect(handler.handleCreate(baseCreate())).rejects.toThrow('key store failed');
+    expect(saveSpy).not.toHaveBeenCalled();
+    await expect(keyStore.getAggregateKey(projectId)).resolves.toBeNull();
+    await expect(idempotencyStore.get('idem-create')).resolves.toBeNull();
   });
 
   it('updates status', async () => {
