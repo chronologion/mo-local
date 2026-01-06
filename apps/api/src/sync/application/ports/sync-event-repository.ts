@@ -46,4 +46,6 @@ export abstract class SyncEventRepository {
     since: GlobalSequenceNumber,
     limit: number
   ): Promise<SyncEvent[]>;
+
+  abstract resetStore(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<void>;
 }

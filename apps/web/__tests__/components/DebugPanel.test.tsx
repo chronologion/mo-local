@@ -6,6 +6,7 @@ describe('DebugPanel', () => {
   it('renders debug info and actions', () => {
     const onRebuild = vi.fn();
     const onDownloadDb = vi.fn();
+    const onResetSync = vi.fn();
     render(
       <DebugPanel
         info={{
@@ -16,6 +17,7 @@ describe('DebugPanel', () => {
           note: 'note',
           onRebuild,
           onDownloadDb,
+          onResetSync,
         }}
       />
     );
@@ -28,5 +30,8 @@ describe('DebugPanel', () => {
 
     fireEvent.click(screen.getByText('Download DB'));
     expect(onDownloadDb).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('Reset Sync State'));
+    expect(onResetSync).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,6 +8,7 @@ type DebugInfo = {
   aggregateCount?: number;
   onRebuild?: () => void;
   onDownloadDb?: () => void;
+  onResetSync?: () => void;
 };
 
 export const DebugPanel = ({ info }: { info: DebugInfo }) => {
@@ -68,6 +69,23 @@ export const DebugPanel = ({ info }: { info: DebugInfo }) => {
           onClick={info.onDownloadDb}
         >
           Download DB
+        </button>
+      ) : null}
+      {info.onResetSync ? (
+        <button
+          style={{
+            marginTop: 8,
+            marginLeft: 8,
+            padding: '4px 8px',
+            borderRadius: 4,
+            border: '1px solid #6b7280',
+            background: '#111827',
+            color: '#e5e7eb',
+            cursor: 'pointer',
+          }}
+          onClick={info.onResetSync}
+        >
+          Reset Sync State
         </button>
       ) : null}
     </div>

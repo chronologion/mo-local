@@ -158,4 +158,23 @@ export class KyselySyncEventRepository extends SyncEventRepository {
       createdAt: new Date(row.created_at as Date),
     }));
   }
+
+  async resetStore(ownerId: SyncOwnerId, storeId: SyncStoreId): Promise<void> {
+    const db = this.dbService.getDb();
+    await db.transaction().execute(async (trx) => {
+      const ownerValue = ownerId.unwrap();
+      const storeValue = storeId.unwrap();
+      await trx
+        .deleteFrom('sync.events')
+        .where('owner_identity_id', '=', ownerValue)
+        .where('store_id', '=', storeValue)
+        .execute();
+      await trx
+        .updateTable('sync.stores')
+        .set({ head: 0 })
+        .where('owner_identity_id', '=', ownerValue)
+        .where('store_id', '=', storeValue)
+        .execute();
+    });
+  }
 }

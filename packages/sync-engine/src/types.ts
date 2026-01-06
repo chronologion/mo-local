@@ -65,6 +65,7 @@ export type SyncStatus =
 
 export const SyncPushConflictReasons = {
   serverAhead: 'server_ahead',
+  serverBehind: 'server_behind',
 } as const;
 
 export type SyncPushConflictReason = (typeof SyncPushConflictReasons)[keyof typeof SyncPushConflictReasons];

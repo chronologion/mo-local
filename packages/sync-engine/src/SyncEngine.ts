@@ -2,6 +2,7 @@ import {
   SyncDirections,
   type SyncDirection,
   SyncErrorCodes,
+  SyncPushConflictReasons,
   SyncStatusKinds,
   type SyncEngineOptions,
   type SyncError,
@@ -263,6 +264,40 @@ export class SyncEngine {
     await this.pushOnce();
   }
 
+  async resetSyncState(): Promise<void> {
+    if (this.running) {
+      throw new Error('Cannot reset sync state while sync engine is running');
+    }
+    const now = nowMs();
+    await this.db.batch([
+      {
+        kind: SqliteStatementKinds.execute,
+        // sync_event_map is global per local store; no per-store scoping exists today.
+        sql: 'DELETE FROM sync_event_map',
+      },
+      {
+        kind: SqliteStatementKinds.execute,
+        sql: 'DELETE FROM sync_meta WHERE store_id = ?',
+        params: [this.storeId],
+      },
+      {
+        kind: SqliteStatementKinds.execute,
+        sql: 'INSERT INTO sync_meta (store_id, last_pulled_global_seq, updated_at) VALUES (?, ?, ?)',
+        params: [this.storeId, 0, now],
+      },
+    ]);
+    this.lastKnownHead = null;
+    this.pullState.backoffMs = 0;
+    this.pullState.notBeforeMs = null;
+    this.pushState.backoffMs = 0;
+    this.pushState.notBeforeMs = null;
+    this.setStatus({
+      kind: SyncStatusKinds.idle,
+      lastSuccessAt: this.status.lastSuccessAt ?? null,
+      lastError: null,
+    });
+  }
+
   private async pullLoop(): Promise<void> {
     while (this.running) {
       const waitMs = this.consumePullRequest() ? 0 : this.pullWaitMs > 0 ? this.pullWaitMs : 0;
@@ -480,11 +515,23 @@ export class SyncEngine {
 
   private async handleConflict(response: SyncPushConflictResponseV1, expectedHead: number): Promise<void> {
     const missing = response.missing ?? [];
+    const missingCount = response.reason === SyncPushConflictReasons.serverAhead ? missing.length : undefined;
     console.info('[SyncEngine] push conflict', {
       expectedHead,
       serverHead: response.head,
-      missingCount: missing.length,
+      ...(missingCount === undefined ? {} : { missingCount }),
+      reason: response.reason,
     });
+    if (response.reason === SyncPushConflictReasons.serverBehind) {
+      throw new SyncEngineError(
+        createSyncError(SyncErrorCodes.conflict, 'Sync server head behind expected; reset sync state to re-push', {
+          expectedHead,
+          serverHead: response.head,
+          reason: response.reason,
+        }),
+        { retryable: false }
+      );
+    }
     if (missing.length > 0) {
       const hadPending = await this.hasPendingEvents();
       const cursorBefore = await this.readLastPulledGlobalSeq();
@@ -633,6 +680,10 @@ export class SyncEngine {
   }
 
   private async waitForNextPull(): Promise<void> {
+    if (this.status.kind === SyncStatusKinds.error && this.status.retryAt === null) {
+      await this.waitForPullSignal();
+      return;
+    }
     const delay = this.getPullDelayMs();
     if (delay <= 0) {
       if (this.pullWaitMs === 0 && this.pullIntervalMs === 0) {
@@ -650,6 +701,10 @@ export class SyncEngine {
   }
 
   private async waitForNextPush(): Promise<void> {
+    if (this.status.kind === SyncStatusKinds.error && this.status.retryAt === null) {
+      await this.waitForPushSignal();
+      return;
+    }
     const delay = this.getPushDelayMs();
     if (this.pushState.requested) {
       if (delay > 0) {

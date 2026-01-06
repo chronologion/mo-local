@@ -97,6 +97,23 @@ const makeRecordJson = (params: RecordJsonParams): string =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
+const isSyncStatus = (
+  value: unknown
+): value is {
+  kind: string;
+  error?: { context?: { reason?: string } };
+} => {
+  if (!isRecord(value)) return false;
+  if (typeof value.kind !== 'string') return false;
+  if (!('error' in value) || value.error === undefined) return true;
+  if (!isRecord(value.error)) return false;
+  const context = value.error.context;
+  const hasValidContext =
+    context === undefined ||
+    (isRecord(context) && (context.reason === undefined || typeof context.reason === 'string'));
+  return hasValidContext;
+};
+
 const getReason = (value: unknown): string | undefined => {
   if (!isRecord(value)) return undefined;
   const reason = value.reason;
@@ -107,6 +124,12 @@ const getHead = (value: unknown): number | null => {
   if (!isRecord(value)) return null;
   const head = value.head;
   return typeof head === 'number' ? head : null;
+};
+
+const getSyncStatusReason = (value: unknown): string | null => {
+  if (!isSyncStatus(value)) return null;
+  const reason = value.error?.context?.reason;
+  return typeof reason === 'string' ? reason : null;
 };
 
 async function pushEvents(page: Page, payload: unknown): Promise<{ status: number; body: unknown }> {
@@ -127,6 +150,23 @@ async function pushEvents(page: Page, payload: unknown): Promise<{ status: numbe
       return { status: resp.status, body: data };
     },
     { apiBase: API_BASE, body: payload }
+  );
+}
+
+async function resetServerStore(page: Page, storeId: string): Promise<void> {
+  await page.evaluate(
+    async ({ apiBase, sid }) => {
+      const resp = await fetch(`${apiBase}/sync/dev/reset`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ storeId: sid }),
+      });
+      if (!resp.ok) {
+        throw new Error(`reset failed: ${resp.status}`);
+      }
+    },
+    { apiBase: API_BASE, sid: storeId }
   );
 }
 
@@ -151,6 +191,28 @@ async function pullEvents(page: Page, storeId: string) {
     { apiBase: API_BASE, sid: storeId }
   );
 }
+
+const syncOnce = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    await (window as { __moSyncOnce?: () => Promise<void> }).__moSyncOnce?.();
+  });
+};
+
+const pushOnce = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    await (window as { __moPushOnce?: () => Promise<void> }).__moPushOnce?.();
+  });
+};
+
+const resetSyncState = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    await (window as { __moResetSyncState?: () => Promise<void> }).__moResetSyncState?.();
+  });
+};
+
+const getSyncStatus = async (page: Page): Promise<unknown> => {
+  return page.evaluate(() => (window as { __moSyncStatus?: () => unknown }).__moSyncStatus?.());
+};
 
 test.describe('Sync conflicts rebased via sync protocol', () => {
   test.setTimeout(30_000);
@@ -240,5 +302,43 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     expect(new Set(globalSeqs).size).toBe(globalSeqs.length);
     expect(globalSeqs).toContain(nextHead);
     expect(globalSeqs).toContain(nextHead + 1);
+  });
+
+  test('server reset requires local sync reset to re-push', async ({ page }) => {
+    const { storeId } = await onboardAndConnect(page);
+
+    await page.getByRole('tab', { name: 'Goals' }).waitFor({ timeout: 25_000 });
+    await page.getByRole('button', { name: 'New goal' }).click();
+    await page.getByPlaceholder('Define a concrete goal').fill('Goal A');
+    await page.getByRole('button', { name: 'Create goal' }).click();
+    await expect(page.getByText('Goal A', { exact: true })).toBeVisible({ timeout: 25_000 });
+
+    await pushOnce(page);
+    let beforeResetHead = 0;
+    await expect
+      .poll(async () => {
+        const beforeReset = await pullEvents(page, storeId);
+        beforeResetHead = beforeReset.head ?? 0;
+        return beforeResetHead;
+      })
+      .toBeGreaterThan(0);
+
+    await resetServerStore(page, storeId);
+
+    await page.getByRole('button', { name: 'New goal' }).click();
+    await page.getByPlaceholder('Define a concrete goal').fill('Goal B');
+    await page.getByRole('button', { name: 'Create goal' }).click();
+    await expect(page.getByText('Goal B', { exact: true })).toBeVisible({ timeout: 25_000 });
+
+    await pushOnce(page);
+    await expect.poll(async () => getSyncStatusReason(await getSyncStatus(page))).toBe('server_behind');
+
+    await resetSyncState(page);
+    await syncOnce(page);
+
+    const afterReset = await pullEvents(page, storeId);
+    // Expect at least the previous head plus the new goal event to be re-pushed.
+    expect(afterReset.head).toBeGreaterThanOrEqual(beforeResetHead + 1);
+    expect(afterReset.events.length).toBeGreaterThan(0);
   });
 });

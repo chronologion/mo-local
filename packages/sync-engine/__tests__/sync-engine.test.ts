@@ -1073,6 +1073,54 @@ describe('SyncEngine', () => {
     expect(engine.getStatus().kind).toBe('error');
   });
 
+  it('sets error when server is behind expected head', async () => {
+    const db = new MemoryDb();
+    const transport = new FakeTransport();
+    const onRebaseRequired = vi.fn().mockResolvedValue(undefined);
+
+    db.seedEvent({
+      id: 'local-1',
+      aggregate_type: 'goal',
+      aggregate_id: 'goal-1',
+      event_type: 'GoalCreated',
+      payload_encrypted: new Uint8Array([1, 2, 3]),
+      keyring_update: null,
+      version: 1,
+      occurred_at: Date.now(),
+      actor_id: null,
+      causation_id: null,
+      correlation_id: null,
+      epoch: null,
+    });
+
+    transport.pullResponses.push({
+      head: 0,
+      events: [],
+      hasMore: false,
+      nextSince: null,
+    });
+    transport.pushResponses.push({
+      ok: false,
+      head: 0,
+      reason: 'server_behind',
+    });
+
+    const engine = new SyncEngine({
+      db,
+      transport,
+      storeId: 'store-5',
+      onRebaseRequired,
+    });
+
+    await engine.syncOnce();
+
+    const status = engine.getStatus();
+    expect(status.kind).toBe('error');
+    if (status.kind === 'error') {
+      expect(status.error.context?.reason).toBe('server_behind');
+    }
+  });
+
   it('sets error when remote record id mismatches event id', async () => {
     const db = new MemoryDb();
     const transport = new FakeTransport();

@@ -46,6 +46,8 @@ class DummySyncEventRepository extends SyncEventRepository {
   override async loadSince() {
     return [];
   }
+
+  override async resetStore(): Promise<void> {}
 }
 
 class DummySyncStoreRepository extends SyncStoreRepository {
