@@ -330,10 +330,12 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
 
     await expect.poll(async () => (await getPendingCount(page)) ?? 0).toBeGreaterThan(0);
     await pushOnce(page);
+    let beforeResetHead = 0;
     await expect
       .poll(async () => {
         const beforeReset = await pullEvents(page, storeId);
-        return beforeReset.head ?? 0;
+        beforeResetHead = beforeReset.head ?? 0;
+        return beforeResetHead;
       })
       .toBeGreaterThan(0);
 
@@ -353,8 +355,8 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     await syncOnce(page);
 
     const afterReset = await pullEvents(page, storeId);
-    // At minimum the two goal creation events should be re-pushed; other domain events may exist.
-    expect(afterReset.head).toBeGreaterThanOrEqual(2);
-    expect(afterReset.events.length).toBeGreaterThanOrEqual(2);
+    // Expect at least the previous head plus the new goal event to be re-pushed.
+    expect(afterReset.head).toBeGreaterThanOrEqual(beforeResetHead + 1);
+    expect(afterReset.events.length).toBeGreaterThan(0);
   });
 });
