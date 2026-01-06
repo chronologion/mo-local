@@ -104,7 +104,7 @@ describe('GoalCommandHandler', () => {
     expect(storedKey).toBeInstanceOf(Uint8Array);
   });
 
-  it('does not persist events when key store write fails', async () => {
+  it('does not persist events or idempotency record when key store write fails', async () => {
     class FailingKeyStore extends InMemoryKeyStore {
       override async saveAggregateKey(): Promise<void> {
         throw new Error('key store failed');
@@ -121,6 +121,7 @@ describe('GoalCommandHandler', () => {
     await expect(handler.handleCreate(baseCreate)).rejects.toThrow('key store failed');
     expect(saveSpy).not.toHaveBeenCalled();
     await expect(keyStore.getAggregateKey(goalId)).resolves.toBeNull();
+    await expect(idempotencyStore.get(baseCreate.idempotencyKey)).resolves.toBeNull();
   });
 
   it('updates summary', async () => {
