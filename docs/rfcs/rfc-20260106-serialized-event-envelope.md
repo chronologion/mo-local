@@ -278,7 +278,7 @@ Notes on sharing/invites:
 ## Key invariants
 
 1. `INV-004` — Sync record bytes are preserved (server stores `record_json` as TEXT without canonicalization changes).
-2. `INV-013` — AES-GCM AAD binds ciphertext to aggregate context and version.
+2. `INV-013` — AES-GCM AAD binds ciphertext to `{aggregateType}:{aggregateId}:{version}`.
 3. New invariant (to register): Sync records do not expose `eventType` or `occurredAt` in plaintext across the sync boundary.
 
 ## Decisions
