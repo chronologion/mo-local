@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SyncEngine } from '../src/SyncEngine';
-import { encodeBase64Url } from '../src/base64url';
+import { decodeBase64Url, encodeBase64Url } from '../src/base64url';
 import type { SqliteBatchResult, SqliteDbPort, SqliteStatement, SqliteValue } from '@mo/eventstore-web';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
 import type {
@@ -11,7 +11,10 @@ import type {
   SyncPushConflictResponseV1,
   SyncPushOkResponseV1,
   SyncPushRequestV1,
+  MaterializedEventRow,
+  SyncRecordMaterializerPort,
 } from '../src/types';
+import { parseRecordJson } from '../src/recordCodec';
 
 type EventRow = Readonly<{
   id: string;
@@ -327,6 +330,66 @@ const toNullableUint8Array = (value: SqliteValue, label: string): Uint8Array | n
   throw new Error(`Expected ${label} to be Uint8Array or null`);
 };
 
+type TestEnvelopeMeta = Readonly<{
+  eventId: string;
+  eventType: string;
+  occurredAt: number;
+  actorId: string | null;
+  causationId: string | null;
+  correlationId: string | null;
+}>;
+
+const encodeEnvelopeBytes = (meta: TestEnvelopeMeta, payload: Uint8Array): Uint8Array => {
+  const envelope = {
+    envelopeVersion: 1,
+    meta,
+    payload: {
+      payloadVersion: 1,
+      data: Array.from(payload),
+    },
+  };
+  return new TextEncoder().encode(JSON.stringify(envelope));
+};
+
+const decodeEnvelopeMeta = (bytes: Uint8Array): TestEnvelopeMeta => {
+  const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid envelope JSON');
+  }
+  const record = parsed as Record<string, unknown>;
+  const meta = record.meta;
+  if (typeof meta !== 'object' || meta === null) {
+    throw new Error('Invalid envelope meta');
+  }
+  const m = meta as Record<string, unknown>;
+  const eventId = m.eventId;
+  const eventType = m.eventType;
+  const occurredAt = m.occurredAt;
+  const actorId = m.actorId;
+  const causationId = m.causationId;
+  const correlationId = m.correlationId;
+  if (typeof eventId !== 'string' || typeof eventType !== 'string' || typeof occurredAt !== 'number') {
+    throw new Error('Invalid envelope meta fields');
+  }
+  if (actorId !== null && typeof actorId !== 'string') {
+    throw new Error('Invalid envelope actorId');
+  }
+  if (causationId !== null && typeof causationId !== 'string') {
+    throw new Error('Invalid envelope causationId');
+  }
+  if (correlationId !== null && typeof correlationId !== 'string') {
+    throw new Error('Invalid envelope correlationId');
+  }
+  return {
+    eventId,
+    eventType,
+    occurredAt,
+    actorId: actorId ?? null,
+    causationId: causationId ?? null,
+    correlationId: correlationId ?? null,
+  };
+};
+
 const makeRecordJson = (params: {
   id: string;
   aggregateType: string;
@@ -334,64 +397,73 @@ const makeRecordJson = (params: {
   eventType: string;
   payload: Uint8Array;
   version: number;
+  epoch?: number | null;
 }): string =>
   JSON.stringify({
-    id: params.id,
+    recordVersion: 1,
     aggregateType: params.aggregateType,
     aggregateId: params.aggregateId,
-    eventType: params.eventType,
-    payload: encodeBase64Url(params.payload),
+    epoch: params.epoch ?? null,
     version: params.version,
-    occurredAt: Date.now(),
-    actorId: null,
-    causationId: null,
-    correlationId: null,
-    epoch: null,
+    payloadCiphertext: encodeBase64Url(
+      encodeEnvelopeBytes(
+        {
+          eventId: params.id,
+          eventType: params.eventType,
+          occurredAt: Date.now(),
+          actorId: null,
+          causationId: null,
+          correlationId: null,
+        },
+        params.payload
+      )
+    ),
     keyringUpdate: null,
   });
 
 type ParsedRecord = Readonly<{
-  id: string;
   aggregateType: string;
   aggregateId: string;
-  eventType: string;
-  payload: string;
   version: number;
 }>;
 
 const parseRecord = (recordJson: string): ParsedRecord => {
-  const parsed: unknown = JSON.parse(recordJson);
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('Invalid record JSON');
-  }
-  const record = parsed as Record<string, unknown>;
-  const version = record.version;
-  if (typeof version !== 'number') {
-    throw new Error('Record version missing');
-  }
-  const id = record.id;
-  const aggregateType = record.aggregateType;
-  const aggregateId = record.aggregateId;
-  const eventType = record.eventType;
-  const payload = record.payload;
-  if (
-    typeof id !== 'string' ||
-    typeof aggregateType !== 'string' ||
-    typeof aggregateId !== 'string' ||
-    typeof eventType !== 'string' ||
-    typeof payload !== 'string'
-  ) {
-    throw new Error('Record shape invalid');
-  }
+  const record = parseRecordJson(recordJson);
   return {
-    id,
-    aggregateType,
-    aggregateId,
-    eventType,
-    payload,
-    version,
+    aggregateType: record.aggregateType,
+    aggregateId: record.aggregateId,
+    version: record.version,
   };
 };
+
+const createTestMaterializer = (): SyncRecordMaterializerPort => ({
+  async materializeRemoteEvent(input: { eventId: string; recordJson: string; globalSequence: number }): Promise<{
+    eventRow: MaterializedEventRow;
+  }> {
+    const record = parseRecordJson(input.recordJson);
+    const payloadBytes = decodeBase64Url(record.payloadCiphertext);
+    const meta = decodeEnvelopeMeta(payloadBytes);
+    if (meta.eventId !== input.eventId) {
+      throw new Error(`EventId mismatch for ${input.eventId}`);
+    }
+    return {
+      eventRow: {
+        id: input.eventId,
+        aggregate_type: record.aggregateType,
+        aggregate_id: record.aggregateId,
+        event_type: meta.eventType,
+        payload_encrypted: payloadBytes,
+        keyring_update: null,
+        version: record.version,
+        occurred_at: meta.occurredAt,
+        actor_id: meta.actorId,
+        causation_id: meta.causationId,
+        correlation_id: meta.correlationId,
+        epoch: record.epoch ?? null,
+      },
+    };
+  },
+});
 
 describe('SyncEngine', () => {
   it('rewrites pending versions to avoid per-aggregate version collisions when applying remote events', async () => {
@@ -475,6 +547,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId,
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pendingVersionRewriter,
     });
@@ -550,6 +623,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId,
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pushBatchSize: 10,
     });
@@ -597,6 +671,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId,
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pullIntervalMs: 5,
       pushIntervalMs: 5,
@@ -634,6 +709,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-backoff',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pullIntervalMs: 0,
       pullWaitMs: 0,
@@ -698,6 +774,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-push-backoff',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pushIntervalMs: 0,
       pullIntervalMs: 0,
@@ -747,6 +824,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-debounce',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pushIntervalMs: 0,
       pullIntervalMs: 0,
@@ -813,6 +891,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-fallback',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       pushIntervalMs: 1000,
       pushFallbackIntervalMs: 50,
@@ -905,6 +984,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId,
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
@@ -972,6 +1052,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId,
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
@@ -1014,6 +1095,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-2',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       onStatusChange: (status) => statusHistory.push(status),
     });
@@ -1065,6 +1147,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-3',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
@@ -1109,6 +1192,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-5',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
@@ -1151,6 +1235,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-4',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
       onStatusChange: (status) => statusHistory.push(status),
     });
@@ -1196,6 +1281,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-5',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
@@ -1238,6 +1324,7 @@ describe('SyncEngine', () => {
       db,
       transport,
       storeId: 'store-6',
+      materializer: createTestMaterializer(),
       onRebaseRequired,
     });
 
