@@ -126,11 +126,6 @@ const getHead = (value: unknown): number | null => {
   return typeof head === 'number' ? head : null;
 };
 
-const getSyncStatusKind = (value: unknown): string | null => {
-  if (!isSyncStatus(value)) return null;
-  return value.kind;
-};
-
 const getSyncStatusReason = (value: unknown): string | null => {
   if (!isSyncStatus(value)) return null;
   const reason = value.error?.context?.reason;
@@ -336,9 +331,7 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     await expect(page.getByText('Goal B', { exact: true })).toBeVisible({ timeout: 25_000 });
 
     await pushOnce(page);
-    await expect.poll(async () => getSyncStatusKind(await getSyncStatus(page))).toBe('error');
-    const statusAfterConflict = await getSyncStatus(page);
-    expect(getSyncStatusReason(statusAfterConflict)).toBe('server_behind');
+    await expect.poll(async () => getSyncStatusReason(await getSyncStatus(page))).toBe('server_behind');
 
     await resetSyncState(page);
     await syncOnce(page);
