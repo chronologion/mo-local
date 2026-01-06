@@ -5,7 +5,7 @@
 **Related**: ALC-334, ALC-307
 **PR**: #41
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-02
+**Last Updated**: 2026-01-06
 
 ## Scope
 
@@ -54,7 +54,7 @@ This is rare in casual testing because it requires **same-aggregate, same-versio
 
 1. **Synced immutability**: once an event has a `globalSequence` mapping, its ciphertext bytes and metadata are never rewritten.
 2. **Local-fact commitment**: once committed locally, an event’s `eventId` and plaintext payload are stable facts.
-3. **AAD integrity binding**: AES-GCM AAD binds `{ aggregateId, eventType, version }`.
+3. **AAD integrity binding**: AES-GCM AAD binds `{ aggregateType, aggregateId, version }`.
    - If `version` changes for a pending event, its ciphertext must be re-encrypted.
 4. **Ordering model**:
    - Derived state converges using `effectiveTotalOrder` (global then local tail).
@@ -78,8 +78,8 @@ For the affected aggregate `(aggregate_type, aggregate_id)` and collision `versi
 2. Shift versions **up by 1** (to avoid intra-set collisions):
    - for each pending row: `version = version + 1`.
 3. For each shifted pending event:
-   - decrypt the payload using the aggregate key and AAD with `{ aggregateId, eventType, oldVersion }`;
-   - re-encrypt the same plaintext using AAD with `{ aggregateId, eventType, newVersion }`;
+   - decrypt the payload using the aggregate key and AAD with `{ aggregateType, aggregateId, oldVersion }`;
+   - re-encrypt the same plaintext using AAD with `{ aggregateType, aggregateId, newVersion }`;
    - update the `events` row: `version = newVersion`, `payload_encrypted = newCiphertext`.
 4. Delete any `snapshots` row for the aggregate (snapshots are derived state; version shifts invalidate them).
 

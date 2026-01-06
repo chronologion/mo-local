@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ## Invariants
 
@@ -20,7 +20,7 @@ This doc does not define new invariants. It relies on the invariant registry in 
 
 Recovery:
 
-- Restore a key backup (identity keys only), then pull sync so keyring updates can rebuild aggregate keys; projections can replay from committed encrypted events.
+- Restore a key backup (identity keys plus stored aggregate/derived keys), then pull sync; projections can replay from committed encrypted events.
 
 ### Sync divergence
 

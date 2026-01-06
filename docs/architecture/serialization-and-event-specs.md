@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334 (ALC-301)
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ## Invariants
 
@@ -62,9 +62,10 @@ The infrastructure eventing runtime maintains a registry of all event specs and 
 
 ## Persisted payload envelope (conceptual)
 
-Persisted events use an envelope that includes (conceptually):
+Persisted events use a versioned envelope that includes:
 
-- `eventType`
+- `envelopeVersion`
+- `meta` (`eventId`, `eventType`, `occurredAt`, `actorId`, tracing ids)
 - `payloadVersion` (schema evolution marker)
 - `payload` (JSON-serializable primitives)
 
@@ -126,11 +127,11 @@ Operational playbook:
 - `packages/infrastructure/src/eventing/specs.generated.ts` — runtime registry input
 - `packages/infrastructure/src/eventing/registry.ts` — registry wiring
 - `packages/infrastructure/src/eventing/runtime.ts` — encode/decode entrypoints
-- `packages/infrastructure/src/eventing/payloadEnvelope.ts` — envelope bytes
+- `packages/infrastructure/src/eventing/eventEnvelope.ts` — envelope bytes
 - `packages/sync-engine/src/recordCodec.ts` — sync record encoding assumptions
 
 ## Open questions
 
 - [ ] Decide whether to generate `specs.generated.ts` as part of the build (removing manual maintenance).
 - [ ] Define the path to a cross-language canonical encoding (when we introduce non-JS clients).
-- [ ] Clarify serialized event shape, payload vs metadata (`ALC-332`)
+- [ ] Keep envelope and sync-record versions stable and documented.

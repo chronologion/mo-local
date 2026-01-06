@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ## Invariants
 
@@ -59,7 +59,7 @@ This does **not** imply full metadata privacy. The server can still learn sync m
 
 - **master key / KEK**: passphrase-derived key used to encrypt keys at rest (IndexedDB).
 - **DEK / aggregate key**: per-aggregate symmetric key used to encrypt event payloads and snapshots.
-- **AAD**: AES-GCM additional authenticated data binding ciphertext integrity to selected plaintext metadata (e.g. `{aggregateId, eventType, version}`).
+- **AAD**: AES-GCM additional authenticated data binding ciphertext integrity to selected plaintext metadata (e.g. `{aggregateType, aggregateId, version}`).
 - **payloadVersion**: schema version for an event payload inside the encrypted envelope.
 - **byte-preservation**: a boundary contract that serialized payload bytes must remain stable for already-synced events (see `docs/architecture/infrastructure-layer.md`).
 

@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-05
+**Last Updated**: 2026-01-06
 
 ## Scope
 
@@ -33,7 +33,7 @@ Relevant invariants in `docs/invariants.md`:
 ### Derived state in SQLite
 
 - Snapshots, projection caches, search index artifacts, and process-manager state are stored as encrypted BLOBs (e.g. `snapshot_encrypted`, `cache_encrypted`, `artifact_encrypted`, `state_encrypted`) and integrity-bound via AES-GCM AAD.
-- The keys used for derived state are currently stored in the same key store as aggregate keys (see `docs/security/key-management.md`), but key backups intentionally omit them.
+- The keys used for derived state are currently stored in the same key store as aggregate keys (see `docs/security/key-management.md`), and key backups export them today.
 
 ### IndexedDB (key storage)
 

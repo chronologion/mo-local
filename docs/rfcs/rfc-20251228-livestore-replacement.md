@@ -4,14 +4,14 @@
 **Linear**: ALC-307
 **Related**: ALC-244, ALC-254, ALC-301, ALC-306, ALC-305
 **Created**: 2025-12-28
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ---
 
 ## Glossary (read this first)
 
 - **Rebase**: When remote events arrive while local pending events exist, the effective order changes. Rebase = deterministically rebuilding derived state in the new order (and, for pending events only, possibly re-encrypting due to AAD binding).
-- **AAD (Additional Authenticated Data)**: In AES-GCM, extra data bound to ciphertext for integrity. We bind `{aggregateId, eventType, version}`; changing any of these requires re-encryption.
+- **AAD (Additional Authenticated Data)**: In AES-GCM, extra data bound to ciphertext for integrity. We bind `{aggregateType, aggregateId, version}`; changing any of these requires re-encryption.
 - **Projection / derived state**: Read-optimized state built by processing events (snapshots, search indexes, analytics, saga/process-manager state).
 - **Cursor**: A bookmark tracking “where we are” in an event stream/order, used to resume processing without reprocessing everything.
 - **Worker request/response API (“RPC”)**: Message-based request/response over `MessagePort` between tab(s) and the DB owner worker. This is an in-process adapter pattern, not network calls.
@@ -101,7 +101,7 @@ Our architecture (see `docs/architecture.md`) requires these to be separable bec
   - `IdempotencyStorePort`,
   - read model ports, buses, etc.
 - **Commit boundary**: “durable” means “persisted to local SQLite”. Anything else must be derivable/replayable.
-- **AAD binding**: payload encryption binds integrity to `{aggregateId, eventType, version}`.
+- **AAD binding**: payload encryption binds integrity to `{aggregateType, aggregateId, version}`.
   - persisted/synced events must never change `version`;
   - local pending events may require controlled rebasing (re-encryption) before they become synced facts.
 
@@ -1856,7 +1856,7 @@ After rebase (converged order requires shifting pending versions):
 
 `Order:   [R1 v=1, E1 v=2, E2 v=3]`
 
-Because AAD binds `{aggregateId,eventType,version}`, the pending events must be re-encrypted with the new versions. Synced events are never rewritten.
+Because AAD binds `{aggregateType, aggregateId, version}`, the pending events must be re-encrypted with the new versions. Synced events are never rewritten.
 
 ```mermaid
 sequenceDiagram
@@ -1875,7 +1875,7 @@ sequenceDiagram
   loop For each pending event
     Sync->>Crypto: Decrypt payload (old AAD)
     Crypto-->>Sync: Plaintext
-    Sync->>Crypto: Re-encrypt with new AAD {aggregateId, eventType, newVersion}
+    Sync->>Crypto: Re-encrypt with new AAD {aggregateType, aggregateId, newVersion}
     Crypto-->>Sync: New ciphertext
     Sync->>DB: UPDATE events SET payload=?, version=? WHERE id=?
   end
@@ -2160,7 +2160,7 @@ We use AES-GCM everywhere, but not all encrypted payloads are in the same “sha
 1. **Per-aggregate keys (`K_aggregate`) — shared across devices via key backup/restore**
    - Used to encrypt **event payloads** (synced facts) and **aggregate snapshots** (device-local optimization, but tied to the same aggregate key).
    - Integrity binding:
-     - Events: AAD = `{aggregateId, eventType, version}`
+     - Events: AAD = `{aggregateType, aggregateId, version}`
      - Snapshots: AAD = `{aggregateId, "snapshot", version}` (separate integrity domain)
 
 2. **Device-local cache/index keys (`K_cache`) — not synced**
@@ -2738,7 +2738,7 @@ The initial draft used “Open Questions” as a bucket for design decisions. Fo
 
 4. **Rebase under AES-GCM AAD binding: re-encrypt pending on rebase (MVP)**  
    Default: when remote events insert “before” local pending in the converged order and `version` needs to shift, re-encrypt **pending** local events with the new versions during rebase. Keep the event identifier stable (currently the `id` column in BC event tables), but only rewrite rows that are still pending (no `sync_event_map` entry).  
-   Why: preserves our integrity model (AAD binds `{aggregateId,eventType,version}`) while still allowing offline progress + eventual convergence. We explicitly scope “immutability” to synced events; pending events are durable drafts until pushed (§8.2).  
+   Why: preserves our integrity model (AAD binds `{aggregateType, aggregateId, version}`) while still allowing offline progress + eventual convergence. We explicitly scope “immutability” to synced events; pending events are durable drafts until pushed (§8.2).  
    Revisit trigger: if we introduce semantic conflict resolution later, revisit whether certain conflicts should become user-visible instead of auto-rewriting pending.
 
 5. **Order convergence granularity: full derived-state rebuild on rebase (MVP)**  

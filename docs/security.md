@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-05
+**Last Updated**: 2026-01-06
 
 ## Scope
 
@@ -75,14 +75,14 @@ Threats that break the model (assumptions):
 The server necessarily learns some plaintext metadata needed for sync mechanics (ordering/idempotency). Some additional metadata is currently present due to the current envelope shape, but is explicitly targeted for removal (see `ALC-332`).
 
 - Required: `storeId` / owner identity context and `globalSequence` ordering.
-- Current (undesired, remove from server plaintext): event descriptors such as `eventType` and client timestamps such as `occurredAt` (tracked in `ALC-332`). We still need timestamps for product UX; they should live inside encrypted payloads/envelopes, not in server-visible metadata.
+- Current: server-visible plaintext is limited to identifiers and ordering fields required for sync mechanics (see `docs/security/sync-boundary.md`). Client timestamps (`occurredAt`) and `eventType` now live inside encrypted envelopes, not in server-visible metadata.
 - Traffic patterns: ciphertext length, timing, frequency.
 
 ## Key management overview (at a glance)
 
 - **KEK / master key**: derived from user passphrase + salt; used to encrypt keys at rest (IndexedDB).
-- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; stored locally and recoverable on other devices via keyring updates synced in the event stream (not via key backup).
-- **Derived-state keys (today)**: projection/index/saga keys are currently stored in the same key store under dedicated key IDs, but key backups intentionally omit them (they are rebuildable device-local cache keys). Long-term, we may split these into a separate `K_cache` domain.
+- **Per-aggregate DEKs**: used to encrypt event payloads and snapshots; stored locally and included in key backups today.
+- **Derived-state keys (today)**: projection/index/process-manager keys are stored in the same key store under dedicated key IDs and are currently included in key backups (they are rebuildable device-local cache keys). Long-term, we may split these into a separate `K_cache` domain with different export/import behavior.
 
 See `docs/security/key-management.md`.
 
@@ -118,4 +118,4 @@ See `docs/security/incident-response-and-recovery.md`.
 
 - [ ] Define and document the minimum plaintext metadata we can tolerate at the sync boundary (privacy roadmap).
 - [ ] Formalize browser hardening requirements (CSP, Trusted Types, sanitization rules) and make them build-time enforced.
-- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. UUIDv7 timestamps, explicit `eventType`) (`ALC-305`, `ALC-332`).
+- [ ] Reduce avoidable metadata leakage from identifiers/types (e.g. aggregate taxonomy, opaque IDs beyond UUIDv4).

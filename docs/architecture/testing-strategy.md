@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ## Invariants
 
@@ -98,7 +98,7 @@ Coverage (guideline):
 ## Code pointers
 
 - `packages/infrastructure/__tests__/derived-state/ProjectionRuntime.test.ts` — ordering + cursor tests
-- `packages/infrastructure/__tests__/eventing/payloadEnvelope.test.ts` — payload bytes stability
+- `packages/infrastructure/__tests__/eventing/eventEnvelope.test.ts` — envelope bytes stability (meta + payload)
 - `packages/infrastructure/__tests__/eventing/CommittedEventPublisher.test.ts` — publish ordering/cursor tests
 - `apps/api/__tests__/sync/kysely-sync-event.repository.test.ts` — `record_json` persistence boundary
 - `apps/e2e/tests/**` — critical cross-runtime workflows

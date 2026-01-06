@@ -31,7 +31,7 @@ The RFC explicitly defines:
 
 The current sync record is a near-mirror of the local OPFS row shape. As a result, the server sees plaintext metadata that it does not need for sync mechanics (notably `eventType` and `occurredAt`). This conflicts with our security posture (`ALC-269`) and the explicit requirement to keep event descriptors and client timestamps out of server-visible metadata.
 
-Additionally, the encryption integrity binding (AAD) is currently tied to `{aggregateId, eventType, version}`. This hard-codes a dependence on plaintext `eventType`, making it difficult to remove `eventType` from the sync record without rethinking the envelope and AAD scheme.
+Additionally, the encryption integrity binding (AAD) was tied to `{aggregateId, eventType, version}`. This hard‑coded a dependence on plaintext `eventType`, making it difficult to remove `eventType` from the sync record without rethinking the envelope and AAD scheme.
 
 ### Identifier timestamp leakage (UUIDv7)
 
@@ -41,7 +41,7 @@ Even after removing `eventType` and `occurredAt`, the server would still see pla
 - `eventId` (idempotency key), and
 - `aggregateId` (routing/keying).
 
-Today these are UUIDv7 in many places, which encode time. This leaks client activity timing to the server (and to any observer of server logs/DB) even if we keep client timestamps encrypted.
+These identifiers were UUIDv7 in many places, which encode time. This leaked client activity timing to the server (and to any observer of server logs/DB) even if we keep client timestamps encrypted.
 
 As part of this RFC, **all newly generated UUIDs MUST be UUIDv4** (no embedded time). Ordering must never rely on lexicographic ID sort; it must use explicit orderings (`commitSequence`, `globalSequence`, and encrypted `occurredAt` for UX).
 
@@ -295,13 +295,13 @@ Notes on sharing/invites:
 ## Code pointers (for implementation follow-up)
 
 - `packages/sync-engine/src/recordCodec.ts` — current `record_json` encoding/decoding to be replaced
-- `packages/infrastructure/src/eventing/aad.ts` — current AAD scheme (`{aggregateId}:{eventType}:{version}`) to be updated
+- `packages/infrastructure/src/eventing/aad.ts` — AAD scheme (`{aggregateType}:{aggregateId}:{version}`)
 - `packages/infrastructure/src/crypto/KeyringManager.ts` — keyring update ingestion + DEK resolution (`epoch`)
 - `packages/sync-engine/src/SyncEngine.ts` — remote apply path (will delegate to materializer)
 - `packages/infrastructure/src/sync/PendingEventVersionRewriter.ts` — pending rewrite logic must use the new AAD scheme
 - `apps/api/src/sync/infrastructure/kysely-sync-event.repository.ts` — server storage of `record_json` (byte preservation)
-- `packages/domain/src/utils/uuid.ts` + `packages/domain/src/**/vos/*Id.ts` — UUID generator + ID VOs (switch UUIDv7 → UUIDv4)
-- `apps/api/src/sync/presentation/dto/*.ts` — storeId validation currently UUIDv7-specific
+- `packages/domain/src/utils/uuid.ts` + `packages/domain/src/**/vos/*Id.ts` — UUID generator + ID VOs (UUIDv4)
+- `apps/api/src/sync/presentation/dto/*.ts` — storeId validation (UUIDv4)
 
 ## Testing notes (for implementation follow-up)
 
