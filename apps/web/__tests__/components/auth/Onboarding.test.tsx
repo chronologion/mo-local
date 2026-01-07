@@ -123,7 +123,7 @@ describe('Onboarding', () => {
     });
     const file: File & { text: () => Promise<string> } = Object.assign(baseFile, { text: async () => 'backup' });
 
-    const baseDbFile = new File([new Uint8Array([9, 8, 7])], 'mo-eventstore-019b0000-0000-7000-8000-000000000000.db', {
+    const baseDbFile = new File([new Uint8Array([9, 8, 7])], 'mo-eventstore-b5a60a7c-78d2-4310-90da-64d1c1f2f4a4.db', {
       type: 'application/x-sqlite3',
     });
     const dbFile: File & { arrayBuffer: () => Promise<ArrayBuffer> } = Object.assign(baseDbFile, {
