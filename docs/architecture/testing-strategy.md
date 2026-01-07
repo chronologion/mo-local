@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-07
 
 ## Invariants
 
@@ -89,6 +89,8 @@ Coverage (guideline):
 - Tests live in `__tests__` next to `src` for each package/app.
 - Test files: `<SourceFile>.test.ts`
 - Fixtures: `__tests__/fixtures/**` (in-memory ports, factories)
+- **Explicit Vitest imports required** (no globals). Example:
+  - `import { describe, expect, it, beforeAll, afterAll } from 'vitest';`
 
 ## Mocking rules of thumb
 

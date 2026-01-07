@@ -38,6 +38,22 @@ export default [
     },
   },
   {
+    files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        'describe',
+        'it',
+        'test',
+        'expect',
+        'beforeAll',
+        'afterAll',
+        'beforeEach',
+        'afterEach',
+      ],
+    },
+  },
+  {
     files: ['apps/**/src/**/*.{ts,tsx}', 'packages/**/src/**/*.{ts,tsx}'],
     ignores: [
       '**/__tests__/**',
