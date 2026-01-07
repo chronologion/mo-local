@@ -40,6 +40,7 @@ export class SyncRecordMaterializer implements SyncRecordMaterializerPort {
         aggregate_type: record.aggregateType,
         aggregate_id: record.aggregateId,
         event_type: envelope.meta.eventType,
+        // Persist the original ciphertext bytes (no re-encryption on pull).
         payload_encrypted: payloadCiphertext,
         keyring_update: keyringUpdate,
         version: record.version,

@@ -12,6 +12,7 @@ import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
 import { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
 import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
 import { InMemorySyncEventRepository } from './support/in-memory-sync-event-repository';
+import { SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
 
 const TEST_STORE_ID_V7 = '019b5b7b-c8d0-7961-bb15-60fe00e4e145';
 

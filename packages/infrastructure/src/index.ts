@@ -2,6 +2,7 @@ export * from './eventstore/adapters/DomainToEncryptedEventAdapter';
 export * from './eventstore/adapters/EncryptedEventToDomainAdapter';
 export * from './events/InMemoryEventBus';
 export * from './eventing/CommittedEventPublisher';
+export * from './eventing/eventEnvelope';
 export * from './crypto/SharingCrypto';
 export * from './crypto/deriveSalt';
 export * from './crypto/AggregateKeyManager';

@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { encodeEventEnvelope } from '@mo/infrastructure';
 
 type OnboardResult = {
   storeId: string;
@@ -80,22 +81,23 @@ type RecordJsonParams = {
 };
 
 const makeRecordJson = (params: RecordJsonParams): string => {
-  const envelope = {
-    envelopeVersion: 1,
-    meta: {
-      eventId: params.id,
-      eventType: params.eventType,
-      occurredAt: params.occurredAt,
-      actorId: params.actorId,
-      causationId: null,
-      correlationId: null,
-    },
-    payload: {
-      payloadVersion: 1,
-      data: Array.from(params.payload),
-    },
-  };
-  const payloadCiphertext = encodeBase64Url(new TextEncoder().encode(JSON.stringify(envelope)));
+  const payloadCiphertext = encodeBase64Url(
+    encodeEventEnvelope({
+      envelopeVersion: 1,
+      meta: {
+        eventId: params.id,
+        eventType: params.eventType,
+        occurredAt: params.occurredAt,
+        actorId: params.actorId,
+        causationId: null,
+        correlationId: null,
+      },
+      payload: {
+        payloadVersion: 1,
+        data: Array.from(params.payload),
+      },
+    })
+  );
 
   return JSON.stringify({
     recordVersion: 1,
