@@ -1,3 +1,7 @@
+## Summary
+
+## Test coverage (relevant to the scope)
+
 ## Docs impact
 
 - [ ] No doc updates needed
