@@ -101,10 +101,10 @@ Current implementation:
 
 **Key categories (K_aggregate vs K_cache)**
 
-| Key type      | Used for                                 | Exported today?                    |
-| ------------- | ---------------------------------------- | ---------------------------------- |
-| `K_aggregate` | Event payloads + snapshots               | Yes (included in key backups)      |
-| `K_cache`     | Projection caches + indexes + saga state | Yes (included in key backups)      |
+| Key type      | Used for                                 | Exported today?               |
+| ------------- | ---------------------------------------- | ----------------------------- |
+| `K_aggregate` | Event payloads + snapshots               | Yes (included in key backups) |
+| `K_cache`     | Projection caches + indexes + saga state | Yes (included in key backups) |
 
 Notes:
 

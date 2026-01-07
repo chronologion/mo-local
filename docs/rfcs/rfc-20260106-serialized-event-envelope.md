@@ -147,7 +147,7 @@ This provides a cheap defense-in-depth check against record tampering or transpo
 
 #### Epoch selection (resolving the “circularity”)
 
-We keep `epoch` plaintext in `SyncRecord` because key selection must happen *before* payload decryption:
+We keep `epoch` plaintext in `SyncRecord` because key selection must happen _before_ payload decryption:
 
 1. Materializer parses `SyncRecord` → obtains `{aggregateId, epoch, version, payloadCiphertext, keyringUpdate}`.
 2. If `keyringUpdate` is present, materializer ingests it first (so the keyring store has the relevant epoch envelope).
@@ -288,7 +288,7 @@ Notes on sharing/invites:
 3. **Keep `eventId` plaintext for sync mechanics**: server-side idempotency + assignment mapping requires a stable plaintext id (see rationale above). Clients also include `eventId` inside ciphertext to assert transport integrity.
 4. **Keep `epoch` plaintext for key selection**: decrypting payload requires selecting the correct DEK before decryption; `epoch` is not semantically sensitive like `eventType`/`occurredAt` and avoids “try all epochs” complexity/DoS risk.
 5. **Decryption/materialization failure behavior**:
-   - **Missing key material** (e.g. shared aggregate key not present yet): the client should surface a non-success sync status that is *actionable* (requires key import/invite acceptance) and retry becomes meaningful only after keys are available.
+   - **Missing key material** (e.g. shared aggregate key not present yet): the client should surface a non-success sync status that is _actionable_ (requires key import/invite acceptance) and retry becomes meaningful only after keys are available.
    - **Corrupt ciphertext / AAD mismatch / envelope decode failure**: treat as non-recoverable corruption for this store/aggregate; require user/dev action (reset/restore/diagnostics). Do not silently skip events.
 6. **UUIDv4 everywhere (folded ALC-305)**: all newly generated UUIDs (including `storeId`, `eventId`, and aggregate IDs) MUST be UUIDv4 to avoid timestamp leakage. No ordering logic may rely on ID sort order.
 
