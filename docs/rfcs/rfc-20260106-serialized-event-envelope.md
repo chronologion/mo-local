@@ -21,6 +21,8 @@ The RFC explicitly defines:
 - byte canonicalization requirements, and
 - identifier generation requirements (UUIDv4 for newly generated ids).
 
+Note: `record_json` evolves further for sharing. `docs/rfcs/rfc-20260107-key-scopes-and-sharing.md` revises the sync record shape (still `recordVersion: 1`, but breaking) to carry additional plaintext dependency refs and a signed manifest while still keeping `eventType`/`occurredAt` inside ciphertext. This RFC remains the source of truth for the **encrypted EventEnvelope** shape.
+
 ## Non-goals
 
 - Implementing the change (tracked in follow-ups once the RFC is accepted).

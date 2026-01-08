@@ -3,13 +3,15 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-06
+**Last Updated**: 2026-01-08
 
 ## Scope
 
 This is the top-level security model for MO Local: what we protect, what we leak, what assumptions we make, and the security invariants that must remain true as the system evolves.
 
 For the detailed threat model, see `docs/security/threat-model.md`.
+
+For a concrete “controls map” across client + server (security elements → threats → controls → evidence) describing the as-is system, see `docs/security/controls-matrix.md`.
 
 ## Non-goals
 

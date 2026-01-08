@@ -48,6 +48,21 @@ Plaintext metadata required for sync mechanics:
 - identifiers (`storeId`, `eventId`, `aggregateType`, `aggregateId`)
 - ordering fields (`globalSequence`, `version`, `epoch`)
 
+### Sharing (planned): additional plaintext in revised `record_json` shape
+
+When sharing is implemented, `/sync` records will carry additional plaintext dependency refs and signature material to support:
+
+- dependency checks (“no keyless ciphertext”), and
+- authorization-base concurrency (“revoked writers can’t publish”).
+
+Planned additional plaintext fields include:
+
+- `scopeId`, `resourceId`, `resourceKeyId`
+- `grantId`, `scopeStateRef`, `authorDeviceId`
+- `sigSuite`, `signature` (over a canonical manifest binding these refs to ciphertext bytes)
+
+See `docs/rfcs/rfc-20260107-key-scopes-and-sharing.md` (and `INV-021`, `INV-022`) for the concrete revised `record_json` shape.
+
 ### Metadata minimization (roadmap)
 
 Some metadata is avoidable and is tracked as follow-up security work:
