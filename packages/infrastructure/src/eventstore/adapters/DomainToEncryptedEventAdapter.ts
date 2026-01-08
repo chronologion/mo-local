@@ -1,6 +1,7 @@
 import { DomainEvent } from '@mo/domain';
+import type { AggregateType } from '@mo/eventstore-core';
 import { EncryptedEvent, CryptoServicePort } from '@mo/application';
-import { encodePayloadEnvelope } from '../../eventing/payloadEnvelope';
+import { encodeEventEnvelope } from '../../eventing/eventEnvelope';
 import { encodePersisted } from '../../eventing/registry';
 import { buildEventAad } from '../../eventing/aad';
 
@@ -20,7 +21,10 @@ import { buildEventAad } from '../../eventing/aad';
  * domain layer itself.
  */
 export class DomainToEncryptedEventAdapter {
-  constructor(private readonly crypto: CryptoServicePort) {}
+  constructor(
+    private readonly crypto: CryptoServicePort,
+    private readonly aggregateType: AggregateType
+  ) {}
 
   async toEncrypted(
     domainEvent: DomainEvent,
@@ -29,11 +33,22 @@ export class DomainToEncryptedEventAdapter {
     options?: { epoch?: number; keyringUpdate?: Uint8Array }
   ): Promise<EncryptedEvent> {
     const serialized = encodePersisted(domainEvent);
-    const payloadBytes = encodePayloadEnvelope({
-      payloadVersion: serialized.version,
-      data: serialized.payload,
+    const payloadBytes = encodeEventEnvelope({
+      envelopeVersion: 1,
+      meta: {
+        eventId: domainEvent.eventId.value,
+        eventType: domainEvent.eventType,
+        occurredAt: domainEvent.occurredAt.value,
+        actorId: domainEvent.actorId.value,
+        causationId: domainEvent.causationId?.value ?? null,
+        correlationId: domainEvent.correlationId?.value ?? null,
+      },
+      payload: {
+        payloadVersion: serialized.version,
+        data: serialized.payload,
+      },
     });
-    const aad = buildEventAad(domainEvent.aggregateId.value, domainEvent.eventType, version);
+    const aad = buildEventAad(this.aggregateType, domainEvent.aggregateId.value, version);
 
     let encryptedPayload: Uint8Array;
     try {
@@ -45,6 +60,7 @@ export class DomainToEncryptedEventAdapter {
 
     return {
       id: domainEvent.eventId.value,
+      aggregateType: this.aggregateType,
       aggregateId: domainEvent.aggregateId.value,
       eventType: domainEvent.eventType,
       payload: encryptedPayload,

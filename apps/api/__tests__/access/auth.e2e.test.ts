@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { IdentityRepository } from '../../src/access/application/ports/identity-repository';
 import { KratosPasswordService } from '../../src/access/infrastructure/kratos-password.service';
 import { KratosClient } from '../../src/access/infrastructure/kratos.client';

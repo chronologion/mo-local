@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { INestApplication, ValidationPipe, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SyncController } from '../../src/sync/presentation/sync.controller';
 import { SyncService } from '../../src/sync/application/sync.service';
 import { SyncEventRepository } from '../../src/sync/application/ports/sync-event-repository';
@@ -12,8 +13,9 @@ import { SyncStoreId } from '../../src/sync/domain/value-objects/SyncStoreId';
 import { AuthenticatedIdentity } from '../../src/access/application/authenticated-identity';
 import { KratosSessionGuard } from '../../src/access/presentation/guards/kratos-session.guard';
 import { InMemorySyncEventRepository } from './support/in-memory-sync-event-repository';
+import { SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
 
-const TEST_STORE_ID_V7 = '019b5b7b-c8d0-7961-bb15-60fe00e4e145';
+const TEST_STORE_ID = 'b5a60a7c-78d2-4310-90da-64d1c1f2f4a4';
 
 class InMemorySyncStoreRepository extends SyncStoreRepository {
   private owners = new Map<string, string>();
@@ -94,7 +96,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID_V7,
+        storeId: TEST_STORE_ID,
         expectedHead: 0,
         events: [makeEvent('e1', 1)],
       })
@@ -104,7 +106,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID_V7,
+        storeId: TEST_STORE_ID,
         expectedHead: 0,
         events: [makeEvent('e2', 2)],
       })
@@ -118,7 +120,7 @@ describe('SyncController (integration, in-memory repos)', () => {
     const pull = await request(app.getHttpServer())
       .get('/sync/pull')
       .set('x-session-token', 'fake')
-      .query({ storeId: TEST_STORE_ID_V7, since: 0, limit: 10 })
+      .query({ storeId: TEST_STORE_ID, since: 0, limit: 10 })
       .expect(200);
 
     expect(pull.body.events).toEqual([expect.objectContaining({ eventId: 'e1', globalSequence: 1 })]);
@@ -130,7 +132,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID_V7,
+        storeId: TEST_STORE_ID,
         expectedHead: 0,
         events: [makeEvent('e10', 10)],
       })
@@ -139,14 +141,14 @@ describe('SyncController (integration, in-memory repos)', () => {
     await request(app.getHttpServer())
       .post('/sync/dev/reset')
       .set('x-session-token', 'fake')
-      .send({ storeId: TEST_STORE_ID_V7 })
+      .send({ storeId: TEST_STORE_ID })
       .expect(201);
 
     const conflict = await request(app.getHttpServer())
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID_V7,
+        storeId: TEST_STORE_ID,
         expectedHead: 1,
         events: [makeEvent('e11', 11)],
       })

@@ -3,7 +3,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-05
+**Last Updated**: 2026-01-06
 
 ## Scope
 
@@ -34,30 +34,41 @@ Relevant invariants in `docs/invariants.md`:
 
 We intentionally bind only selected metadata into the AES‑GCM AAD (`INV-013`):
 
-- `{aggregateId, eventType, version}` for event payload ciphertext
+- `{aggregateType, aggregateId, version}` for event payload ciphertext
 - snapshot/projected artifacts have their own AAD schemes (projection id, scope key, artifact/cache version, cursor)
 
-Other metadata fields that are currently present in `record_json` (e.g. `occurredAt`, `actorId`, tracing ids) are **not** cryptographically bound today and should be treated as advisory. The current MVP relies on the server byte-preserving `record_json` (`INV-004`) rather than attempting to defend against a malicious server rewriting metadata. Longer-term, we should avoid sending unnecessary server-visible metadata in the first place (see `ALC-332`).
+Other metadata fields that live inside the encrypted envelope (e.g. `eventType`, `occurredAt`, `actorId`) are integrity‑protected by AES‑GCM but not separately authenticated as plaintext. The sync boundary relies on the server byte‑preserving `record_json` (`INV-004`) rather than attempting to defend against a malicious server rewriting metadata it cannot see.
 
 ### What is plaintext (metadata)
 
 To enable ordering and routing, the system exposes some metadata.
 
+Plaintext metadata required for sync mechanics:
+
 - identifiers (`storeId`, `eventId`, `aggregateType`, `aggregateId`)
-- ordering fields (`globalSequence`, `version`)
-- tracing (`causationId`, `correlationId`)
+- ordering fields (`globalSequence`, `version`, `epoch`)
 
-Some fields are currently included but are explicitly targeted for removal from server-visible plaintext:
+### Sharing (planned): additional plaintext in revised `record_json` shape
 
-- `eventType` (server does not need it; keep locally for projections; see `ALC-332`)
-- client timestamps such as `occurredAt` (we need timestamps for UX, but they should not be server-visible in plaintext; keep them inside encrypted payloads/envelopes; see `ALC-332`)
+When sharing is implemented, `/sync` records will carry additional plaintext dependency refs and signature material to support:
+
+- dependency checks (“no keyless ciphertext”), and
+- authorization-base concurrency (“revoked writers can’t publish”).
+
+Planned additional plaintext fields include:
+
+- `scopeId`, `resourceId`, `resourceKeyId`
+- `grantId`, `scopeStateRef`, `authorDeviceId`
+- `sigSuite`, `signature` (over a canonical manifest binding these refs to ciphertext bytes)
+
+See `docs/rfcs/rfc-20260107-key-scopes-and-sharing.md` (and `INV-021`, `INV-022`) for the concrete revised `record_json` shape.
 
 ### Metadata minimization (roadmap)
 
 Some metadata is avoidable and is tracked as follow-up security work:
 
-- UUIDv7 identifiers leak time; migrating to UUIDv4 reduces timestamp leakage (`ALC-305`).
-- Explicit `eventType` and BC-specific shapes may be reducible depending on indexing strategy (`ALC-305`, `ALC-332`).
+- Minimize aggregate taxonomy leakage (if we can route/order without plaintext aggregate types).
+- Keep identifiers opaque (UUIDv4; no timestamp leakage from IDs).
 
 ## Code pointers
 

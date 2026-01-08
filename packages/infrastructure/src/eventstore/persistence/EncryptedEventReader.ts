@@ -57,7 +57,7 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
       [spec.aggregateType, aggregateId, fromVersion]
     );
 
-    return rows.map(this.toEncryptedEvent);
+    return rows.map((row) => this.toEncryptedEvent({ ...row, aggregate_type: spec.aggregateType }));
   }
 
   async readAll(db: SqliteDbPort, spec: EventTableSpec, filter?: EventFilter): Promise<ReadonlyArray<EncryptedEvent>> {
@@ -121,7 +121,7 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
       params
     );
 
-    return rows.map(this.toEncryptedEvent);
+    return rows.map((row) => this.toEncryptedEvent({ ...row, aggregate_type: spec.aggregateType }));
   }
 
   private toEncryptedEvent(row: {
@@ -137,9 +137,11 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
     causation_id: string | null;
     correlation_id: string | null;
     commit_sequence: number;
+    aggregate_type?: string;
   }): EncryptedEvent {
     return {
       id: row.id,
+      aggregateType: row.aggregate_type,
       aggregateId: row.aggregate_id,
       eventType: row.event_type,
       payload: row.payload_encrypted,

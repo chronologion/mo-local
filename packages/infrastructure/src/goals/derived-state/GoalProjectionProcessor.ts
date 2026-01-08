@@ -211,6 +211,7 @@ export class GoalProjectionProcessor implements ProjectionRuntimePort, IndexingP
   }): EncryptedEvent {
     return {
       id: record.id,
+      aggregateType: 'goal',
       aggregateId: record.aggregateId,
       eventType: record.eventType,
       payload: record.payload,

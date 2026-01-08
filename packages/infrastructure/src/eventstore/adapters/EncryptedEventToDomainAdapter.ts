@@ -13,7 +13,7 @@ import {
 } from '@mo/domain';
 import { EncryptedEvent, CryptoServicePort } from '@mo/application';
 import { buildEventAad } from '../../eventing/aad';
-import { decodePayloadEnvelope } from '../../eventing/payloadEnvelope';
+import { decodeEventEnvelope } from '../../eventing/eventEnvelope';
 import { decodePersisted } from '../../eventing/registry';
 
 /**
@@ -44,7 +44,10 @@ export class EncryptedEventToDomainAdapter {
   }
 
   async toDomain(encryptedEvent: EncryptedEvent, aggregateKey: Uint8Array): Promise<DomainEvent> {
-    const aad = buildEventAad(encryptedEvent.aggregateId, encryptedEvent.eventType, encryptedEvent.version);
+    if (!encryptedEvent.aggregateType) {
+      throw new Error(`Missing aggregateType for event ${encryptedEvent.id}`);
+    }
+    const aad = buildEventAad(encryptedEvent.aggregateType, encryptedEvent.aggregateId, encryptedEvent.version);
     let payloadBytes: Uint8Array;
     try {
       payloadBytes = await this.crypto.decrypt(encryptedEvent.payload, aggregateKey, aad);
@@ -53,23 +56,38 @@ export class EncryptedEventToDomainAdapter {
       throw new Error(`Failed to decrypt ${encryptedEvent.eventType} for ${encryptedEvent.aggregateId}: ${message}`);
     }
 
-    const { payloadVersion, data } = decodePayloadEnvelope(payloadBytes);
-    if (!encryptedEvent.actorId) {
+    const { payloadVersion, data, meta } = decodeEventEnvelope(payloadBytes);
+    if (meta.eventId !== encryptedEvent.id) {
+      throw new Error(`EventId mismatch for ${encryptedEvent.id}`);
+    }
+    if (meta.eventType !== encryptedEvent.eventType) {
+      throw new Error(`EventType mismatch for ${encryptedEvent.id}`);
+    }
+    if (!meta.actorId) {
       throw new Error(`Missing actorId for ${encryptedEvent.eventType} ${encryptedEvent.id}`);
+    }
+    if (meta.occurredAt !== encryptedEvent.occurredAt) {
+      throw new Error(`OccurredAt mismatch for ${encryptedEvent.id}`);
+    }
+    if ((meta.causationId ?? null) !== (encryptedEvent.causationId ?? null)) {
+      throw new Error(`CausationId mismatch for ${encryptedEvent.id}`);
+    }
+    if ((meta.correlationId ?? null) !== (encryptedEvent.correlationId ?? null)) {
+      throw new Error(`CorrelationId mismatch for ${encryptedEvent.id}`);
     }
     return decodePersisted(
       {
-        type: encryptedEvent.eventType,
+        type: meta.eventType,
         version: payloadVersion,
         payload: data,
       },
       {
-        aggregateId: this.resolveAggregateId(encryptedEvent.eventType, encryptedEvent.aggregateId),
-        occurredAt: Timestamp.fromMillis(encryptedEvent.occurredAt),
-        eventId: EventId.from(encryptedEvent.id),
-        actorId: ActorId.from(encryptedEvent.actorId),
-        causationId: encryptedEvent.causationId ? EventId.from(encryptedEvent.causationId) : undefined,
-        correlationId: encryptedEvent.correlationId ? CorrelationId.from(encryptedEvent.correlationId) : undefined,
+        aggregateId: this.resolveAggregateId(meta.eventType, encryptedEvent.aggregateId),
+        occurredAt: Timestamp.fromMillis(meta.occurredAt),
+        eventId: EventId.from(meta.eventId),
+        actorId: ActorId.from(meta.actorId),
+        causationId: meta.causationId ? EventId.from(meta.causationId) : undefined,
+        correlationId: meta.correlationId ? CorrelationId.from(meta.correlationId) : undefined,
         version: encryptedEvent.version ?? undefined,
       }
     );

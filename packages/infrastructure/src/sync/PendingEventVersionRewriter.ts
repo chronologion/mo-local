@@ -62,6 +62,7 @@ export class PendingEventVersionRewriter {
         const nextVersion = Number(row.version) + 1;
         const event: EncryptedEvent = {
           id: row.id,
+          aggregateType: row.aggregate_type,
           aggregateId: row.aggregate_id,
           eventType: row.event_type,
           payload: row.payload_encrypted,
@@ -78,12 +79,12 @@ export class PendingEventVersionRewriter {
         const plaintext = await this.crypto.decrypt(
           row.payload_encrypted,
           key,
-          buildEventAad(row.aggregate_id, row.event_type, Number(row.version))
+          buildEventAad(row.aggregate_type, row.aggregate_id, Number(row.version))
         );
         const rewritten = await this.crypto.encrypt(
           plaintext,
           key,
-          buildEventAad(row.aggregate_id, row.event_type, nextVersion)
+          buildEventAad(row.aggregate_type, row.aggregate_id, nextVersion)
         );
 
         await this.db.execute('UPDATE events SET version = ?, payload_encrypted = ? WHERE id = ?', [

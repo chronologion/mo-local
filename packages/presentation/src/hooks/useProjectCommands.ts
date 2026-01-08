@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { uuidv7 } from '@mo/domain';
+import { uuidv4 } from '@mo/domain';
 import {
   AddProjectGoal,
   AddProjectMilestone,
@@ -109,7 +109,7 @@ export const useProjectCommands = () => {
       return dispatch(
         new CreateProject(
           {
-            projectId: uuidv7(),
+            projectId: uuidv4(),
             name: params.name,
             status: 'planned',
             startDate: params.startDate,
@@ -118,7 +118,7 @@ export const useProjectCommands = () => {
             goalId: params.goalId ?? null,
             timestamp: Date.now(),
           },
-          { actorId, idempotencyKey: uuidv7() }
+          { actorId, idempotencyKey: uuidv4() }
         )
       );
     },
@@ -138,7 +138,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -152,7 +152,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -166,7 +166,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -184,7 +184,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -199,7 +199,7 @@ export const useProjectCommands = () => {
                 timestamp: Date.now(),
                 knownVersion,
               },
-              { actorId, idempotencyKey: uuidv7() }
+              { actorId, idempotencyKey: uuidv4() }
             )
           );
         } else {
@@ -210,7 +210,7 @@ export const useProjectCommands = () => {
                 timestamp: Date.now(),
                 knownVersion,
               },
-              { actorId, idempotencyKey: uuidv7() }
+              { actorId, idempotencyKey: uuidv4() }
             )
           );
         }
@@ -231,7 +231,7 @@ export const useProjectCommands = () => {
             timestamp: Date.now(),
             knownVersion,
           },
-          { actorId, idempotencyKey: uuidv7() }
+          { actorId, idempotencyKey: uuidv4() }
         )
       );
     },
@@ -246,13 +246,13 @@ export const useProjectCommands = () => {
         new AddProjectMilestone(
           {
             projectId,
-            milestoneId: uuidv7(),
+            milestoneId: uuidv4(),
             name: milestone.name,
             targetDate: milestone.targetDate,
             timestamp: Date.now(),
             knownVersion,
           },
-          { actorId, idempotencyKey: uuidv7() }
+          { actorId, idempotencyKey: uuidv4() }
         )
       );
     },
@@ -273,7 +273,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -288,7 +288,7 @@ export const useProjectCommands = () => {
               timestamp: Date.now(),
               knownVersion,
             },
-            { actorId, idempotencyKey: uuidv7() }
+            { actorId, idempotencyKey: uuidv4() }
           )
         );
         knownVersion += 1;
@@ -309,7 +309,7 @@ export const useProjectCommands = () => {
             timestamp: Date.now(),
             knownVersion,
           },
-          { actorId, idempotencyKey: uuidv7() }
+          { actorId, idempotencyKey: uuidv4() }
         )
       );
     },

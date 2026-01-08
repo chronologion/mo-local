@@ -14,3 +14,4 @@ Update `docs/security/` when a change affects any of:
 ## Structure
 
 - `TEMPLATE.md` — starting point for new security notes
+- `controls-matrix.md` — cross-cutting map of client/server controls and evidence (as-is system)

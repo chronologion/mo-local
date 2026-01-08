@@ -106,18 +106,13 @@ export interface SyncTransportPort {
   ping(): Promise<void>;
 }
 
-export type SyncEventRecord = Readonly<{
-  id: string;
+export type SyncRecord = Readonly<{
+  recordVersion: 1;
   aggregateType: string;
   aggregateId: string;
-  eventType: string;
-  payload: string;
-  version: number;
-  occurredAt: number;
-  actorId: string | null;
-  causationId: string | null;
-  correlationId: string | null;
   epoch: number | null;
+  version: number;
+  payloadCiphertext: string;
   keyringUpdate: string | null;
 }>;
 
@@ -127,6 +122,7 @@ export type SyncEngineOptions = Readonly<{
   storeId: string;
   onRebaseRequired: () => Promise<void>;
   pendingVersionRewriter?: PendingVersionRewriterPort;
+  materializer: SyncRecordMaterializerPort;
   pullLimit?: number;
   pullWaitMs?: number;
   pullIntervalMs?: number;
@@ -158,4 +154,25 @@ export interface PendingVersionRewriterPort {
 
 export interface SyncAbortableTransportPort extends SyncTransportPort {
   setAbortSignal(direction: SyncDirection, signal: AbortSignal | null): void;
+}
+
+export type MaterializedEventRow = Readonly<{
+  id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: string;
+  payload_encrypted: Uint8Array;
+  keyring_update: Uint8Array | null;
+  version: number;
+  occurred_at: number;
+  actor_id: string | null;
+  causation_id: string | null;
+  correlation_id: string | null;
+  epoch: number | null;
+}>;
+
+export interface SyncRecordMaterializerPort {
+  materializeRemoteEvent(input: { eventId: string; recordJson: string; globalSequence: number }): Promise<{
+    eventRow: MaterializedEventRow;
+  }>;
 }

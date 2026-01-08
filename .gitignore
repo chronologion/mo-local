@@ -8,3 +8,5 @@ build/
 
 test-results/
 coverage/
+
+apps/e2e/.tmp/

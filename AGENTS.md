@@ -22,5 +22,5 @@ Key rules:
 - Before you concludue work, make sure that the references of the current Linear issue ID in the documentation are resolved.
 - For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
 - The title of the PR must include a list of the Linear issues and a summary, e.g. "ALC-123, ALC-124: This is a PR title". Capitalize the first letter of the summary.
-- In PR descriptions, you MUST keep the original PR template, wrap code identifiers, filenames, and commands in backticks.
+- In PR descriptions, you MUST keep the original PR template, use proper markdown, wrap code identifiers, filenames, and commands in backticks.
 - Use the Context7 MCP tools or web search in case you need to RTFM!

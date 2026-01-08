@@ -1,5 +1,5 @@
 import { Assert } from '../Assert';
-import { uuidv7 } from '../../utils/uuid';
+import { uuidv4 } from '../../utils/uuid';
 import { ValueObject } from './ValueObject';
 
 /**
@@ -16,7 +16,7 @@ export class EventId extends ValueObject<string> {
   }
 
   static create(): EventId {
-    return new EventId(uuidv7());
+    return new EventId(uuidv4());
   }
 
   get value(): string {

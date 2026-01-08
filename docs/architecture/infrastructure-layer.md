@@ -5,7 +5,7 @@
 **Status**: Living
 **Linear**: ALC-334
 **Created**: 2026-01-01
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-06
 
 ## Invariants
 
@@ -62,7 +62,7 @@ The canonical encode/decode pipeline is `packages/infrastructure/src/eventing/`.
 Key concepts:
 
 - **Domain “latest mapping spec”**: each event exports a `PayloadEventSpec` that maps VO fields to JSON primitives (no versioning logic in domain).
-- **Persisted payload envelope** (inside ciphertext): `{ payloadVersion, data }`.
+- **Persisted payload envelope** (inside ciphertext): `{ envelopeVersion, meta, payload: { payloadVersion, data } }`.
 - **Per-event migrations/upcasters**: infrastructure-only and keyed by `eventType`.
 - **Registry**: maps `eventType` ↔ event spec and handles encode/decode.
 
@@ -78,7 +78,7 @@ Encode mirrors the above in reverse:
 
 1. encode fields using the spec’s mappers (latest mapping)
 2. wrap as `{ payloadVersion, data }`
-3. encrypt with AAD that binds to `aggregateId`, `eventType`, and `version`
+3. encrypt with AAD that binds to `aggregateType`, `aggregateId`, and `version`
 
 ### Key management (identity + aggregate keys)
 
@@ -91,26 +91,26 @@ Current implementation:
 
 - Keys are stored in IndexedDB and are encrypted at rest using a passphrase-derived KEK (“master key”).
 - The KEK is derived from the user’s passphrase + a per-user random salt (PBKDF2). The salt is persisted in local metadata so the same KEK can be re-derived on unlock/restore.
-- Backup/restore moves **identity keys only**. Per-aggregate DEKs are recovered via keyring updates embedded in the event stream after sync pull.
+- Backup/restore moves **identity keys and stored aggregate/derived keys**. Keyring updates still flow in the event stream, but are not required for key backup recovery today.
 
 ### Crypto and integrity binding
 
 - Each aggregate uses a dedicated symmetric key (`K_aggregate`) from the key store.
-- Event payload encryption uses AES-GCM with AAD binding to `{aggregateId, eventType, version}`.
+- Event payload encryption uses AES-GCM with AAD binding to `{aggregateType, aggregateId, version}`.
 - Snapshots use separate AAD binding (`{aggregateId, "snapshot", version}`) for integrity separation.
 
 **Key categories (K_aggregate vs K_cache)**
 
-| Key type      | Used for                                 | Synced?                            |
-| ------------- | ---------------------------------------- | ---------------------------------- |
-| `K_aggregate` | Event payloads + snapshots               | No (recovered via keyring updates) |
-| `K_cache`     | Projection caches + indexes + saga state | No (device-local only)             |
+| Key type      | Used for                                 | Exported today?               |
+| ------------- | ---------------------------------------- | ----------------------------- |
+| `K_aggregate` | Event payloads + snapshots               | Yes (included in key backups) |
+| `K_cache`     | Projection caches + indexes + saga state | Yes (included in key backups) |
 
 Notes:
 
 - Losing `K_cache` must be recoverable: it forces a rebuild of derived state, not data loss.
-- Target policy (from the LiveStore replacement PRD): caches/indexes use a device-local `K_cache` (not backed up/synced). This keeps key backups minimal and makes “drop cache + rebuild” always safe.
-- Current implementation note: `projection_cache` rows are currently encrypted using the aggregate key (`K_aggregate`) in some projectors (e.g. Goal snapshots/analytics cache). Treat this as a correctness-preserving shortcut (still rebuildable), but it is not the final key separation policy.
+- Target policy: caches/indexes use a device-local `K_cache` (not backed up/synced). This keeps key backups minimal and makes “drop cache + rebuild” always safe.
+- Current implementation note: KeyStore includes both aggregate keys and derived-state keys; backups export them all today. `projection_cache` rows are currently encrypted using the aggregate key (`K_aggregate`) in some projectors (e.g. Goal snapshots/analytics cache). Treat this as a correctness-preserving shortcut (still rebuildable), but it is not the final key separation policy.
 
 ### Commit boundary and post-commit streaming
 
@@ -155,7 +155,7 @@ Constraint:
 - Events that have been **synced** (have a `sync_event_map` / `globalSequence` mapping) are immutable facts:
   - ciphertext bytes and metadata are never rewritten.
 - Events that are still **pending** (no `globalSequence`) are durable local drafts and may be rewritten during rebase:
-  - per-aggregate version shifts require re-encryption because AAD binds to `{aggregateId, eventType, version}`.
+  - per-aggregate version shifts require re-encryption because AAD binds to `{aggregateType, aggregateId, version}`.
   - per-aggregate “pending rewrite” during rebase is specified in `docs/rfcs/rfc-20260101-pending-version-rewrite-rebase.md` and implemented in the sync stack.
 
 **Protocol types (V1)**

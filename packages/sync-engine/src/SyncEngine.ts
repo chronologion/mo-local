@@ -15,14 +15,7 @@ import {
 import type { SqliteDbPort, SqliteStatement } from '@mo/eventstore-web';
 import type { Unsubscribe } from '@mo/eventstore-core';
 import { SqliteStatementKinds } from '@mo/eventstore-web';
-import {
-  parseRecordJson,
-  decodeRecordKeyringUpdate,
-  decodeRecordPayload,
-  toRecordJson,
-  toSyncRecord,
-  type LocalEventRow,
-} from './recordCodec';
+import { parseRecordJson, toRecordJson, toSyncRecord, type LocalEventRow } from './recordCodec';
 
 type PendingEventRow = LocalEventRow & Readonly<{ commit_sequence: number }>;
 
@@ -184,6 +177,7 @@ export class SyncEngine {
   private readonly maxPushRetries: number;
   private readonly onStatusChange?: (status: SyncStatus) => void;
   private readonly pendingVersionRewriter: PendingVersionRewriterPort | null;
+  private readonly materializer: import('./types').SyncRecordMaterializerPort;
   private running = false;
   private pushUnsubscribe: Unsubscribe | null = null;
   private pushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -204,6 +198,7 @@ export class SyncEngine {
     this.storeId = options.storeId;
     this.onRebaseRequired = options.onRebaseRequired;
     this.pendingVersionRewriter = options.pendingVersionRewriter ?? null;
+    this.materializer = options.materializer;
     this.pullLimit = options.pullLimit ?? DEFAULT_PULL_LIMIT;
     this.pullWaitMs = options.pullWaitMs ?? DEFAULT_PULL_WAIT_MS;
     this.pullIntervalMs = options.pullIntervalMs ?? DEFAULT_PULL_INTERVAL_MS;
@@ -865,18 +860,8 @@ export class SyncEngine {
     const insertedEventContextById = new Map<string, { aggregateType: string; aggregateId: string; version: number }>();
     for (const incoming of events) {
       const record = parseRecordJson(incoming.recordJson);
-      if (record.id !== incoming.eventId) {
-        throw new SyncEngineError(
-          createSyncError(SyncErrorCodes.unknown, 'Sync record id mismatch', {
-            recordId: record.id,
-            expectedEventId: incoming.eventId,
-          }),
-          { retryable: false }
-        );
-      }
-
       const existingById = await this.db.query<{ id: string }>('SELECT id FROM events WHERE id = ? LIMIT 1', [
-        record.id,
+        incoming.eventId,
       ]);
       if (existingById.length === 0) {
         const maxRewriteAttempts = 128;
@@ -903,7 +888,7 @@ export class SyncEngine {
                 aggregateId: record.aggregateId,
                 version: record.version,
                 existingEventId: occupyingId,
-                incomingEventId: record.id,
+                incomingEventId: incoming.eventId,
               }),
               { retryable: false }
             );
@@ -940,15 +925,21 @@ export class SyncEngine {
               aggregateType: record.aggregateType,
               aggregateId: record.aggregateId,
               version: record.version,
-              incomingEventId: record.id,
+              incomingEventId: incoming.eventId,
               maxRewriteAttempts,
             }),
             { retryable: false }
           );
         }
 
-        const payload = decodeRecordPayload(record);
-        const keyringUpdate = decodeRecordKeyringUpdate(record);
+        const materialized = await this.materializer.materializeRemoteEvent({
+          eventId: incoming.eventId,
+          recordJson: incoming.recordJson,
+          globalSequence: incoming.globalSequence,
+        });
+        const eventRow = materialized.eventRow;
+        const payload = eventRow.payload_encrypted;
+        const keyringUpdate = eventRow.keyring_update;
         statements.push({
           kind: SqliteStatementKinds.execute,
           sql: `INSERT OR IGNORE INTO events (
@@ -966,22 +957,22 @@ export class SyncEngine {
             epoch
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           params: [
-            record.id,
-            record.aggregateType,
-            record.aggregateId,
-            record.eventType,
+            eventRow.id,
+            eventRow.aggregate_type,
+            eventRow.aggregate_id,
+            eventRow.event_type,
             payload,
             keyringUpdate,
-            record.version,
-            record.occurredAt,
-            record.actorId,
-            record.causationId,
-            record.correlationId,
-            record.epoch,
+            eventRow.version,
+            eventRow.occurred_at,
+            eventRow.actor_id,
+            eventRow.causation_id,
+            eventRow.correlation_id,
+            eventRow.epoch,
           ],
         });
-        insertedEventIds.push(record.id);
-        insertedEventContextById.set(record.id, {
+        insertedEventIds.push(eventRow.id);
+        insertedEventContextById.set(eventRow.id, {
           aggregateType: record.aggregateType,
           aggregateId: record.aggregateId,
           version: record.version,

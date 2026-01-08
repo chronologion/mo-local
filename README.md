@@ -82,7 +82,7 @@ Inside `apps/web` you can also use the usual Vite commands (`yarn workspace @mo/
 
 ## Working With Data
 
-- **Onboarding**: When `localStorage['mo-local-user']` is absent we generate a new userId (UUIDv7), derive a KEK from the chosen passphrase using a random per-user salt (stored in metadata/backups), create signing/encryption keypairs, and encrypt them into IndexedDB.
+- **Onboarding**: When `localStorage['mo-local-user']` is absent we generate a new userId (UUIDv4), derive a KEK from the chosen passphrase using a random per-user salt (stored in metadata/backups), create signing/encryption keypairs, and encrypt them into IndexedDB.
 - **Unlocking**: Derive the same KEK from the stored metadata, decrypt the identity keys, and unlock the dashboard.
 - **Goal & Project CRUD**: Interface hooks dispatch typed commands onto per-BC command buses. Command handlers materialize value objects, mutate aggregates, and append encrypted events to the BC event stores. Projection processors update snapshots/analytics/search and refresh in-memory read models consumed by queries (`useGoals`, `useProjects`, `useGoalSearch`).
 - **Backups (keys only)**: `BackupModal` exports identity + per-goal keys, encrypts the JSON envelope with the current KEK (salt included), and presents a `.backup` blob for download/copy. It does **not** include goal data or events; until sync or log export exists, goals stay on the original device. Legacy backups without salt need existing metadata and are rewrapped to a random salt during unlock/restore.

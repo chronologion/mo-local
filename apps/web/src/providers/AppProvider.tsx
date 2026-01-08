@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { uuidv7 } from '@mo/domain';
+import { uuidv4 } from '@mo/domain';
 import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
 import { decodeSalt, encodeSalt, generateRandomSalt } from '@mo/infrastructure/crypto/deriveSalt';
@@ -21,7 +21,7 @@ const loadStoredStoreId = (): string | null => {
 
 type UserMeta = {
   /**
-   * Stable local identity id (UUIDv7). Used for `actorId` and identity key records.
+   * Stable local identity id (UUIDv4). Used for `actorId` and identity key records.
    */
   userId: string;
   pwdSalt: string;
@@ -147,7 +147,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const parsed = storeIdSchema.safeParse(storedStoreId);
         if (parsed.success) return parsed.data;
       }
-      return uuidv7();
+      return uuidv4();
     })();
     if (typeof localStorage !== 'undefined' && storedStoreId !== fallbackStoreId) {
       localStorage.setItem(STORE_ID_KEY, fallbackStoreId);
@@ -446,7 +446,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     indexedDB.deleteDatabase('mo-local-keys');
     localStorage.removeItem(USER_META_KEY);
-    const nextStoreId = uuidv7();
+    const nextStoreId = uuidv4();
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
     window.location.reload();
   };

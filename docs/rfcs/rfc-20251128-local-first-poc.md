@@ -4,7 +4,7 @@
 **Linear**: ALC-244
 **Related**: All ALC-244 subissues
 **Created**: 2025-11-28
-**Last Updated**: 2025-12-25
+**Last Updated**: 2026-01-06
 
 > Architecture note: the long-lived architecture reference (layers + key ADRs) is `docs/architecture.md`. This RFC remains a product/workflow WIP doc for the initial implementation.
 
@@ -138,7 +138,7 @@ Design-wise, **`userId`/`storeId` is the anchor** for local-first state and sync
   - `Priority` (`must`, `should`, `maybe` with comparison helpers)
   - `Month` (YYYY-MM arithmetic & comparison)
   - `Summary` (non-empty text)
-  - `GoalId`/`UserId` (UUIDv7 / opaque string) and `Timestamp`
+  - `GoalId`/`UserId` (UUIDv4 / opaque string) and `Timestamp`
 - **Fluent Assertions**: `Assert` provides chainable validators (`isNonEmpty`, `isOneOf`, `isBetween`, etc.) to keep the domain expressive without branching logic.
 - **Event sourcing**: Aggregates are reconstructed via `Goal.reconstitute(id, events)`. `AggregateRoot` keeps uncommitted events and versions for optimistic concurrency.
 
@@ -298,7 +298,7 @@ Implemented rule:
 ### 7.3 User flows
 
 1. **Onboard**
-   - Generate UUIDv7 `userId`.
+   - Generate UUIDv4 `userId`.
    - Generate a random per-user salt (stored in metadata/backups) and derive KEK via PBKDF2.
    - Generate signing + encryption keypairs, store encrypted in IndexedDB, persist metadata (includes salt) in `localStorage`.
 2. **Unlock**
@@ -307,7 +307,7 @@ Implemented rule:
    - Interface hooks dispatch typed commands onto the per-BC command buses → `GoalCommandHandler` / `ProjectCommandHandler` parse VOs and mutate aggregates → encrypted events are appended to the BC event stores → projection processors update snapshots/analytics/search and refresh the in-memory read models consumed by queries.
 4. **Backup / Restore**
 
-- Export: decrypt keystore, base64 encode identity + aggregate keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy (salt is persisted for unlock on fresh devices).
+- Export: decrypt keystore, base64 encode identity + aggregate + derived-state keys, encrypt with KEK, provide `cipher + salt` JSON blob for download/copy (salt is persisted for unlock on fresh devices).
 - Restore: upload blob, derive KEK using provided salt (or migrate legacy backups to a fresh random salt), decrypt payload, clear IndexedDB entries, rehydrate keys, update metadata. This is a **key backup only**; event logs and goal data are not part of the backup payload and instead flow via LiveStore + the sync backend when enabled.
 
 ## 8. Developer Workflow
@@ -350,7 +350,7 @@ Then reload the app, onboard again, and (optionally) restore a backup. Clearing 
 4. **Store identity vs. user identity**: `storeId` is now derived from `userId` (local-first root of trust) on onboarding/unlock/restore, so the same user syncs to the same logical store across devices. Existing per-device stores created before this change are not auto-migrated; restoring a key backup on a fresh device will bind sync to the `userId`-based `storeId`.
 5. **Projection runtime still runs on the main thread**: `GoalProjectionProcessor` / `ProjectProjectionProcessor` are main-thread consumers triggered by LiveStore subscriptions. Worker-based execution and cross-tab coordination are future work.
 6. **Docker stack docs need consolidation**: the Docker Compose dev stack exists (`docker-compose.yml`, `yarn dev:stack`), but documentation still lives across README/scripts and should be consolidated as the stack grows.
-7. **ZK is payload-only (metadata leakage)**: while domain payloads are encrypted, LiveStore sync necessarily transmits event name and args in plaintext; today that includes `aggregateId`, `eventType`, `version`, and `occurredAt` (see `packages/infrastructure/src/goals/schema.ts`). We already reduce one leakage vector by using a single synced event name (`event.v1`), but args-based leakage remains; accepted for the POC and tracked as future hardening.
+7. **ZK is payload-only (metadata leakage)**: while domain payloads are encrypted, sync necessarily transmits some metadata for routing/ordering; today that includes `aggregateType`, `aggregateId`, `version`, and ordering fields. Event descriptors (`eventType`) and client timestamps (`occurredAt`) now live inside encrypted envelopes and are not sent as plaintext. We still accept traffic pattern leakage (timing/size/access patterns) as a POC limitation.
 
 ## 10. Next Steps
 

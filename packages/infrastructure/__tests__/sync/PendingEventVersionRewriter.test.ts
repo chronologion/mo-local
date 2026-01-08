@@ -135,7 +135,7 @@ describe('PendingEventVersionRewriter', () => {
     await keyStore.saveAggregateKey(aggregateId, key);
 
     const plaintext = new TextEncoder().encode('hello');
-    const cipherV1 = await crypto.encrypt(plaintext, key, buildEventAad(aggregateId, eventType, 1));
+    const cipherV1 = await crypto.encrypt(plaintext, key, buildEventAad(aggregateType, aggregateId, 1));
 
     db.events.push({
       id: 'local-1',
@@ -178,8 +178,12 @@ describe('PendingEventVersionRewriter', () => {
     expect(cipherV2).toBeInstanceOf(Uint8Array);
     if (!cipherV2) return;
 
-    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 1))).rejects.toBeInstanceOf(Error);
+    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateType, aggregateId, 1))).rejects.toBeInstanceOf(
+      Error
+    );
 
-    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateId, eventType, 2))).resolves.toEqual(plaintext);
+    await expect(crypto.decrypt(cipherV2, key, buildEventAad(aggregateType, aggregateId, 2))).resolves.toEqual(
+      plaintext
+    );
   });
 });

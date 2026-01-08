@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { encodeEventEnvelope } from '@mo/infrastructure';
 
 type OnboardResult = {
   storeId: string;
@@ -79,21 +80,35 @@ type RecordJsonParams = {
   actorId: string;
 };
 
-const makeRecordJson = (params: RecordJsonParams): string =>
-  JSON.stringify({
-    id: params.id,
+const makeRecordJson = (params: RecordJsonParams): string => {
+  const payloadCiphertext = encodeBase64Url(
+    encodeEventEnvelope({
+      envelopeVersion: 1,
+      meta: {
+        eventId: params.id,
+        eventType: params.eventType,
+        occurredAt: params.occurredAt,
+        actorId: params.actorId,
+        causationId: null,
+        correlationId: null,
+      },
+      payload: {
+        payloadVersion: 1,
+        data: Array.from(params.payload),
+      },
+    })
+  );
+
+  return JSON.stringify({
+    recordVersion: 1,
     aggregateType: params.aggregateType,
     aggregateId: params.aggregateId,
-    eventType: params.eventType,
-    payload: encodeBase64Url(params.payload),
-    version: params.version,
-    occurredAt: params.occurredAt,
-    actorId: params.actorId,
-    causationId: null,
-    correlationId: null,
     epoch: null,
+    version: params.version,
+    payloadCiphertext,
     keyringUpdate: null,
   });
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 

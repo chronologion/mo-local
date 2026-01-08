@@ -208,6 +208,7 @@ export class ProjectProjectionProcessor implements ProjectionRuntimePort, Indexi
   }): EncryptedEvent {
     return {
       id: record.id,
+      aggregateType: 'project',
       aggregateId: record.aggregateId,
       eventType: record.eventType,
       payload: record.payload,
