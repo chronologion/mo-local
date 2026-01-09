@@ -42,6 +42,7 @@ flowchart LR
 
 - The worker uses a simple `{v, kind, requestId, payload}` envelope (no Comlink).
 - Requests mirror the RFC IDL and are defined in `packages/key-service-web/src/protocol/types.ts`.
+- Vault creation is an explicit `createVault` request; browser callers must go through the worker boundary.
 - The worker tracks an active session id per connected client to support idle/blur/lock signals.
 
 ## Storage behavior
@@ -59,4 +60,4 @@ flowchart LR
 
 ## Open Questions
 
-- Do we need an explicit `createVault` IDL message for onboarding, or is vault creation handled elsewhere?
+- None.

@@ -202,6 +202,11 @@ async function handleRequest(
 ): Promise<KeyServiceResponse> {
   const service = runtime.service;
   switch (request.type) {
+    case 'createVault': {
+      service.createVault(request.payload.userId, request.payload.passphraseUtf8, request.payload.kdfParams);
+      await persistWrites(runtime);
+      return { type: 'createVault', payload: {} };
+    }
     case 'unlock': {
       const payload = request.payload;
       const response =

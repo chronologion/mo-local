@@ -39,6 +39,20 @@ export type UnlockResponse = Readonly<{
   assurance: SessionAssurance;
 }>;
 
+export type KdfParams = Readonly<{
+  id: string;
+  salt: Uint8Array;
+  memoryKib: number;
+  iterations: number;
+  parallelism: number;
+}>;
+
+export type CreateVaultRequest = Readonly<{
+  userId: UserId;
+  passphraseUtf8: Uint8Array;
+  kdfParams: KdfParams;
+}>;
+
 export type StepUpRequest = Readonly<{
   sessionId: SessionId;
   passphraseUtf8: Uint8Array;
@@ -154,6 +168,7 @@ export type SignalRequest = Readonly<{
 }>;
 
 export type KeyServiceRequest =
+  | Readonly<{ type: 'createVault'; payload: CreateVaultRequest }>
   | Readonly<{ type: 'unlock'; payload: UnlockRequest }>
   | Readonly<{ type: 'stepUp'; payload: StepUpRequest }>
   | Readonly<{ type: 'getWebAuthnPrfUnlockInfo'; payload: EmptyObject }>
@@ -179,6 +194,7 @@ export type KeyServiceRequest =
   | Readonly<{ type: 'signal'; payload: SignalRequest }>;
 
 export type KeyServiceResponse =
+  | Readonly<{ type: 'createVault'; payload: EmptyObject }>
   | Readonly<{ type: 'unlock'; payload: UnlockResponse }>
   | Readonly<{ type: 'stepUp'; payload: StepUpResponse }>
   | Readonly<{ type: 'getWebAuthnPrfUnlockInfo'; payload: GetWebAuthnPrfUnlockInfoResponse }>
