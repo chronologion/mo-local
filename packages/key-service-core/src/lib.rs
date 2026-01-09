@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod aad;
 pub mod adapters;
 pub mod cbor;

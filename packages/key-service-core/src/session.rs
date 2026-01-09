@@ -56,7 +56,9 @@ impl Session {
     if self.handles.len() >= self.max_handles {
       let key = self.handles.keys().next().cloned();
       if let Some(key) = key {
-        self.handles.remove(&key);
+        if let Some(mut removed) = self.handles.remove(&key) {
+          removed.zeroize();
+        }
       }
     }
     let id = random_handle_id()?;

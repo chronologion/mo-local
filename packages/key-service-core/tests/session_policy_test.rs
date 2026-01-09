@@ -54,11 +54,15 @@ impl ClockAdapter for MutableClock {
   }
 }
 
-struct FixedEntropy;
+struct FixedEntropy {
+  counter: Cell<u8>,
+}
 
 impl EntropyAdapter for FixedEntropy {
   fn random_bytes(&self, len: usize) -> Vec<u8> {
-    vec![7u8; len]
+    let value = self.counter.get();
+    self.counter.set(value.wrapping_add(1));
+    vec![value; len]
   }
 }
 
@@ -66,7 +70,7 @@ fn make_service(now_ms: u64) -> (KeyService<MemStorage, MutableClock, FixedEntro
   let now = Rc::new(Cell::new(now_ms));
   let storage = MemStorage::default();
   let clock = MutableClock { now: now.clone() };
-  let entropy = FixedEntropy;
+  let entropy = FixedEntropy { counter: Cell::new(7) };
   let config = KeyServiceConfig {
     policy: KeyServicePolicy {
       normal_session_ttl_ms: 10,
@@ -114,4 +118,3 @@ fn lock_clears_session() {
   let err = ks.renew_session(&session_id).unwrap_err();
   assert!(matches!(err, KeyServiceError::SessionInvalid));
 }
-

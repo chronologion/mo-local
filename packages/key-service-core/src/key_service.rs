@@ -327,8 +327,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     )
     .map_err(|_| KeyServiceError::CryptoError("vault key unwrap failed".to_string()))?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     if vault_key != session.vault_key {
       return Err(KeyServiceError::CryptoError("vault key mismatch".to_string()));
     }
@@ -346,8 +346,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn renew_session(&mut self, session_id: &SessionId) -> Result<RenewSessionResponse, KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     if session.kind == SessionKind::StepUp {
       return Err(KeyServiceError::StepUpRequired);
     }
@@ -369,9 +369,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn export_keyvault(&mut self, session_id: &SessionId) -> Result<Vec<u8>, KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let kind = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.kind
     };
     if kind != SessionKind::StepUp {
@@ -386,9 +386,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn import_keyvault(&mut self, session_id: &SessionId, blob: &[u8]) -> Result<(), KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let kind = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.kind
     };
     if kind != SessionKind::StepUp {
@@ -432,9 +432,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
   pub fn change_passphrase(&mut self, session_id: &SessionId, new_passphrase_utf8: &[u8]) -> Result<(), KeyServiceError> {
     let mut header = self.load_header()?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let vault_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       if session.kind != SessionKind::StepUp {
         return Err(KeyServiceError::StepUpRequired);
       }
@@ -488,9 +488,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
   ) -> Result<(), KeyServiceError> {
     let header = self.load_header()?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let vault_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       if session.kind != SessionKind::StepUp {
         return Err(KeyServiceError::StepUpRequired);
       }
@@ -517,9 +517,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn disable_webauthn_prf_unlock(&mut self, session_id: &SessionId) -> Result<(), KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let kind = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.kind
     };
     if kind != SessionKind::StepUp {
@@ -539,8 +539,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     expected_owner_signer_fingerprint: Option<String>,
   ) -> Result<IngestScopeStateResponse, KeyServiceError> {
     let now = self.clock.now_ms();
-    let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
+    self.ensure_session_valid(now, session_id)?;
 
     let limits = self.cbor_limits();
     let value = decode_canonical_value(scope_state_cbor, &limits)
@@ -590,10 +589,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     key_envelope_cbor: &[u8],
   ) -> Result<IngestKeyEnvelopeResponse, KeyServiceError> {
     let now = self.clock.now_ms();
-    {
-      let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
-    }
+    self.ensure_session_valid(now, session_id)?;
 
     let limits = self.cbor_limits();
     let value = decode_canonical_value(key_envelope_cbor, &limits)
@@ -673,8 +669,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         .ok_or(KeyServiceError::ScopeKeyMissing)?
         .clone()
     };
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     let handle = session
       .insert_handle(HandleEntry::ScopeKey {
         scope_id: scope_id.clone(),
@@ -694,9 +690,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     grant_cbor: &[u8],
   ) -> Result<OpenResourceResponse, KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let scope_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       match session.get_handle(scope_key_handle) {
         Some(HandleEntry::ScopeKey { key, .. }) => key.clone(),
         _ => return Err(KeyServiceError::UnknownHandle),
@@ -741,8 +737,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
     self.persist_resource_key(session_id, &grant.resource_id, &grant.resource_key_id, &resource_key)?;
 
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     let handle = session
       .insert_handle(HandleEntry::ResourceKey {
         resource_id: grant.resource_id.clone(),
@@ -757,8 +753,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn close_handle(&mut self, session_id: &SessionId, key_handle: &KeyHandle) -> Result<(), KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     session.remove_handle(key_handle);
     Ok(())
   }
@@ -771,8 +767,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     plaintext: &[u8],
   ) -> Result<EncryptResponse, KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     let resource_key = match session.get_handle(resource_key_handle) {
       Some(HandleEntry::ResourceKey { key, .. }) => key.clone(),
       _ => return Err(KeyServiceError::UnknownHandle),
@@ -793,8 +789,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     ciphertext: &[u8],
   ) -> Result<DecryptResponse, KeyServiceError> {
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
     let resource_key = match session.get_handle(resource_key_handle) {
       Some(HandleEntry::ResourceKey { key, .. }) => key.clone(),
       _ => return Err(KeyServiceError::UnknownHandle),
@@ -810,8 +806,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn sign(&mut self, session_id: &SessionId, data: &[u8]) -> Result<SignResponse, KeyServiceError> {
     let now = self.clock.now_ms();
-    let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-    Self::ensure_session_valid(now, session)?;
+    self.ensure_session_valid(now, session_id)?;
     let materialized = self
       .state
       .as_ref()
@@ -852,9 +847,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
   pub fn init_identity(&mut self, session_id: &SessionId, device_id: &DeviceId) -> Result<(), KeyServiceError> {
     let header = self.load_header()?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let vault_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.vault_key.clone()
     };
 
@@ -952,8 +947,19 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     })
   }
 
-  fn ensure_session_valid(now: u64, session: &Session) -> Result<(), KeyServiceError> {
-    if now > session.expires_at_ms {
+  fn ensure_session_valid(&mut self, now: u64, session_id: &SessionId) -> Result<(), KeyServiceError> {
+    let expired = {
+      let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
+      if now > session.expires_at_ms {
+        session.clear();
+        true
+      } else {
+        false
+      }
+    };
+    if expired {
+      self.sessions.remove(session_id);
+      self.state = None;
       return Err(KeyServiceError::SessionInvalid);
     }
     Ok(())
@@ -1039,9 +1045,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
   ) -> Result<(), KeyServiceError> {
     let header = self.load_header()?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let vault_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.vault_key.clone()
     };
     let record_id = uuid_like(&self.entropy.random_bytes(16));
@@ -1078,9 +1084,9 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
   ) -> Result<(), KeyServiceError> {
     let header = self.load_header()?;
     let now = self.clock.now_ms();
+    self.ensure_session_valid(now, session_id)?;
     let vault_key = {
       let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
-      Self::ensure_session_valid(now, session)?;
       session.vault_key.clone()
     };
     let record_id = uuid_like(&self.entropy.random_bytes(16));
@@ -1133,7 +1139,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     WebAuthnPrfUnlockV1::decode(&bytes).map_err(KeyServiceError::from)
   }
 
-  fn persist_record_container(&self, container: &KeyVaultRecordContainerV1) -> Result<(), KeyServiceError> {
+  fn persist_record_container(&mut self, container: &KeyVaultRecordContainerV1) -> Result<(), KeyServiceError> {
     let key = format!("record:{}", container.record_id);
     let bytes = encode_keyvault_record_container_v1(container)
       .map_err(|e| KeyServiceError::InvalidCbor(e.to_string()))?;
@@ -1141,6 +1147,20 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       .storage
       .put("keyvault", &key, &bytes)
       .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
+
+    let mut header = self.load_header()?;
+    if !header.records.iter().any(|record| record.record_id == container.record_id) {
+      header.records.push(container.clone());
+      let header_bytes = encode_keyvault_header_v1(&header)
+        .map_err(|e| KeyServiceError::InvalidCbor(e.to_string()))?;
+      self
+        .storage
+        .put("keyvault", "header", &header_bytes)
+        .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
+      if let Some(state) = self.state.as_mut() {
+        state.keyvault_header = header;
+      }
+    }
 
     let mut index = self.load_record_index()?;
     if !index.contains(&container.record_id) {

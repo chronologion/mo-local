@@ -9,6 +9,7 @@ use crate::hash::sha256;
 use crate::types::{AeadId, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId};
 use aes_gcm::Aes256Gcm;
 use std::collections::{HashMap, HashSet};
+use zeroize::Zeroize;
 
 #[derive(Clone, Debug)]
 pub struct KeyVaultState {
@@ -43,6 +44,23 @@ impl std::fmt::Debug for KeyVaultMaterialized {
       .field("scope_keys", &self.scope_keys.len())
       .field("resource_keys", &self.resource_keys.len())
       .finish()
+  }
+}
+
+impl Drop for KeyVaultMaterialized {
+  fn drop(&mut self) {
+    if let Some(mut user) = self.user_key.take() {
+      user.zeroize();
+    }
+    for (_, mut keypair) in self.device_signing_keys.drain() {
+      keypair.zeroize();
+    }
+    for (_, mut key) in self.scope_keys.drain() {
+      key.zeroize();
+    }
+    for (_, mut key) in self.resource_keys.drain() {
+      key.zeroize();
+    }
   }
 }
 
@@ -101,6 +119,9 @@ impl KeyVaultState {
   ) -> CoreResult<KeyVaultRecordContainerV1> {
     if seq != self.head_seq + 1 {
       return Err(CoreError::Format("keyvault seq mismatch".to_string()));
+    }
+    if self.records.iter().any(|existing| existing.record_id == record.record_id) {
+      return Err(CoreError::Format("duplicate keyvault record_id".to_string()));
     }
     let plaintext = encode_keyvault_record_plain_v1(record)?;
     let aad = aad_keyvault_record_v1(&header.vault_id, &header.user_id, header.aead, &record.record_id)?;

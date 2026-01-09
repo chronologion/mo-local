@@ -20,6 +20,7 @@ use signature::Signer as EdSigner;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use ml_dsa::signature::Signer as MlSigner;
 use ml_dsa::signature::Verifier as MlVerifier;
+use zeroize::Zeroize;
 
 fn random_bytes<const N: usize>() -> CoreResult<[u8; N]> {
   let mut bytes = [0u8; N];
@@ -44,6 +45,16 @@ impl fmt::Debug for HybridKemRecipient {
       .field("mlkem_encaps_bytes_len", &self.mlkem_encaps_bytes.len())
       .field("public_bytes_len", &self.public_bytes.len())
       .finish()
+  }
+}
+
+impl Zeroize for HybridKemRecipient {
+  fn zeroize(&mut self) {
+    self.x25519_secret.zeroize();
+    self.x25519_public.zeroize();
+    self.mlkem_decaps_bytes.zeroize();
+    self.mlkem_encaps_bytes.zeroize();
+    self.public_bytes.zeroize();
   }
 }
 
@@ -74,6 +85,15 @@ impl fmt::Debug for HybridSignatureKeypair {
       .field("mldsa_priv", &"<redacted>")
       .field("mldsa_pub_len", &self.mldsa_pub.len())
       .finish()
+  }
+}
+
+impl Zeroize for HybridSignatureKeypair {
+  fn zeroize(&mut self) {
+    self.ed25519_priv.zeroize();
+    self.ed25519_pub.zeroize();
+    self.mldsa_priv.zeroize();
+    self.mldsa_pub.zeroize();
   }
 }
 

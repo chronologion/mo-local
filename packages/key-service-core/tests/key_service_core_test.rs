@@ -10,7 +10,7 @@ use mo_key_service_core::types::{
   AeadId, DeviceId, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SessionKind, SigCiphersuiteId,
   UserId,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -59,11 +59,15 @@ impl ClockAdapter for FixedClock {
   }
 }
 
-struct FixedEntropy;
+struct FixedEntropy {
+  counter: Cell<u8>,
+}
 
 impl EntropyAdapter for FixedEntropy {
   fn random_bytes(&self, len: usize) -> Vec<u8> {
-    vec![7u8; len]
+    let value = self.counter.get();
+    self.counter.set(value.wrapping_add(1));
+    vec![value; len]
   }
 }
 
@@ -71,7 +75,7 @@ impl EntropyAdapter for FixedEntropy {
 fn scope_grant_encrypt_round_trip() {
   let storage = MemStorage::default();
   let clock = FixedClock { now: 1_000_000 };
-  let entropy = FixedEntropy;
+  let entropy = FixedEntropy { counter: Cell::new(7) };
   let mut ks = KeyService::new(storage, clock, entropy, KeyServiceConfig::default());
 
   let kdf = KdfParams::new_random().expect("kdf params");
