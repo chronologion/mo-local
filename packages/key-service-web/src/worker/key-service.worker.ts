@@ -297,6 +297,20 @@ async function handleRequest(
       await persistWrites(runtime);
       return { type: 'changePassphrase', payload: {} };
     }
+    case 'storeAppMasterKey': {
+      const masterKey = request.payload.masterKey;
+      try {
+        service.storeAppMasterKey(request.payload.sessionId, masterKey);
+      } finally {
+        masterKey.fill(0);
+      }
+      await persistWrites(runtime);
+      return { type: 'storeAppMasterKey', payload: {} };
+    }
+    case 'getAppMasterKey': {
+      const masterKey = ensureUint8Array(service.getAppMasterKey(request.payload.sessionId), 'getAppMasterKey');
+      return { type: 'getAppMasterKey', payload: { masterKey } };
+    }
     case 'enableUserPresenceUnlock': {
       service.enableUserPresenceUnlock(
         request.payload.sessionId,
