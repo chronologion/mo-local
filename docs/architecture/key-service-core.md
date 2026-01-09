@@ -19,6 +19,25 @@
 - Hybrid KEM + signature ciphersuite plumbing (Ed25519 + ML-DSA, ML-KEM + X25519).
 - Session policy enforcement (assurance tiers, TTL, handle lifecycle).
 
+## Component view
+
+```mermaid
+flowchart LR
+  subgraph Core["mo-key-service-core (Rust)"]
+    Cbor["CBOR + AAD registry"]
+    Formats["Wire formats"]
+    Crypto["Ciphersuite + crypto"]
+    Vault["KeyVault integrity"]
+    Session["Session policy"]
+  end
+
+  Wasm["mo-key-service-wasm"]
+  Web["apps/web worker boundary"]
+
+  Wasm --> Core
+  Web --> Wasm
+```
+
 ## Boundaries and dependencies
 
 - Depends on: cryptographic libraries, CBOR codec, and platform adapters (clock, entropy, storage).
