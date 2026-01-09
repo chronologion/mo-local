@@ -21,6 +21,7 @@ This crate is consumed by the WASM wrapper (`mo-key-service-wasm`) and is not a 
 - `src/ciphersuite.rs` — crypto primitives and hybrid KEM/signing wrappers.
 - `src/keyvault.rs` — KeyVault state transitions and integrity checks.
 - `src/key_service.rs` — session policy and service orchestration.
+- `src/async_key_service.rs` — async storage facade for native/desktop adapters.
 
 ## Testing and quality
 
