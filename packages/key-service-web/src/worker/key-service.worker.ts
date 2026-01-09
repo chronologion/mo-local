@@ -239,7 +239,7 @@ async function handleRequest(
           : (() => {
               const userPresenceSecret = payload.userPresenceSecret;
               try {
-                return service.unlockWebauthnPrf(userPresenceSecret);
+                return service.unlockUserPresence(userPresenceSecret);
               } finally {
                 userPresenceSecret.fill(0);
               }
@@ -262,7 +262,7 @@ async function handleRequest(
       return { type: 'stepUp', payload: response };
     }
     case 'getUserPresenceUnlockInfo': {
-      const response = parseUserPresenceInfo(service.getWebauthnPrfUnlockInfo());
+      const response = parseUserPresenceInfo(service.getUserPresenceUnlockInfo());
       return { type: 'getUserPresenceUnlockInfo', payload: response };
     }
     case 'renewSession': {
@@ -298,7 +298,7 @@ async function handleRequest(
       return { type: 'changePassphrase', payload: {} };
     }
     case 'enableUserPresenceUnlock': {
-      service.enableWebauthnPrfUnlock(
+      service.enableUserPresenceUnlock(
         request.payload.sessionId,
         request.payload.credentialId,
         request.payload.userPresenceSecret
@@ -307,7 +307,7 @@ async function handleRequest(
       return { type: 'enableUserPresenceUnlock', payload: {} };
     }
     case 'disableUserPresenceUnlock': {
-      service.disableWebauthnPrfUnlock(request.payload.sessionId);
+      service.disableUserPresenceUnlock(request.payload.sessionId);
       await persistWrites(runtime);
       return { type: 'disableUserPresenceUnlock', payload: {} };
     }

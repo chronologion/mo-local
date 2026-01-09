@@ -16,11 +16,11 @@ export class KeyServiceWasm {
   unlockPassphrase(passphrase_utf8: Uint8Array): any;
   ingestScopeState(session_id: string, scope_state_cbor: Uint8Array, expected_owner_signer_fingerprint: any): any;
   ingestKeyEnvelope(session_id: string, key_envelope_cbor: Uint8Array): any;
-  unlockWebauthnPrf(prf_output: Uint8Array): any;
   drainStorageWrites(): any;
-  enableWebauthnPrfUnlock(session_id: string, credential_id: Uint8Array, prf_output: Uint8Array): void;
-  disableWebauthnPrfUnlock(session_id: string): void;
-  getWebauthnPrfUnlockInfo(): any;
+  unlockUserPresence(user_presence_secret: Uint8Array): any;
+  enableUserPresenceUnlock(session_id: string, credential_id: Uint8Array, user_presence_secret: Uint8Array): void;
+  disableUserPresenceUnlock(session_id: string): void;
+  getUserPresenceUnlockInfo(): any;
   constructor();
   lock(session_id: string): void;
   sign(session_id: string, data: Uint8Array): any;
@@ -62,9 +62,9 @@ export interface InitOutput {
     h: number,
     i: number
   ) => [number, number, number, number];
-  readonly keyservicewasm_disableWebauthnPrfUnlock: (a: number, b: number, c: number) => [number, number];
+  readonly keyservicewasm_disableUserPresenceUnlock: (a: number, b: number, c: number) => [number, number];
   readonly keyservicewasm_drainStorageWrites: (a: number) => any;
-  readonly keyservicewasm_enableWebauthnPrfUnlock: (
+  readonly keyservicewasm_enableUserPresenceUnlock: (
     a: number,
     b: number,
     c: number,
@@ -85,7 +85,7 @@ export interface InitOutput {
     i: number
   ) => [number, number, number, number];
   readonly keyservicewasm_exportKeyVault: (a: number, b: number, c: number) => [number, number, number, number];
-  readonly keyservicewasm_getWebauthnPrfUnlockInfo: (a: number) => [number, number, number];
+  readonly keyservicewasm_getUserPresenceUnlockInfo: (a: number) => [number, number, number];
   readonly keyservicewasm_importKeyVault: (a: number, b: number, c: number, d: number, e: number) => [number, number];
   readonly keyservicewasm_ingestKeyEnvelope: (
     a: number,
@@ -126,7 +126,7 @@ export interface InitOutput {
   readonly keyservicewasm_sign: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
   readonly keyservicewasm_stepUp: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
   readonly keyservicewasm_unlockPassphrase: (a: number, b: number, c: number) => [number, number, number];
-  readonly keyservicewasm_unlockWebauthnPrf: (a: number, b: number, c: number) => [number, number, number];
+  readonly keyservicewasm_unlockUserPresence: (a: number, b: number, c: number) => [number, number, number];
   readonly keyservicewasm_verify: (
     a: number,
     b: number,

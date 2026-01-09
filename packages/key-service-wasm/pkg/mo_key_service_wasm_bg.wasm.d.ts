@@ -29,9 +29,9 @@ export const keyservicewasm_decrypt: (
   h: number,
   i: number
 ) => [number, number, number, number];
-export const keyservicewasm_disableWebauthnPrfUnlock: (a: number, b: number, c: number) => [number, number];
+export const keyservicewasm_disableUserPresenceUnlock: (a: number, b: number, c: number) => [number, number];
 export const keyservicewasm_drainStorageWrites: (a: number) => any;
-export const keyservicewasm_enableWebauthnPrfUnlock: (
+export const keyservicewasm_enableUserPresenceUnlock: (
   a: number,
   b: number,
   c: number,
@@ -52,7 +52,7 @@ export const keyservicewasm_encrypt: (
   i: number
 ) => [number, number, number, number];
 export const keyservicewasm_exportKeyVault: (a: number, b: number, c: number) => [number, number, number, number];
-export const keyservicewasm_getWebauthnPrfUnlockInfo: (a: number) => [number, number, number];
+export const keyservicewasm_getUserPresenceUnlockInfo: (a: number) => [number, number, number];
 export const keyservicewasm_importKeyVault: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const keyservicewasm_ingestKeyEnvelope: (
   a: number,
@@ -93,7 +93,7 @@ export const keyservicewasm_renewSession: (a: number, b: number, c: number) => [
 export const keyservicewasm_sign: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
 export const keyservicewasm_stepUp: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
 export const keyservicewasm_unlockPassphrase: (a: number, b: number, c: number) => [number, number, number];
-export const keyservicewasm_unlockWebauthnPrf: (a: number, b: number, c: number) => [number, number, number];
+export const keyservicewasm_unlockUserPresence: (a: number, b: number, c: number) => [number, number, number];
 export const keyservicewasm_verify: (
   a: number,
   b: number,

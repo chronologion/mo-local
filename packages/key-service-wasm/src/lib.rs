@@ -4,7 +4,7 @@ use js_sys::{Array, Object, Reflect, Uint8Array};
 use mo_key_service_core::adapters::{ClockAdapter, EntropyAdapter, StorageAdapter};
 use mo_key_service_core::crypto::KdfParams;
 use mo_key_service_core::key_service::{
-    DecryptResponse, EncryptResponse, GetWebAuthnPrfUnlockInfoResponse, IngestKeyEnvelopeResponse,
+    DecryptResponse, EncryptResponse, GetUserPresenceUnlockInfoResponse, IngestKeyEnvelopeResponse,
     IngestScopeStateResponse, KeyService, KeyServiceConfig, KeyServiceError, RenewSessionResponse,
     SignResponse, StepUpResponse, UnlockResponse,
 };
@@ -220,12 +220,12 @@ impl KeyServiceWasm {
         Ok(build_unlock_response(&response))
     }
 
-    #[wasm_bindgen(js_name = "unlockWebauthnPrf")]
-    pub fn unlock_webauthn_prf(&self, prf_output: Vec<u8>) -> Result<JsValue, JsValue> {
+    #[wasm_bindgen(js_name = "unlockUserPresence")]
+    pub fn unlock_user_presence(&self, user_presence_secret: Vec<u8>) -> Result<JsValue, JsValue> {
         let response = self
             .service
             .borrow_mut()
-            .unlock_webauthn_prf(&prf_output)
+            .unlock_user_presence(&user_presence_secret)
             .map_err(to_js_error)?;
         Ok(build_unlock_response(&response))
     }
@@ -295,35 +295,39 @@ impl KeyServiceWasm {
         Ok(())
     }
 
-    #[wasm_bindgen(js_name = "getWebauthnPrfUnlockInfo")]
-    pub fn get_webauthn_prf_unlock_info(&self) -> Result<JsValue, JsValue> {
+    #[wasm_bindgen(js_name = "getUserPresenceUnlockInfo")]
+    pub fn get_user_presence_unlock_info(&self) -> Result<JsValue, JsValue> {
         let response = self
             .service
             .borrow_mut()
-            .get_webauthn_prf_unlock_info()
+            .get_user_presence_unlock_info()
             .map_err(to_js_error)?;
-        Ok(build_webauthn_prf_info(&response))
+        Ok(build_user_presence_info(&response))
     }
 
-    #[wasm_bindgen(js_name = "enableWebauthnPrfUnlock")]
-    pub fn enable_webauthn_prf_unlock(
+    #[wasm_bindgen(js_name = "enableUserPresenceUnlock")]
+    pub fn enable_user_presence_unlock(
         &self,
         session_id: String,
         credential_id: Vec<u8>,
-        prf_output: Vec<u8>,
+        user_presence_secret: Vec<u8>,
     ) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
-            .enable_webauthn_prf_unlock(&SessionId(session_id), credential_id, prf_output)
+            .enable_user_presence_unlock(
+                &SessionId(session_id),
+                credential_id,
+                user_presence_secret,
+            )
             .map_err(to_js_error)?;
         Ok(())
     }
 
-    #[wasm_bindgen(js_name = "disableWebauthnPrfUnlock")]
-    pub fn disable_webauthn_prf_unlock(&self, session_id: String) -> Result<(), JsValue> {
+    #[wasm_bindgen(js_name = "disableUserPresenceUnlock")]
+    pub fn disable_user_presence_unlock(&self, session_id: String) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
-            .disable_webauthn_prf_unlock(&SessionId(session_id))
+            .disable_user_presence_unlock(&SessionId(session_id))
             .map_err(to_js_error)?;
         Ok(())
     }
@@ -638,7 +642,7 @@ fn build_renew_response(response: &RenewSessionResponse) -> JsValue {
     obj.into()
 }
 
-fn build_webauthn_prf_info(response: &GetWebAuthnPrfUnlockInfoResponse) -> JsValue {
+fn build_user_presence_info(response: &GetUserPresenceUnlockInfoResponse) -> JsValue {
     let obj = Object::new();
     let credential = response
         .credential_id
@@ -720,7 +724,7 @@ fn session_kind_to_str(kind: SessionKind) -> &'static str {
 fn session_assurance_to_str(assurance: SessionAssurance) -> &'static str {
     match assurance {
         SessionAssurance::Passphrase => "passphrase",
-        SessionAssurance::WebAuthnPrf => "webauthnPrf",
+        SessionAssurance::UserPresence => "userPresence",
     }
 }
 

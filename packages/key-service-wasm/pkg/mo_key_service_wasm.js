@@ -403,19 +403,6 @@ export class KeyServiceWasm {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
-     * @param {Uint8Array} prf_output
-     * @returns {any}
-     */
-    unlockWebauthnPrf(prf_output) {
-        const ptr0 = passArray8ToWasm0(prf_output, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_unlockWebauthnPrf(this.__wbg_ptr, ptr0, len0);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return takeFromExternrefTable0(ret[0]);
-    }
-    /**
      * @returns {any}
      */
     drainStorageWrites() {
@@ -423,18 +410,31 @@ export class KeyServiceWasm {
         return ret;
     }
     /**
+     * @param {Uint8Array} user_presence_secret
+     * @returns {any}
+     */
+    unlockUserPresence(user_presence_secret) {
+        const ptr0 = passArray8ToWasm0(user_presence_secret, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.keyservicewasm_unlockUserPresence(this.__wbg_ptr, ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
      * @param {string} session_id
      * @param {Uint8Array} credential_id
-     * @param {Uint8Array} prf_output
+     * @param {Uint8Array} user_presence_secret
      */
-    enableWebauthnPrfUnlock(session_id, credential_id, prf_output) {
+    enableUserPresenceUnlock(session_id, credential_id, user_presence_secret) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(credential_id, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passArray8ToWasm0(prf_output, wasm.__wbindgen_malloc);
+        const ptr2 = passArray8ToWasm0(user_presence_secret, wasm.__wbindgen_malloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_enableWebauthnPrfUnlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        const ret = wasm.keyservicewasm_enableUserPresenceUnlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -442,10 +442,10 @@ export class KeyServiceWasm {
     /**
      * @param {string} session_id
      */
-    disableWebauthnPrfUnlock(session_id) {
+    disableUserPresenceUnlock(session_id) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_disableWebauthnPrfUnlock(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_disableUserPresenceUnlock(this.__wbg_ptr, ptr0, len0);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -453,8 +453,8 @@ export class KeyServiceWasm {
     /**
      * @returns {any}
      */
-    getWebauthnPrfUnlockInfo() {
-        const ret = wasm.keyservicewasm_getWebauthnPrfUnlockInfo(this.__wbg_ptr);
+    getUserPresenceUnlockInfo() {
+        const ret = wasm.keyservicewasm_getUserPresenceUnlockInfo(this.__wbg_ptr);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
