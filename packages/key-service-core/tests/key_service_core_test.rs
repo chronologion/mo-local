@@ -129,7 +129,7 @@ fn scope_grant_encrypt_round_trip() {
     scope_id: scope_id.clone(),
     grant_seq: 1,
     prev_hash: vec![0u8; 32],
-    scope_state_ref: scope_state.scope_state_ref_bytes(),
+    scope_state_ref: scope_state.scope_state_ref_bytes().unwrap(),
     scope_epoch: 1,
     resource_id: resource_id.clone(),
     resource_key_id: resource_key_id.clone(),

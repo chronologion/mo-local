@@ -558,9 +558,11 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       return Err(KeyServiceError::CryptoError("scope state signature invalid".to_string()));
     }
 
-    let scope_state_ref_bytes = scope_state.scope_state_ref_bytes();
+    let scope_state_ref_bytes = scope_state
+      .scope_state_ref_bytes()
+      .map_err(KeyServiceError::InvalidFormat)?;
     let scope_state_ref = hex::encode(&scope_state_ref_bytes);
-    let header = self.load_header().expect("header");
+    let header = self.load_header()?;
     let roster = self.state.get_or_insert_with(|| KeyServiceState {
       keyvault_header: header,
       keyvault_state: KeyVaultState::default(),
@@ -674,11 +676,13 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     };
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
     Self::ensure_session_valid(now, session)?;
-    let handle = session.insert_handle(HandleEntry::ScopeKey {
-      scope_id: scope_id.clone(),
-      scope_epoch,
-      key,
-    });
+    let handle = session
+      .insert_handle(HandleEntry::ScopeKey {
+        scope_id: scope_id.clone(),
+        scope_epoch,
+        key,
+      })
+      .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     Ok(OpenScopeResponse {
       scope_key_handle: handle,
     })
@@ -743,11 +747,13 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
     let session = self.sessions.get_mut(session_id).ok_or(KeyServiceError::SessionInvalid)?;
     Self::ensure_session_valid(now, session)?;
-    let handle = session.insert_handle(HandleEntry::ResourceKey {
-      resource_id: grant.resource_id.clone(),
-      resource_key_id: grant.resource_key_id.clone(),
-      key: resource_key,
-    });
+    let handle = session
+      .insert_handle(HandleEntry::ResourceKey {
+        resource_id: grant.resource_id.clone(),
+        resource_key_id: grant.resource_key_id.clone(),
+        key: resource_key,
+      })
+      .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     Ok(OpenResourceResponse {
       resource_key_handle: handle,
     })

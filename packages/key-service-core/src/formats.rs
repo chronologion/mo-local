@@ -65,7 +65,7 @@ impl ScopeStateV1 {
     encode_canonical_value(&value)
   }
 
-  pub fn scope_state_ref_bytes(&self) -> Vec<u8> {
+  pub fn scope_state_ref_bytes(&self) -> Result<Vec<u8>, String> {
     let signed = cbor_map(vec![
       (0, cbor_uint(self.v)),
       (1, cbor_text(&self.scope_id.0)),
@@ -78,12 +78,12 @@ impl ScopeStateV1 {
       (8, cbor_text(self.sig_suite.as_str())),
       (9, cbor_bytes(&self.signature)),
     ]);
-    let bytes = encode_canonical_value(&signed).expect("cbor encode");
-    sha256(&bytes).to_vec()
+    let bytes = encode_canonical_value(&signed)?;
+    Ok(sha256(&bytes).to_vec())
   }
 
-  pub fn scope_state_ref(&self) -> String {
-    hex::encode(self.scope_state_ref_bytes())
+  pub fn scope_state_ref(&self) -> Result<String, String> {
+    Ok(hex::encode(self.scope_state_ref_bytes()?))
   }
 }
 

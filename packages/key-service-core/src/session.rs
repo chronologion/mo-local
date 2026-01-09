@@ -51,16 +51,16 @@ impl Session {
     }
   }
 
-  pub fn insert_handle(&mut self, entry: HandleEntry) -> KeyHandle {
+  pub fn insert_handle(&mut self, entry: HandleEntry) -> Result<KeyHandle, String> {
     if self.handles.len() >= self.max_handles {
       let key = self.handles.keys().next().cloned();
       if let Some(key) = key {
         self.handles.remove(&key);
       }
     }
-    let id = random_handle_id();
+    let id = random_handle_id()?;
     self.handles.insert(id.clone(), entry);
-    KeyHandle(id)
+    Ok(KeyHandle(id))
   }
 
   pub fn get_handle(&self, handle: &KeyHandle) -> Option<&HandleEntry> {
@@ -154,8 +154,8 @@ impl SessionManager {
   }
 }
 
-fn random_handle_id() -> String {
+fn random_handle_id() -> Result<String, String> {
   let mut bytes = [0u8; 16];
-  getrandom(&mut bytes).expect("getrandom failed");
-  bytes.iter().map(|b| format!("{b:02x}")).collect()
+  getrandom(&mut bytes).map_err(|_| "getrandom failed".to_string())?;
+  Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
