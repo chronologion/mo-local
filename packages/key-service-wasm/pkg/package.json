@@ -3,7 +3,7 @@
   "type": "module",
   "description": "WASM bindings for mo-key-service-core",
   "version": "0.1.0",
-  "license": "Apache-2.0 OR MIT",
+  "license": "UNLICENSED",
   "files": [
     "mo_key_service_wasm_bg.wasm",
     "mo_key_service_wasm.js",

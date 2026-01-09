@@ -2,7 +2,7 @@
 name = "mo-key-service-core"
 version = "0.1.0"
 edition = "2021"
-license = "Apache-2.0 OR MIT"
+license = "UNLICENSED"
 
 [dependencies]
 aes-gcm = { version = "0.10.3", features = ["aes"] }
