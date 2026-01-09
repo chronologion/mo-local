@@ -9,7 +9,7 @@ export type DeviceId = Brand<string, 'DeviceId'>;
 export type ScopeId = Brand<string, 'ScopeId'>;
 export type ResourceId = Brand<string, 'ResourceId'>;
 
-export type ScopeEpoch = Brand<number, 'ScopeEpoch'>;
+export type ScopeEpoch = Brand<bigint, 'ScopeEpoch'>;
 export type ResourceKeyId = Brand<string, 'ResourceKeyId'>;
 
 export type AeadId = 'aead-1';

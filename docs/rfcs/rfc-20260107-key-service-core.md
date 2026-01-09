@@ -806,7 +806,7 @@ export type DeviceId = string & { readonly __brand: 'DeviceId' };
 export type ScopeId = string & { readonly __brand: 'ScopeId' };
 export type ResourceId = string & { readonly __brand: 'ResourceId' };
 
-export type ScopeEpoch = number & { readonly __brand: 'ScopeEpoch' };
+export type ScopeEpoch = bigint & { readonly __brand: 'ScopeEpoch' };
 export type ResourceKeyId = string & { readonly __brand: 'ResourceKeyId' };
 
 export type AeadId = 'aead-1';

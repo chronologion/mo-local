@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use js_sys::{Array, Object, Reflect, Uint8Array};
+use js_sys::{Array, BigInt, Object, Reflect, Uint8Array};
 use mo_key_service_core::adapters::{ClockAdapter, EntropyAdapter, StorageAdapter};
 use mo_key_service_core::crypto::KdfParams;
 use mo_key_service_core::key_service::{
@@ -692,12 +692,8 @@ fn build_ingest_key_envelope_response(response: &IngestKeyEnvelopeResponse) -> J
         &JsValue::from_str(&response.scope_id.0),
     )
     .expect("scopeId");
-    Reflect::set(
-        &obj,
-        &JsValue::from_str("scopeEpoch"),
-        &JsValue::from_f64(response.scope_epoch.0 as f64),
-    )
-    .expect("scopeEpoch");
+    let epoch = BigInt::from(response.scope_epoch.0);
+    Reflect::set(&obj, &JsValue::from_str("scopeEpoch"), &epoch.into()).expect("scopeEpoch");
     obj.into()
 }
 

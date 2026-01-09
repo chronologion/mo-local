@@ -330,7 +330,7 @@ async function handleRequest(
     }
     case 'openScope': {
       const scopeKeyHandle = ensureString(
-        service.openScope(request.payload.sessionId, request.payload.scopeId, BigInt(request.payload.scopeEpoch)),
+        service.openScope(request.payload.sessionId, request.payload.scopeId, request.payload.scopeEpoch),
         'openScope'
       );
       await persistWrites(runtime);
@@ -644,7 +644,7 @@ function parseIngestKeyEnvelopeResponse(value: unknown): IngestKeyEnvelopeRespon
   if (!isRecord(value)) throw new Error('Invalid ingestKeyEnvelope response');
   return {
     scopeId: asScopeId(requireString(value.scopeId, 'scopeId')),
-    scopeEpoch: asScopeEpoch(requireNumber(value.scopeEpoch, 'scopeEpoch')),
+    scopeEpoch: asScopeEpoch(requireBigint(value.scopeEpoch, 'scopeEpoch')),
   };
 }
 
@@ -663,6 +663,11 @@ function requireBoolean(value: unknown, field: string): boolean {
 
 function requireNumber(value: unknown, field: string): number {
   if (typeof value !== 'number') throw new Error(`Invalid ${field}`);
+  return value;
+}
+
+function requireBigint(value: unknown, field: string): bigint {
+  if (typeof value !== 'bigint') throw new Error(`Invalid ${field}`);
   return value;
 }
 
@@ -702,8 +707,8 @@ function asScopeId(value: string): ScopeId {
   return value as ScopeId;
 }
 
-function asScopeEpoch(value: number): ScopeEpoch {
-  if (!Number.isFinite(value) || value < 0) throw new Error('Invalid scopeEpoch');
+function asScopeEpoch(value: bigint): ScopeEpoch {
+  if (value < 0n) throw new Error('Invalid scopeEpoch');
   return value as ScopeEpoch;
 }
 
