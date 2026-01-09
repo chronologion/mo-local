@@ -19,6 +19,7 @@ case "$ACTION" in
   start)
     print_summary
     echo "Starting stack..."
+    ./scripts/ensure-key-service-wasm.sh
     docker compose -f "$COMPOSE_FILE" up -d
     echo "Stack started."
     ;;
