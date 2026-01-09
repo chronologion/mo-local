@@ -9,6 +9,8 @@ export const makeServices = (overrides: Partial<AppServices> = {}): AppServices 
   // UI tests don't exercise services; provide minimal typed stubs.
   crypto: {} as AppServices['crypto'],
   keyStore: {} as AppServices['keyStore'],
+  keyService: {} as AppServices['keyService'],
+  keyServiceShutdown: async () => {},
   eventBus: {} as AppServices['eventBus'],
   publisher: {} as AppServices['publisher'],
   storeId: 'test-store',
@@ -27,7 +29,7 @@ export const makeAppContext = (overrides: Partial<AppContextValue> = {}): AppCon
   unlock: async () => {},
   resetLocalState: async () => {},
   rebuildProjections: async () => {},
-  masterKey: null,
+  exportKeyVaultBackup: async () => '',
   restoreBackup: async (_params) => {},
   ...overrides,
 });

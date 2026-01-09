@@ -44,11 +44,11 @@ export function Onboarding() {
   const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault();
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Passphrase must be at least 8 characters');
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match');
+      setError('Passphrases do not match');
       return;
     }
     setLoading(true);
@@ -119,7 +119,7 @@ export function Onboarding() {
         <CardContent className="space-y-6">
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmitPassword}>
             <div className="space-y-2">
-              <Label>Password (derives KEK)</Label>
+              <Label>Passphrase</Label>
               <Input
                 type="password"
                 value={password}

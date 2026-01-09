@@ -12,12 +12,15 @@ import { AggregateTypes } from '@mo/eventstore-core';
 import { MissingKeyError } from '@mo/infrastructure';
 import { DomainEvent } from '@mo/domain';
 import { PendingEventVersionRewriter } from '@mo/infrastructure';
+import { createWebKeyService, type KeyServiceClient } from '@mo/key-service-web';
 
 export type AppBoundedContext = 'goals' | 'projects';
 
 export type AppServices = {
   crypto: WebCryptoService;
   keyStore: IndexedDBKeyStore;
+  keyService: KeyServiceClient;
+  keyServiceShutdown: () => Promise<void>;
   eventBus: InMemoryEventBus;
   publisher: CommittedEventPublisher;
   storeId: string;
@@ -78,6 +81,7 @@ export const createAppServices = async ({
   const keyStore = new IndexedDBKeyStore();
   const keyringStore = new InMemoryKeyringStore();
   const keyringManager = new KeyringManager(crypto, keyStore, keyringStore);
+  const { client: keyService, shutdown: keyServiceShutdown } = await createWebKeyService({ storeId });
   const eventBus = new InMemoryEventBus();
   const toDomain = new EncryptedEventToDomainAdapter(crypto);
   const apiBaseUrl = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
@@ -207,6 +211,8 @@ export const createAppServices = async ({
   return {
     crypto,
     keyStore,
+    keyService,
+    keyServiceShutdown,
     eventBus,
     publisher,
     storeId,

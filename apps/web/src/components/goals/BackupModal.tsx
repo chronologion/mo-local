@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useApp } from '../../providers/AppProvider';
-import { createBackupPayloadV2 } from '../../backup/backupPayload';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-
-const toBase64 = (data: Uint8Array): string => btoa(String.fromCharCode(...Array.from(data)));
 
 type BackupModalProps = {
   open: boolean;
@@ -13,73 +10,46 @@ type BackupModalProps = {
 };
 
 export function BackupModal({ open, onClose }: BackupModalProps) {
-  const { session, services, masterKey, userMeta } = useApp();
+  const { session, services, exportKeyVaultBackup } = useApp();
   const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [backupPassphrase, setBackupPassphrase] = useState('');
   const [dbBackupError, setDbBackupError] = useState<string | null>(null);
   const [dbBackupLoading, setDbBackupLoading] = useState(false);
 
   const userId = useMemo(() => (session.status === 'ready' ? session.userId : undefined), [session]);
 
   useEffect(() => {
-    if (!open || session.status !== 'ready') return;
+    if (!open) {
+      setBackupCipher(null);
+      setBackupError(null);
+      setBackupPassphrase('');
+    }
+  }, [open]);
+
+  const generateBackup = async () => {
+    if (session.status !== 'ready') {
+      setBackupError('Unlock with your passphrase to back up keys.');
+      return;
+    }
+    if (!backupPassphrase) {
+      setBackupError('Enter your passphrase to export the KeyVault.');
+      return;
+    }
     setBackupLoading(true);
     setBackupError(null);
-    const run = async () => {
-      try {
-        if (!userId) {
-          setBackupError('User unavailable; cannot derive salt');
-          setBackupCipher(null);
-          return;
-        }
-        if (!masterKey) {
-          setBackupError('Unlock with your passphrase to back up keys.');
-          setBackupCipher(null);
-          return;
-        }
-        const backup = await services.keyStore.exportKeys();
-        if (!backup.identityKeys) {
-          setBackupError('No keys found in keystore');
-          setBackupCipher(null);
-          return;
-        }
-        const identityEncoded = backup.identityKeys
-          ? {
-              signingPrivateKey: toBase64(backup.identityKeys.signingPrivateKey),
-              signingPublicKey: toBase64(backup.identityKeys.signingPublicKey),
-              encryptionPrivateKey: toBase64(backup.identityKeys.encryptionPrivateKey),
-              encryptionPublicKey: toBase64(backup.identityKeys.encryptionPublicKey),
-            }
-          : null;
-        if (!identityEncoded) {
-          setBackupError('No keys found in keystore');
-          setBackupCipher(null);
-          return;
-        }
-        const payload = createBackupPayloadV2({
-          userId,
-          identityKeys: identityEncoded,
-          exportedAt: new Date().toISOString(),
-        });
-        const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-        const encrypted = await services.crypto.encrypt(plaintext, masterKey);
-        const b64 = toBase64(encrypted);
-        const saltB64 = userMeta?.pwdSalt;
-        if (!saltB64) {
-          throw new Error('Password salt missing; please reset local state and re-onboard before exporting a backup.');
-        }
-        setBackupCipher(JSON.stringify({ cipher: b64, salt: saltB64 }, null, 2));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load keys';
-        setBackupError(message);
-        setBackupCipher(null);
-      } finally {
-        setBackupLoading(false);
-      }
-    };
-    void run();
-  }, [open, masterKey, services, session, userId, userMeta]);
+    try {
+      const backup = await exportKeyVaultBackup({ password: backupPassphrase });
+      setBackupCipher(backup);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to export KeyVault';
+      setBackupError(message);
+      setBackupCipher(null);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
 
   const downloadBackup = () => {
     if (!backupCipher) return;
@@ -147,15 +117,30 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           {backupLoading ? (
             <div className="flex items-center gap-2 text-foreground">
               <RefreshCw className="h-4 w-4 animate-spin text-accent2" />
-              Loading keys…
+              Exporting KeyVault…
             </div>
           ) : backupError ? (
             <p className="text-sm text-destructive">{backupError}</p>
           ) : null}
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Passphrase</label>
+            <input
+              type="password"
+              value={backupPassphrase}
+              onChange={(event) => setBackupPassphrase(event.target.value)}
+              placeholder="Enter your passphrase"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-muted-foreground">A fresh passphrase entry is required to export KeyVault.</p>
+          </div>
+
           <div className="mt-2 flex items-center gap-2">
+            <Button onClick={() => void generateBackup()} disabled={backupLoading} variant="outline">
+              Generate key backup
+            </Button>
             <Button onClick={downloadBackup} disabled={!backupCipher || backupLoading} variant="outline">
-              Download keys
+              Download backup
             </Button>
             <Button
               onClick={() => {
@@ -176,8 +161,7 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           {dbBackupError ? <p className="text-sm text-destructive">{dbBackupError}</p> : null}
 
           <p className="text-xs text-muted-foreground">
-            Keep key backups offline. Anyone with the key backup and your passphrase can impersonate you. If you use a
-            simple passphrase, the key backup can be used to brute-force your keys even without your passphrase. The DB
+            Keep key backups offline. Anyone with the key backup and your passphrase can unlock this identity. The DB
             file contains your encrypted full local event history and can be restored via the onboarding restore flow.
           </p>
         </div>

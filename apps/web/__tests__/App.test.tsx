@@ -37,7 +37,7 @@ const makeContext = (session: ReturnType<typeof useApp>['session']) => ({
   unlock: vi.fn(async () => {}),
   resetLocalState: vi.fn(async () => {}),
   rebuildProjections: vi.fn(async () => {}),
-  masterKey: null,
+  exportKeyVaultBackup: vi.fn(async () => ''),
   restoreBackup: vi.fn(async (_params) => {}),
 });
 

@@ -19,6 +19,7 @@
     "@mo/domain": "1.0.0",
     "@mo/eventstore-web": "1.0.0",
     "@mo/infrastructure": "1.0.0",
+    "@mo/key-service-web": "1.0.0",
     "@mo/presentation": "1.0.0",
     "@mo/sync-engine": "1.0.0",
     "@radix-ui/react-dialog": "^1.1.15",
