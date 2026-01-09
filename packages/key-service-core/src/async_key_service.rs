@@ -238,15 +238,13 @@ impl<S: AsyncStorageAdapter, C: ClockAdapter, E: EntropyAdapter> AsyncKeyService
         Ok(response)
     }
 
-    pub async fn open_scope(
+    pub fn open_scope(
         &mut self,
         session_id: &SessionId,
         scope_id: ScopeId,
         scope_epoch: ScopeEpoch,
     ) -> Result<OpenScopeResponse, KeyServiceError> {
-        let response = self.inner.open_scope(session_id, scope_id, scope_epoch)?;
-        self.flush_pending().await?;
-        Ok(response)
+        self.inner.open_scope(session_id, scope_id, scope_epoch)
     }
 
     pub async fn open_resource(
