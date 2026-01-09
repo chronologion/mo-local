@@ -29,135 +29,177 @@ type PortLike = {
   postMessage: (message: unknown, transfer?: Transferable[]) => void;
   addEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
   removeEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
+  start?: () => void;
 };
 
 type KeyServiceRuntime = {
   service: KeyServiceWasm;
   storage: KeyServiceStorage;
+};
+
+type ClientState = {
+  clientInstanceId: string;
   activeSessionId: string | null;
 };
 
-const port: PortLike = {
-  postMessage: (message, transfer) => {
-    if (transfer && transfer.length > 0) {
-      self.postMessage(message, transfer);
-    } else {
-      self.postMessage(message);
+class KeyServiceHost {
+  private runtimePromise: Promise<KeyServiceRuntime> | null = null;
+  private serverInstanceId: string | null = null;
+  private storeId: string | null = null;
+  private readonly clients = new WeakMap<PortLike, ClientState>();
+
+  attachPort(port: PortLike): void {
+    const handler = (event: MessageEvent) => {
+      void this.handleMessage(port, event);
+    };
+    port.addEventListener('message', handler);
+    port.start?.();
+  }
+
+  private async handleMessage(port: PortLike, event: MessageEvent): Promise<void> {
+    const data = event.data as unknown;
+    if (isWorkerHello(data)) {
+      await this.handleHello(port, data);
+      return;
     }
-  },
-  addEventListener: (type, listener) => self.addEventListener(type, listener),
-  removeEventListener: (type, listener) => self.removeEventListener(type, listener),
-};
-
-let runtimePromise: Promise<KeyServiceRuntime> | null = null;
-let serverInstanceId: string | null = null;
-
-const handleMessage = (event: MessageEvent): void => {
-  const data = event.data as unknown;
-  if (isWorkerHello(data)) {
-    void handleHello(data);
-    return;
-  }
-  if (!isWorkerEnvelope(data)) return;
-  void handleEnvelope(data);
-};
-
-port.addEventListener('message', handleMessage);
-
-async function handleHello(message: WorkerHello): Promise<void> {
-  if (message.kind !== WorkerHelloKinds.hello) {
-    return;
+    if (!isWorkerEnvelope(data)) return;
+    await this.handleEnvelope(port, data);
   }
 
-  if (!runtimePromise) {
-    runtimePromise = createRuntime(message.storeId);
-  }
-  serverInstanceId ||= crypto.randomUUID();
-
-  try {
-    await runtimePromise;
-    const response: WorkerHello = {
-      v: 1,
-      kind: WorkerHelloKinds.helloOk,
-      protocolVersion: 1,
-      serverInstanceId,
-    };
-    port.postMessage(response);
-  } catch (error) {
-    const response: WorkerHello = {
-      v: 1,
-      kind: WorkerHelloKinds.helloError,
-      error: toKeyServiceError(error, KeyServiceErrorCodes.WorkerProtocolError),
-    };
-    port.postMessage(response);
-  }
-}
-
-async function handleEnvelope(envelope: WorkerEnvelope): Promise<void> {
-  if (envelope.kind !== WorkerEnvelopeKinds.request) return;
-
-  if (!runtimePromise) {
-    const response: WorkerEnvelope = {
-      v: 1,
-      kind: WorkerEnvelopeKinds.response,
-      requestId: envelope.requestId,
-      payload: {
-        kind: WorkerResponseKinds.error,
+  private async handleHello(port: PortLike, message: WorkerHello): Promise<void> {
+    if (message.kind !== WorkerHelloKinds.hello) {
+      return;
+    }
+    if (this.storeId && this.storeId !== message.storeId) {
+      const response: WorkerHello = {
+        v: 1,
+        kind: WorkerHelloKinds.helloError,
         error: {
-          code: KeyServiceErrorCodes.WorkerNotReady,
-          message: 'Key service worker not ready',
+          code: KeyServiceErrorCodes.WorkerProtocolError,
+          message: 'Key service worker store mismatch',
         },
-      },
-    };
-    port.postMessage(response);
-    return;
-  }
+      };
+      port.postMessage(response);
+      return;
+    }
 
-  let runtime: KeyServiceRuntime;
-  try {
-    runtime = await runtimePromise;
-  } catch (error) {
-    const response: WorkerEnvelope = {
-      v: 1,
-      kind: WorkerEnvelopeKinds.response,
-      requestId: envelope.requestId,
-      payload: {
-        kind: WorkerResponseKinds.error,
+    if (!this.runtimePromise) {
+      this.storeId = message.storeId;
+      this.runtimePromise = createRuntime(message.storeId);
+    }
+    this.serverInstanceId ||= crypto.randomUUID();
+
+    try {
+      await this.runtimePromise;
+      this.clients.set(port, {
+        clientInstanceId: message.clientInstanceId,
+        activeSessionId: null,
+      });
+      const response: WorkerHello = {
+        v: 1,
+        kind: WorkerHelloKinds.helloOk,
+        protocolVersion: 1,
+        serverInstanceId: this.serverInstanceId,
+      };
+      port.postMessage(response);
+    } catch (error) {
+      const response: WorkerHello = {
+        v: 1,
+        kind: WorkerHelloKinds.helloError,
         error: toKeyServiceError(error, KeyServiceErrorCodes.WorkerProtocolError),
-      },
-    };
-    port.postMessage(response);
-    return;
+      };
+      port.postMessage(response);
+    }
   }
 
-  try {
-    const data = await handleRequest(runtime, envelope.payload);
-    const response: WorkerEnvelope = {
-      v: 1,
-      kind: WorkerEnvelopeKinds.response,
-      requestId: envelope.requestId,
-      payload: {
-        kind: WorkerResponseKinds.ok,
-        data,
-      },
-    };
-    const transferables = collectTransferables(data);
-    port.postMessage(response, transferables);
-  } catch (error) {
-    const response: WorkerEnvelope = {
-      v: 1,
-      kind: WorkerEnvelopeKinds.response,
-      requestId: envelope.requestId,
-      payload: {
-        kind: WorkerResponseKinds.error,
-        error: toKeyServiceError(error, KeyServiceErrorCodes.WasmError),
-      },
-    };
-    port.postMessage(response);
+  private async handleEnvelope(port: PortLike, envelope: WorkerEnvelope): Promise<void> {
+    if (envelope.kind !== WorkerEnvelopeKinds.request) return;
+
+    if (!this.runtimePromise) {
+      const response: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: envelope.requestId,
+        payload: {
+          kind: WorkerResponseKinds.error,
+          error: {
+            code: KeyServiceErrorCodes.WorkerNotReady,
+            message: 'Key service worker not ready',
+          },
+        },
+      };
+      port.postMessage(response);
+      return;
+    }
+
+    const clientState = this.clients.get(port);
+    if (!clientState) {
+      const response: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: envelope.requestId,
+        payload: {
+          kind: WorkerResponseKinds.error,
+          error: {
+            code: KeyServiceErrorCodes.WorkerNotReady,
+            message: 'Key service client not initialized',
+          },
+        },
+      };
+      port.postMessage(response);
+      return;
+    }
+
+    let runtime: KeyServiceRuntime;
+    try {
+      runtime = await this.runtimePromise;
+    } catch (error) {
+      const response: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: envelope.requestId,
+        payload: {
+          kind: WorkerResponseKinds.error,
+          error: toKeyServiceError(error, KeyServiceErrorCodes.WorkerProtocolError),
+        },
+      };
+      port.postMessage(response);
+      return;
+    }
+
+    try {
+      const data = await handleRequest(runtime, clientState, envelope.payload);
+      const response: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: envelope.requestId,
+        payload: {
+          kind: WorkerResponseKinds.ok,
+          data,
+        },
+      };
+      const transferables = collectTransferables(data);
+      port.postMessage(response, transferables);
+    } catch (error) {
+      const response: WorkerEnvelope = {
+        v: 1,
+        kind: WorkerEnvelopeKinds.response,
+        requestId: envelope.requestId,
+        payload: {
+          kind: WorkerResponseKinds.error,
+          error: toKeyServiceError(error, KeyServiceErrorCodes.WasmError),
+        },
+      };
+      port.postMessage(response);
+    }
   }
 }
 
-async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequest): Promise<KeyServiceResponse> {
+async function handleRequest(
+  runtime: KeyServiceRuntime,
+  clientState: ClientState,
+  request: KeyServiceRequest
+): Promise<KeyServiceResponse> {
   const service = runtime.service;
   switch (request.type) {
     case 'unlock': {
@@ -167,12 +209,12 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
           ? service.unlockPassphrase(payload.passphraseUtf8)
           : service.unlockWebauthnPrf(payload.prfOutput);
       const unlockResponse = parseUnlockResponse(response);
-      runtime.activeSessionId = unlockResponse.sessionId;
+      clientState.activeSessionId = unlockResponse.sessionId;
       await persistWrites(runtime);
       return { type: 'unlock', payload: unlockResponse };
     }
     case 'stepUp': {
-      const response = parseStepUpResponse(service.step_up(request.payload.sessionId, request.payload.passphraseUtf8));
+      const response = parseStepUpResponse(service.stepUp(request.payload.sessionId, request.payload.passphraseUtf8));
       await persistWrites(runtime);
       return { type: 'stepUp', payload: response };
     }
@@ -187,8 +229,8 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
     }
     case 'lock': {
       service.lock(request.payload.sessionId);
-      if (runtime.activeSessionId === request.payload.sessionId) {
-        runtime.activeSessionId = null;
+      if (clientState.activeSessionId === request.payload.sessionId) {
+        clientState.activeSessionId = null;
       }
       await persistWrites(runtime);
       return { type: 'lock', payload: {} };
@@ -255,7 +297,7 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       return { type: 'openResource', payload: { resourceKeyHandle: asKeyHandle(resourceKeyHandle) } };
     }
     case 'closeHandle': {
-      service.close_handle(request.payload.sessionId, request.payload.keyHandle);
+      service.closeHandle(request.payload.sessionId, request.payload.keyHandle);
       await persistWrites(runtime);
       return { type: 'closeHandle', payload: {} };
     }
@@ -301,12 +343,12 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       return { type: 'verify', payload: { ok } };
     }
     case 'signal': {
-      const sessionId = request.payload.sessionId ?? runtime.activeSessionId;
+      const sessionId = request.payload.sessionId ?? clientState.activeSessionId;
       if (sessionId) {
         try {
           service.lock(sessionId);
-          if (runtime.activeSessionId === sessionId) {
-            runtime.activeSessionId = null;
+          if (clientState.activeSessionId === sessionId) {
+            clientState.activeSessionId = null;
           }
           await persistWrites(runtime);
         } catch {
@@ -327,7 +369,6 @@ async function createRuntime(storeId: string): Promise<KeyServiceRuntime> {
   return {
     service,
     storage,
-    activeSessionId: null,
   };
 }
 
@@ -438,6 +479,49 @@ function collectTransferables(value: unknown): Transferable[] {
 
   visit(value);
   return transferables;
+}
+
+const isSharedWorker = 'onconnect' in self;
+const host = new KeyServiceHost();
+
+if (isSharedWorker && 'onconnect' in self) {
+  const sharedScope = self as SharedWorkerGlobalScope;
+  sharedScope.onconnect = (event) => {
+    const port = (event as MessageEvent & { ports: readonly MessagePort[] }).ports[0];
+    host.attachPort(wrapPort(port));
+  };
+} else {
+  const port: PortLike = {
+    postMessage: (message, transfer) => {
+      if (transfer && transfer.length > 0) {
+        (self as DedicatedWorkerGlobalScope).postMessage(message, transfer);
+      } else {
+        (self as DedicatedWorkerGlobalScope).postMessage(message);
+      }
+    },
+    addEventListener: (type, listener) => {
+      self.addEventListener(type, listener as EventListener);
+    },
+    removeEventListener: (type, listener) => {
+      self.removeEventListener(type, listener as EventListener);
+    },
+  };
+  host.attachPort(port);
+}
+
+function wrapPort(port: MessagePort): PortLike {
+  return {
+    postMessage: (message, transfer) => {
+      if (transfer && transfer.length > 0) {
+        port.postMessage(message, transfer);
+      } else {
+        port.postMessage(message);
+      }
+    },
+    addEventListener: (type, listener) => port.addEventListener(type, listener),
+    removeEventListener: (type, listener) => port.removeEventListener(type, listener),
+    start: () => port.start(),
+  };
 }
 
 function ensureBoolean(value: unknown, context: string): boolean {
