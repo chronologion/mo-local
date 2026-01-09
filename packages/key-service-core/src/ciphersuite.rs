@@ -1,3 +1,5 @@
+//! Cryptographic primitives and hybrid signing/KEM wrappers.
+
 use crate::cbor::{cbor_array, cbor_bytes, encode_canonical_value};
 use crate::crypto::hkdf_sha256;
 use crate::error::{CoreError, CoreResult};

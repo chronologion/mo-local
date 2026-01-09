@@ -1,3 +1,5 @@
+//! Canonical wire formats for KeyVault, scope state, and grants.
+
 use crate::cbor::{
     as_array, as_map, cbor_array, cbor_bytes, cbor_map, cbor_text, cbor_uint,
     decode_canonical_value, encode_canonical_value, opt_bytes, req_bytes, req_text, req_uint,

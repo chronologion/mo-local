@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+//! Core Key Service implementation: formats, crypto, KeyVault integrity, and session policy.
 
 pub mod aad;
 pub mod adapters;

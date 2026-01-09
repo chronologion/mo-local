@@ -1,3 +1,5 @@
+//! Service orchestration and session policy for the Key Service core.
+
 use crate::aad::{
     aad_key_envelope_wrap_v1, aad_keyvault_keywrap_v1, aad_resource_grant_wrap_v1,
     aad_webauthn_prf_wrap_v1,

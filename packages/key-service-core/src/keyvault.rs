@@ -1,3 +1,5 @@
+//! KeyVault record storage, integrity checks, and merge logic.
+
 use crate::aad::aad_keyvault_record_v1;
 use crate::crypto::{aead_decrypt, encrypt_vault_record};
 use crate::error::{CoreError, CoreResult};

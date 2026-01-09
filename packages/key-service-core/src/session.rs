@@ -1,3 +1,5 @@
+//! Session tracking, handle management, and TTL enforcement.
+
 use crate::error::{CoreError, CoreResult};
 use crate::types::{
     KeyHandle, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SessionAssurance, SessionId,

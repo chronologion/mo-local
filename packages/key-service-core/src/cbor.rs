@@ -1,3 +1,5 @@
+//! Canonical CBOR helpers with strict structural limits.
+
 use ciborium::value::{Integer, Value};
 use std::collections::BTreeMap;
 
