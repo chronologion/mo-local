@@ -10,6 +10,7 @@ pub struct CborLimits {
     pub max_bytes: usize,
     pub max_depth: usize,
     pub max_items: usize,
+    pub max_text_bytes: usize,
 }
 
 impl Default for CborLimits {
@@ -18,6 +19,7 @@ impl Default for CborLimits {
             max_bytes: 1024 * 1024,
             max_depth: 64,
             max_items: 4096,
+            max_text_bytes: 64 * 1024,
         }
     }
 }
@@ -199,6 +201,11 @@ fn check_limits(value: &Value, limits: &CborLimits, depth: usize) -> CoreResult<
             }
             for item in items {
                 check_limits(item, limits, depth + 1)?;
+            }
+        }
+        Value::Text(text) => {
+            if text.len() > limits.max_text_bytes {
+                return Err(CoreError::Cbor("cbor text too large".to_string()));
             }
         }
         _ => {}

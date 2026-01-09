@@ -30,7 +30,7 @@ use crate::types::{
     SessionId, SessionKind, SigCiphersuiteId, UserId,
 };
 use aes_gcm::Aes256Gcm;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 
 #[derive(Debug, thiserror::Error)]
@@ -59,6 +59,8 @@ pub enum KeyServiceError {
     ScopeKeyMissing,
     #[error("fingerprint mismatch")]
     FingerprintMismatch,
+    #[error("signer fingerprint required for first use")]
+    SignerFingerprintRequired,
 }
 
 impl From<CoreError> for KeyServiceError {
@@ -80,6 +82,8 @@ pub struct KeyServicePolicy {
     pub max_cbor_bytes: usize,
     pub max_cbor_depth: usize,
     pub max_cbor_items: usize,
+    pub max_cbor_text_bytes: usize,
+    pub max_scope_state_refs_per_scope: usize,
 }
 
 impl Default for KeyServicePolicy {
@@ -91,6 +95,8 @@ impl Default for KeyServicePolicy {
             max_cbor_bytes: 1024 * 1024,
             max_cbor_depth: 64,
             max_cbor_items: 4096,
+            max_cbor_text_bytes: 64 * 1024,
+            max_scope_state_refs_per_scope: 64,
         }
     }
 }
@@ -180,13 +186,55 @@ pub struct KeyServiceState {
     pub signer_roster: SignerRoster,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct SignerRoster {
     pub scopes: HashMap<String, HashMap<String, SignerKeys>>,
-    pub scope_state_refs: HashMap<String, HashSet<String>>,
+    pub scope_state_refs: HashMap<String, ScopeStateRefTracker>,
+    pub grant_chains: HashMap<String, GrantChainState>,
+    pub max_scope_state_refs_per_scope: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ScopeStateRefTracker {
+    refs: VecDeque<String>,
+    set: HashSet<String>,
+}
+
+impl ScopeStateRefTracker {
+    fn insert(&mut self, scope_state_ref_hex: String, max: usize) {
+        if self.set.contains(&scope_state_ref_hex) {
+            return;
+        }
+        self.refs.push_back(scope_state_ref_hex.clone());
+        self.set.insert(scope_state_ref_hex);
+        while self.refs.len() > max {
+            if let Some(removed) = self.refs.pop_front() {
+                self.set.remove(&removed);
+            }
+        }
+    }
+
+    fn contains(&self, scope_state_ref_hex: &str) -> bool {
+        self.set.contains(scope_state_ref_hex)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GrantChainState {
+    pub last_seq: u64,
+    pub last_hash: [u8; 32],
 }
 
 impl SignerRoster {
+    fn new(max_scope_state_refs_per_scope: usize) -> Self {
+        Self {
+            scopes: HashMap::new(),
+            scope_state_refs: HashMap::new(),
+            grant_chains: HashMap::new(),
+            max_scope_state_refs_per_scope,
+        }
+    }
+
     fn get_signer(&self, scope_id: &ScopeId, device_id: &DeviceId) -> Option<&SignerKeys> {
         self.scopes
             .get(&scope_id.0)
@@ -199,15 +247,60 @@ impl SignerRoster {
     }
 
     fn insert_scope_state_ref(&mut self, scope_id: &ScopeId, scope_state_ref_hex: String) {
-        let set = self.scope_state_refs.entry(scope_id.0.clone()).or_default();
-        set.insert(scope_state_ref_hex);
+        let tracker = self.scope_state_refs.entry(scope_id.0.clone()).or_default();
+        tracker.insert(scope_state_ref_hex, self.max_scope_state_refs_per_scope);
     }
 
     fn has_scope_state_ref(&self, scope_id: &ScopeId, scope_state_ref_hex: &str) -> bool {
         self.scope_state_refs
             .get(&scope_id.0)
-            .map(|set| set.contains(scope_state_ref_hex))
+            .map(|tracker| tracker.contains(scope_state_ref_hex))
             .unwrap_or(false)
+    }
+
+    fn verify_and_update_grant_chain(
+        &mut self,
+        grant: &ResourceGrantV1,
+    ) -> Result<(), KeyServiceError> {
+        let grant_hash = grant.grant_ref_bytes().map_err(KeyServiceError::from)?;
+        let grant_hash = hash_array(&grant_hash)?;
+        let prev_hash = hash_array(&grant.prev_hash)?;
+        let state = self.grant_chains.get(&grant.scope_id.0);
+        match state {
+            Some(existing) => {
+                if grant.grant_seq != existing.last_seq + 1 {
+                    return Err(KeyServiceError::InvalidFormat(
+                        "grant sequence out of order".to_string(),
+                    ));
+                }
+                if prev_hash != existing.last_hash {
+                    return Err(KeyServiceError::InvalidFormat(
+                        "grant prev_hash mismatch".to_string(),
+                    ));
+                }
+            }
+            None => {
+                if grant.grant_seq != 0 || prev_hash != [0u8; 32] {
+                    return Err(KeyServiceError::InvalidFormat(
+                        "grant genesis mismatch".to_string(),
+                    ));
+                }
+            }
+        }
+        self.grant_chains.insert(
+            grant.scope_id.0.clone(),
+            GrantChainState {
+                last_seq: grant.grant_seq,
+                last_hash: grant_hash,
+            },
+        );
+        Ok(())
+    }
+}
+
+impl Default for SignerRoster {
+    fn default() -> Self {
+        Self::new(64)
     }
 }
 
@@ -324,6 +417,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         session_id: &SessionId,
         passphrase_utf8: &[u8],
     ) -> Result<StepUpResponse, KeyServiceError> {
+        let now = self.clock.now_ms();
+        self.ensure_session_valid(now, session_id)?;
         let header = self.load_header()?;
         let kek = derive_kek(passphrase_utf8, &header.kdf)
             .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
@@ -336,8 +431,6 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             &header.vault_key_wrap.ct,
         )
         .map_err(|_| KeyServiceError::CryptoError("vault key unwrap failed".to_string()))?;
-        let now = self.clock.now_ms();
-        self.ensure_session_valid(now, session_id)?;
         let session = self
             .sessions
             .get_mut(session_id)
@@ -600,37 +693,57 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         let to_verify = scope_state
             .to_be_signed_bytes()
             .map_err(KeyServiceError::from)?;
-        let signer_keys = extract_signer_keys(&scope_state)?;
+        let payload_signer_keys = extract_signer_keys(&scope_state)?;
 
-        if let Some(expected) = expected_owner_signer_fingerprint {
-            let fingerprint = fingerprint_signer(&signer_keys);
-            if fingerprint != expected {
-                return Err(KeyServiceError::FingerprintMismatch);
+        let header = self.load_header()?;
+        let roster = self.state.get_or_insert_with(|| KeyServiceState {
+            keyvault_header: header,
+            keyvault_state: KeyVaultState::default(),
+            keyvault_materialized: KeyVaultMaterialized::default(),
+            signer_roster: SignerRoster::new(self.config.policy.max_scope_state_refs_per_scope),
+        });
+
+        let existing_signer = roster
+            .signer_roster
+            .get_signer(&scope_state.scope_id, &scope_state.signer_device_id);
+
+        match existing_signer {
+            Some(signer) => {
+                let payload_fp = fingerprint_signer(&payload_signer_keys);
+                let expected_fp = fingerprint_signer(signer);
+                if payload_fp != expected_fp {
+                    return Err(KeyServiceError::FingerprintMismatch);
+                }
+                if !hybrid_verify(&to_verify, &scope_state.signature, signer) {
+                    return Err(KeyServiceError::CryptoError(
+                        "scope state signature invalid".to_string(),
+                    ));
+                }
             }
-        }
-
-        if !hybrid_verify(&to_verify, &scope_state.signature, &signer_keys) {
-            return Err(KeyServiceError::CryptoError(
-                "scope state signature invalid".to_string(),
-            ));
+            None => {
+                let expected = expected_owner_signer_fingerprint
+                    .ok_or(KeyServiceError::SignerFingerprintRequired)?;
+                let payload_fp = fingerprint_signer(&payload_signer_keys);
+                if payload_fp != expected {
+                    return Err(KeyServiceError::FingerprintMismatch);
+                }
+                if !hybrid_verify(&to_verify, &scope_state.signature, &payload_signer_keys) {
+                    return Err(KeyServiceError::CryptoError(
+                        "scope state signature invalid".to_string(),
+                    ));
+                }
+                roster.signer_roster.upsert_signer(
+                    &scope_state.scope_id,
+                    &scope_state.signer_device_id,
+                    payload_signer_keys,
+                );
+            }
         }
 
         let scope_state_ref_bytes = scope_state
             .scope_state_ref_bytes()
             .map_err(KeyServiceError::from)?;
         let scope_state_ref = hex::encode(&scope_state_ref_bytes);
-        let header = self.load_header()?;
-        let roster = self.state.get_or_insert_with(|| KeyServiceState {
-            keyvault_header: header,
-            keyvault_state: KeyVaultState::default(),
-            keyvault_materialized: KeyVaultMaterialized::default(),
-            signer_roster: SignerRoster::default(),
-        });
-        roster.signer_roster.upsert_signer(
-            &scope_state.scope_id,
-            &scope_state.signer_device_id,
-            signer_keys,
-        );
         roster
             .signer_roster
             .insert_scope_state_ref(&scope_state.scope_id, scope_state_ref.clone());
@@ -729,6 +842,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         scope_epoch: ScopeEpoch,
     ) -> Result<OpenScopeResponse, KeyServiceError> {
         let now = self.clock.now_ms();
+        self.ensure_session_valid(now, session_id)?;
         let key = {
             let state = self
                 .state
@@ -741,7 +855,6 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
                 .ok_or(KeyServiceError::ScopeKeyMissing)?
                 .clone()
         };
-        self.ensure_session_valid(now, session_id)?;
         let session = self
             .sessions
             .get_mut(session_id)
@@ -783,10 +896,11 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         let grant = ResourceGrantV1::from_cbor(value)
             .map_err(|e| KeyServiceError::InvalidFormat(e.to_string()))?;
 
-        let roster = self.state.as_ref().ok_or(KeyServiceError::UnknownScope)?;
+        let roster = self.state.as_mut().ok_or(KeyServiceError::UnknownScope)?;
         let signer = roster
             .signer_roster
             .get_signer(&grant.scope_id, &grant.signer_device_id)
+            .cloned()
             .ok_or(KeyServiceError::UntrustedSigner)?;
 
         let scope_state_ref_hex = hex::encode(&grant.scope_state_ref);
@@ -800,11 +914,12 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         }
 
         let to_verify = grant.to_be_signed_bytes().map_err(KeyServiceError::from)?;
-        if !hybrid_verify(&to_verify, &grant.signature, signer) {
+        if !hybrid_verify(&to_verify, &grant.signature, &signer) {
             return Err(KeyServiceError::CryptoError(
                 "resource grant signature invalid".to_string(),
             ));
         }
+        roster.signer_roster.verify_and_update_grant_chain(&grant)?;
 
         let aad = aad_resource_grant_wrap_v1(
             &grant.scope_id.0,
@@ -1060,7 +1175,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             keyvault_header: header,
             keyvault_state: state,
             keyvault_materialized: materialized,
-            signer_roster: SignerRoster::default(),
+            signer_roster: SignerRoster::new(self.config.policy.max_scope_state_refs_per_scope),
         });
 
         Ok(UnlockResponse {
@@ -1266,6 +1381,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             max_bytes: self.config.policy.max_cbor_bytes,
             max_depth: self.config.policy.max_cbor_depth,
             max_items: self.config.policy.max_cbor_items,
+            max_text_bytes: self.config.policy.max_cbor_text_bytes,
         }
     }
 
@@ -1401,6 +1517,17 @@ fn fingerprint_signer(signer: &SignerKeys) -> String {
     data.extend_from_slice(&signer.ed25519_pub);
     data.extend_from_slice(&signer.mldsa_pub);
     fingerprint_bytes_hex(&data)
+}
+
+fn hash_array(bytes: &[u8]) -> Result<[u8; 32], KeyServiceError> {
+    if bytes.len() != 32 {
+        return Err(KeyServiceError::InvalidFormat(
+            "expected 32-byte hash".to_string(),
+        ));
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(bytes);
+    Ok(out)
 }
 
 fn extract_signer_keys(scope_state: &ScopeStateV1) -> Result<SignerKeys, KeyServiceError> {

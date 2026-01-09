@@ -2,11 +2,12 @@ use aes_gcm::Aes256Gcm;
 use mo_key_service_core::aad::aad_resource_grant_wrap_v1;
 use mo_key_service_core::adapters::{ClockAdapter, EntropyAdapter, StorageAdapter};
 use mo_key_service_core::cbor::{cbor_bytes, cbor_map};
-use mo_key_service_core::ciphersuite::{generate_device_signing_keypair, hybrid_sign};
+use mo_key_service_core::ciphersuite::{generate_device_signing_keypair, hybrid_sign, SignerKeys};
 use mo_key_service_core::crypto::{aead_encrypt, KdfParams};
 use mo_key_service_core::formats::{
     encode_resource_grant_v1, encode_scope_state_v1, ResourceGrantV1, ScopeStateV1,
 };
+use mo_key_service_core::hash::sha256;
 use mo_key_service_core::key_service::{KeyService, KeyServiceConfig};
 use mo_key_service_core::types::{
     AeadId, DeviceId, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SessionKind,
@@ -14,6 +15,13 @@ use mo_key_service_core::types::{
 };
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+
+fn signer_fingerprint(signer: &SignerKeys) -> String {
+    let mut data = Vec::new();
+    data.extend_from_slice(&signer.ed25519_pub);
+    data.extend_from_slice(&signer.mldsa_pub);
+    hex::encode(sha256(&data))
+}
 
 #[derive(Default)]
 struct MemStorage {
@@ -118,8 +126,18 @@ fn scope_grant_encrypt_round_trip() {
     scope_state.signature = sig;
 
     let scope_state_bytes = encode_scope_state_v1(&scope_state).unwrap();
-    ks.ingest_scope_state(&unlock.session_id, &scope_state_bytes, None)
-        .expect("ingest scope state");
+    let signer_keys = SignerKeys {
+        sig_suite: SigCiphersuiteId::HybridSig1,
+        ed25519_pub: signer.ed25519_pub.clone(),
+        mldsa_pub: signer.mldsa_pub.clone(),
+    };
+    let expected_fingerprint = signer_fingerprint(&signer_keys);
+    ks.ingest_scope_state(
+        &unlock.session_id,
+        &scope_state_bytes,
+        Some(expected_fingerprint),
+    )
+    .expect("ingest scope state");
 
     ks.persist_scope_key(&unlock.session_id, &scope_id, ScopeEpoch(1), &scope_key)
         .expect("persist scope key");
@@ -146,7 +164,7 @@ fn scope_grant_encrypt_round_trip() {
         v: 1,
         grant_id: "grant-1".to_string(),
         scope_id: scope_id.clone(),
-        grant_seq: 1,
+        grant_seq: 0,
         prev_hash: vec![0u8; 32],
         scope_state_ref: scope_state.scope_state_ref_bytes().unwrap(),
         scope_epoch: 1,

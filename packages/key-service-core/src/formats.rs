@@ -185,6 +185,34 @@ impl ResourceGrantV1 {
         let value = cbor_map(entries);
         encode_canonical_value(&value)
     }
+
+    pub fn grant_ref_bytes(&self) -> CoreResult<Vec<u8>> {
+        let mut entries = vec![
+            (0, cbor_uint(self.v)),
+            (1, cbor_text(&self.grant_id)),
+            (2, cbor_text(&self.scope_id.0)),
+            (3, cbor_uint(self.grant_seq)),
+            (4, cbor_bytes(&self.prev_hash)),
+            (5, cbor_bytes(&self.scope_state_ref)),
+            (6, cbor_uint(self.scope_epoch)),
+            (7, cbor_text(&self.resource_id.0)),
+            (8, cbor_text(&self.resource_key_id.0)),
+        ];
+        if let Some(policy) = &self.policy {
+            entries.push((9, policy.clone()));
+        }
+        entries.extend(vec![
+            (10, cbor_text(self.aead.as_str())),
+            (11, cbor_bytes(&self.nonce)),
+            (12, cbor_bytes(&self.wrapped_key)),
+            (13, cbor_text(&self.signer_device_id.0)),
+            (14, cbor_text(self.sig_suite.as_str())),
+            (15, cbor_bytes(&self.signature)),
+        ]);
+        let value = cbor_map(entries);
+        let bytes = encode_canonical_value(&value)?;
+        Ok(sha256(&bytes).to_vec())
+    }
 }
 
 #[derive(Clone, Debug)]
