@@ -123,6 +123,7 @@ flowchart LR
 - Serialization/registry/versioning (ALC-301): `docs/architecture/serialization-and-event-specs.md`
 - Infrastructure durability + sync boundary contracts: `docs/architecture/infrastructure-layer.md`
 - Key Service core (formats, KeyVault, session policy): `docs/architecture/key-service-core.md`
+- Key Service web boundary (WASM + worker): `docs/architecture/key-service-web.md`
 - Security model overview: `docs/security.md`
 - Runbooks (operational playbooks): `docs/runbooks/`
 

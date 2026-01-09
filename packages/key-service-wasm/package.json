@@ -1,0 +1,14 @@
+{
+  "name": "@mo/key-service-wasm",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./pkg/mo_key_service_wasm.js",
+  "types": "./pkg/mo_key_service_wasm.d.ts",
+  "scripts": {
+    "typecheck": "echo \"skip (wasm)\""
+  },
+  "exports": {
+    ".": "./pkg/mo_key_service_wasm.js",
+    "./mo_key_service_wasm_bg.wasm": "./pkg/mo_key_service_wasm_bg.wasm"
+  }
+}

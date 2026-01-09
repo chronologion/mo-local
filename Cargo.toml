@@ -2,4 +2,5 @@
 resolver = "2"
 members = [
   "packages/key-service-core",
+  "packages/key-service-wasm",
 ]
