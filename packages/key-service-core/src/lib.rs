@@ -3,6 +3,7 @@
 
 pub mod aad;
 pub mod adapters;
+pub mod async_key_service;
 pub mod cbor;
 pub mod ciphersuite;
 pub mod crypto;
@@ -16,6 +17,7 @@ pub mod types;
 
 pub use aad::*;
 pub use adapters::*;
+pub use async_key_service::*;
 pub use cbor::*;
 pub use ciphersuite::*;
 pub use crypto::*;

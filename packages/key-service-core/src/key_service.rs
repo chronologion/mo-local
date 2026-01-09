@@ -2,7 +2,7 @@
 
 use crate::aad::{
     aad_key_envelope_wrap_v1, aad_keyvault_keywrap_v1, aad_resource_grant_wrap_v1,
-    aad_webauthn_prf_wrap_v1,
+    aad_user_presence_wrap_v1,
 };
 use crate::adapters::{ClockAdapter, EntropyAdapter, StorageAdapter};
 use crate::cbor::{
@@ -128,7 +128,7 @@ pub struct RenewSessionResponse {
 }
 
 #[derive(Clone, Debug)]
-pub struct GetWebAuthnPrfUnlockInfoResponse {
+pub struct GetUserPresenceUnlockInfoResponse {
     pub enabled: bool,
     pub credential_id: Option<Vec<u8>>,
     pub prf_salt: Vec<u8>,
@@ -392,22 +392,26 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         )
     }
 
-    pub fn unlock_webauthn_prf(
+    pub fn unlock_user_presence(
         &mut self,
-        prf_output: &[u8],
+        user_presence_secret: &[u8],
     ) -> Result<UnlockResponse, KeyServiceError> {
         let header = self.load_header()?;
-        let prf_key = hkdf_sha256(prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
-            .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
+        let prf_key = hkdf_sha256(
+            user_presence_secret,
+            b"mo-user-presence|unwrap-k-vault|v1",
+            32,
+        )
+        .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
         let aad =
-            aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
-        let prf_info = self.load_webauthn_prf_unlock()?;
+            aad_user_presence_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
+        let prf_info = self.load_user_presence_unlock()?;
         let vault_key = aead_decrypt::<Aes256Gcm>(&prf_key, &aad, &prf_info.nonce, &prf_info.ct)
             .map_err(|_| KeyServiceError::CryptoError("vault key unwrap failed".to_string()))?;
         self.finish_unlock(
             header,
             vault_key,
-            SessionAssurance::WebAuthnPrf,
+            SessionAssurance::UserPresence,
             SessionKind::Normal,
         )
     }
@@ -594,20 +598,20 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         Ok(())
     }
 
-    pub fn get_webauthn_prf_unlock_info(
+    pub fn get_user_presence_unlock_info(
         &mut self,
-    ) -> Result<GetWebAuthnPrfUnlockInfoResponse, KeyServiceError> {
+    ) -> Result<GetUserPresenceUnlockInfoResponse, KeyServiceError> {
         let header = self.load_header()?;
-        let prf = self.load_webauthn_prf_unlock().ok();
+        let prf = self.load_user_presence_unlock().ok();
         let prf_salt = sha256_bytes(
             &[
-                b"mo-webauthn-prf|salt-v1",
+                b"mo-user-presence|salt-v1",
                 header.vault_id.as_bytes(),
                 header.user_id.as_bytes(),
             ]
             .concat(),
         );
-        Ok(GetWebAuthnPrfUnlockInfoResponse {
+        Ok(GetUserPresenceUnlockInfoResponse {
             enabled: prf.is_some(),
             credential_id: prf.as_ref().map(|p| p.credential_id.clone()),
             prf_salt,
@@ -615,11 +619,11 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         })
     }
 
-    pub fn enable_webauthn_prf_unlock(
+    pub fn enable_user_presence_unlock(
         &mut self,
         session_id: &SessionId,
         credential_id: Vec<u8>,
-        prf_output: Vec<u8>,
+        user_presence_secret: Vec<u8>,
     ) -> Result<(), KeyServiceError> {
         let header = self.load_header()?;
         let now = self.clock.now_ms();
@@ -634,26 +638,30 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             }
             session.vault_key.clone()
         };
-        let prf_key = hkdf_sha256(&prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
-            .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
+        let prf_key = hkdf_sha256(
+            &user_presence_secret,
+            b"mo-user-presence|unwrap-k-vault|v1",
+            32,
+        )
+        .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
         let aad =
-            aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
+            aad_user_presence_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
         let nonce = self.entropy.random_bytes(12);
         let ct = aead_encrypt::<Aes256Gcm>(&prf_key, &aad, &vault_key, &nonce)
             .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-        let info = WebAuthnPrfUnlockV1 {
+        let info = UserPresenceUnlockV1 {
             credential_id,
             nonce,
             ct,
         };
         let bytes = info.encode().map_err(KeyServiceError::from)?;
         self.storage
-            .put("keyvault", "webauthn_prf", &bytes)
+            .put("keyvault", "user_presence", &bytes)
             .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
         Ok(())
     }
 
-    pub fn disable_webauthn_prf_unlock(
+    pub fn disable_user_presence_unlock(
         &mut self,
         session_id: &SessionId,
     ) -> Result<(), KeyServiceError> {
@@ -670,7 +678,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             return Err(KeyServiceError::StepUpRequired);
         }
         self.storage
-            .put("keyvault", "webauthn_prf", &[])
+            .put("keyvault", "user_presence", &[])
             .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
         Ok(())
     }
@@ -1385,20 +1393,20 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
         }
     }
 
-    fn load_webauthn_prf_unlock(&self) -> Result<WebAuthnPrfUnlockV1, KeyServiceError> {
+    fn load_user_presence_unlock(&self) -> Result<UserPresenceUnlockV1, KeyServiceError> {
         let bytes = self
             .storage
-            .get("keyvault", "webauthn_prf")
+            .get("keyvault", "user_presence")
             .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?
             .ok_or(KeyServiceError::InvalidFormat(
-                "missing webauthn prf info".to_string(),
+                "missing user presence info".to_string(),
             ))?;
         if bytes.is_empty() {
             return Err(KeyServiceError::InvalidFormat(
-                "webauthn prf not enabled".to_string(),
+                "user presence not enabled".to_string(),
             ));
         }
-        WebAuthnPrfUnlockV1::decode(&bytes).map_err(KeyServiceError::from)
+        UserPresenceUnlockV1::decode(&bytes).map_err(KeyServiceError::from)
     }
 
     fn persist_record_container(
@@ -1453,13 +1461,13 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 }
 
 #[derive(Clone, Debug)]
-struct WebAuthnPrfUnlockV1 {
+struct UserPresenceUnlockV1 {
     credential_id: Vec<u8>,
     nonce: Vec<u8>,
     ct: Vec<u8>,
 }
 
-impl WebAuthnPrfUnlockV1 {
+impl UserPresenceUnlockV1 {
     fn encode(&self) -> Result<Vec<u8>, CoreError> {
         let value = crate::cbor::cbor_map(vec![
             (0, crate::cbor::cbor_bytes(&self.credential_id)),
