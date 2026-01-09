@@ -7,7 +7,7 @@ Key rules:
 - Use Linear MCP tools to read and edit issues.
 - If the Linear ticket has a label "Needs RFC", ensure that an RFC is prepared and approved before producing any code.
 - Follow the progress of each task by regularly committing and submitting comments to the Linear issue you're working on on what was achieved so far and what were the challenges.
-- Make a branch per Linear subissue and use short conventional commit messages per layer, don't create mega-commits with the whole change across all layers.
+- Make a branch per Linear subissue and use short, one-line conventional commit messages per layer, don't create mega-commits with the whole change across all layers, no co-author!
 - Execute professionally. No cutting corners! This is production-grade software.
 - Use TypeScript as it must be used. NEVER, EVER USE `any`! Do not cast unless well justified!
 - NEVER "hand-code" dependency versions in `package.json`! Just install latest, unless there's a reason not to, but you must justify and get approval first.
