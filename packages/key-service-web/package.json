@@ -13,6 +13,7 @@
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
+    "@mo/key-service-idl": "1.0.0",
     "@mo/key-service-wasm": "1.0.0"
   },
   "devDependencies": {
