@@ -2,7 +2,7 @@
 name = "mo-key-service-wasm"
 version = "0.1.0"
 edition = "2021"
-license = "Apache-2.0 OR MIT"
+license = "UNLICENSED"
 
 description = "WASM bindings for mo-key-service-core"
 
