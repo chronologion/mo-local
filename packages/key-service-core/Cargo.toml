@@ -14,7 +14,7 @@ zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
 thiserror = "1.0.63"
 ed25519-dalek = { version = "2.1.1" }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
-ml-kem = { version = "0.3.0-pre.2", default-features = false, features = ["zeroize"] }
+ml-kem = { version = "0.3.0-pre.2", default-features = false, features = ["zeroize", "deterministic"] }
 ml-dsa = { version = "0.1.0-rc.2", default-features = false, features = ["zeroize", "rand_core"] }
 kem = "=0.4.0-pre.1"
 rand_core = "0.9.3"

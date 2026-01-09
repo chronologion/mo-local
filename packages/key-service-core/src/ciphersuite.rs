@@ -2,75 +2,29 @@ use crate::cbor::{cbor_array, cbor_bytes, encode_canonical_value};
 use crate::crypto::hkdf_sha256;
 use crate::types::{KemCiphersuiteId, SigCiphersuiteId};
 use ed25519_dalek::{Signature as Ed25519Signature, SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519VerifyingKey};
+use getrandom::getrandom;
 use ml_dsa::{
   EncodedSignature as MlDsaEncodedSignature, EncodedSigningKey as MlDsaEncodedSigningKey,
-  EncodedVerifyingKey as MlDsaEncodedVerifyingKey, KeyGen, MlDsa65,
+  EncodedVerifyingKey as MlDsaEncodedVerifyingKey, MlDsa65,
   Signature as MlDsaSignature, SigningKey as MlDsaSigningKey, VerifyingKey as MlDsaVerifyingKey,
 };
-use getrandom::getrandom;
-use kem::{Decapsulate, Encapsulate};
+use kem::Decapsulate;
 use ml_kem::{
   kem::DecapsulationKey as MlKemDecapsulationKey, kem::EncapsulationKey as MlKemEncapsulationKey,
-  Ciphertext as MlKemCiphertext, Encoded, EncodedSizeUser, KemCore, MlKem768, MlKem768Params,
+  B32 as MlKemB32, Ciphertext as MlKemCiphertext, EncapsulateDeterministic, Encoded, EncodedSizeUser, KemCore, MlKem768,
+  MlKem768Params, Seed as MlKemSeed,
 };
-use rand_core::RngCore;
 use std::fmt;
-use std::process;
 use signature::Signer as EdSigner;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use ml_dsa::signature::Signer as MlSigner;
 use ml_dsa::signature::Verifier as MlVerifier;
 
-#[derive(Clone, Copy, Debug, Default)]
-struct OsRngCore;
-
-impl OsRngCore {
-  fn fill(dest: &mut [u8]) {
-    if getrandom(dest).is_err() {
-      process::abort();
-    }
-  }
+fn random_bytes<const N: usize>() -> Result<[u8; N], String> {
+  let mut bytes = [0u8; N];
+  getrandom(&mut bytes).map_err(|_| "getrandom failed".to_string())?;
+  Ok(bytes)
 }
-
-impl rand_core::RngCore for OsRngCore {
-  fn next_u32(&mut self) -> u32 {
-    let mut buf = [0u8; 4];
-    Self::fill(&mut buf);
-    u32::from_le_bytes(buf)
-  }
-
-  fn next_u64(&mut self) -> u64 {
-    let mut buf = [0u8; 8];
-    Self::fill(&mut buf);
-    u64::from_le_bytes(buf)
-  }
-
-  fn fill_bytes(&mut self, dst: &mut [u8]) {
-    Self::fill(dst);
-  }
-}
-
-impl rand_core::CryptoRng for OsRngCore {}
-
-impl ml_dsa::signature::rand_core::RngCore for OsRngCore {
-  fn next_u32(&mut self) -> u32 {
-    let mut buf = [0u8; 4];
-    Self::fill(&mut buf);
-    u32::from_le_bytes(buf)
-  }
-
-  fn next_u64(&mut self) -> u64 {
-    let mut buf = [0u8; 8];
-    Self::fill(&mut buf);
-    u64::from_le_bytes(buf)
-  }
-
-  fn fill_bytes(&mut self, dst: &mut [u8]) {
-    Self::fill(dst);
-  }
-}
-
-impl ml_dsa::signature::rand_core::CryptoRng for OsRngCore {}
 
 #[derive(Clone)]
 pub struct HybridKemRecipient {
@@ -132,13 +86,12 @@ pub struct SignerKeys {
 }
 
 pub fn generate_user_keypair() -> Result<(HybridKemRecipient, Vec<u8>), String> {
-  let mut rng = OsRngCore::default();
-  let mut x25519_seed = [0u8; 32];
-  rng.fill_bytes(&mut x25519_seed);
+  let x25519_seed = random_bytes::<32>()?;
   let x_secret = X25519Secret::from(x25519_seed);
   let x_public = X25519PublicKey::from(&x_secret);
 
-  let (dk, ek) = MlKem768::generate(&mut rng);
+  let mlkem_seed: MlKemSeed = random_bytes::<64>()?.into();
+  let (dk, ek) = MlKem768::from_seed(mlkem_seed);
   let dk_bytes = dk.as_bytes().to_vec();
   let ek_bytes = ek.as_bytes().to_vec();
 
@@ -163,46 +116,45 @@ pub fn user_keypair_public(recipient: &HybridKemRecipient) -> HybridKemRecipient
   }
 }
 
-pub fn generate_device_signing_keypair() -> HybridSignatureKeypair {
-  let mut rng = OsRngCore::default();
-  let mut ed_seed = [0u8; 32];
-  rng.fill_bytes(&mut ed_seed);
+pub fn generate_device_signing_keypair() -> Result<HybridSignatureKeypair, String> {
+  let ed_seed = random_bytes::<32>()?;
   let ed_sign = Ed25519SigningKey::from_bytes(&ed_seed);
   let ed_pub = ed_sign.verifying_key();
 
-  let ml_kp = MlDsa65::key_gen(&mut rng);
-  let ml_sign = ml_kp.signing_key();
-  let ml_pub = ml_kp.verifying_key();
+  let mldsa_seed: ml_dsa::Seed = random_bytes::<32>()?.into();
+  let ml_sign = MlDsaSigningKey::<MlDsa65>::from_seed(&mldsa_seed);
+  let ml_pub = ml_sign.verifying_key();
 
-  HybridSignatureKeypair {
+  Ok(HybridSignatureKeypair {
     ed25519_priv: ed_sign.to_bytes().to_vec(),
     ed25519_pub: ed_pub.to_bytes().to_vec(),
     mldsa_priv: ml_sign.encode().to_vec(),
     mldsa_pub: ml_pub.encode().to_vec(),
-  }
+  })
 }
 
 pub fn hybrid_kem_encapsulate(
   recipient: &HybridKemRecipientPublic,
   kem: KemCiphersuiteId,
 ) -> Result<HybridKemEncap, String> {
-  let mut rng = OsRngCore::default();
   if kem != KemCiphersuiteId::HybridKem1 {
     return Err("unsupported kem".to_string());
   }
 
-  let mut x_seed = [0u8; 32];
-  rng.fill_bytes(&mut x_seed);
+  let x_seed = random_bytes::<32>()?;
   let x25519_ephemeral = X25519Secret::from(x_seed);
   let x25519_public = X25519PublicKey::from(&x25519_ephemeral);
   let x25519_shared = x25519_ephemeral.diffie_hellman(&X25519PublicKey::from(recipient.x25519_public));
 
   let ek = decode_mlkem_encapsulation_key(&recipient.mlkem_encaps_bytes)?;
-  let (ct, ss_mlkem) = ek.encapsulate(&mut rng).map_err(|_| "ml-kem encapsulate failed".to_string())?;
+  let m: MlKemB32 = random_bytes::<32>()?.into();
+  let (ct, ss_mlkem) = ek
+    .encapsulate_deterministic(&m)
+    .map_err(|_| "ml-kem encapsulate failed".to_string())?;
 
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x25519_shared.as_bytes());
-  ikm.extend_from_slice(&ss_mlkem);
+  ikm.extend_from_slice(ss_mlkem.as_slice());
   let wrap_key = hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
     .map_err(|e| e.to_string())?;
 
@@ -229,7 +181,7 @@ pub fn derive_hybrid_kem_wrap_key(
 
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x_shared.as_bytes());
-  ikm.extend_from_slice(&ss_mlkem);
+  ikm.extend_from_slice(ss_mlkem.as_slice());
   hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
 }
 

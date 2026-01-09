@@ -865,7 +865,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let (uk_recipient, uk_priv_bytes) = generate_user_keypair()
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let uk_pub = uk_recipient.public_bytes.clone();
-    let device_signer = generate_device_signing_keypair();
+    let device_signer =
+      generate_device_signing_keypair().map_err(KeyServiceError::CryptoError)?;
 
     let user_record_id = uuid_like(&self.entropy.random_bytes(16));
     let user_record = make_store_user_key_record(&user_record_id, &uk_priv_bytes, &uk_pub);

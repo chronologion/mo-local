@@ -81,7 +81,7 @@ fn scope_grant_encrypt_round_trip() {
   assert_eq!(unlock.kind, SessionKind::Normal);
 
   let device_id = DeviceId("device-1".to_string());
-  let signer = generate_device_signing_keypair();
+  let signer = generate_device_signing_keypair().expect("signer keypair");
 
   let scope_id = ScopeId("scope-1".to_string());
   let scope_key = vec![3u8; 32];
