@@ -106,6 +106,16 @@ const randomBytes = (length: number): Uint8Array => {
   return bytes;
 };
 
+const encodePassphrase = (password: string): Uint8Array => new TextEncoder().encode(password);
+
+const safeZeroize = (bytes: Uint8Array): void => {
+  try {
+    bytes.fill(0);
+  } catch {
+    // Ignore detached buffers (transferred to worker).
+  }
+};
+
 const toBase64 = (data: Uint8Array): string => btoa(String.fromCharCode(...Array.from(data)));
 
 type DebugWindow = Window & {
@@ -444,29 +454,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     const userId = toUserId(parsedStoreId.data);
     const deviceId = uuidv4();
-    const passphraseUtf8 = new TextEncoder().encode(password);
+    const passphraseForCreate = encodePassphrase(password);
+    const passphraseForUnlock = encodePassphrase(password);
     try {
       const kdfParams = buildKdfParams();
       await requestKeyService({
         type: 'createVault',
         payload: {
           userId,
-          passphraseUtf8,
+          passphraseUtf8: passphraseForCreate,
           kdfParams,
         },
       });
       const unlock = await requestKeyService({
         type: 'unlock',
-        payload: { method: 'passphrase', passphraseUtf8 },
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlock },
       });
       const sessionId = unlock.sessionId;
       const masterKey = randomBytes(32);
+      const masterKeyForStore = new Uint8Array(masterKey);
       await requestKeyService({
         type: 'storeAppMasterKey',
         payload: { sessionId, masterKey },
       });
-      services.keyStore.setMasterKey(masterKey);
-      masterKey.fill(0);
+      services.keyStore.setMasterKey(masterKeyForStore);
+      safeZeroize(masterKeyForStore);
+      safeZeroize(masterKey);
       setKeyStoreReady(true);
       setKeyServiceSessionId(sessionId);
 
@@ -475,7 +488,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setUserMeta(meta);
       setSession({ status: 'ready', userId });
     } finally {
-      passphraseUtf8.fill(0);
+      safeZeroize(passphraseForCreate);
+      safeZeroize(passphraseForUnlock);
     }
   };
 
@@ -483,7 +497,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const passphraseUtf8 = new TextEncoder().encode(password);
+    const passphraseUtf8 = encodePassphrase(password);
     try {
       const unlockResponse = await requestKeyService({
         type: 'unlock',
@@ -494,14 +508,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         payload: { sessionId: unlockResponse.sessionId },
       });
       services.keyStore.setMasterKey(master.masterKey);
-      master.masterKey.fill(0);
+      safeZeroize(master.masterKey);
       setKeyStoreReady(true);
       setKeyServiceSessionId(unlockResponse.sessionId);
       saveMeta(meta);
       setUserMeta(meta);
       setSession({ status: 'ready', userId: meta.userId });
     } finally {
-      passphraseUtf8.fill(0);
+      safeZeroize(passphraseUtf8);
     }
   };
 
@@ -510,7 +524,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!keyServiceSessionId) {
       throw new Error('Key service session missing; unlock first.');
     }
-    const passphraseUtf8 = new TextEncoder().encode(password);
+    const passphraseUtf8 = encodePassphrase(password);
     try {
       await requestKeyService({
         type: 'stepUp',
@@ -528,7 +542,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
       return JSON.stringify(envelope, null, 2);
     } finally {
-      passphraseUtf8.fill(0);
+      safeZeroize(passphraseUtf8);
     }
   };
 
@@ -593,7 +607,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const parsedEnvelope = parseKeyVaultEnvelope(backup);
     const cipherB64 = parsedEnvelope.cipher;
     const targetUserId = toUserId(parsedEnvelope.userId ?? storeId ?? uuidv4());
-    const passphraseUtf8 = new TextEncoder().encode(password);
+    const passphraseForCreate = encodePassphrase(password);
+    const passphraseForUnlock = encodePassphrase(password);
+    const passphraseForStepUp = encodePassphrase(password);
+    const passphraseForUnlockAfter = encodePassphrase(password);
     const vaultBytes = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const targetServices =
       servicesRef.current?.storeId === targetUserId ? servicesRef.current : await switchToStore(targetUserId);
@@ -605,15 +622,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const kdfParams = buildKdfParams();
       await requestKeyServiceFor(targetServices, {
         type: 'createVault',
-        payload: { userId: targetUserId, passphraseUtf8, kdfParams },
+        payload: { userId: targetUserId, passphraseUtf8: passphraseForCreate, kdfParams },
       });
       const unlock = await requestKeyServiceFor(targetServices, {
         type: 'unlock',
-        payload: { method: 'passphrase', passphraseUtf8 },
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlock },
       });
       await requestKeyServiceFor(targetServices, {
         type: 'stepUp',
-        payload: { sessionId: unlock.sessionId, passphraseUtf8 },
+        payload: { sessionId: unlock.sessionId, passphraseUtf8: passphraseForStepUp },
       });
       await requestKeyServiceFor(targetServices, {
         type: 'importKeyVault',
@@ -625,14 +642,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       });
       const unlockAfter = await requestKeyServiceFor(targetServices, {
         type: 'unlock',
-        payload: { method: 'passphrase', passphraseUtf8 },
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlockAfter },
       });
       const master = await requestKeyServiceFor(targetServices, {
         type: 'getAppMasterKey',
         payload: { sessionId: unlockAfter.sessionId },
       });
       targetServices.keyStore.setMasterKey(master.masterKey);
-      master.masterKey.fill(0);
+      safeZeroize(master.masterKey);
       setKeyStoreReady(true);
       setKeyServiceSessionId(unlockAfter.sessionId);
 
@@ -663,7 +680,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setUserMeta(nextMeta);
       setSession({ status: 'ready', userId: targetUserId });
     } finally {
-      passphraseUtf8.fill(0);
+      safeZeroize(passphraseForCreate);
+      safeZeroize(passphraseForUnlock);
+      safeZeroize(passphraseForStepUp);
+      safeZeroize(passphraseForUnlockAfter);
     }
   };
 
