@@ -44,6 +44,7 @@ flowchart LR
 - Requests mirror the RFC IDL and are defined in `packages/key-service-web/src/protocol/types.ts`.
 - Vault creation is an explicit `createVault` request; browser callers must go through the worker boundary.
 - The worker tracks an active session id per connected client to support idle/blur/lock signals.
+- If CSP is enforced, allow worker execution and WASM evaluation (`worker-src` plus the appropriate WASM eval directive, e.g. `wasm-unsafe-eval`, depending on the browser/bundler).
 
 ## Storage behavior
 

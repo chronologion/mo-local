@@ -70,6 +70,18 @@ class KeyServiceHost {
     if (message.kind !== WorkerHelloKinds.hello) {
       return;
     }
+    if (!isValidStoreId(message.storeId)) {
+      const response: WorkerHello = {
+        v: 1,
+        kind: WorkerHelloKinds.helloError,
+        error: {
+          code: KeyServiceErrorCodes.WorkerProtocolError,
+          message: 'Invalid key service store id',
+        },
+      };
+      port.postMessage(response);
+      return;
+    }
     if (this.storeId && this.storeId !== message.storeId) {
       const response: WorkerHello = {
         v: 1,
@@ -203,7 +215,12 @@ async function handleRequest(
   const service = runtime.service;
   switch (request.type) {
     case 'createVault': {
-      service.createVault(request.payload.userId, request.payload.passphraseUtf8, request.payload.kdfParams);
+      const passphraseUtf8 = request.payload.passphraseUtf8;
+      try {
+        service.createVault(request.payload.userId, passphraseUtf8, request.payload.kdfParams);
+      } finally {
+        passphraseUtf8.fill(0);
+      }
       await persistWrites(runtime);
       return { type: 'createVault', payload: {} };
     }
@@ -211,7 +228,14 @@ async function handleRequest(
       const payload = request.payload;
       const response =
         payload.method === 'passphrase'
-          ? service.unlockPassphrase(payload.passphraseUtf8)
+          ? (() => {
+              const passphraseUtf8 = payload.passphraseUtf8;
+              try {
+                return service.unlockPassphrase(passphraseUtf8);
+              } finally {
+                passphraseUtf8.fill(0);
+              }
+            })()
           : service.unlockWebauthnPrf(payload.prfOutput);
       const unlockResponse = parseUnlockResponse(response);
       clientState.activeSessionId = unlockResponse.sessionId;
@@ -219,7 +243,14 @@ async function handleRequest(
       return { type: 'unlock', payload: unlockResponse };
     }
     case 'stepUp': {
-      const response = parseStepUpResponse(service.stepUp(request.payload.sessionId, request.payload.passphraseUtf8));
+      const passphraseUtf8 = request.payload.passphraseUtf8;
+      const response = (() => {
+        try {
+          return parseStepUpResponse(service.stepUp(request.payload.sessionId, passphraseUtf8));
+        } finally {
+          passphraseUtf8.fill(0);
+        }
+      })();
       await persistWrites(runtime);
       return { type: 'stepUp', payload: response };
     }
@@ -250,7 +281,12 @@ async function handleRequest(
       return { type: 'importKeyVault', payload: {} };
     }
     case 'changePassphrase': {
-      service.changePassphrase(request.payload.sessionId, request.payload.newPassphraseUtf8);
+      const passphraseUtf8 = request.payload.newPassphraseUtf8;
+      try {
+        service.changePassphrase(request.payload.sessionId, passphraseUtf8);
+      } finally {
+        passphraseUtf8.fill(0);
+      }
       await persistWrites(runtime);
       return { type: 'changePassphrase', payload: {} };
     }
@@ -484,6 +520,10 @@ function collectTransferables(value: unknown): Transferable[] {
 
   visit(value);
   return transferables;
+}
+
+function isValidStoreId(storeId: string): boolean {
+  return /^[A-Za-z0-9-]{1,64}$/.test(storeId);
 }
 
 const isSharedWorker = 'onconnect' in self;
