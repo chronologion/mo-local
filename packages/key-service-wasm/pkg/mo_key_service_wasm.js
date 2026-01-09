@@ -210,7 +210,7 @@ export class KeyServiceWasm {
      * @param {bigint} scope_epoch
      * @returns {string}
      */
-    open_scope(session_id, scope_id, scope_epoch) {
+    openScope(session_id, scope_id, scope_epoch) {
         let deferred4_0;
         let deferred4_1;
         try {
@@ -218,7 +218,7 @@ export class KeyServiceWasm {
             const len0 = WASM_VECTOR_LEN;
             const ptr1 = passStringToWasm0(scope_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
             const len1 = WASM_VECTOR_LEN;
-            const ret = wasm.keyservicewasm_open_scope(this.__wbg_ptr, ptr0, len0, ptr1, len1, scope_epoch);
+            const ret = wasm.keyservicewasm_openScope(this.__wbg_ptr, ptr0, len0, ptr1, len1, scope_epoch);
             var ptr3 = ret[0];
             var len3 = ret[1];
             if (ret[3]) {
@@ -236,12 +236,12 @@ export class KeyServiceWasm {
      * @param {string} session_id
      * @param {string} key_handle
      */
-    close_handle(session_id, key_handle) {
+    closeHandle(session_id, key_handle) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(key_handle, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_close_handle(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.keyservicewasm_closeHandle(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -251,12 +251,12 @@ export class KeyServiceWasm {
      * @param {Uint8Array} passphrase_utf8
      * @param {any} kdf_params
      */
-    create_vault(user_id, passphrase_utf8, kdf_params) {
+    createVault(user_id, passphrase_utf8, kdf_params) {
         const ptr0 = passStringToWasm0(user_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(passphrase_utf8, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_create_vault(this.__wbg_ptr, ptr0, len0, ptr1, len1, kdf_params);
+        const ret = wasm.keyservicewasm_createVault(this.__wbg_ptr, ptr0, len0, ptr1, len1, kdf_params);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -264,8 +264,8 @@ export class KeyServiceWasm {
     /**
      * @param {any} entries
      */
-    load_storage(entries) {
-        const ret = wasm.keyservicewasm_load_storage(this.__wbg_ptr, entries);
+    loadStorage(entries) {
+        const ret = wasm.keyservicewasm_loadStorage(this.__wbg_ptr, entries);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -276,7 +276,7 @@ export class KeyServiceWasm {
      * @param {Uint8Array} grant_cbor
      * @returns {string}
      */
-    open_resource(session_id, scope_key_handle, grant_cbor) {
+    openResource(session_id, scope_key_handle, grant_cbor) {
         let deferred5_0;
         let deferred5_1;
         try {
@@ -286,7 +286,7 @@ export class KeyServiceWasm {
             const len1 = WASM_VECTOR_LEN;
             const ptr2 = passArray8ToWasm0(grant_cbor, wasm.__wbindgen_malloc);
             const len2 = WASM_VECTOR_LEN;
-            const ret = wasm.keyservicewasm_open_resource(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+            const ret = wasm.keyservicewasm_openResource(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
             var ptr4 = ret[0];
             var len4 = ret[1];
             if (ret[3]) {
@@ -304,10 +304,10 @@ export class KeyServiceWasm {
      * @param {string} session_id
      * @returns {any}
      */
-    renew_session(session_id) {
+    renewSession(session_id) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_renew_session(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_renewSession(this.__wbg_ptr, ptr0, len0);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -317,10 +317,10 @@ export class KeyServiceWasm {
      * @param {string} session_id
      * @returns {Uint8Array}
      */
-    export_keyvault(session_id) {
+    exportKeyVault(session_id) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_export_keyvault(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_exportKeyVault(this.__wbg_ptr, ptr0, len0);
         if (ret[3]) {
             throw takeFromExternrefTable0(ret[2]);
         }
@@ -332,12 +332,12 @@ export class KeyServiceWasm {
      * @param {string} session_id
      * @param {Uint8Array} blob
      */
-    import_keyvault(session_id, blob) {
+    importKeyVault(session_id, blob) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(blob, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_import_keyvault(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.keyservicewasm_importKeyVault(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -346,12 +346,12 @@ export class KeyServiceWasm {
      * @param {string} session_id
      * @param {Uint8Array} new_passphrase_utf8
      */
-    change_passphrase(session_id, new_passphrase_utf8) {
+    changePassphrase(session_id, new_passphrase_utf8) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(new_passphrase_utf8, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_change_passphrase(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.keyservicewasm_changePassphrase(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -360,10 +360,10 @@ export class KeyServiceWasm {
      * @param {Uint8Array} passphrase_utf8
      * @returns {any}
      */
-    unlock_passphrase(passphrase_utf8) {
+    unlockPassphrase(passphrase_utf8) {
         const ptr0 = passArray8ToWasm0(passphrase_utf8, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_unlock_passphrase(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_unlockPassphrase(this.__wbg_ptr, ptr0, len0);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -375,12 +375,12 @@ export class KeyServiceWasm {
      * @param {any} expected_owner_signer_fingerprint
      * @returns {any}
      */
-    ingest_scope_state(session_id, scope_state_cbor, expected_owner_signer_fingerprint) {
+    ingestScopeState(session_id, scope_state_cbor, expected_owner_signer_fingerprint) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(scope_state_cbor, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_ingest_scope_state(this.__wbg_ptr, ptr0, len0, ptr1, len1, expected_owner_signer_fingerprint);
+        const ret = wasm.keyservicewasm_ingestScopeState(this.__wbg_ptr, ptr0, len0, ptr1, len1, expected_owner_signer_fingerprint);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -391,12 +391,12 @@ export class KeyServiceWasm {
      * @param {Uint8Array} key_envelope_cbor
      * @returns {any}
      */
-    ingest_key_envelope(session_id, key_envelope_cbor) {
+    ingestKeyEnvelope(session_id, key_envelope_cbor) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(key_envelope_cbor, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_ingest_key_envelope(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.keyservicewasm_ingestKeyEnvelope(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -406,10 +406,10 @@ export class KeyServiceWasm {
      * @param {Uint8Array} prf_output
      * @returns {any}
      */
-    unlock_webauthn_prf(prf_output) {
+    unlockWebauthnPrf(prf_output) {
         const ptr0 = passArray8ToWasm0(prf_output, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_unlock_webauthn_prf(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_unlockWebauthnPrf(this.__wbg_ptr, ptr0, len0);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -418,8 +418,8 @@ export class KeyServiceWasm {
     /**
      * @returns {any}
      */
-    drain_storage_writes() {
-        const ret = wasm.keyservicewasm_drain_storage_writes(this.__wbg_ptr);
+    drainStorageWrites() {
+        const ret = wasm.keyservicewasm_drainStorageWrites(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -427,14 +427,14 @@ export class KeyServiceWasm {
      * @param {Uint8Array} credential_id
      * @param {Uint8Array} prf_output
      */
-    enable_webauthn_prf_unlock(session_id, credential_id, prf_output) {
+    enableWebauthnPrfUnlock(session_id, credential_id, prf_output) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(credential_id, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
         const ptr2 = passArray8ToWasm0(prf_output, wasm.__wbindgen_malloc);
         const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_enable_webauthn_prf_unlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        const ret = wasm.keyservicewasm_enableWebauthnPrfUnlock(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -442,10 +442,10 @@ export class KeyServiceWasm {
     /**
      * @param {string} session_id
      */
-    disable_webauthn_prf_unlock(session_id) {
+    disableWebauthnPrfUnlock(session_id) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_disable_webauthn_prf_unlock(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.keyservicewasm_disableWebauthnPrfUnlock(this.__wbg_ptr, ptr0, len0);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -453,8 +453,8 @@ export class KeyServiceWasm {
     /**
      * @returns {any}
      */
-    get_webauthn_prf_unlock_info() {
-        const ret = wasm.keyservicewasm_get_webauthn_prf_unlock_info(this.__wbg_ptr);
+    getWebauthnPrfUnlockInfo() {
+        const ret = wasm.keyservicewasm_getWebauthnPrfUnlockInfo(this.__wbg_ptr);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -571,12 +571,12 @@ export class KeyServiceWasm {
      * @param {Uint8Array} passphrase_utf8
      * @returns {any}
      */
-    step_up(session_id, passphrase_utf8) {
+    stepUp(session_id, passphrase_utf8) {
         const ptr0 = passStringToWasm0(session_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(passphrase_utf8, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.keyservicewasm_step_up(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.keyservicewasm_stepUp(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }

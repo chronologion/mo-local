@@ -2,15 +2,15 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_keyservicewasm_free: (a: number, b: number) => void;
-export const keyservicewasm_change_passphrase: (
+export const keyservicewasm_changePassphrase: (
   a: number,
   b: number,
   c: number,
   d: number,
   e: number
 ) => [number, number];
-export const keyservicewasm_close_handle: (a: number, b: number, c: number, d: number, e: number) => [number, number];
-export const keyservicewasm_create_vault: (
+export const keyservicewasm_closeHandle: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const keyservicewasm_createVault: (
   a: number,
   b: number,
   c: number,
@@ -29,9 +29,9 @@ export const keyservicewasm_decrypt: (
   h: number,
   i: number
 ) => [number, number, number, number];
-export const keyservicewasm_disable_webauthn_prf_unlock: (a: number, b: number, c: number) => [number, number];
-export const keyservicewasm_drain_storage_writes: (a: number) => any;
-export const keyservicewasm_enable_webauthn_prf_unlock: (
+export const keyservicewasm_disableWebauthnPrfUnlock: (a: number, b: number, c: number) => [number, number];
+export const keyservicewasm_drainStorageWrites: (a: number) => any;
+export const keyservicewasm_enableWebauthnPrfUnlock: (
   a: number,
   b: number,
   c: number,
@@ -51,23 +51,17 @@ export const keyservicewasm_encrypt: (
   h: number,
   i: number
 ) => [number, number, number, number];
-export const keyservicewasm_export_keyvault: (a: number, b: number, c: number) => [number, number, number, number];
-export const keyservicewasm_get_webauthn_prf_unlock_info: (a: number) => [number, number, number];
-export const keyservicewasm_import_keyvault: (
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-  e: number
-) => [number, number];
-export const keyservicewasm_ingest_key_envelope: (
+export const keyservicewasm_exportKeyVault: (a: number, b: number, c: number) => [number, number, number, number];
+export const keyservicewasm_getWebauthnPrfUnlockInfo: (a: number) => [number, number, number];
+export const keyservicewasm_importKeyVault: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const keyservicewasm_ingestKeyEnvelope: (
   a: number,
   b: number,
   c: number,
   d: number,
   e: number
 ) => [number, number, number];
-export const keyservicewasm_ingest_scope_state: (
+export const keyservicewasm_ingestScopeState: (
   a: number,
   b: number,
   c: number,
@@ -75,10 +69,10 @@ export const keyservicewasm_ingest_scope_state: (
   e: number,
   f: any
 ) => [number, number, number];
-export const keyservicewasm_load_storage: (a: number, b: any) => [number, number];
+export const keyservicewasm_loadStorage: (a: number, b: any) => [number, number];
 export const keyservicewasm_lock: (a: number, b: number, c: number) => [number, number];
 export const keyservicewasm_new: () => number;
-export const keyservicewasm_open_resource: (
+export const keyservicewasm_openResource: (
   a: number,
   b: number,
   c: number,
@@ -87,7 +81,7 @@ export const keyservicewasm_open_resource: (
   f: number,
   g: number
 ) => [number, number, number, number];
-export const keyservicewasm_open_scope: (
+export const keyservicewasm_openScope: (
   a: number,
   b: number,
   c: number,
@@ -95,17 +89,11 @@ export const keyservicewasm_open_scope: (
   e: number,
   f: bigint
 ) => [number, number, number, number];
-export const keyservicewasm_renew_session: (a: number, b: number, c: number) => [number, number, number];
+export const keyservicewasm_renewSession: (a: number, b: number, c: number) => [number, number, number];
 export const keyservicewasm_sign: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
-export const keyservicewasm_step_up: (
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-  e: number
-) => [number, number, number];
-export const keyservicewasm_unlock_passphrase: (a: number, b: number, c: number) => [number, number, number];
-export const keyservicewasm_unlock_webauthn_prf: (a: number, b: number, c: number) => [number, number, number];
+export const keyservicewasm_stepUp: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+export const keyservicewasm_unlockPassphrase: (a: number, b: number, c: number) => [number, number, number];
+export const keyservicewasm_unlockWebauthnPrf: (a: number, b: number, c: number) => [number, number, number];
 export const keyservicewasm_verify: (
   a: number,
   b: number,

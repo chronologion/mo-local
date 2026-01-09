@@ -163,12 +163,14 @@ impl KeyServiceWasm {
         }
     }
 
+    #[wasm_bindgen(js_name = "loadStorage")]
     pub fn load_storage(&self, entries: JsValue) -> Result<(), JsValue> {
         let parsed = parse_storage_entries(entries)?;
         self.storage.load_entries(parsed);
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "drainStorageWrites")]
     pub fn drain_storage_writes(&self) -> JsValue {
         let entries = self.storage.drain_pending();
         let array = Array::new();
@@ -193,6 +195,7 @@ impl KeyServiceWasm {
         array.into()
     }
 
+    #[wasm_bindgen(js_name = "createVault")]
     pub fn create_vault(
         &self,
         user_id: String,
@@ -207,6 +210,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "unlockPassphrase")]
     pub fn unlock_passphrase(&self, passphrase_utf8: Vec<u8>) -> Result<JsValue, JsValue> {
         let response = self
             .service
@@ -216,6 +220,7 @@ impl KeyServiceWasm {
         Ok(build_unlock_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "unlockWebauthnPrf")]
     pub fn unlock_webauthn_prf(&self, prf_output: Vec<u8>) -> Result<JsValue, JsValue> {
         let response = self
             .service
@@ -225,6 +230,7 @@ impl KeyServiceWasm {
         Ok(build_unlock_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "stepUp")]
     pub fn step_up(
         &self,
         session_id: String,
@@ -238,6 +244,7 @@ impl KeyServiceWasm {
         Ok(build_step_up_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "renewSession")]
     pub fn renew_session(&self, session_id: String) -> Result<JsValue, JsValue> {
         let response = self
             .service
@@ -247,6 +254,7 @@ impl KeyServiceWasm {
         Ok(build_renew_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "lock")]
     pub fn lock(&self, session_id: String) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
@@ -255,6 +263,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "exportKeyVault")]
     pub fn export_keyvault(&self, session_id: String) -> Result<Vec<u8>, JsValue> {
         let response = self
             .service
@@ -264,6 +273,7 @@ impl KeyServiceWasm {
         Ok(response)
     }
 
+    #[wasm_bindgen(js_name = "importKeyVault")]
     pub fn import_keyvault(&self, session_id: String, blob: Vec<u8>) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
@@ -272,6 +282,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "changePassphrase")]
     pub fn change_passphrase(
         &self,
         session_id: String,
@@ -284,6 +295,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "getWebauthnPrfUnlockInfo")]
     pub fn get_webauthn_prf_unlock_info(&self) -> Result<JsValue, JsValue> {
         let response = self
             .service
@@ -293,6 +305,7 @@ impl KeyServiceWasm {
         Ok(build_webauthn_prf_info(&response))
     }
 
+    #[wasm_bindgen(js_name = "enableWebauthnPrfUnlock")]
     pub fn enable_webauthn_prf_unlock(
         &self,
         session_id: String,
@@ -306,6 +319,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "disableWebauthnPrfUnlock")]
     pub fn disable_webauthn_prf_unlock(&self, session_id: String) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
@@ -314,6 +328,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "ingestScopeState")]
     pub fn ingest_scope_state(
         &self,
         session_id: String,
@@ -341,6 +356,7 @@ impl KeyServiceWasm {
         Ok(build_ingest_scope_state_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "ingestKeyEnvelope")]
     pub fn ingest_key_envelope(
         &self,
         session_id: String,
@@ -354,6 +370,7 @@ impl KeyServiceWasm {
         Ok(build_ingest_key_envelope_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "openScope")]
     pub fn open_scope(
         &self,
         session_id: String,
@@ -372,6 +389,7 @@ impl KeyServiceWasm {
         Ok(response.scope_key_handle.0)
     }
 
+    #[wasm_bindgen(js_name = "openResource")]
     pub fn open_resource(
         &self,
         session_id: String,
@@ -390,6 +408,7 @@ impl KeyServiceWasm {
         Ok(response.resource_key_handle.0)
     }
 
+    #[wasm_bindgen(js_name = "closeHandle")]
     pub fn close_handle(&self, session_id: String, key_handle: String) -> Result<(), JsValue> {
         self.service
             .borrow_mut()
@@ -398,6 +417,7 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "encrypt")]
     pub fn encrypt(
         &self,
         session_id: String,
@@ -418,6 +438,7 @@ impl KeyServiceWasm {
         Ok(ciphertext)
     }
 
+    #[wasm_bindgen(js_name = "decrypt")]
     pub fn decrypt(
         &self,
         session_id: String,
@@ -438,6 +459,7 @@ impl KeyServiceWasm {
         Ok(plaintext)
     }
 
+    #[wasm_bindgen(js_name = "sign")]
     pub fn sign(&self, session_id: String, data: Vec<u8>) -> Result<JsValue, JsValue> {
         let response = self
             .service
@@ -447,6 +469,7 @@ impl KeyServiceWasm {
         Ok(build_sign_response(&response))
     }
 
+    #[wasm_bindgen(js_name = "verify")]
     pub fn verify(
         &self,
         scope_id: String,

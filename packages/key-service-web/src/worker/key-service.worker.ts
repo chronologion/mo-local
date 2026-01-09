@@ -164,8 +164,8 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       const payload = request.payload;
       const response =
         payload.method === 'passphrase'
-          ? service.unlock_passphrase(payload.passphraseUtf8)
-          : service.unlock_webauthn_prf(payload.prfOutput);
+          ? service.unlockPassphrase(payload.passphraseUtf8)
+          : service.unlockWebauthnPrf(payload.prfOutput);
       const unlockResponse = parseUnlockResponse(response);
       runtime.activeSessionId = unlockResponse.sessionId;
       await persistWrites(runtime);
@@ -177,11 +177,11 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       return { type: 'stepUp', payload: response };
     }
     case 'getWebAuthnPrfUnlockInfo': {
-      const response = parseWebAuthnPrfInfo(service.get_webauthn_prf_unlock_info());
+      const response = parseWebAuthnPrfInfo(service.getWebauthnPrfUnlockInfo());
       return { type: 'getWebAuthnPrfUnlockInfo', payload: response };
     }
     case 'renewSession': {
-      const response = parseRenewResponse(service.renew_session(request.payload.sessionId));
+      const response = parseRenewResponse(service.renewSession(request.payload.sessionId));
       await persistWrites(runtime);
       return { type: 'renewSession', payload: response };
     }
@@ -194,21 +194,21 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       return { type: 'lock', payload: {} };
     }
     case 'exportKeyVault': {
-      const blob = ensureUint8Array(service.export_keyvault(request.payload.sessionId), 'exportKeyVault');
+      const blob = ensureUint8Array(service.exportKeyVault(request.payload.sessionId), 'exportKeyVault');
       return { type: 'exportKeyVault', payload: { blob } };
     }
     case 'importKeyVault': {
-      service.import_keyvault(request.payload.sessionId, request.payload.blob);
+      service.importKeyVault(request.payload.sessionId, request.payload.blob);
       await persistWrites(runtime);
       return { type: 'importKeyVault', payload: {} };
     }
     case 'changePassphrase': {
-      service.change_passphrase(request.payload.sessionId, request.payload.newPassphraseUtf8);
+      service.changePassphrase(request.payload.sessionId, request.payload.newPassphraseUtf8);
       await persistWrites(runtime);
       return { type: 'changePassphrase', payload: {} };
     }
     case 'enableWebAuthnPrfUnlock': {
-      service.enable_webauthn_prf_unlock(
+      service.enableWebauthnPrfUnlock(
         request.payload.sessionId,
         request.payload.credentialId,
         request.payload.prfOutput
@@ -217,12 +217,12 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
       return { type: 'enableWebAuthnPrfUnlock', payload: {} };
     }
     case 'disableWebAuthnPrfUnlock': {
-      service.disable_webauthn_prf_unlock(request.payload.sessionId);
+      service.disableWebauthnPrfUnlock(request.payload.sessionId);
       await persistWrites(runtime);
       return { type: 'disableWebAuthnPrfUnlock', payload: {} };
     }
     case 'ingestScopeState': {
-      const response = service.ingest_scope_state(
+      const response = service.ingestScopeState(
         request.payload.sessionId,
         request.payload.scopeStateCbor,
         request.payload.expectedOwnerSignerFingerprint ?? null
@@ -233,14 +233,14 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
     }
     case 'ingestKeyEnvelope': {
       const response = parseIngestKeyEnvelopeResponse(
-        service.ingest_key_envelope(request.payload.sessionId, request.payload.keyEnvelopeCbor)
+        service.ingestKeyEnvelope(request.payload.sessionId, request.payload.keyEnvelopeCbor)
       );
       await persistWrites(runtime);
       return { type: 'ingestKeyEnvelope', payload: response };
     }
     case 'openScope': {
       const scopeKeyHandle = ensureString(
-        service.open_scope(request.payload.sessionId, request.payload.scopeId, BigInt(request.payload.scopeEpoch)),
+        service.openScope(request.payload.sessionId, request.payload.scopeId, BigInt(request.payload.scopeEpoch)),
         'openScope'
       );
       await persistWrites(runtime);
@@ -248,7 +248,7 @@ async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequ
     }
     case 'openResource': {
       const resourceKeyHandle = ensureString(
-        service.open_resource(request.payload.sessionId, request.payload.scopeKeyHandle, request.payload.grantCbor),
+        service.openResource(request.payload.sessionId, request.payload.scopeKeyHandle, request.payload.grantCbor),
         'openResource'
       );
       await persistWrites(runtime);
@@ -323,7 +323,7 @@ async function createRuntime(storeId: string): Promise<KeyServiceRuntime> {
   const storage = new KeyServiceStorage(storeId);
   const entries = await storage.loadAll();
   const service = new KeyServiceWasm();
-  service.load_storage(entries);
+  service.loadStorage(entries);
   return {
     service,
     storage,
@@ -332,7 +332,7 @@ async function createRuntime(storeId: string): Promise<KeyServiceRuntime> {
 }
 
 async function persistWrites(runtime: KeyServiceRuntime): Promise<void> {
-  const rawEntries = runtime.service.drain_storage_writes() as unknown;
+  const rawEntries = runtime.service.drainStorageWrites() as unknown;
   const entries = parseStorageEntries(rawEntries);
   await runtime.storage.putEntries(entries);
 }

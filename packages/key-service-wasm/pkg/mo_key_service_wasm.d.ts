@@ -4,23 +4,23 @@
 export class KeyServiceWasm {
   free(): void;
   [Symbol.dispose](): void;
-  open_scope(session_id: string, scope_id: string, scope_epoch: bigint): string;
-  close_handle(session_id: string, key_handle: string): void;
-  create_vault(user_id: string, passphrase_utf8: Uint8Array, kdf_params: any): void;
-  load_storage(entries: any): void;
-  open_resource(session_id: string, scope_key_handle: string, grant_cbor: Uint8Array): string;
-  renew_session(session_id: string): any;
-  export_keyvault(session_id: string): Uint8Array;
-  import_keyvault(session_id: string, blob: Uint8Array): void;
-  change_passphrase(session_id: string, new_passphrase_utf8: Uint8Array): void;
-  unlock_passphrase(passphrase_utf8: Uint8Array): any;
-  ingest_scope_state(session_id: string, scope_state_cbor: Uint8Array, expected_owner_signer_fingerprint: any): any;
-  ingest_key_envelope(session_id: string, key_envelope_cbor: Uint8Array): any;
-  unlock_webauthn_prf(prf_output: Uint8Array): any;
-  drain_storage_writes(): any;
-  enable_webauthn_prf_unlock(session_id: string, credential_id: Uint8Array, prf_output: Uint8Array): void;
-  disable_webauthn_prf_unlock(session_id: string): void;
-  get_webauthn_prf_unlock_info(): any;
+  openScope(session_id: string, scope_id: string, scope_epoch: bigint): string;
+  closeHandle(session_id: string, key_handle: string): void;
+  createVault(user_id: string, passphrase_utf8: Uint8Array, kdf_params: any): void;
+  loadStorage(entries: any): void;
+  openResource(session_id: string, scope_key_handle: string, grant_cbor: Uint8Array): string;
+  renewSession(session_id: string): any;
+  exportKeyVault(session_id: string): Uint8Array;
+  importKeyVault(session_id: string, blob: Uint8Array): void;
+  changePassphrase(session_id: string, new_passphrase_utf8: Uint8Array): void;
+  unlockPassphrase(passphrase_utf8: Uint8Array): any;
+  ingestScopeState(session_id: string, scope_state_cbor: Uint8Array, expected_owner_signer_fingerprint: any): any;
+  ingestKeyEnvelope(session_id: string, key_envelope_cbor: Uint8Array): any;
+  unlockWebauthnPrf(prf_output: Uint8Array): any;
+  drainStorageWrites(): any;
+  enableWebauthnPrfUnlock(session_id: string, credential_id: Uint8Array, prf_output: Uint8Array): void;
+  disableWebauthnPrfUnlock(session_id: string): void;
+  getWebauthnPrfUnlockInfo(): any;
   constructor();
   lock(session_id: string): void;
   sign(session_id: string, data: Uint8Array): any;
@@ -33,7 +33,7 @@ export class KeyServiceWasm {
   ): boolean;
   decrypt(session_id: string, resource_key_handle: string, aad: Uint8Array, ciphertext: Uint8Array): Uint8Array;
   encrypt(session_id: string, resource_key_handle: string, aad: Uint8Array, plaintext: Uint8Array): Uint8Array;
-  step_up(session_id: string, passphrase_utf8: Uint8Array): any;
+  stepUp(session_id: string, passphrase_utf8: Uint8Array): any;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -41,15 +41,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_keyservicewasm_free: (a: number, b: number) => void;
-  readonly keyservicewasm_change_passphrase: (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    e: number
-  ) => [number, number];
-  readonly keyservicewasm_close_handle: (a: number, b: number, c: number, d: number, e: number) => [number, number];
-  readonly keyservicewasm_create_vault: (
+  readonly keyservicewasm_changePassphrase: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly keyservicewasm_closeHandle: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly keyservicewasm_createVault: (
     a: number,
     b: number,
     c: number,
@@ -68,9 +62,9 @@ export interface InitOutput {
     h: number,
     i: number
   ) => [number, number, number, number];
-  readonly keyservicewasm_disable_webauthn_prf_unlock: (a: number, b: number, c: number) => [number, number];
-  readonly keyservicewasm_drain_storage_writes: (a: number) => any;
-  readonly keyservicewasm_enable_webauthn_prf_unlock: (
+  readonly keyservicewasm_disableWebauthnPrfUnlock: (a: number, b: number, c: number) => [number, number];
+  readonly keyservicewasm_drainStorageWrites: (a: number) => any;
+  readonly keyservicewasm_enableWebauthnPrfUnlock: (
     a: number,
     b: number,
     c: number,
@@ -90,17 +84,17 @@ export interface InitOutput {
     h: number,
     i: number
   ) => [number, number, number, number];
-  readonly keyservicewasm_export_keyvault: (a: number, b: number, c: number) => [number, number, number, number];
-  readonly keyservicewasm_get_webauthn_prf_unlock_info: (a: number) => [number, number, number];
-  readonly keyservicewasm_import_keyvault: (a: number, b: number, c: number, d: number, e: number) => [number, number];
-  readonly keyservicewasm_ingest_key_envelope: (
+  readonly keyservicewasm_exportKeyVault: (a: number, b: number, c: number) => [number, number, number, number];
+  readonly keyservicewasm_getWebauthnPrfUnlockInfo: (a: number) => [number, number, number];
+  readonly keyservicewasm_importKeyVault: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly keyservicewasm_ingestKeyEnvelope: (
     a: number,
     b: number,
     c: number,
     d: number,
     e: number
   ) => [number, number, number];
-  readonly keyservicewasm_ingest_scope_state: (
+  readonly keyservicewasm_ingestScopeState: (
     a: number,
     b: number,
     c: number,
@@ -108,10 +102,10 @@ export interface InitOutput {
     e: number,
     f: any
   ) => [number, number, number];
-  readonly keyservicewasm_load_storage: (a: number, b: any) => [number, number];
+  readonly keyservicewasm_loadStorage: (a: number, b: any) => [number, number];
   readonly keyservicewasm_lock: (a: number, b: number, c: number) => [number, number];
   readonly keyservicewasm_new: () => number;
-  readonly keyservicewasm_open_resource: (
+  readonly keyservicewasm_openResource: (
     a: number,
     b: number,
     c: number,
@@ -120,7 +114,7 @@ export interface InitOutput {
     f: number,
     g: number
   ) => [number, number, number, number];
-  readonly keyservicewasm_open_scope: (
+  readonly keyservicewasm_openScope: (
     a: number,
     b: number,
     c: number,
@@ -128,11 +122,11 @@ export interface InitOutput {
     e: number,
     f: bigint
   ) => [number, number, number, number];
-  readonly keyservicewasm_renew_session: (a: number, b: number, c: number) => [number, number, number];
+  readonly keyservicewasm_renewSession: (a: number, b: number, c: number) => [number, number, number];
   readonly keyservicewasm_sign: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
-  readonly keyservicewasm_step_up: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
-  readonly keyservicewasm_unlock_passphrase: (a: number, b: number, c: number) => [number, number, number];
-  readonly keyservicewasm_unlock_webauthn_prf: (a: number, b: number, c: number) => [number, number, number];
+  readonly keyservicewasm_stepUp: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+  readonly keyservicewasm_unlockPassphrase: (a: number, b: number, c: number) => [number, number, number];
+  readonly keyservicewasm_unlockWebauthnPrf: (a: number, b: number, c: number) => [number, number, number];
   readonly keyservicewasm_verify: (
     a: number,
     b: number,
