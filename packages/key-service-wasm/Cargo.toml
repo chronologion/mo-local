@@ -1,0 +1,16 @@
+[package]
+name = "mo-key-service-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+
+description = "WASM bindings for mo-key-service-core"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+mo-key-service-core = { path = "../key-service-core" }
+wasm-bindgen = "0.2.92"
+js-sys = "0.3.69"
+getrandom = { version = "0.2.15", features = ["js"] }
