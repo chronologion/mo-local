@@ -165,7 +165,7 @@ pub struct VerifyResponse {
   pub ok: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct KeyServiceState {
   pub keyvault_header: KeyVaultHeaderV1,
   pub keyvault_state: KeyVaultState,
@@ -295,7 +295,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
 
   pub fn unlock_webauthn_prf(&mut self, prf_output: &[u8]) -> Result<UnlockResponse, KeyServiceError> {
     let header = self.load_header()?;
-    let prf_key = hkdf_sha256(prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32);
+    let prf_key = hkdf_sha256(prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
+      .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
       .map_err(KeyServiceError::InvalidFormat)?;
     let prf_info = self.load_webauthn_prf_unlock()?;
@@ -431,7 +432,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       }
       session.vault_key.clone()
     };
-    let new_kdf = crate::crypto::KdfParams::default();
+    let new_kdf = crate::crypto::KdfParams::new_random()
+      .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let kek = derive_kek(new_passphrase_utf8, &new_kdf)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &new_kdf, header.aead)
@@ -487,7 +489,8 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       }
       session.vault_key.clone()
     };
-    let prf_key = hkdf_sha256(&prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32);
+    let prf_key = hkdf_sha256(&prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
+      .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
       .map_err(KeyServiceError::InvalidFormat)?;
     let nonce = self.entropy.random_bytes(12);

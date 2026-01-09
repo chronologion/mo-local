@@ -7,7 +7,7 @@ use crate::formats::{
 use crate::hash::sha256;
 use crate::types::{AeadId, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId};
 use aes_gcm::Aes256Gcm;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug)]
 pub struct KeyVaultState {
@@ -26,12 +26,23 @@ impl Default for KeyVaultState {
   }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Default)]
 pub struct KeyVaultMaterialized {
   pub user_key: Option<crate::ciphersuite::HybridKemRecipient>,
   pub device_signing_keys: HashMap<String, crate::ciphersuite::HybridSignatureKeypair>,
   pub scope_keys: HashMap<(String, u64), Vec<u8>>,
   pub resource_keys: HashMap<(String, String), Vec<u8>>,
+}
+
+impl std::fmt::Debug for KeyVaultMaterialized {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("KeyVaultMaterialized")
+      .field("user_key", &self.user_key.as_ref().map(|_| "<redacted>"))
+      .field("device_signing_keys", &self.device_signing_keys.len())
+      .field("scope_keys", &self.scope_keys.len())
+      .field("resource_keys", &self.resource_keys.len())
+      .finish()
+  }
 }
 
 impl KeyVaultState {
@@ -43,11 +54,20 @@ impl KeyVaultState {
     let mut state = KeyVaultState::default();
     let mut materialized = KeyVaultMaterialized::default();
     let mut prev_hash = vec![0u8; 32];
+    let mut expected_seq = 1u64;
+    let mut seen_record_ids = HashSet::new();
 
     let mut sorted = containers.to_vec();
     sorted.sort_by_key(|r| r.seq);
 
     for container in sorted {
+      if container.seq != expected_seq {
+        return Err("keyvault seq mismatch".to_string());
+      }
+      expected_seq = expected_seq.saturating_add(1);
+      if !seen_record_ids.insert(container.record_id.clone()) {
+        return Err("duplicate keyvault record_id".to_string());
+      }
       let container_bytes = encode_keyvault_record_container_v1(&container)?;
       let hash = sha256(&container_bytes).to_vec();
       if container.prev_hash != prev_hash {
@@ -78,6 +98,9 @@ impl KeyVaultState {
     record: &KeyVaultRecordPlainV1,
     seq: u64,
   ) -> Result<KeyVaultRecordContainerV1, String> {
+    if seq != self.head_seq + 1 {
+      return Err("keyvault seq mismatch".to_string());
+    }
     let plaintext = encode_keyvault_record_plain_v1(record)?;
     let aad = aad_keyvault_record_v1(&header.vault_id, &header.user_id, header.aead, &record.record_id)?;
     let (nonce, ct) = encrypt_vault_record(vault_key, &aad, &plaintext)?;

@@ -14,6 +14,7 @@ use ml_kem::{
   Ciphertext as MlKemCiphertext, Encoded, EncodedSizeUser, KemCore, MlKem768, MlKem768Params,
 };
 use rand_core::RngCore;
+use std::fmt;
 use signature::Signer as EdSigner;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use ml_dsa::signature::Signer as MlSigner;
@@ -68,13 +69,25 @@ impl ml_dsa::signature::rand_core::RngCore for OsRngCore {
 
 impl ml_dsa::signature::rand_core::CryptoRng for OsRngCore {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HybridKemRecipient {
   pub x25519_secret: [u8; 32],
   pub x25519_public: [u8; 32],
   pub mlkem_decaps_bytes: Vec<u8>,
   pub mlkem_encaps_bytes: Vec<u8>,
   pub public_bytes: Vec<u8>,
+}
+
+impl fmt::Debug for HybridKemRecipient {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("HybridKemRecipient")
+      .field("x25519_secret", &"<redacted>")
+      .field("x25519_public", &self.x25519_public)
+      .field("mlkem_decaps_bytes_len", &self.mlkem_decaps_bytes.len())
+      .field("mlkem_encaps_bytes_len", &self.mlkem_encaps_bytes.len())
+      .field("public_bytes_len", &self.public_bytes.len())
+      .finish()
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -89,12 +102,23 @@ pub struct HybridKemEncap {
   pub wrap_key: Vec<u8>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HybridSignatureKeypair {
   pub ed25519_priv: Vec<u8>,
   pub ed25519_pub: Vec<u8>,
   pub mldsa_priv: Vec<u8>,
   pub mldsa_pub: Vec<u8>,
+}
+
+impl fmt::Debug for HybridSignatureKeypair {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("HybridSignatureKeypair")
+      .field("ed25519_priv", &"<redacted>")
+      .field("ed25519_pub_len", &self.ed25519_pub.len())
+      .field("mldsa_priv", &"<redacted>")
+      .field("mldsa_pub_len", &self.mldsa_pub.len())
+      .finish()
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -176,7 +200,8 @@ pub fn hybrid_kem_encapsulate(
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x25519_shared.as_bytes());
   ikm.extend_from_slice(&ss_mlkem);
-  let wrap_key = hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32);
+  let wrap_key = hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
+    .map_err(|e| e.to_string())?;
 
   let enc = pack_hybrid_kem_enc(&x25519_public.to_bytes(), ct.as_slice())?;
 
@@ -202,7 +227,7 @@ pub fn derive_hybrid_kem_wrap_key(
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x_shared.as_bytes());
   ikm.extend_from_slice(&ss_mlkem);
-  Ok(hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32))
+  hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
 }
 
 pub fn hybrid_sign(data: &[u8], keypair: &HybridSignatureKeypair) -> Result<Vec<u8>, String> {

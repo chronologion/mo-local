@@ -28,6 +28,7 @@ impl ScopeStateV1 {
     let scope_id = ScopeId(req_text(map, 1)?);
     let scope_state_seq = req_uint(map, 2)?;
     let prev_hash = req_bytes(map, 3)?;
+    require_len(&prev_hash, 32, "scope_state.prev_hash")?;
     let scope_epoch = req_uint(map, 4)?;
     let kind = req_uint(map, 5)?;
     let payload = map_get(map, 6)?.clone();
@@ -114,13 +115,16 @@ impl ResourceGrantV1 {
     let scope_id = ScopeId(req_text(map, 2)?);
     let grant_seq = req_uint(map, 3)?;
     let prev_hash = req_bytes(map, 4)?;
+    require_len(&prev_hash, 32, "resource_grant.prev_hash")?;
     let scope_state_ref = req_bytes(map, 5)?;
+    require_len(&scope_state_ref, 32, "resource_grant.scope_state_ref")?;
     let scope_epoch = req_uint(map, 6)?;
     let resource_id = ResourceId(req_text(map, 7)?);
     let resource_key_id = ResourceKeyId(req_text(map, 8)?);
     let policy = map_get_opt(map, 9).cloned();
     let aead = AeadId::try_from(req_text(map, 10)?.as_str()).map_err(|e| e.to_string())?;
     let nonce = req_bytes(map, 11)?;
+    require_len(&nonce, 12, "resource_grant.nonce")?;
     let wrapped_key = req_bytes(map, 12)?;
     let signer_device_id = DeviceId(req_text(map, 13)?);
     let sig_suite = SigCiphersuiteId::try_from(req_text(map, 14)?.as_str()).map_err(|e| e.to_string())?;
@@ -201,10 +205,12 @@ impl KeyEnvelopeV1 {
     let scope_epoch = ScopeEpoch(req_uint(map, 3)?);
     let recipient_user_id = UserId(req_text(map, 4)?);
     let scope_state_ref = req_bytes(map, 5)?;
+    require_len(&scope_state_ref, 32, "key_envelope.scope_state_ref")?;
     let kem = KemCiphersuiteId::try_from(req_text(map, 6)?.as_str()).map_err(|e| e.to_string())?;
     let aead = AeadId::try_from(req_text(map, 7)?.as_str()).map_err(|e| e.to_string())?;
     let enc = req_bytes(map, 8)?;
     let nonce = req_bytes(map, 9)?;
+    require_len(&nonce, 12, "key_envelope.nonce")?;
     let wrapped_scope_key = req_bytes(map, 10)?;
     let signer_device_id = DeviceId(req_text(map, 11)?);
     let sig_suite = SigCiphersuiteId::try_from(req_text(map, 12)?.as_str()).map_err(|e| e.to_string())?;
@@ -426,12 +432,16 @@ fn encode_record_container_value(record: &KeyVaultRecordContainerV1) -> Value {
 
 fn decode_record_container(value: Value) -> Result<KeyVaultRecordContainerV1, String> {
   let map = as_map(&value)?;
+  let prev_hash = req_bytes(map, 2)?;
+  require_len(&prev_hash, 32, "keyvault.prev_hash")?;
+  let nonce = req_bytes(map, 4)?;
+  require_len(&nonce, 12, "keyvault.nonce")?;
   Ok(KeyVaultRecordContainerV1 {
     v: req_uint(map, 0)?,
     seq: req_uint(map, 1)?,
-    prev_hash: req_bytes(map, 2)?,
+    prev_hash,
     record_id: req_text(map, 3)?,
-    nonce: req_bytes(map, 4)?,
+    nonce,
     ct: req_bytes(map, 5)?,
   })
 }
@@ -458,8 +468,16 @@ fn decode_vault_key_wrap(value: &Value) -> Result<VaultKeyWrapV1, String> {
   let map = as_map(value)?;
   let aead = AeadId::try_from(req_text(map, 0)?.as_str()).map_err(|e| e.to_string())?;
   let nonce = req_bytes(map, 1)?;
+  require_len(&nonce, 12, "vault_key_wrap.nonce")?;
   let ct = req_bytes(map, 2)?;
   Ok(VaultKeyWrapV1 { aead, nonce, ct })
+}
+
+fn require_len(bytes: &[u8], expected: usize, name: &str) -> Result<(), String> {
+  if bytes.len() != expected {
+    return Err(format!("invalid {name} length"));
+  }
+  Ok(())
 }
 
 fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> Result<&'a Value, String> {

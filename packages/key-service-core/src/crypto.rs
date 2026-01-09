@@ -14,15 +14,15 @@ pub struct KdfParams {
   pub parallelism: u32,
 }
 
-impl Default for KdfParams {
-  fn default() -> Self {
-    Self {
+impl KdfParams {
+  pub fn new_random() -> Result<Self, String> {
+    Ok(Self {
       id: "kdf-1".to_string(),
-      salt: random_bytes(16),
+      salt: random_bytes(16)?,
       memory_kib: 65536,
       iterations: 3,
       parallelism: 1,
-    }
+    })
   }
 }
 
@@ -43,11 +43,12 @@ pub fn derive_kek(passphrase_utf8: &[u8], params: &KdfParams) -> Result<Vec<u8>,
   Ok(out)
 }
 
-pub fn hkdf_sha256(ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+pub fn hkdf_sha256(ikm: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>, String> {
   let hk = Hkdf::<Sha256>::new(None, ikm);
   let mut okm = vec![0u8; len];
-  hk.expand(info, &mut okm).expect("hkdf expand");
-  okm
+  hk.expand(info, &mut okm)
+    .map_err(|_| "hkdf expand failed".to_string())?;
+  Ok(okm)
 }
 
 pub fn sha256_bytes(input: &[u8]) -> Vec<u8> {
@@ -60,6 +61,12 @@ pub fn aead_encrypt<A: Aead + KeyInit>(
   plaintext: &[u8],
   nonce: &[u8],
 ) -> Result<Vec<u8>, String> {
+  if key_bytes.len() != 32 {
+    return Err("invalid key length".to_string());
+  }
+  if nonce.len() != 12 {
+    return Err("invalid nonce length".to_string());
+  }
   let key = Key::<A>::from_slice(key_bytes);
   let cipher = A::new(key);
   let ct = cipher
@@ -74,6 +81,12 @@ pub fn aead_decrypt<A: Aead + KeyInit>(
   nonce: &[u8],
   ciphertext: &[u8],
 ) -> Result<Vec<u8>, String> {
+  if key_bytes.len() != 32 {
+    return Err("invalid key length".to_string());
+  }
+  if nonce.len() != 12 {
+    return Err("invalid nonce length".to_string());
+  }
   let key = Key::<A>::from_slice(key_bytes);
   let cipher = A::new(key);
   cipher
@@ -81,10 +94,10 @@ pub fn aead_decrypt<A: Aead + KeyInit>(
     .map_err(|_| "decrypt failed".to_string())
 }
 
-pub fn random_bytes(len: usize) -> Vec<u8> {
+pub fn random_bytes(len: usize) -> Result<Vec<u8>, String> {
   let mut out = vec![0u8; len];
-  getrandom(&mut out).expect("getrandom failed");
-  out
+  getrandom(&mut out).map_err(|_| "getrandom failed".to_string())?;
+  Ok(out)
 }
 
 pub fn encrypt_vault_record(
@@ -92,7 +105,7 @@ pub fn encrypt_vault_record(
   aad: &[u8],
   plaintext: &[u8],
 ) -> Result<(Vec<u8>, Vec<u8>), String> {
-  let nonce = random_bytes(12);
+  let nonce = random_bytes(12)?;
   let ct = aead_encrypt::<Aes256Gcm>(vault_key, aad, plaintext, &nonce)?;
   Ok((nonce, ct))
 }

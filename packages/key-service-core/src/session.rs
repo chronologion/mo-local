@@ -1,8 +1,9 @@
 use crate::types::{KeyHandle, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SessionAssurance, SessionId, SessionKind};
+use getrandom::getrandom;
 use std::collections::HashMap;
+use std::fmt;
 use zeroize::Zeroize;
 
-#[derive(Clone, Debug)]
 pub struct Session {
   pub session_id: SessionId,
   pub issued_at_ms: u64,
@@ -12,6 +13,21 @@ pub struct Session {
   pub vault_key: Vec<u8>,
   pub max_handles: usize,
   handles: HashMap<String, HandleEntry>,
+}
+
+impl fmt::Debug for Session {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("Session")
+      .field("session_id", &self.session_id)
+      .field("issued_at_ms", &self.issued_at_ms)
+      .field("expires_at_ms", &self.expires_at_ms)
+      .field("kind", &self.kind)
+      .field("assurance", &self.assurance)
+      .field("vault_key", &"<redacted>")
+      .field("max_handles", &self.max_handles)
+      .field("handles", &self.handles.len())
+      .finish()
+  }
 }
 
 impl Session {
@@ -42,7 +58,7 @@ impl Session {
         self.handles.remove(&key);
       }
     }
-    let id = format!("handle-{}", self.handles.len() + 1);
+    let id = random_handle_id();
     self.handles.insert(id.clone(), entry);
     KeyHandle(id)
   }
@@ -65,7 +81,7 @@ impl Session {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum HandleEntry {
   ScopeKey {
     scope_id: ScopeId,
@@ -84,6 +100,29 @@ impl HandleEntry {
     match self {
       HandleEntry::ScopeKey { key, .. } => key.zeroize(),
       HandleEntry::ResourceKey { key, .. } => key.zeroize(),
+    }
+  }
+}
+
+impl fmt::Debug for HandleEntry {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      HandleEntry::ScopeKey { scope_id, scope_epoch, .. } => f
+        .debug_struct("HandleEntry::ScopeKey")
+        .field("scope_id", scope_id)
+        .field("scope_epoch", scope_epoch)
+        .field("key", &"<redacted>")
+        .finish(),
+      HandleEntry::ResourceKey {
+        resource_id,
+        resource_key_id,
+        ..
+      } => f
+        .debug_struct("HandleEntry::ResourceKey")
+        .field("resource_id", resource_id)
+        .field("resource_key_id", resource_key_id)
+        .field("key", &"<redacted>")
+        .finish(),
     }
   }
 }
@@ -113,4 +152,10 @@ impl SessionManager {
       session.clear();
     }
   }
+}
+
+fn random_handle_id() -> String {
+  let mut bytes = [0u8; 16];
+  getrandom(&mut bytes).expect("getrandom failed");
+  bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
