@@ -3,7 +3,7 @@ use mo_key_service_core::aad::aad_resource_grant_wrap_v1;
 use mo_key_service_core::adapters::{ClockAdapter, EntropyAdapter, StorageAdapter};
 use mo_key_service_core::cbor::{cbor_bytes, cbor_map};
 use mo_key_service_core::ciphersuite::{generate_device_signing_keypair, hybrid_sign};
-use mo_key_service_core::crypto::aead_encrypt;
+use mo_key_service_core::crypto::{aead_encrypt, KdfParams};
 use mo_key_service_core::formats::{encode_resource_grant_v1, encode_scope_state_v1, ResourceGrantV1, ScopeStateV1};
 use mo_key_service_core::key_service::{KeyService, KeyServiceConfig};
 use mo_key_service_core::types::{
@@ -74,7 +74,8 @@ fn scope_grant_encrypt_round_trip() {
   let entropy = FixedEntropy;
   let mut ks = KeyService::new(storage, clock, entropy, KeyServiceConfig::default());
 
-  ks.create_new_vault(UserId("user-1".to_string()), b"pass", Default::default())
+  let kdf = KdfParams::new_random().expect("kdf params");
+  ks.create_new_vault(UserId("user-1".to_string()), b"pass", kdf)
     .expect("create vault");
   let unlock = ks.unlock_passphrase(b"pass").expect("unlock");
   assert_eq!(unlock.kind, SessionKind::Normal);
@@ -158,4 +159,14 @@ fn scope_grant_encrypt_round_trip() {
     .decrypt(&unlock.session_id, &resource_handle.resource_key_handle, aad_payload, &encrypted.ciphertext)
     .expect("decrypt");
   assert_eq!(decrypted.plaintext, payload);
+}
+
+#[test]
+fn rejects_invalid_nonce_length() {
+  let key = vec![1u8; 32];
+  let aad = b"aad";
+  let plaintext = b"payload";
+  let bad_nonce = vec![0u8; 8];
+  let result = aead_encrypt::<Aes256Gcm>(&key, aad, plaintext, &bad_nonce);
+  assert!(result.is_err());
 }
