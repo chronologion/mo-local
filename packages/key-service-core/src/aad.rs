@@ -90,7 +90,7 @@ pub fn aad_resource_grant_wrap_v1(
     encode_canonical_value(&value)
 }
 
-pub fn aad_webauthn_prf_wrap_v1(
+pub fn aad_user_presence_wrap_v1(
     vault_id: &str,
     user_id: &str,
     kdf: &KdfParams,
@@ -109,7 +109,7 @@ pub fn aad_webauthn_prf_wrap_v1(
         ),
     ]);
     let value = cbor_map(vec![
-        (0, cbor_text("mo-webauthn-prf-wrap-aad-v1")),
+        (0, cbor_text("mo-user-presence-wrap-aad-v1")),
         (1, cbor_text(vault_id)),
         (2, cbor_text(user_id)),
         (3, cbor_text("salt-v1")),

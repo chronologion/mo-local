@@ -1,6 +1,6 @@
 use mo_key_service_core::aad::{
     aad_key_envelope_wrap_v1, aad_keyvault_keywrap_v1, aad_keyvault_record_v1,
-    aad_resource_grant_wrap_v1, aad_webauthn_prf_wrap_v1,
+    aad_resource_grant_wrap_v1, aad_user_presence_wrap_v1,
 };
 use mo_key_service_core::crypto::KdfParams;
 use mo_key_service_core::types::{AeadId, KemCiphersuiteId};
@@ -50,7 +50,7 @@ fn aad_vectors_non_empty_and_stable() {
     let g2 = aad_resource_grant_wrap_v1("scope", "resource", 1, "rk", AeadId::Aead1).unwrap();
     assert_eq!(g1, g2);
 
-    let w1 = aad_webauthn_prf_wrap_v1("vault", "user", &kdf, AeadId::Aead1).unwrap();
-    let w2 = aad_webauthn_prf_wrap_v1("vault", "user", &kdf, AeadId::Aead1).unwrap();
+    let w1 = aad_user_presence_wrap_v1("vault", "user", &kdf, AeadId::Aead1).unwrap();
+    let w2 = aad_user_presence_wrap_v1("vault", "user", &kdf, AeadId::Aead1).unwrap();
     assert_eq!(w1, w2);
 }

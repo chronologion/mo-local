@@ -45,7 +45,7 @@ pub enum SessionKind {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SessionAssurance {
     Passphrase,
-    WebAuthnPrf,
+    UserPresence,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
