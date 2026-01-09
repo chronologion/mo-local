@@ -59,26 +59,26 @@ This table is the “security practitioner” mapping of **surfaces → threats 
 
 ### Client-side controls (browser)
 
-| Surface                          | Threat                                               | Control (Phase 1)                                                                                                                                                 | Enforced by                                |
-| -------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Payload bytes (events)           | Server compromise, network observer                  | Payloads are encrypted client-side under `K_resource^{resourceKeyId}`. (Snapshots are local-only in Phase 1 and not part of `/sync`.)                            | Client AEAD + AAD                          |
-| Payload integrity                | Cross-resource swaps / replay                        | Event ciphertext is integrity-bound by AEAD AAD (`INV-013`) and by the signed domain event manifest binding `{resourceId, resourceKeyId, scopeStateRef, grantId}` to the ciphertext bytes              | Client signature verification + AEAD checks |
-| Key distribution                 | Wrong key material / swapped envelopes/slots         | KeyEnvelopes and ResourceGrants are canonical CBOR with detached signatures; AAD binds them to `(scopeId, epoch, resourceId, resourceKeyId, ciphersuites)`       | Client signature verification + AAD checks |
-| Authorization (write)            | “Keys imply write” fallacy                           | Mutations are signed by author device keys and validated against verified ScopeState + ResourceGrants at `scopeStateRef` before applying                            | Client verification-before-decrypt/apply   |
-| Revocation ordering              | Offline writer continues publishing after revocation | Every published mutation carries `scopeStateRef`; stale writers are rejected by the server and must pull the latest ScopeState                                    | Server conflict + client retry             |
-| New relationships                | Key substitution on first contact                    | Direct invites are key-bound via out-of-band `recipientUkPubFingerprint`; scope owner signer keys are TOFU unless pinned out-of-band (warn on key changes)       | Client policy                              |
-| New devices                      | Withholding/rollback/fork on first sync              | New device onboarding must be anchored out-of-band (KeyVault export import, or QR transfer of `(seq, headHash)`); without an anchor the device is TOFU           | Client policy                              |
-| Recovery                         | Rug-pull / migration / device loss                   | Portability artifacts: KeyVault export + eventstore export; restore requires passphrase                                                                           | Client backup/restore flows                |
+| Surface                | Threat                                               | Control (Phase 1)                                                                                                                                                                         | Enforced by                                 |
+| ---------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Payload bytes (events) | Server compromise, network observer                  | Payloads are encrypted client-side under `K_resource^{resourceKeyId}`. (Snapshots are local-only in Phase 1 and not part of `/sync`.)                                                     | Client AEAD + AAD                           |
+| Payload integrity      | Cross-resource swaps / replay                        | Event ciphertext is integrity-bound by AEAD AAD (`INV-013`) and by the signed domain event manifest binding `{resourceId, resourceKeyId, scopeStateRef, grantId}` to the ciphertext bytes | Client signature verification + AEAD checks |
+| Key distribution       | Wrong key material / swapped envelopes/slots         | KeyEnvelopes and ResourceGrants are canonical CBOR with detached signatures; AAD binds them to `(scopeId, epoch, resourceId, resourceKeyId, ciphersuites)`                                | Client signature verification + AAD checks  |
+| Authorization (write)  | “Keys imply write” fallacy                           | Mutations are signed by author device keys and validated against verified ScopeState + ResourceGrants at `scopeStateRef` before applying                                                  | Client verification-before-decrypt/apply    |
+| Revocation ordering    | Offline writer continues publishing after revocation | Every published mutation carries `scopeStateRef`; stale writers are rejected by the server and must pull the latest ScopeState                                                            | Server conflict + client retry              |
+| New relationships      | Key substitution on first contact                    | Direct invites are key-bound via out-of-band `recipientUkPubFingerprint`; scope owner signer keys are TOFU unless pinned out-of-band (warn on key changes)                                | Client policy                               |
+| New devices            | Withholding/rollback/fork on first sync              | New device onboarding must be anchored out-of-band (KeyVault export import, or QR transfer of `(seq, headHash)`); without an anchor the device is TOFU                                    | Client policy                               |
+| Recovery               | Rug-pull / migration / device loss                   | Portability artifacts: KeyVault export + eventstore export; restore requires passphrase                                                                                                   | Client backup/restore flows                 |
 
 ### Server-side controls (API + storage)
 
-| Surface               | Threat                                           | Control (Phase 1)                                                                                                                           | Enforced by                              |
-| --------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Surface               | Threat                                           | Control (Phase 1)                                                                                                                             | Enforced by                              |
+| --------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | Sync correctness      | Divergent ordering across devices                | Canonical server sequencing for `/sync` (`globalSequence`) and signed owner-authored ordering for scope streams (`scopeStateSeq`, `grantSeq`) | Server storage + client verification     |
-| Duplicate/replay      | Duplicate insertion                              | Idempotency by `eventId`                                                                                                                    | Server write contract                    |
+| Duplicate/replay      | Duplicate insertion                              | Idempotency by `eventId`                                                                                                                      | Server write contract                    |
 | “Keyless ciphertext”  | Ciphertext published without required keys/state | Dependency-checked push: domain event manifest references required `scopeStateRef` + `grantId`; server rejects missing deps                   | Server referential integrity checks      |
-| Revocation ordering   | Accepting writes under stale auth state          | Server rejects mutations whose `scopeStateRef` is not the current ScopeState head (`stale_scope_state`)                                     | Server conflict policy                   |
-| Key escrow regression | Server learns keys                               | Server never receives user keys; stores only ciphertext + signed manifests                                                                  | Protocol boundary (`INV-006`, `INV-017`) |
+| Revocation ordering   | Accepting writes under stale auth state          | Server rejects mutations whose `scopeStateRef` is not the current ScopeState head (`stale_scope_state`)                                       | Server conflict policy                   |
+| Key escrow regression | Server learns keys                               | Server never receives user keys; stores only ciphertext + signed manifests                                                                    | Protocol boundary (`INV-006`, `INV-017`) |
 
 ## Non-goals
 
@@ -118,9 +118,9 @@ We use “Phase 1” framing to be explicit about what we are committing to ship
 ### A) Concepts and ownership boundaries
 
 - **Aggregate**: DDD consistency boundary (event sourcing, commands, projections).
-- **Resource**: encryption and sharing *unit* (what is encrypted together under one `K_resource^{resourceKeyId}` and can be granted to other principals).
+- **Resource**: encryption and sharing _unit_ (what is encrypted together under one `K_resource^{resourceKeyId}` and can be granted to other principals).
   - A resource can map to a single aggregate (Goal), multiple aggregates (Project + Tasks), or a subtree/collection (Folder + Files).
-- **Scope**: a membership group *over resources* (who has access), with roles, epoch rotation, and an epoch-based scope key.
+- **Scope**: a membership group _over resources_ (who has access), with roles, epoch rotation, and an epoch-based scope key.
 - **ResourceGrant**: a signed record that maps a resource to a scope (catalog/policy) and carries the wrapped resource key bytes that let members decrypt the resource.
   - In Phase 1 this merges what would otherwise be separate “binding” + “keyslot” records into a single stream and a single dependency (`grantId`) for ciphertext events.
 
@@ -416,7 +416,7 @@ Trust model:
 
 ### E2) Account recovery flows (Phase 1)
 
-We support two recovery modes. Both recover the *same* user identity (same UK + KeyVault), and both require the user to prove knowledge of the passphrase (or an equivalent future recovery secret).
+We support two recovery modes. Both recover the _same_ user identity (same UK + KeyVault), and both require the user to prove knowledge of the passphrase (or an equivalent future recovery secret).
 
 1. **Local backup restore (current flow)**
    - User imports an encrypted KeyVault export (and optionally an encrypted eventstore export) from local storage.
@@ -916,7 +916,7 @@ These scenarios are the minimum “protocol invariants as tests” suite. Prefer
 ### First contact / TOFU policy
 
 - **Direct invite is key-bound**: inviter binds invite to `recipientUkPubFingerprint`; recipient refuses envelope if fingerprint mismatch (server key substitution attempt).
-- **Self-share is locally anchored**: scopes created locally (owner-only or newly created scopes) do not require any server-provided envelope to establish the initial keys; the first ScopeState and initial grants are authored locally by the owner device and are therefore anchored in the local identity. First-contact risks apply primarily when learning *other* principals’ keys via the server.
+- **Self-share is locally anchored**: scopes created locally (owner-only or newly created scopes) do not require any server-provided envelope to establish the initial keys; the first ScopeState and initial grants are authored locally by the owner device and are therefore anchored in the local identity. First-contact risks apply primarily when learning _other_ principals’ keys via the server.
 
 ## Consequences / trade-offs
 

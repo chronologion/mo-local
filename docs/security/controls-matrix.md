@@ -79,34 +79,34 @@ This matrix is intentionally concrete. Rows describe what exists today without i
 
 ### Client-side controls (browser)
 
-| Area | Control | Threat mitigated | Invariants | Evidence / pointers | Status |
-|------|---------|------------------|------------|---------------------|--------|
-| Encryption | Client-side payload encryption (AES-GCM); ciphertext stored in OPFS SQLite | Server compromise, stolen server DB | `INV-006` | `packages/infrastructure/src/crypto/**`, `packages/eventstore-web/src/worker/sqlite.ts` | Implemented |
-| Integrity | AAD binds ciphertext to `{aggregateType}:{aggregateId}:{version}` | Cross-context replay/swap | `INV-013` | `packages/infrastructure/__tests__/eventing/aad.test.ts` | Implemented |
-| Keys at rest | Key material encrypted at rest under passphrase-derived KEK (IndexedDB) | Stolen browser profile (at-rest) | `INV-014` | `docs/security/key-management.md` | Implemented |
-| Storage safety | Single writer for OPFS SQLite (SharedWorker/WebLocks) | Local corruption, multi-tab races | `INV-007` | `apps/e2e/tests/eventstore-web-worker.test.ts` | Implemented |
-| Diagnostics hygiene | Diagnostics bundles are secret-free by construction | Accidental secret leakage during support | `INV-015` | `docs/security/incident-response-and-recovery.md` | Partially implemented |
-| Logging hygiene | Logs avoid plaintext domain content; log only safe metadata | Accidental plaintext leakage to console/telemetry | `INV-019` | `.github/pull_request_template.md` | Partially implemented |
-| Secure context | Require secure context for WebCrypto/OPFS guarantees | Browser API downgrade/insecure origins | `INV-016` | `docs/security/browser-security.md` | Implemented (ops contract) |
+| Area                | Control                                                                    | Threat mitigated                                  | Invariants | Evidence / pointers                                                                     | Status                     |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------- | -------------------------- |
+| Encryption          | Client-side payload encryption (AES-GCM); ciphertext stored in OPFS SQLite | Server compromise, stolen server DB               | `INV-006`  | `packages/infrastructure/src/crypto/**`, `packages/eventstore-web/src/worker/sqlite.ts` | Implemented                |
+| Integrity           | AAD binds ciphertext to `{aggregateType}:{aggregateId}:{version}`          | Cross-context replay/swap                         | `INV-013`  | `packages/infrastructure/__tests__/eventing/aad.test.ts`                                | Implemented                |
+| Keys at rest        | Key material encrypted at rest under passphrase-derived KEK (IndexedDB)    | Stolen browser profile (at-rest)                  | `INV-014`  | `docs/security/key-management.md`                                                       | Implemented                |
+| Storage safety      | Single writer for OPFS SQLite (SharedWorker/WebLocks)                      | Local corruption, multi-tab races                 | `INV-007`  | `apps/e2e/tests/eventstore-web-worker.test.ts`                                          | Implemented                |
+| Diagnostics hygiene | Diagnostics bundles are secret-free by construction                        | Accidental secret leakage during support          | `INV-015`  | `docs/security/incident-response-and-recovery.md`                                       | Partially implemented      |
+| Logging hygiene     | Logs avoid plaintext domain content; log only safe metadata                | Accidental plaintext leakage to console/telemetry | `INV-019`  | `.github/pull_request_template.md`                                                      | Partially implemented      |
+| Secure context      | Require secure context for WebCrypto/OPFS guarantees                       | Browser API downgrade/insecure origins            | `INV-016`  | `docs/security/browser-security.md`                                                     | Implemented (ops contract) |
 
 ### Server-side controls (API + DB)
 
-| Area | Control | Threat mitigated | Invariants | Evidence / pointers | Status |
-|------|---------|------------------|------------|---------------------|--------|
-| Auth vs keys | Server authenticates and authorizes sync, but never receives user keys | Key escrow regression | `INV-017`, `INV-006` | `docs/security/auth-and-identity.md` | Implemented |
-| Sync storage | Persist opaque `record_json` bytes; never rewrite ciphertext | Determinism breaks, corruption | `INV-004` | `apps/api/src/sync/infrastructure/migrations/sync/0001_sync_schema.ts` | Implemented |
-| Ordering | Server assigns canonical `globalSequence` | Forky ordering, non-deterministic convergence | `INV-009` | `docs/security/sync-boundary.md` | Implemented |
-| Idempotency | Append is idempotent by `eventId` | Duplicate insertion, replay | `INV-008` | `apps/api/__tests__/sync/kysely-sync-event.repository.test.ts` | Implemented |
-| Logging hygiene | Server logs avoid plaintext payloads (no access) and avoid secret-bearing metadata | Data leakage via logs | `INV-019` | PR checklist; `docs/security/threat-model.md` | Implemented (must remain true) |
-| Transport | TLS assumed (browser-default validation); no cert pinning | Network attacker (passive/active) | (assumption) | `docs/security/threat-model.md` | Implemented via platform + infra |
+| Area            | Control                                                                            | Threat mitigated                              | Invariants           | Evidence / pointers                                                    | Status                           |
+| --------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- | -------------------- | ---------------------------------------------------------------------- | -------------------------------- |
+| Auth vs keys    | Server authenticates and authorizes sync, but never receives user keys             | Key escrow regression                         | `INV-017`, `INV-006` | `docs/security/auth-and-identity.md`                                   | Implemented                      |
+| Sync storage    | Persist opaque `record_json` bytes; never rewrite ciphertext                       | Determinism breaks, corruption                | `INV-004`            | `apps/api/src/sync/infrastructure/migrations/sync/0001_sync_schema.ts` | Implemented                      |
+| Ordering        | Server assigns canonical `globalSequence`                                          | Forky ordering, non-deterministic convergence | `INV-009`            | `docs/security/sync-boundary.md`                                       | Implemented                      |
+| Idempotency     | Append is idempotent by `eventId`                                                  | Duplicate insertion, replay                   | `INV-008`            | `apps/api/__tests__/sync/kysely-sync-event.repository.test.ts`         | Implemented                      |
+| Logging hygiene | Server logs avoid plaintext payloads (no access) and avoid secret-bearing metadata | Data leakage via logs                         | `INV-019`            | PR checklist; `docs/security/threat-model.md`                          | Implemented (must remain true)   |
+| Transport       | TLS assumed (browser-default validation); no cert pinning                          | Network attacker (passive/active)             | (assumption)         | `docs/security/threat-model.md`                                        | Implemented via platform + infra |
 
 ### Cross-cutting controls (process + assurance)
 
-| Area | Control | Threat mitigated | Invariants | Evidence / pointers | Status |
-|------|---------|------------------|------------|---------------------|--------|
-| Backups | Key backup + DB export/restore flows | Rug-pull / migration / device loss | `INV-012` | `docs/runbooks/backup-and-restore.md` (if present), `docs/security/key-management.md` | Implemented |
-| Tests-as-assurance | Invariants linked to tests / e2e where feasible | “We think it’s secure” drift | (registry) | `docs/invariants.md` (Verified By column) | Ongoing |
-| Change review | PR checklist includes security hygiene items (no secrets in logs, etc.) | Regression | `INV-019`, `INV-015` | `.github/pull_request_template.md` | Implemented |
+| Area               | Control                                                                 | Threat mitigated                   | Invariants           | Evidence / pointers                                                                   | Status      |
+| ------------------ | ----------------------------------------------------------------------- | ---------------------------------- | -------------------- | ------------------------------------------------------------------------------------- | ----------- |
+| Backups            | Key backup + DB export/restore flows                                    | Rug-pull / migration / device loss | `INV-012`            | `docs/runbooks/backup-and-restore.md` (if present), `docs/security/key-management.md` | Implemented |
+| Tests-as-assurance | Invariants linked to tests / e2e where feasible                         | “We think it’s secure” drift       | (registry)           | `docs/invariants.md` (Verified By column)                                             | Ongoing     |
+| Change review      | PR checklist includes security hygiene items (no secrets in logs, etc.) | Regression                         | `INV-019`, `INV-015` | `.github/pull_request_template.md`                                                    | Implemented |
 
 ## Operational guidance (how to use this)
 

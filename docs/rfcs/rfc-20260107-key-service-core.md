@@ -41,7 +41,7 @@ This RFC is **intentionally a breaking change** (we are pre-production).
 - We do **not** support an in-place migration from:
   - the current passphrase→PBKDF2-derived “master key” (`IndexedDBKeyStore`) or
   - the current JSON key backup envelope format(s)
-  into the KeyVault model defined here.
+    into the KeyVault model defined here.
 - Rollout expectation: existing local identities and local ciphertext may need to be **reset** and re-onboarded under the new KeyVault-based Key Service.
 - Backward compatibility for older KDFs (PBKDF2) is out of scope for Phase 1; new vaults use `kdf-1` (`Argon2id`) with explicit parameters in the header.
 
@@ -120,18 +120,18 @@ Important clarifications:
 
 ### Key protection summary (Phase 1)
 
-| Element | Where it lives | Protection | Portability | Notes |
-|--------|-----------------|------------|-------------|-------|
-| `passphrase` | user memory | not stored | portable | never persisted |
-| `KEK` | Key Service session | derived from passphrase | portable | unwraps `K_vault`; should be short-lived; prefer non-extractable handle when possible |
-| `K_vault` (KeyVault root key) | Key Service session | random 32 bytes | portable | decrypts KeyVault record containers; is wrapped under KEK (and optionally under WebAuthn PRF) |
-| KeyVault ciphertext | storage + server | AEAD under `K_vault` | portable | canonical CBOR containers + hash-chain |
-| UK private key bytes | inside KeyVault | AEAD under `K_vault` | portable | decrypted only while unlocked; used to unwrap KeyEnvelopes |
-| PQC private key bytes (if any) | inside KeyVault | AEAD under `K_vault` | portable | may be additionally sealed by device anchor as defense-in-depth |
-| `K_session` (session wrapping key) | Key Service session | non-extractable platform handle when available | not portable | wraps hot key bytes/handles; rotated on unlock |
-| `K_device_anchor` (device anchor) | platform keystore | non-extractable platform handle | not portable | generate-only; used to seal DWK/quick unlock tokens |
-| `DWK` (device wrapping key) | storage | sealed by device anchor | not portable | optional: device-local hardening only |
-| WebAuthn PRF-wrapped `K_vault` | storage | sealed by WebAuthn-derived PRF key | depends | optional: web quick unlock; still requires user presence |
+| Element                            | Where it lives      | Protection                                     | Portability  | Notes                                                                                         |
+| ---------------------------------- | ------------------- | ---------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `passphrase`                       | user memory         | not stored                                     | portable     | never persisted                                                                               |
+| `KEK`                              | Key Service session | derived from passphrase                        | portable     | unwraps `K_vault`; should be short-lived; prefer non-extractable handle when possible         |
+| `K_vault` (KeyVault root key)      | Key Service session | random 32 bytes                                | portable     | decrypts KeyVault record containers; is wrapped under KEK (and optionally under WebAuthn PRF) |
+| KeyVault ciphertext                | storage + server    | AEAD under `K_vault`                           | portable     | canonical CBOR containers + hash-chain                                                        |
+| UK private key bytes               | inside KeyVault     | AEAD under `K_vault`                           | portable     | decrypted only while unlocked; used to unwrap KeyEnvelopes                                    |
+| PQC private key bytes (if any)     | inside KeyVault     | AEAD under `K_vault`                           | portable     | may be additionally sealed by device anchor as defense-in-depth                               |
+| `K_session` (session wrapping key) | Key Service session | non-extractable platform handle when available | not portable | wraps hot key bytes/handles; rotated on unlock                                                |
+| `K_device_anchor` (device anchor)  | platform keystore   | non-extractable platform handle                | not portable | generate-only; used to seal DWK/quick unlock tokens                                           |
+| `DWK` (device wrapping key)        | storage             | sealed by device anchor                        | not portable | optional: device-local hardening only                                                         |
+| WebAuthn PRF-wrapped `K_vault`     | storage             | sealed by WebAuthn-derived PRF key             | depends      | optional: web quick unlock; still requires user presence                                      |
 
 ### Key layering (portable vs device-local)
 
@@ -206,14 +206,14 @@ WebAuthn PRF state is stored **outside** the KeyVault so it is available while l
 
 `WebAuthnPrfUnlockV1` (canonical CBOR map, stored in local storage):
 
-| Key | Name | Type | Notes |
-|-----|------|------|-------|
-| 0 | `v` | uint | must be `1` |
-| 1 | `credentialId` | bstr | WebAuthn credential id (not secret) |
-| 2 | `saltV` | uint | salt version (must be `1` in Phase 1) |
-| 3 | `aead` | text | e.g. `aead-1` |
-| 4 | `nonce` | bstr | AEAD nonce for `wrappedVaultKey` |
-| 5 | `wrappedVaultKey` | bstr | AEAD ciphertext of `K_vault` |
+| Key | Name              | Type | Notes                                 |
+| --- | ----------------- | ---- | ------------------------------------- |
+| 0   | `v`               | uint | must be `1`                           |
+| 1   | `credentialId`    | bstr | WebAuthn credential id (not secret)   |
+| 2   | `saltV`           | uint | salt version (must be `1` in Phase 1) |
+| 3   | `aead`            | text | e.g. `aead-1`                         |
+| 4   | `nonce`           | bstr | AEAD nonce for `wrappedVaultKey`      |
+| 5   | `wrappedVaultKey` | bstr | AEAD ciphertext of `K_vault`          |
 
 Salt derivation (Phase 1):
 
@@ -246,7 +246,7 @@ Key derivation (Phase 1):
 
 - Key Service deletes `WebAuthnPrfUnlockV1` from local storage. Passphrase unlock remains available.
 - Disabling PRF unlock is a **local convenience** toggle, not a cryptographic revocation mechanism:
-  - If an attacker already exfiltrated `WebAuthnPrfUnlockV1` *and* can obtain PRF output from the authenticator, they can still unwrap the (old) `K_vault`.
+  - If an attacker already exfiltrated `WebAuthnPrfUnlockV1` _and_ can obtain PRF output from the authenticator, they can still unwrap the (old) `K_vault`.
   - To cryptographically revoke a leaked PRF-wrapped vault key, rotate `K_vault` (future: a dedicated “rotate vault key” operation; today: treat as part of an identity recovery/rotation procedure).
 
 ## Diagrams
@@ -469,22 +469,22 @@ Phase 1 assumes a **single writer**: the scope owner. Therefore, scope state ord
 
 Unsigned body (to be signed):
 
-| Key | Name             | Type  | Notes |
-|-----|------------------|-------|-------|
-| 0   | `v`              | uint  | must be `1` |
-| 1   | `scopeId`        | text  | UUID |
-| 2   | `scopeStateSeq`  | uint  | owner-authored monotonic `u64` seq per scope |
-| 3   | `prevHash`       | bstr  | 32 bytes; `SHA-256(CBOR_EncodeCanonical(previousSignedRecord))`; genesis is 32 bytes of `0x00` |
-| 4   | `scopeEpoch`     | uint  | current epoch after applying this record |
-| 5   | `kind`           | uint  | record kind enum (membership/role/epoch/signer roster update) |
-| 6   | `payload`        | map   | kind-specific payload |
-| 7   | `signerDeviceId` | text  | UUID (scope owner device) |
-| 8   | `sigSuite`       | text  | e.g. `hybrid-sig-1` |
+| Key | Name             | Type | Notes                                                                                          |
+| --- | ---------------- | ---- | ---------------------------------------------------------------------------------------------- |
+| 0   | `v`              | uint | must be `1`                                                                                    |
+| 1   | `scopeId`        | text | UUID                                                                                           |
+| 2   | `scopeStateSeq`  | uint | owner-authored monotonic `u64` seq per scope                                                   |
+| 3   | `prevHash`       | bstr | 32 bytes; `SHA-256(CBOR_EncodeCanonical(previousSignedRecord))`; genesis is 32 bytes of `0x00` |
+| 4   | `scopeEpoch`     | uint | current epoch after applying this record                                                       |
+| 5   | `kind`           | uint | record kind enum (membership/role/epoch/signer roster update)                                  |
+| 6   | `payload`        | map  | kind-specific payload                                                                          |
+| 7   | `signerDeviceId` | text | UUID (scope owner device)                                                                      |
+| 8   | `sigSuite`       | text | e.g. `hybrid-sig-1`                                                                            |
 
 Signature:
 
-| Key | Name        | Type | Notes |
-|-----|-------------|------|-------|
+| Key | Name        | Type | Notes                                       |
+| --- | ----------- | ---- | ------------------------------------------- |
 | 9   | `signature` | bstr | signature over `CBOR_EncodeCanonical(body)` |
 
 `scopeStateRef`:
@@ -501,29 +501,29 @@ Integer-width guidance:
 
 Unsigned body (to be signed):
 
-| Key | Name              | Type    | Notes |
-|-----|-------------------|---------|-------|
-| 0   | `v`               | uint    | must be `1` |
-| 1   | `grantId`         | text    | UUID |
-| 2   | `scopeId`         | text    | UUID |
-| 3   | `grantSeq`        | uint    | owner-authored monotonic `u64` seq for the grants stream in this scope |
-| 4   | `prevHash`        | bstr    | 32 bytes; hash-chain link over previous signed grant record (same rule as ScopeState) |
-| 5   | `scopeStateRef`   | bstr    | `scopeStateRef` that authorizes this grant (must be verified) |
-| 6   | `scopeEpoch`      | uint    | epoch whose `K_scope` wraps this grant |
-| 7   | `resourceId`      | text    | UUID |
-| 8   | `resourceKeyId`   | text    | UUID (resource key version id for this scope/resource) |
-| 9   | `policy`          | map     | optional; catalog semantics (inheritance/subtree) |
-| 10  | `aead`            | text    | e.g. `aead-1` |
-| 11  | `nonce`           | bstr    | AEAD nonce used for `wrappedKey` |
-| 12  | `wrappedKey`      | bstr    | AEAD ciphertext of `K_resource^{resourceKeyId}` |
-| 13  | `signerDeviceId`  | text    | UUID (scope owner device) |
-| 14  | `sigSuite`        | text    | e.g. `hybrid-sig-1` |
+| Key | Name             | Type | Notes                                                                                 |
+| --- | ---------------- | ---- | ------------------------------------------------------------------------------------- |
+| 0   | `v`              | uint | must be `1`                                                                           |
+| 1   | `grantId`        | text | UUID                                                                                  |
+| 2   | `scopeId`        | text | UUID                                                                                  |
+| 3   | `grantSeq`       | uint | owner-authored monotonic `u64` seq for the grants stream in this scope                |
+| 4   | `prevHash`       | bstr | 32 bytes; hash-chain link over previous signed grant record (same rule as ScopeState) |
+| 5   | `scopeStateRef`  | bstr | `scopeStateRef` that authorizes this grant (must be verified)                         |
+| 6   | `scopeEpoch`     | uint | epoch whose `K_scope` wraps this grant                                                |
+| 7   | `resourceId`     | text | UUID                                                                                  |
+| 8   | `resourceKeyId`  | text | UUID (resource key version id for this scope/resource)                                |
+| 9   | `policy`         | map  | optional; catalog semantics (inheritance/subtree)                                     |
+| 10  | `aead`           | text | e.g. `aead-1`                                                                         |
+| 11  | `nonce`          | bstr | AEAD nonce used for `wrappedKey`                                                      |
+| 12  | `wrappedKey`     | bstr | AEAD ciphertext of `K_resource^{resourceKeyId}`                                       |
+| 13  | `signerDeviceId` | text | UUID (scope owner device)                                                             |
+| 14  | `sigSuite`       | text | e.g. `hybrid-sig-1`                                                                   |
 
 Signature:
 
-| Key | Name         | Type | Notes |
-|-----|--------------|------|-------|
-| 15  | `signature`  | bstr | signature over `CBOR_EncodeCanonical(body)` |
+| Key | Name        | Type | Notes                                       |
+| --- | ----------- | ---- | ------------------------------------------- |
+| 15  | `signature` | bstr | signature over `CBOR_EncodeCanonical(body)` |
 
 Notes:
 
@@ -532,33 +532,33 @@ Notes:
 - `prevHash` chaining rule (Phase 1):
   - `grantHash = SHA-256(CBOR_EncodeCanonical(signedGrantRecord))` where `signedGrantRecord` is the full CBOR map including `signature`.
   - `prevHash` of record `n` is `grantHash` of record `n-1` (genesis uses 32 bytes of `0x00`).
- - `grantSeq` is `u64` in the core. Do **not** represent it as a JS `number` once it may exceed `2^53 - 1`. Prefer `bigint` or a decimal string for host-facing surfaces.
+- `grantSeq` is `u64` in the core. Do **not** represent it as a JS `number` once it may exceed `2^53 - 1`. Prefer `bigint` or a decimal string for host-facing surfaces.
 
 #### KeyEnvelope (wrapped scope key to a recipient UK) — `KeyEnvelopeV1`
 
 Unsigned body (to be signed):
 
-| Key | Name              | Type | Notes |
-|-----|-------------------|------|-------|
-| 0   | `v`               | uint | must be `1` |
-| 1   | `envelopeId`      | text | UUID |
-| 2   | `scopeId`         | text | UUID |
-| 3   | `scopeEpoch`      | uint | |
-| 4   | `recipientUserId` | text | UUID |
-| 5   | `scopeStateRef`   | bstr | hash/id of the signed ScopeState event authorizing this epoch |
-| 6   | `kem`             | text | e.g. `hybrid-kem-1` |
-| 7   | `aead`            | text | e.g. `aead-1` |
-| 8   | `enc`             | bstr | KEM encapsulation ciphertext (opaque) |
-| 9   | `nonce`           | bstr | AEAD nonce used for `wrappedScopeKey` |
-| 10  | `wrappedScopeKey` | bstr | AEAD ciphertext of `K_scope^{scopeEpoch}` |
-| 11  | `signerDeviceId`  | text | UUID (scope owner device) |
-| 12  | `sigSuite`        | text | e.g. `hybrid-sig-1` |
-| 14  | `recipientUkPubFingerprint` | bstr | optional; 32 bytes; for out-of-band key-bound invites |
+| Key | Name                        | Type | Notes                                                         |
+| --- | --------------------------- | ---- | ------------------------------------------------------------- |
+| 0   | `v`                         | uint | must be `1`                                                   |
+| 1   | `envelopeId`                | text | UUID                                                          |
+| 2   | `scopeId`                   | text | UUID                                                          |
+| 3   | `scopeEpoch`                | uint |                                                               |
+| 4   | `recipientUserId`           | text | UUID                                                          |
+| 5   | `scopeStateRef`             | bstr | hash/id of the signed ScopeState event authorizing this epoch |
+| 6   | `kem`                       | text | e.g. `hybrid-kem-1`                                           |
+| 7   | `aead`                      | text | e.g. `aead-1`                                                 |
+| 8   | `enc`                       | bstr | KEM encapsulation ciphertext (opaque)                         |
+| 9   | `nonce`                     | bstr | AEAD nonce used for `wrappedScopeKey`                         |
+| 10  | `wrappedScopeKey`           | bstr | AEAD ciphertext of `K_scope^{scopeEpoch}`                     |
+| 11  | `signerDeviceId`            | text | UUID (scope owner device)                                     |
+| 12  | `sigSuite`                  | text | e.g. `hybrid-sig-1`                                           |
+| 14  | `recipientUkPubFingerprint` | bstr | optional; 32 bytes; for out-of-band key-bound invites         |
 
 Signature:
 
-| Key | Name        | Type | Notes |
-|-----|-------------|------|-------|
+| Key | Name        | Type | Notes                                       |
+| --- | ----------- | ---- | ------------------------------------------- |
 | 13  | `signature` | bstr | signature over `CBOR_EncodeCanonical(body)` |
 
 Notes:
@@ -579,41 +579,41 @@ KeyVault is logically a **stream of encrypted record containers** (append-only).
 
 KeyVault header (unencrypted, to locate KDF params):
 
-| Key | Name      | Type | Notes |
-|-----|-----------|------|-------|
-| 0   | `v`       | uint | must be `1` |
-| 1   | `vaultId` | text | UUID; generated once at vault creation and immutable |
-| 2   | `userId`  | text | UUID; the owning user/store id |
-| 3   | `kdf`     | map  | (see below) |
-| 4   | `aead`    | text | e.g. `aead-1` (for record encryption under `K_vault`) |
-| 5   | `records` | array | array of encrypted record containers (snapshot packaging only) |
-| 6   | `vaultKeyWrap` | map | wraps `K_vault` under `KEK` (see below) |
+| Key | Name           | Type  | Notes                                                          |
+| --- | -------------- | ----- | -------------------------------------------------------------- |
+| 0   | `v`            | uint  | must be `1`                                                    |
+| 1   | `vaultId`      | text  | UUID; generated once at vault creation and immutable           |
+| 2   | `userId`       | text  | UUID; the owning user/store id                                 |
+| 3   | `kdf`          | map   | (see below)                                                    |
+| 4   | `aead`         | text  | e.g. `aead-1` (for record encryption under `K_vault`)          |
+| 5   | `records`      | array | array of encrypted record containers (snapshot packaging only) |
+| 6   | `vaultKeyWrap` | map   | wraps `K_vault` under `KEK` (see below)                        |
 
 `kdf` map (canonical CBOR map):
 
-| Key | Name    | Type | Notes |
-|-----|---------|------|-------|
-| 0   | `id`    | text | e.g. `kdf-1` |
-| 1   | `salt`  | bstr | per-vault salt |
-| 2   | `params`| map  | KDF params (shape depends on `id`) |
+| Key | Name     | Type | Notes                              |
+| --- | -------- | ---- | ---------------------------------- |
+| 0   | `id`     | text | e.g. `kdf-1`                       |
+| 1   | `salt`   | bstr | per-vault salt                     |
+| 2   | `params` | map  | KDF params (shape depends on `id`) |
 
 For `kdf-1` (`Argon2id`), `params` map:
 
-| Key | Name           | Type | Notes |
-|-----|----------------|------|-------|
-| 0   | `memoryKiB`    | uint | e.g. `65536` |
-| 1   | `iterations`   | uint | e.g. `3` |
-| 2   | `parallelism`  | uint | e.g. `1` |
+| Key | Name          | Type | Notes        |
+| --- | ------------- | ---- | ------------ |
+| 0   | `memoryKiB`   | uint | e.g. `65536` |
+| 1   | `iterations`  | uint | e.g. `3`     |
+| 2   | `parallelism` | uint | e.g. `1`     |
 
 Vault Key wrap (under `KEK`)
 
 `vaultKeyWrap` is a canonical CBOR map:
 
-| Key | Name | Type | Notes |
-|-----|------|------|-------|
-| 0 | `aead` | text | e.g. `aead-1` |
-| 1 | `nonce` | bstr | AEAD nonce |
-| 2 | `ct` | bstr | AEAD ciphertext of `K_vault` (32 bytes) |
+| Key | Name    | Type | Notes                                   |
+| --- | ------- | ---- | --------------------------------------- |
+| 0   | `aead`  | text | e.g. `aead-1`                           |
+| 1   | `nonce` | bstr | AEAD nonce                              |
+| 2   | `ct`    | bstr | AEAD ciphertext of `K_vault` (32 bytes) |
 
 `vaultKeyWrap` AAD:
 
@@ -631,14 +631,14 @@ KeyVault records are encrypted under `K_vault`:
 
 Record container (unencrypted):
 
-| Key | Name     | Type | Notes |
-|-----|----------|------|-------|
-| 0   | `v`      | uint | must be `1` |
-| 1   | `seq`     | uint | server-assigned monotonic `u64`, per-vault |
-| 2   | `prevHash`| bstr | hash-chain link (32 bytes), computed over the previous record container |
-| 3   | `recordId`| text | UUID, client-generated idempotency key |
-| 4   | `nonce`   | bstr | AEAD nonce |
-| 5   | `ct`      | bstr | AEAD ciphertext of the record plaintext |
+| Key | Name       | Type | Notes                                                                   |
+| --- | ---------- | ---- | ----------------------------------------------------------------------- |
+| 0   | `v`        | uint | must be `1`                                                             |
+| 1   | `seq`      | uint | server-assigned monotonic `u64`, per-vault                              |
+| 2   | `prevHash` | bstr | hash-chain link (32 bytes), computed over the previous record container |
+| 3   | `recordId` | text | UUID, client-generated idempotency key                                  |
+| 4   | `nonce`    | bstr | AEAD nonce                                                              |
+| 5   | `ct`       | bstr | AEAD ciphertext of the record plaintext                                 |
 
 Record AEAD AAD:
 
@@ -648,11 +648,11 @@ Record AEAD AAD:
 
 Record plaintext (inside `ct`, canonical CBOR map):
 
-| Key | Name      | Type | Notes |
-|-----|-----------|------|-------|
-| 0   | `recordId`| text | must equal the container `recordId` |
-| 1   | `kind`    | uint | record kind enum |
-| 2   | `payload` | map  | kind-specific |
+| Key | Name       | Type | Notes                               |
+| --- | ---------- | ---- | ----------------------------------- |
+| 0   | `recordId` | text | must equal the container `recordId` |
+| 1   | `kind`     | uint | record kind enum                    |
+| 2   | `payload`  | map  | kind-specific                       |
 
 Hash-chain:
 
@@ -737,7 +737,7 @@ Fork/partition note:
 
 ### Account recovery (Phase 1)
 
-We support two recovery paths; both recover the *same* user identity (same UK + KeyVault):
+We support two recovery paths; both recover the _same_ user identity (same UK + KeyVault):
 
 1. **Local backup restore**
    - Host imports an encrypted KeyVault export blob (and optionally eventstore export) from local storage.
@@ -972,7 +972,10 @@ export type KeyServiceRequest =
   | Readonly<{ type: 'disableWebAuthnPrfUnlock'; payload: DisableWebAuthnPrfUnlockRequest }>
   | Readonly<{ type: 'ingestScopeState'; payload: IngestScopeStateRequest }>
   | Readonly<{ type: 'ingestKeyEnvelope'; payload: IngestKeyEnvelopeRequest }>
-  | Readonly<{ type: 'openScope'; payload: Readonly<{ sessionId: SessionId; scopeId: ScopeId; scopeEpoch: ScopeEpoch }> }>
+  | Readonly<{
+      type: 'openScope';
+      payload: Readonly<{ sessionId: SessionId; scopeId: ScopeId; scopeEpoch: ScopeEpoch }>;
+    }>
   | Readonly<{ type: 'openResource'; payload: OpenResourceRequest }>
   | Readonly<{ type: 'closeHandle'; payload: CloseHandleRequest }>
   | Readonly<{ type: 'encrypt'; payload: EncryptRequest }>
