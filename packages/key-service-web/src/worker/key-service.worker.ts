@@ -16,7 +16,7 @@ import {
   type UnlockResponse,
   type StepUpResponse,
   type RenewSessionResponse,
-  type GetWebAuthnPrfUnlockInfoResponse,
+  type GetUserPresenceUnlockInfoResponse,
   type IngestScopeStateResponse,
   type IngestKeyEnvelopeResponse,
   type SignResponse,
@@ -236,7 +236,14 @@ async function handleRequest(
                 passphraseUtf8.fill(0);
               }
             })()
-          : service.unlockWebauthnPrf(payload.prfOutput);
+          : (() => {
+              const userPresenceSecret = payload.userPresenceSecret;
+              try {
+                return service.unlockWebauthnPrf(userPresenceSecret);
+              } finally {
+                userPresenceSecret.fill(0);
+              }
+            })();
       const unlockResponse = parseUnlockResponse(response);
       clientState.activeSessionId = unlockResponse.sessionId;
       await persistWrites(runtime);
@@ -254,9 +261,9 @@ async function handleRequest(
       await persistWrites(runtime);
       return { type: 'stepUp', payload: response };
     }
-    case 'getWebAuthnPrfUnlockInfo': {
-      const response = parseWebAuthnPrfInfo(service.getWebauthnPrfUnlockInfo());
-      return { type: 'getWebAuthnPrfUnlockInfo', payload: response };
+    case 'getUserPresenceUnlockInfo': {
+      const response = parseUserPresenceInfo(service.getWebauthnPrfUnlockInfo());
+      return { type: 'getUserPresenceUnlockInfo', payload: response };
     }
     case 'renewSession': {
       const response = parseRenewResponse(service.renewSession(request.payload.sessionId));
@@ -290,19 +297,19 @@ async function handleRequest(
       await persistWrites(runtime);
       return { type: 'changePassphrase', payload: {} };
     }
-    case 'enableWebAuthnPrfUnlock': {
+    case 'enableUserPresenceUnlock': {
       service.enableWebauthnPrfUnlock(
         request.payload.sessionId,
         request.payload.credentialId,
-        request.payload.prfOutput
+        request.payload.userPresenceSecret
       );
       await persistWrites(runtime);
-      return { type: 'enableWebAuthnPrfUnlock', payload: {} };
+      return { type: 'enableUserPresenceUnlock', payload: {} };
     }
-    case 'disableWebAuthnPrfUnlock': {
+    case 'disableUserPresenceUnlock': {
       service.disableWebauthnPrfUnlock(request.payload.sessionId);
       await persistWrites(runtime);
-      return { type: 'disableWebAuthnPrfUnlock', payload: {} };
+      return { type: 'disableUserPresenceUnlock', payload: {} };
     }
     case 'ingestScopeState': {
       const response = service.ingestScopeState(
@@ -613,8 +620,8 @@ function parseRenewResponse(value: unknown): RenewSessionResponse {
   };
 }
 
-function parseWebAuthnPrfInfo(value: unknown): GetWebAuthnPrfUnlockInfoResponse {
-  if (!isRecord(value)) throw new Error('Invalid webauthn response');
+function parseUserPresenceInfo(value: unknown): GetUserPresenceUnlockInfoResponse {
+  if (!isRecord(value)) throw new Error('Invalid user presence response');
   const credentialId = value.credentialId;
   return {
     enabled: requireBoolean(value.enabled, 'enabled'),
@@ -669,8 +676,9 @@ function requireSessionKind(value: unknown, field: string): 'normal' | 'stepUp' 
   throw new Error(`Invalid ${field}`);
 }
 
-function requireSessionAssurance(value: unknown, field: string): 'passphrase' | 'webauthnPrf' {
-  if (value === 'passphrase' || value === 'webauthnPrf') return value;
+function requireSessionAssurance(value: unknown, field: string): 'passphrase' | 'userPresence' {
+  if (value === 'passphrase') return value;
+  if (value === 'webauthnPrf' || value === 'userPresence') return 'userPresence';
   throw new Error(`Invalid ${field}`);
 }
 

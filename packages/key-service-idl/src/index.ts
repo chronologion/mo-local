@@ -18,7 +18,7 @@ export type KemCiphersuiteId = 'hybrid-kem-1';
 export type SigCiphersuiteId = 'hybrid-sig-1';
 
 export type SessionKind = 'normal' | 'stepUp';
-export type SessionAssurance = 'passphrase' | 'webauthnPrf';
+export type SessionAssurance = 'passphrase' | 'userPresence';
 export type EmptyObject = Readonly<Record<string, never>>;
 
 export type UnlockRequest =
@@ -27,8 +27,8 @@ export type UnlockRequest =
       passphraseUtf8: Uint8Array;
     }>
   | Readonly<{
-      method: 'webauthnPrf';
-      prfOutput: Uint8Array;
+      method: 'userPresence';
+      userPresenceSecret: Uint8Array;
     }>;
 
 export type UnlockResponse = Readonly<{
@@ -70,20 +70,20 @@ export type RenewSessionResponse = Readonly<{
   expiresAtMs: number;
 }>;
 
-export type GetWebAuthnPrfUnlockInfoResponse = Readonly<{
+export type GetUserPresenceUnlockInfoResponse = Readonly<{
   enabled: boolean;
   credentialId: Uint8Array | null;
   prfSalt: Uint8Array;
   aead: AeadId;
 }>;
 
-export type EnableWebAuthnPrfUnlockRequest = Readonly<{
+export type EnableUserPresenceUnlockRequest = Readonly<{
   sessionId: SessionId;
   credentialId: Uint8Array;
-  prfOutput: Uint8Array;
+  userPresenceSecret: Uint8Array;
 }>;
 
-export type DisableWebAuthnPrfUnlockRequest = Readonly<{
+export type DisableUserPresenceUnlockRequest = Readonly<{
   sessionId: SessionId;
 }>;
 
@@ -186,14 +186,14 @@ export type KeyServiceRequest =
   | Readonly<{ type: 'createVault'; payload: CreateVaultRequest }>
   | Readonly<{ type: 'unlock'; payload: UnlockRequest }>
   | Readonly<{ type: 'stepUp'; payload: StepUpRequest }>
-  | Readonly<{ type: 'getWebAuthnPrfUnlockInfo'; payload: EmptyObject }>
+  | Readonly<{ type: 'getUserPresenceUnlockInfo'; payload: EmptyObject }>
   | Readonly<{ type: 'renewSession'; payload: Readonly<{ sessionId: SessionId }> }>
   | Readonly<{ type: 'lock'; payload: Readonly<{ sessionId: SessionId }> }>
   | Readonly<{ type: 'exportKeyVault'; payload: Readonly<{ sessionId: SessionId }> }>
   | Readonly<{ type: 'importKeyVault'; payload: Readonly<{ sessionId: SessionId; blob: Uint8Array }> }>
   | Readonly<{ type: 'changePassphrase'; payload: ChangePassphraseRequest }>
-  | Readonly<{ type: 'enableWebAuthnPrfUnlock'; payload: EnableWebAuthnPrfUnlockRequest }>
-  | Readonly<{ type: 'disableWebAuthnPrfUnlock'; payload: DisableWebAuthnPrfUnlockRequest }>
+  | Readonly<{ type: 'enableUserPresenceUnlock'; payload: EnableUserPresenceUnlockRequest }>
+  | Readonly<{ type: 'disableUserPresenceUnlock'; payload: DisableUserPresenceUnlockRequest }>
   | Readonly<{ type: 'ingestScopeState'; payload: IngestScopeStateRequest }>
   | Readonly<{ type: 'ingestKeyEnvelope'; payload: IngestKeyEnvelopeRequest }>
   | Readonly<{
@@ -212,14 +212,14 @@ export type KeyServiceResponse =
   | Readonly<{ type: 'createVault'; payload: EmptyObject }>
   | Readonly<{ type: 'unlock'; payload: UnlockResponse }>
   | Readonly<{ type: 'stepUp'; payload: StepUpResponse }>
-  | Readonly<{ type: 'getWebAuthnPrfUnlockInfo'; payload: GetWebAuthnPrfUnlockInfoResponse }>
+  | Readonly<{ type: 'getUserPresenceUnlockInfo'; payload: GetUserPresenceUnlockInfoResponse }>
   | Readonly<{ type: 'renewSession'; payload: RenewSessionResponse }>
   | Readonly<{ type: 'lock'; payload: EmptyObject }>
   | Readonly<{ type: 'exportKeyVault'; payload: Readonly<{ blob: Uint8Array }> }>
   | Readonly<{ type: 'importKeyVault'; payload: EmptyObject }>
   | Readonly<{ type: 'changePassphrase'; payload: EmptyObject }>
-  | Readonly<{ type: 'enableWebAuthnPrfUnlock'; payload: EmptyObject }>
-  | Readonly<{ type: 'disableWebAuthnPrfUnlock'; payload: EmptyObject }>
+  | Readonly<{ type: 'enableUserPresenceUnlock'; payload: EmptyObject }>
+  | Readonly<{ type: 'disableUserPresenceUnlock'; payload: EmptyObject }>
   | Readonly<{ type: 'ingestScopeState'; payload: IngestScopeStateResponse }>
   | Readonly<{ type: 'ingestKeyEnvelope'; payload: IngestKeyEnvelopeResponse }>
   | Readonly<{ type: 'openScope'; payload: Readonly<{ scopeKeyHandle: KeyHandle }> }>

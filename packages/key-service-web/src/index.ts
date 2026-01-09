@@ -12,7 +12,7 @@ export type {
   DecryptResponse,
   EncryptRequest,
   EncryptResponse,
-  GetWebAuthnPrfUnlockInfoResponse,
+  GetUserPresenceUnlockInfoResponse,
   IngestKeyEnvelopeRequest,
   IngestKeyEnvelopeResponse,
   IngestScopeStateRequest,
