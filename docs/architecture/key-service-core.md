@@ -40,7 +40,7 @@ flowchart LR
 
 ## Boundaries and dependencies
 
-- Depends on: cryptographic libraries, CBOR codec, and platform adapters (clock, entropy, storage).
+- Depends on: cryptographic libraries, CBOR codec, and platform adapters (clock, entropy, storage; async storage is supported for native/desktop).
 - Does not depend on: browser APIs, IndexedDB/OPFS, or server transport.
 - Consumption: called by `mo-key-service-wasm` and a worker boundary in the web client.
 
@@ -68,3 +68,7 @@ flowchart LR
 ## Open Questions
 
 - None tracked here; see RFCs for open questions and Linear follow-ups.
+
+## Follow-up improvements
+
+- Rust → TypeScript type generation (e.g., `ts-rs`) to reduce IDL drift across language boundaries.
