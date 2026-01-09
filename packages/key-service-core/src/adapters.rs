@@ -21,3 +21,15 @@ pub trait ClockAdapter {
 pub trait EntropyAdapter {
     fn random_bytes(&self, len: usize) -> Vec<u8>;
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum PlatformSignal {
+    Idle,
+    Blur,
+}
+
+pub trait DeviceAnchorAdapter {
+    type Error: Debug + Send + Sync + 'static;
+    fn seal(&self, label: &str, aad: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, Self::Error>;
+    fn unseal(&self, label: &str, aad: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, Self::Error>;
+}
