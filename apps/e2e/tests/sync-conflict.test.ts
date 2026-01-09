@@ -351,9 +351,18 @@ test.describe('Sync conflicts rebased via sync protocol', () => {
     await resetSyncState(page);
     await syncOnce(page);
 
+    // Poll for events to be re-pushed after reset
+    await expect
+      .poll(
+        async () => {
+          const result = await pullEvents(page, storeId);
+          return result.head;
+        },
+        { timeout: 10_000, intervals: [500, 1000] }
+      )
+      .toBeGreaterThanOrEqual(beforeResetHead + 1);
+
     const afterReset = await pullEvents(page, storeId);
-    // Expect at least the previous head plus the new goal event to be re-pushed.
-    expect(afterReset.head).toBeGreaterThanOrEqual(beforeResetHead + 1);
     expect(afterReset.events.length).toBeGreaterThan(0);
   });
 });
