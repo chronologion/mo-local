@@ -1,5 +1,6 @@
 use crate::aad::aad_keyvault_record_v1;
 use crate::crypto::{aead_decrypt, encrypt_vault_record};
+use crate::error::{CoreError, CoreResult};
 use crate::formats::{
   decode_keyvault_record_plain_v1, encode_keyvault_record_container_v1, encode_keyvault_record_plain_v1,
   KeyVaultHeaderV1, KeyVaultRecordContainerV1, KeyVaultRecordPlainV1,
@@ -50,7 +51,7 @@ impl KeyVaultState {
     header: &KeyVaultHeaderV1,
     vault_key: &[u8],
     containers: &[KeyVaultRecordContainerV1],
-  ) -> Result<(KeyVaultState, KeyVaultMaterialized), String> {
+  ) -> CoreResult<(KeyVaultState, KeyVaultMaterialized)> {
     let mut state = KeyVaultState::default();
     let mut materialized = KeyVaultMaterialized::default();
     let mut prev_hash = vec![0u8; 32];
@@ -62,23 +63,23 @@ impl KeyVaultState {
 
     for container in sorted {
       if container.seq != expected_seq {
-        return Err("keyvault seq mismatch".to_string());
+        return Err(CoreError::Format("keyvault seq mismatch".to_string()));
       }
       expected_seq = expected_seq.saturating_add(1);
       if !seen_record_ids.insert(container.record_id.clone()) {
-        return Err("duplicate keyvault record_id".to_string());
+        return Err(CoreError::Format("duplicate keyvault record_id".to_string()));
       }
       let container_bytes = encode_keyvault_record_container_v1(&container)?;
       let hash = sha256(&container_bytes).to_vec();
       if container.prev_hash != prev_hash {
-        return Err("keyvault chain mismatch".to_string());
+        return Err(CoreError::Format("keyvault chain mismatch".to_string()));
       }
       let aad = aad_keyvault_record_v1(&header.vault_id, &header.user_id, header.aead, &container.record_id)?;
       let plaintext = aead_decrypt::<Aes256Gcm>(vault_key, &aad, &container.nonce, &container.ct)
-        .map_err(|_| "keyvault record decrypt failed".to_string())?;
+        .map_err(|_| CoreError::Format("keyvault record decrypt failed".to_string()))?;
       let record_plain = decode_keyvault_record_plain_v1(&plaintext)?;
       if record_plain.record_id != container.record_id {
-        return Err("record id mismatch".to_string());
+        return Err(CoreError::Format("record id mismatch".to_string()));
       }
       apply_record_plain(&record_plain, &mut materialized)?;
 
@@ -97,9 +98,9 @@ impl KeyVaultState {
     vault_key: &[u8],
     record: &KeyVaultRecordPlainV1,
     seq: u64,
-  ) -> Result<KeyVaultRecordContainerV1, String> {
+  ) -> CoreResult<KeyVaultRecordContainerV1> {
     if seq != self.head_seq + 1 {
-      return Err("keyvault seq mismatch".to_string());
+      return Err(CoreError::Format("keyvault seq mismatch".to_string()));
     }
     let plaintext = encode_keyvault_record_plain_v1(record)?;
     let aad = aad_keyvault_record_v1(&header.vault_id, &header.user_id, header.aead, &record.record_id)?;
@@ -121,7 +122,7 @@ impl KeyVaultState {
   }
 }
 
-fn apply_record_plain(record: &KeyVaultRecordPlainV1, materialized: &mut KeyVaultMaterialized) -> Result<(), String> {
+fn apply_record_plain(record: &KeyVaultRecordPlainV1, materialized: &mut KeyVaultMaterialized) -> CoreResult<()> {
   match record.kind {
     1 => {
       let map = crate::cbor::as_map(&record.payload)?;
@@ -136,9 +137,10 @@ fn apply_record_plain(record: &KeyVaultRecordPlainV1, materialized: &mut KeyVaul
       let ed_priv = crate::cbor::req_bytes(map, 1)?;
       let ed_pub = crate::cbor::req_bytes(map, 2)?;
       let sig_suite = crate::cbor::req_text(map, 3)?;
-      let suite = crate::types::SigCiphersuiteId::try_from(sig_suite.as_str()).map_err(|e| e.to_string())?;
+      let suite =
+        crate::types::SigCiphersuiteId::try_from(sig_suite.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
       if suite != crate::types::SigCiphersuiteId::HybridSig1 {
-        return Err("unsupported signing suite".to_string());
+        return Err(CoreError::Format("unsupported signing suite".to_string()));
       }
       let ml_priv = crate::cbor::req_bytes(map, 4)?;
       let ml_pub = crate::cbor::req_bytes(map, 5)?;

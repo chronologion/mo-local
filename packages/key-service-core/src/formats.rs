@@ -3,6 +3,7 @@ use crate::cbor::{
   encode_canonical_value, opt_bytes, req_bytes, req_text, req_uint, CborLimits,
 };
 use crate::crypto::KdfParams;
+use crate::error::{CoreError, CoreResult};
 use crate::hash::sha256;
 use crate::types::{AeadId, DeviceId, KemCiphersuiteId, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SigCiphersuiteId, UserId};
 use ciborium::value::Value;
@@ -22,7 +23,7 @@ pub struct ScopeStateV1 {
 }
 
 impl ScopeStateV1 {
-  pub fn from_cbor(value: Value) -> Result<Self, String> {
+  pub fn from_cbor(value: Value) -> CoreResult<Self> {
     let map = as_map(&value)?;
     let v = req_uint(map, 0)?;
     let scope_id = ScopeId(req_text(map, 1)?);
@@ -33,7 +34,7 @@ impl ScopeStateV1 {
     let kind = req_uint(map, 5)?;
     let payload = map_get(map, 6)?.clone();
     let signer_device_id = DeviceId(req_text(map, 7)?);
-    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 8)?.as_str()).map_err(|e| e.to_string())?;
+    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 8)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
     let signature = req_bytes(map, 9)?;
 
     Ok(Self {
@@ -50,7 +51,7 @@ impl ScopeStateV1 {
     })
   }
 
-  pub fn to_be_signed_bytes(&self) -> Result<Vec<u8>, String> {
+  pub fn to_be_signed_bytes(&self) -> CoreResult<Vec<u8>> {
     let value = cbor_map(vec![
       (0, cbor_uint(self.v)),
       (1, cbor_text(&self.scope_id.0)),
@@ -65,7 +66,7 @@ impl ScopeStateV1 {
     encode_canonical_value(&value)
   }
 
-  pub fn scope_state_ref_bytes(&self) -> Result<Vec<u8>, String> {
+  pub fn scope_state_ref_bytes(&self) -> CoreResult<Vec<u8>> {
     let signed = cbor_map(vec![
       (0, cbor_uint(self.v)),
       (1, cbor_text(&self.scope_id.0)),
@@ -82,7 +83,7 @@ impl ScopeStateV1 {
     Ok(sha256(&bytes).to_vec())
   }
 
-  pub fn scope_state_ref(&self) -> Result<String, String> {
+  pub fn scope_state_ref(&self) -> CoreResult<String> {
     Ok(hex::encode(self.scope_state_ref_bytes()?))
   }
 }
@@ -108,7 +109,7 @@ pub struct ResourceGrantV1 {
 }
 
 impl ResourceGrantV1 {
-  pub fn from_cbor(value: Value) -> Result<Self, String> {
+  pub fn from_cbor(value: Value) -> CoreResult<Self> {
     let map = as_map(&value)?;
     let v = req_uint(map, 0)?;
     let grant_id = req_text(map, 1)?;
@@ -122,12 +123,12 @@ impl ResourceGrantV1 {
     let resource_id = ResourceId(req_text(map, 7)?);
     let resource_key_id = ResourceKeyId(req_text(map, 8)?);
     let policy = map_get_opt(map, 9).cloned();
-    let aead = AeadId::try_from(req_text(map, 10)?.as_str()).map_err(|e| e.to_string())?;
+    let aead = AeadId::try_from(req_text(map, 10)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
     let nonce = req_bytes(map, 11)?;
     require_len(&nonce, 12, "resource_grant.nonce")?;
     let wrapped_key = req_bytes(map, 12)?;
     let signer_device_id = DeviceId(req_text(map, 13)?);
-    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 14)?.as_str()).map_err(|e| e.to_string())?;
+    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 14)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
     let signature = req_bytes(map, 15)?;
 
     Ok(Self {
@@ -150,7 +151,7 @@ impl ResourceGrantV1 {
     })
   }
 
-  pub fn to_be_signed_bytes(&self) -> Result<Vec<u8>, String> {
+  pub fn to_be_signed_bytes(&self) -> CoreResult<Vec<u8>> {
     let mut entries = vec![
       (0, cbor_uint(self.v)),
       (1, cbor_text(&self.grant_id)),
@@ -197,7 +198,7 @@ pub struct KeyEnvelopeV1 {
 }
 
 impl KeyEnvelopeV1 {
-  pub fn from_cbor(value: Value) -> Result<Self, String> {
+  pub fn from_cbor(value: Value) -> CoreResult<Self> {
     let map = as_map(&value)?;
     let v = req_uint(map, 0)?;
     let envelope_id = req_text(map, 1)?;
@@ -206,14 +207,14 @@ impl KeyEnvelopeV1 {
     let recipient_user_id = UserId(req_text(map, 4)?);
     let scope_state_ref = req_bytes(map, 5)?;
     require_len(&scope_state_ref, 32, "key_envelope.scope_state_ref")?;
-    let kem = KemCiphersuiteId::try_from(req_text(map, 6)?.as_str()).map_err(|e| e.to_string())?;
-    let aead = AeadId::try_from(req_text(map, 7)?.as_str()).map_err(|e| e.to_string())?;
+    let kem = KemCiphersuiteId::try_from(req_text(map, 6)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
+    let aead = AeadId::try_from(req_text(map, 7)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
     let enc = req_bytes(map, 8)?;
     let nonce = req_bytes(map, 9)?;
     require_len(&nonce, 12, "key_envelope.nonce")?;
     let wrapped_scope_key = req_bytes(map, 10)?;
     let signer_device_id = DeviceId(req_text(map, 11)?);
-    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 12)?.as_str()).map_err(|e| e.to_string())?;
+    let sig_suite = SigCiphersuiteId::try_from(req_text(map, 12)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
     let signature = req_bytes(map, 13)?;
     let recipient_uk_pub_fingerprint = opt_bytes(map, 14)?;
 
@@ -236,7 +237,7 @@ impl KeyEnvelopeV1 {
     })
   }
 
-  pub fn to_be_signed_bytes(&self) -> Result<Vec<u8>, String> {
+  pub fn to_be_signed_bytes(&self) -> CoreResult<Vec<u8>> {
     let mut entries = vec![
       (0, cbor_uint(self.v)),
       (1, cbor_text(&self.envelope_id)),
@@ -301,7 +302,7 @@ pub struct KeyVaultSnapshotV1 {
   pub records: Vec<KeyVaultRecordContainerV1>,
 }
 
-pub fn encode_keyvault_header_v1(header: &KeyVaultHeaderV1) -> Result<Vec<u8>, String> {
+pub fn encode_keyvault_header_v1(header: &KeyVaultHeaderV1) -> CoreResult<Vec<u8>> {
   let kdf_map = cbor_map(vec![
     (0, cbor_text(&header.kdf.id)),
     (1, cbor_bytes(&header.kdf.salt)),
@@ -328,7 +329,7 @@ pub fn encode_keyvault_header_v1(header: &KeyVaultHeaderV1) -> Result<Vec<u8>, S
   encode_canonical_value(&value)
 }
 
-pub fn decode_keyvault_header_v1(bytes: &[u8]) -> Result<KeyVaultHeaderV1, String> {
+pub fn decode_keyvault_header_v1(bytes: &[u8]) -> CoreResult<KeyVaultHeaderV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   let map = as_map(&value)?;
   let v = req_uint(map, 0)?;
@@ -336,7 +337,7 @@ pub fn decode_keyvault_header_v1(bytes: &[u8]) -> Result<KeyVaultHeaderV1, Strin
   let user_id = req_text(map, 2)?;
   let kdf_value = map_get(map, 3)?;
   let kdf = decode_kdf(kdf_value)?;
-  let aead = AeadId::try_from(req_text(map, 4)?.as_str()).map_err(|e| e.to_string())?;
+  let aead = AeadId::try_from(req_text(map, 4)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
   let records_value = map_get(map, 5)?;
   let records = decode_record_containers(records_value)?;
   let vault_key_wrap_value = map_get(map, 6)?;
@@ -352,17 +353,17 @@ pub fn decode_keyvault_header_v1(bytes: &[u8]) -> Result<KeyVaultHeaderV1, Strin
   })
 }
 
-pub fn encode_keyvault_record_container_v1(record: &KeyVaultRecordContainerV1) -> Result<Vec<u8>, String> {
+pub fn encode_keyvault_record_container_v1(record: &KeyVaultRecordContainerV1) -> CoreResult<Vec<u8>> {
   let value = encode_record_container_value(record);
   encode_canonical_value(&value)
 }
 
-pub fn decode_keyvault_record_container_v1(bytes: &[u8]) -> Result<KeyVaultRecordContainerV1, String> {
+pub fn decode_keyvault_record_container_v1(bytes: &[u8]) -> CoreResult<KeyVaultRecordContainerV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   decode_record_container(value)
 }
 
-pub fn encode_keyvault_record_plain_v1(record: &KeyVaultRecordPlainV1) -> Result<Vec<u8>, String> {
+pub fn encode_keyvault_record_plain_v1(record: &KeyVaultRecordPlainV1) -> CoreResult<Vec<u8>> {
   let value = cbor_map(vec![
     (0, cbor_text(&record.record_id)),
     (1, cbor_uint(record.kind)),
@@ -371,7 +372,7 @@ pub fn encode_keyvault_record_plain_v1(record: &KeyVaultRecordPlainV1) -> Result
   encode_canonical_value(&value)
 }
 
-pub fn decode_keyvault_record_plain_v1(bytes: &[u8]) -> Result<KeyVaultRecordPlainV1, String> {
+pub fn decode_keyvault_record_plain_v1(bytes: &[u8]) -> CoreResult<KeyVaultRecordPlainV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   let map = as_map(&value)?;
   let record_id = req_text(map, 0)?;
@@ -384,7 +385,7 @@ pub fn decode_keyvault_record_plain_v1(bytes: &[u8]) -> Result<KeyVaultRecordPla
   })
 }
 
-pub fn encode_keyvault_snapshot_v1(snapshot: &KeyVaultSnapshotV1) -> Result<Vec<u8>, String> {
+pub fn encode_keyvault_snapshot_v1(snapshot: &KeyVaultSnapshotV1) -> CoreResult<Vec<u8>> {
   let header_value = decode_canonical_value(&encode_keyvault_header_v1(&snapshot.header)?, &CborLimits::default())?;
   let record_values = snapshot
     .records
@@ -399,7 +400,7 @@ pub fn encode_keyvault_snapshot_v1(snapshot: &KeyVaultSnapshotV1) -> Result<Vec<
 }
 
 impl KeyVaultSnapshotV1 {
-  pub fn from_cbor(value: Value) -> Result<Self, String> {
+  pub fn from_cbor(value: Value) -> CoreResult<Self> {
     let map = as_map(&value)?;
     let header_value = map_get(map, 0)?;
     let header_bytes = encode_canonical_value(header_value)?;
@@ -410,7 +411,7 @@ impl KeyVaultSnapshotV1 {
   }
 }
 
-fn decode_record_containers(value: &Value) -> Result<Vec<KeyVaultRecordContainerV1>, String> {
+fn decode_record_containers(value: &Value) -> CoreResult<Vec<KeyVaultRecordContainerV1>> {
   let arr = as_array(value)?;
   let mut records = Vec::new();
   for item in arr {
@@ -430,7 +431,7 @@ fn encode_record_container_value(record: &KeyVaultRecordContainerV1) -> Value {
   ])
 }
 
-fn decode_record_container(value: Value) -> Result<KeyVaultRecordContainerV1, String> {
+fn decode_record_container(value: Value) -> CoreResult<KeyVaultRecordContainerV1> {
   let map = as_map(&value)?;
   let prev_hash = req_bytes(map, 2)?;
   require_len(&prev_hash, 32, "keyvault.prev_hash")?;
@@ -446,7 +447,7 @@ fn decode_record_container(value: Value) -> Result<KeyVaultRecordContainerV1, St
   })
 }
 
-fn decode_kdf(value: &Value) -> Result<KdfParams, String> {
+fn decode_kdf(value: &Value) -> CoreResult<KdfParams> {
   let map = as_map(value)?;
   let id = req_text(map, 0)?;
   let salt = req_bytes(map, 1)?;
@@ -464,23 +465,23 @@ fn decode_kdf(value: &Value) -> Result<KdfParams, String> {
   })
 }
 
-fn decode_vault_key_wrap(value: &Value) -> Result<VaultKeyWrapV1, String> {
+fn decode_vault_key_wrap(value: &Value) -> CoreResult<VaultKeyWrapV1> {
   let map = as_map(value)?;
-  let aead = AeadId::try_from(req_text(map, 0)?.as_str()).map_err(|e| e.to_string())?;
+  let aead = AeadId::try_from(req_text(map, 0)?.as_str()).map_err(|e| CoreError::Format(e.to_string()))?;
   let nonce = req_bytes(map, 1)?;
   require_len(&nonce, 12, "vault_key_wrap.nonce")?;
   let ct = req_bytes(map, 2)?;
   Ok(VaultKeyWrapV1 { aead, nonce, ct })
 }
 
-fn require_len(bytes: &[u8], expected: usize, name: &str) -> Result<(), String> {
+fn require_len(bytes: &[u8], expected: usize, name: &str) -> CoreResult<()> {
   if bytes.len() != expected {
-    return Err(format!("invalid {name} length"));
+    return Err(CoreError::Format(format!("invalid {name} length")));
   }
   Ok(())
 }
 
-fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> Result<&'a Value, String> {
+fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> CoreResult<&'a Value> {
   map.iter()
     .find_map(|(k, v)| match k {
       Value::Integer(int) => {
@@ -493,7 +494,7 @@ fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> Result<&'a Value, String>
       }
       _ => None,
     })
-    .ok_or_else(|| format!("missing key {key}"))
+    .ok_or_else(|| CoreError::Format(format!("missing key {key}")))
 }
 
 fn map_get_opt<'a>(map: &'a [(Value, Value)], key: u64) -> Option<&'a Value> {
@@ -510,7 +511,7 @@ fn map_get_opt<'a>(map: &'a [(Value, Value)], key: u64) -> Option<&'a Value> {
   })
 }
 
-pub fn encode_scope_state_v1(scope_state: &ScopeStateV1) -> Result<Vec<u8>, String> {
+pub fn encode_scope_state_v1(scope_state: &ScopeStateV1) -> CoreResult<Vec<u8>> {
   let value = cbor_map(vec![
     (0, cbor_uint(scope_state.v)),
     (1, cbor_text(&scope_state.scope_id.0)),
@@ -526,7 +527,7 @@ pub fn encode_scope_state_v1(scope_state: &ScopeStateV1) -> Result<Vec<u8>, Stri
   encode_canonical_value(&value)
 }
 
-pub fn encode_resource_grant_v1(grant: &ResourceGrantV1) -> Result<Vec<u8>, String> {
+pub fn encode_resource_grant_v1(grant: &ResourceGrantV1) -> CoreResult<Vec<u8>> {
   let mut entries = vec![
     (0, cbor_uint(grant.v)),
     (1, cbor_text(&grant.grant_id)),
@@ -553,7 +554,7 @@ pub fn encode_resource_grant_v1(grant: &ResourceGrantV1) -> Result<Vec<u8>, Stri
   encode_canonical_value(&value)
 }
 
-pub fn encode_key_envelope_v1(envelope: &KeyEnvelopeV1) -> Result<Vec<u8>, String> {
+pub fn encode_key_envelope_v1(envelope: &KeyEnvelopeV1) -> CoreResult<Vec<u8>> {
   let mut entries = vec![
     (0, cbor_uint(envelope.v)),
     (1, cbor_text(&envelope.envelope_id)),
@@ -577,17 +578,17 @@ pub fn encode_key_envelope_v1(envelope: &KeyEnvelopeV1) -> Result<Vec<u8>, Strin
   encode_canonical_value(&value)
 }
 
-pub fn decode_scope_state_v1(bytes: &[u8]) -> Result<ScopeStateV1, String> {
+pub fn decode_scope_state_v1(bytes: &[u8]) -> CoreResult<ScopeStateV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   ScopeStateV1::from_cbor(value)
 }
 
-pub fn decode_resource_grant_v1(bytes: &[u8]) -> Result<ResourceGrantV1, String> {
+pub fn decode_resource_grant_v1(bytes: &[u8]) -> CoreResult<ResourceGrantV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   ResourceGrantV1::from_cbor(value)
 }
 
-pub fn decode_key_envelope_v1(bytes: &[u8]) -> Result<KeyEnvelopeV1, String> {
+pub fn decode_key_envelope_v1(bytes: &[u8]) -> CoreResult<KeyEnvelopeV1> {
   let value = decode_canonical_value(bytes, &CborLimits::default())?;
   KeyEnvelopeV1::from_cbor(value)
 }

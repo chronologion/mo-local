@@ -1,5 +1,6 @@
 use crate::cbor::{cbor_array, cbor_bytes, encode_canonical_value};
 use crate::crypto::hkdf_sha256;
+use crate::error::{CoreError, CoreResult};
 use crate::types::{KemCiphersuiteId, SigCiphersuiteId};
 use ed25519_dalek::{Signature as Ed25519Signature, SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519VerifyingKey};
 use getrandom::getrandom;
@@ -20,13 +21,12 @@ use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use ml_dsa::signature::Signer as MlSigner;
 use ml_dsa::signature::Verifier as MlVerifier;
 
-fn random_bytes<const N: usize>() -> Result<[u8; N], String> {
+fn random_bytes<const N: usize>() -> CoreResult<[u8; N]> {
   let mut bytes = [0u8; N];
-  getrandom(&mut bytes).map_err(|_| "getrandom failed".to_string())?;
+  getrandom(&mut bytes).map_err(|_| CoreError::Entropy("getrandom failed".to_string()))?;
   Ok(bytes)
 }
 
-#[derive(Clone)]
 pub struct HybridKemRecipient {
   pub x25519_secret: [u8; 32],
   pub x25519_public: [u8; 32],
@@ -59,7 +59,6 @@ pub struct HybridKemEncap {
   pub wrap_key: Vec<u8>,
 }
 
-#[derive(Clone)]
 pub struct HybridSignatureKeypair {
   pub ed25519_priv: Vec<u8>,
   pub ed25519_pub: Vec<u8>,
@@ -85,7 +84,7 @@ pub struct SignerKeys {
   pub mldsa_pub: Vec<u8>,
 }
 
-pub fn generate_user_keypair() -> Result<(HybridKemRecipient, Vec<u8>), String> {
+pub fn generate_user_keypair() -> CoreResult<(HybridKemRecipient, Vec<u8>)> {
   let x25519_seed = random_bytes::<32>()?;
   let x_secret = X25519Secret::from(x25519_seed);
   let x_public = X25519PublicKey::from(&x_secret);
@@ -116,7 +115,7 @@ pub fn user_keypair_public(recipient: &HybridKemRecipient) -> HybridKemRecipient
   }
 }
 
-pub fn generate_device_signing_keypair() -> Result<HybridSignatureKeypair, String> {
+pub fn generate_device_signing_keypair() -> CoreResult<HybridSignatureKeypair> {
   let ed_seed = random_bytes::<32>()?;
   let ed_sign = Ed25519SigningKey::from_bytes(&ed_seed);
   let ed_pub = ed_sign.verifying_key();
@@ -136,9 +135,9 @@ pub fn generate_device_signing_keypair() -> Result<HybridSignatureKeypair, Strin
 pub fn hybrid_kem_encapsulate(
   recipient: &HybridKemRecipientPublic,
   kem: KemCiphersuiteId,
-) -> Result<HybridKemEncap, String> {
+) -> CoreResult<HybridKemEncap> {
   if kem != KemCiphersuiteId::HybridKem1 {
-    return Err("unsupported kem".to_string());
+    return Err(CoreError::Crypto("unsupported kem".to_string()));
   }
 
   let x_seed = random_bytes::<32>()?;
@@ -150,13 +149,12 @@ pub fn hybrid_kem_encapsulate(
   let m: MlKemB32 = random_bytes::<32>()?.into();
   let (ct, ss_mlkem) = ek
     .encapsulate_deterministic(&m)
-    .map_err(|_| "ml-kem encapsulate failed".to_string())?;
+    .map_err(|_| CoreError::Crypto("ml-kem encapsulate failed".to_string()))?;
 
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x25519_shared.as_bytes());
   ikm.extend_from_slice(ss_mlkem.as_slice());
-  let wrap_key = hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
-    .map_err(|e| e.to_string())?;
+  let wrap_key = hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)?;
 
   let enc = pack_hybrid_kem_enc(&x25519_public.to_bytes(), ct.as_slice())?;
 
@@ -167,9 +165,9 @@ pub fn derive_hybrid_kem_wrap_key(
   enc: &[u8],
   recipient: &HybridKemRecipient,
   kem: KemCiphersuiteId,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   if kem != KemCiphersuiteId::HybridKem1 {
-    return Err("unsupported kem".to_string());
+    return Err(CoreError::Crypto("unsupported kem".to_string()));
   }
   let (x25519_pub, mlkem_ct) = unpack_hybrid_kem_enc(enc)?;
   let x_secret = X25519Secret::from(recipient.x25519_secret);
@@ -177,7 +175,9 @@ pub fn derive_hybrid_kem_wrap_key(
 
   let dk = decode_mlkem_decapsulation_key(&recipient.mlkem_decaps_bytes)?;
   let ct_arr = decode_mlkem_ciphertext(&mlkem_ct)?;
-  let ss_mlkem = dk.decapsulate(&ct_arr).map_err(|_| "ml-kem decapsulate failed".to_string())?;
+  let ss_mlkem = dk
+    .decapsulate(&ct_arr)
+    .map_err(|_| CoreError::Crypto("ml-kem decapsulate failed".to_string()))?;
 
   let mut ikm = Vec::new();
   ikm.extend_from_slice(x_shared.as_bytes());
@@ -185,8 +185,12 @@ pub fn derive_hybrid_kem_wrap_key(
   hkdf_sha256(&ikm, b"mo-key-envelope|hybrid-kem-1", 32)
 }
 
-pub fn hybrid_sign(data: &[u8], keypair: &HybridSignatureKeypair) -> Result<Vec<u8>, String> {
-  let ed_seed: [u8; 32] = keypair.ed25519_priv.clone().try_into().map_err(|_| "ed25519 priv size".to_string())?;
+pub fn hybrid_sign(data: &[u8], keypair: &HybridSignatureKeypair) -> CoreResult<Vec<u8>> {
+  let ed_seed: [u8; 32] = keypair
+    .ed25519_priv
+    .clone()
+    .try_into()
+    .map_err(|_| CoreError::Crypto("ed25519 priv size".to_string()))?;
   let ed = Ed25519SigningKey::from_bytes(&ed_seed);
   let ed_sig = ed.sign(data);
 
@@ -194,7 +198,7 @@ pub fn hybrid_sign(data: &[u8], keypair: &HybridSignatureKeypair) -> Result<Vec<
     .mldsa_priv
     .as_slice()
     .try_into()
-    .map_err(|_| "mldsa priv size".to_string())?;
+    .map_err(|_| CoreError::Crypto("mldsa priv size".to_string()))?;
   let ml_sign = MlDsaSigningKey::<MlDsa65>::decode(&ml_enc);
   let ml_sig = ml_sign.sign(data);
 
@@ -239,93 +243,99 @@ pub fn hybrid_verify(data: &[u8], signature: &[u8], signer: &SignerKeys) -> bool
   ed_ok && ml_ok
 }
 
-pub fn pack_hybrid_kem_enc(x25519_pub: &[u8], mlkem_ct: &[u8]) -> Result<Vec<u8>, String> {
+pub fn pack_hybrid_kem_enc(x25519_pub: &[u8], mlkem_ct: &[u8]) -> CoreResult<Vec<u8>> {
   let value = cbor_array(vec![cbor_bytes(x25519_pub), cbor_bytes(mlkem_ct)]);
   encode_canonical_value(&value)
 }
 
-pub fn unpack_hybrid_kem_enc(bytes: &[u8]) -> Result<([u8; 32], Vec<u8>), String> {
+pub fn unpack_hybrid_kem_enc(bytes: &[u8]) -> CoreResult<([u8; 32], Vec<u8>)> {
   let value = crate::cbor::decode_canonical_value(bytes, &crate::cbor::CborLimits::default())?;
   let arr = crate::cbor::as_array(&value)?;
   if arr.len() != 2 {
-    return Err("invalid kem enc array len".to_string());
+    return Err(CoreError::Format("invalid kem enc array len".to_string()));
   }
   let x = match &arr[0] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid kem enc x25519".to_string()),
+    _ => return Err(CoreError::Format("invalid kem enc x25519".to_string())),
   };
   let ml = match &arr[1] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid kem enc mlkem".to_string()),
+    _ => return Err(CoreError::Format("invalid kem enc mlkem".to_string())),
   };
-  let x_bytes: [u8; 32] = x.try_into().map_err(|_| "invalid x25519 pub size".to_string())?;
+  let x_bytes: [u8; 32] = x
+    .try_into()
+    .map_err(|_| CoreError::Format("invalid x25519 pub size".to_string()))?;
   Ok((x_bytes, ml))
 }
 
-pub fn pack_hybrid_signature(ed_sig: &[u8], mldsa_sig: &[u8]) -> Result<Vec<u8>, String> {
+pub fn pack_hybrid_signature(ed_sig: &[u8], mldsa_sig: &[u8]) -> CoreResult<Vec<u8>> {
   let value = cbor_array(vec![cbor_bytes(ed_sig), cbor_bytes(mldsa_sig)]);
   encode_canonical_value(&value)
 }
 
-pub fn unpack_hybrid_signature(bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
+pub fn unpack_hybrid_signature(bytes: &[u8]) -> CoreResult<(Vec<u8>, Vec<u8>)> {
   let value = crate::cbor::decode_canonical_value(bytes, &crate::cbor::CborLimits::default())?;
   let arr = crate::cbor::as_array(&value)?;
   if arr.len() != 2 {
-    return Err("invalid sig array len".to_string());
+    return Err(CoreError::Format("invalid sig array len".to_string()));
   }
   let ed = match &arr[0] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid sig ed25519".to_string()),
+    _ => return Err(CoreError::Format("invalid sig ed25519".to_string())),
   };
   let ml = match &arr[1] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid sig mldsa".to_string()),
+    _ => return Err(CoreError::Format("invalid sig mldsa".to_string())),
   };
   Ok((ed, ml))
 }
 
-pub fn encode_user_public_bytes(x25519_pub: &[u8], mlkem_encaps: &[u8]) -> Result<Vec<u8>, String> {
+pub fn encode_user_public_bytes(x25519_pub: &[u8], mlkem_encaps: &[u8]) -> CoreResult<Vec<u8>> {
   let value = cbor_array(vec![cbor_bytes(x25519_pub), cbor_bytes(mlkem_encaps)]);
   encode_canonical_value(&value)
 }
 
-pub fn decode_user_public_bytes(bytes: &[u8]) -> Result<HybridKemRecipientPublic, String> {
+pub fn decode_user_public_bytes(bytes: &[u8]) -> CoreResult<HybridKemRecipientPublic> {
   let value = crate::cbor::decode_canonical_value(bytes, &crate::cbor::CborLimits::default())?;
   let arr = crate::cbor::as_array(&value)?;
   if arr.len() != 2 {
-    return Err("invalid user public array".to_string());
+    return Err(CoreError::Format("invalid user public array".to_string()));
   }
   let x = match &arr[0] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid user public x25519".to_string()),
+    _ => return Err(CoreError::Format("invalid user public x25519".to_string())),
   };
   let ml = match &arr[1] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid user public mlkem".to_string()),
+    _ => return Err(CoreError::Format("invalid user public mlkem".to_string())),
   };
-  let x_bytes: [u8; 32] = x.try_into().map_err(|_| "invalid x25519 pub size".to_string())?;
+  let x_bytes: [u8; 32] = x
+    .try_into()
+    .map_err(|_| CoreError::Format("invalid x25519 pub size".to_string()))?;
   Ok(HybridKemRecipientPublic {
     x25519_public: x_bytes,
     mlkem_encaps_bytes: ml,
   })
 }
 
-pub fn decode_user_keypair(uk_priv: &[u8], uk_pub: &[u8]) -> Result<HybridKemRecipient, String> {
+pub fn decode_user_keypair(uk_priv: &[u8], uk_pub: &[u8]) -> CoreResult<HybridKemRecipient> {
   let pub_parts = decode_user_public_bytes(uk_pub)?;
   let value = crate::cbor::decode_canonical_value(uk_priv, &crate::cbor::CborLimits::default())?;
   let arr = crate::cbor::as_array(&value)?;
   if arr.len() != 2 {
-    return Err("invalid user private array".to_string());
+    return Err(CoreError::Format("invalid user private array".to_string()));
   }
   let x = match &arr[0] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid user private x25519".to_string()),
+    _ => return Err(CoreError::Format("invalid user private x25519".to_string())),
   };
   let ml = match &arr[1] {
     ciborium::value::Value::Bytes(b) => b.clone(),
-    _ => return Err("invalid user private mlkem".to_string()),
+    _ => return Err(CoreError::Format("invalid user private mlkem".to_string())),
   };
-  let x_bytes: [u8; 32] = x.try_into().map_err(|_| "invalid x25519 priv size".to_string())?;
+  let x_bytes: [u8; 32] = x
+    .try_into()
+    .map_err(|_| CoreError::Format("invalid x25519 priv size".to_string()))?;
   Ok(HybridKemRecipient {
     x25519_secret: x_bytes,
     x25519_public: pub_parts.x25519_public,
@@ -335,28 +345,33 @@ pub fn decode_user_keypair(uk_priv: &[u8], uk_pub: &[u8]) -> Result<HybridKemRec
   })
 }
 
-pub fn encode_user_private_bytes(x25519_priv: &[u8], mlkem_decaps: &[u8]) -> Result<Vec<u8>, String> {
+pub fn encode_user_private_bytes(x25519_priv: &[u8], mlkem_decaps: &[u8]) -> CoreResult<Vec<u8>> {
   let value = cbor_array(vec![cbor_bytes(x25519_priv), cbor_bytes(mlkem_decaps)]);
   encode_canonical_value(&value)
 }
 
-fn decode_mlkem_encapsulation_key(bytes: &[u8]) -> Result<MlKemEncapsulationKey<MlKem768Params>, String> {
+fn decode_mlkem_encapsulation_key(bytes: &[u8]) -> CoreResult<MlKemEncapsulationKey<MlKem768Params>> {
   let arr: Encoded<MlKemEncapsulationKey<MlKem768Params>> =
-    bytes.try_into().map_err(|_| "mlkem encaps key size".to_string())?;
+    bytes.try_into().map_err(|_| CoreError::Format("mlkem encaps key size".to_string()))?;
   Ok(MlKemEncapsulationKey::<MlKem768Params>::from_bytes(&arr))
 }
 
-fn decode_mlkem_decapsulation_key(bytes: &[u8]) -> Result<MlKemDecapsulationKey<MlKem768Params>, String> {
+fn decode_mlkem_decapsulation_key(bytes: &[u8]) -> CoreResult<MlKemDecapsulationKey<MlKem768Params>> {
   let arr: Encoded<MlKemDecapsulationKey<MlKem768Params>> =
-    bytes.try_into().map_err(|_| "mlkem decaps key size".to_string())?;
+    bytes.try_into().map_err(|_| CoreError::Format("mlkem decaps key size".to_string()))?;
   Ok(MlKemDecapsulationKey::<MlKem768Params>::from_bytes(&arr))
 }
 
-fn decode_mlkem_ciphertext(bytes: &[u8]) -> Result<MlKemCiphertext<MlKem768>, String> {
-  bytes.try_into().map_err(|_| "mlkem ciphertext size".to_string())
+fn decode_mlkem_ciphertext(bytes: &[u8]) -> CoreResult<MlKemCiphertext<MlKem768>> {
+  bytes
+    .try_into()
+    .map_err(|_| CoreError::Format("mlkem ciphertext size".to_string()))
 }
 
-fn ed25519_pub_from_bytes(bytes: &[u8]) -> Result<Ed25519VerifyingKey, String> {
-  let arr: [u8; 32] = bytes.try_into().map_err(|_| "ed25519 pub size".to_string())?;
-  Ed25519VerifyingKey::from_bytes(&arr).map_err(|_| "ed25519 pub decode".to_string())
+fn ed25519_pub_from_bytes(bytes: &[u8]) -> CoreResult<Ed25519VerifyingKey> {
+  let arr: [u8; 32] = bytes
+    .try_into()
+    .map_err(|_| CoreError::Format("ed25519 pub size".to_string()))?;
+  Ed25519VerifyingKey::from_bytes(&arr)
+    .map_err(|_| CoreError::Format("ed25519 pub decode".to_string()))
 }

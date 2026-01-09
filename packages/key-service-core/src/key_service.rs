@@ -10,6 +10,7 @@ use crate::ciphersuite::{
   hybrid_verify, HybridKemRecipient, SignerKeys,
 };
 use crate::crypto::{aead_decrypt, aead_encrypt, derive_kek, hkdf_sha256, sha256_bytes};
+use crate::error::CoreError;
 use crate::formats::{
   decode_keyvault_header_v1, decode_keyvault_record_container_v1, encode_keyvault_header_v1,
   encode_keyvault_record_container_v1, encode_keyvault_snapshot_v1, KeyEnvelopeV1, KeyVaultHeaderV1,
@@ -55,6 +56,17 @@ pub enum KeyServiceError {
   ScopeKeyMissing,
   #[error("fingerprint mismatch")]
   FingerprintMismatch,
+}
+
+impl From<CoreError> for KeyServiceError {
+  fn from(err: CoreError) -> Self {
+    match err {
+      CoreError::Cbor(msg) => KeyServiceError::InvalidCbor(msg),
+      CoreError::Format(msg) => KeyServiceError::InvalidFormat(msg),
+      CoreError::Crypto(msg) => KeyServiceError::CryptoError(msg),
+      CoreError::Entropy(msg) => KeyServiceError::CryptoError(msg),
+    }
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -238,8 +250,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let kek = derive_kek(passphrase_utf8, &kdf_params)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let vault_key = self.entropy.random_bytes(32);
-    let aad = aad_keyvault_keywrap_v1(&vault_id, &user_id.0, &kdf_params, AeadId::Aead1)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_keyvault_keywrap_v1(&vault_id, &user_id.0, &kdf_params, AeadId::Aead1)?;
     let nonce = self.entropy.random_bytes(12);
     let ct = aead_encrypt::<Aes256Gcm>(&kek, &aad, &vault_key, &nonce)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
@@ -281,8 +292,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let header = self.load_header()?;
     let kek = derive_kek(passphrase_utf8, &header.kdf)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
     let vault_key = aead_decrypt::<Aes256Gcm>(
       &kek,
       &aad,
@@ -297,8 +307,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let header = self.load_header()?;
     let prf_key = hkdf_sha256(prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-    let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
     let prf_info = self.load_webauthn_prf_unlock()?;
     let vault_key = aead_decrypt::<Aes256Gcm>(&prf_key, &aad, &prf_info.nonce, &prf_info.ct)
       .map_err(|_| KeyServiceError::CryptoError("vault key unwrap failed".to_string()))?;
@@ -309,8 +318,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let header = self.load_header()?;
     let kek = derive_kek(passphrase_utf8, &header.kdf)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
     let vault_key = aead_decrypt::<Aes256Gcm>(
       &kek,
       &aad,
@@ -436,8 +444,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let kek = derive_kek(new_passphrase_utf8, &new_kdf)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &new_kdf, header.aead)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_keyvault_keywrap_v1(&header.vault_id, &header.user_id, &new_kdf, header.aead)?;
     let nonce = self.entropy.random_bytes(12);
     let ct = aead_encrypt::<Aes256Gcm>(&kek, &aad, &vault_key, &nonce)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
@@ -491,8 +498,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     };
     let prf_key = hkdf_sha256(&prf_output, b"mo-webauthn-prf|unwrap-k-vault|v1", 32)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
-    let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let aad = aad_webauthn_prf_wrap_v1(&header.vault_id, &header.user_id, &header.kdf, header.aead)?;
     let nonce = self.entropy.random_bytes(12);
     let ct = aead_encrypt::<Aes256Gcm>(&prf_key, &aad, &vault_key, &nonce)
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
@@ -501,7 +507,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       nonce,
       ct,
     };
-    let bytes = info.encode().map_err(|e| KeyServiceError::InvalidCbor(e.to_string()))?;
+    let bytes = info.encode().map_err(KeyServiceError::from)?;
     self
       .storage
       .put("keyvault", "webauthn_prf", &bytes)
@@ -542,9 +548,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let scope_state = ScopeStateV1::from_cbor(value)
       .map_err(|e| KeyServiceError::InvalidFormat(e.to_string()))?;
 
-    let to_verify = scope_state
-      .to_be_signed_bytes()
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let to_verify = scope_state.to_be_signed_bytes().map_err(KeyServiceError::from)?;
     let signer_keys = extract_signer_keys(&scope_state)?;
 
     if let Some(expected) = expected_owner_signer_fingerprint {
@@ -558,9 +562,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       return Err(KeyServiceError::CryptoError("scope state signature invalid".to_string()));
     }
 
-    let scope_state_ref_bytes = scope_state
-      .scope_state_ref_bytes()
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let scope_state_ref_bytes = scope_state.scope_state_ref_bytes().map_err(KeyServiceError::from)?;
     let scope_state_ref = hex::encode(&scope_state_ref_bytes);
     let header = self.load_header()?;
     let roster = self.state.get_or_insert_with(|| KeyServiceState {
@@ -613,9 +615,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       return Err(KeyServiceError::InvalidFormat("unknown scopeStateRef".to_string()));
     }
 
-    let to_verify = envelope
-      .to_be_signed_bytes()
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let to_verify = envelope.to_be_signed_bytes().map_err(KeyServiceError::from)?;
     if !hybrid_verify(&to_verify, &envelope.signature, signer) {
       return Err(KeyServiceError::CryptoError("key envelope signature invalid".to_string()));
     }
@@ -639,8 +639,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       envelope.kem,
       envelope.aead,
       envelope.recipient_uk_pub_fingerprint.as_ref(),
-    )
-    .map_err(KeyServiceError::InvalidFormat)?;
+    )?;
 
     let scope_key = aead_decrypt::<Aes256Gcm>(
       &wrap_key,
@@ -724,9 +723,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       return Err(KeyServiceError::InvalidFormat("unknown scopeStateRef".to_string()));
     }
 
-    let to_verify = grant
-      .to_be_signed_bytes()
-      .map_err(KeyServiceError::InvalidFormat)?;
+    let to_verify = grant.to_be_signed_bytes().map_err(KeyServiceError::from)?;
     if !hybrid_verify(&to_verify, &grant.signature, signer) {
       return Err(KeyServiceError::CryptoError("resource grant signature invalid".to_string()));
     }
@@ -737,8 +734,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       grant.scope_epoch,
       &grant.resource_key_id.0,
       grant.aead,
-    )
-    .map_err(KeyServiceError::InvalidFormat)?;
+    )?;
 
     let resource_key = aead_decrypt::<Aes256Gcm>(&scope_key, &aad, &grant.nonce, &grant.wrapped_key)
       .map_err(|_| KeyServiceError::CryptoError("resource key unwrap failed".to_string()))?;
@@ -865,8 +861,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     let (uk_recipient, uk_priv_bytes) = generate_user_keypair()
       .map_err(|e| KeyServiceError::CryptoError(e.to_string()))?;
     let uk_pub = uk_recipient.public_bytes.clone();
-    let device_signer =
-      generate_device_signing_keypair().map_err(KeyServiceError::CryptoError)?;
+    let device_signer = generate_device_signing_keypair().map_err(KeyServiceError::from)?;
 
     let user_record_id = uuid_like(&self.entropy.random_bytes(16));
     let user_record = make_store_user_key_record(&user_record_id, &uk_priv_bytes, &uk_pub);
@@ -1026,7 +1021,13 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       .user_key
       .as_ref()
       .ok_or(KeyServiceError::CryptoError("missing user key".to_string()))?;
-    Ok(uk.clone())
+    Ok(HybridKemRecipient {
+      x25519_secret: uk.x25519_secret,
+      x25519_public: uk.x25519_public,
+      mlkem_decaps_bytes: uk.mlkem_decaps_bytes.clone(),
+      mlkem_encaps_bytes: uk.mlkem_encaps_bytes.clone(),
+      public_bytes: uk.public_bytes.clone(),
+    })
   }
 
   pub fn persist_scope_key(
@@ -1129,7 +1130,7 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
     if bytes.is_empty() {
       return Err(KeyServiceError::InvalidFormat("webauthn prf not enabled".to_string()));
     }
-    WebAuthnPrfUnlockV1::decode(&bytes).map_err(|e| KeyServiceError::InvalidCbor(e.to_string()))
+    WebAuthnPrfUnlockV1::decode(&bytes).map_err(KeyServiceError::from)
   }
 
   fn persist_record_container(&self, container: &KeyVaultRecordContainerV1) -> Result<(), KeyServiceError> {
@@ -1187,16 +1188,16 @@ struct WebAuthnPrfUnlockV1 {
 }
 
 impl WebAuthnPrfUnlockV1 {
-  fn encode(&self) -> Result<Vec<u8>, String> {
+  fn encode(&self) -> Result<Vec<u8>, CoreError> {
     let value = crate::cbor::cbor_map(vec![
       (0, crate::cbor::cbor_bytes(&self.credential_id)),
       (1, crate::cbor::cbor_bytes(&self.nonce)),
       (2, crate::cbor::cbor_bytes(&self.ct)),
     ]);
-    encode_canonical_value(&value).map_err(|e| e.to_string())
+    encode_canonical_value(&value)
   }
 
-  fn decode(bytes: &[u8]) -> Result<Self, String> {
+  fn decode(bytes: &[u8]) -> Result<Self, CoreError> {
     let limits = CborLimits::default();
     let value = decode_canonical_value(bytes, &limits)?;
     let map = crate::cbor::as_map(&value)?;

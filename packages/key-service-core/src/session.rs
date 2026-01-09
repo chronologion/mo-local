@@ -1,3 +1,4 @@
+use crate::error::{CoreError, CoreResult};
 use crate::types::{KeyHandle, ResourceId, ResourceKeyId, ScopeEpoch, ScopeId, SessionAssurance, SessionId, SessionKind};
 use getrandom::getrandom;
 use std::collections::HashMap;
@@ -51,7 +52,7 @@ impl Session {
     }
   }
 
-  pub fn insert_handle(&mut self, entry: HandleEntry) -> Result<KeyHandle, String> {
+  pub fn insert_handle(&mut self, entry: HandleEntry) -> CoreResult<KeyHandle> {
     if self.handles.len() >= self.max_handles {
       let key = self.handles.keys().next().cloned();
       if let Some(key) = key {
@@ -154,8 +155,8 @@ impl SessionManager {
   }
 }
 
-fn random_handle_id() -> Result<String, String> {
+fn random_handle_id() -> CoreResult<String> {
   let mut bytes = [0u8; 16];
-  getrandom(&mut bytes).map_err(|_| "getrandom failed".to_string())?;
+  getrandom(&mut bytes).map_err(|_| CoreError::Entropy("getrandom failed".to_string()))?;
   Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }

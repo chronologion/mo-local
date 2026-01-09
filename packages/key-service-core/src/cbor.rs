@@ -1,6 +1,8 @@
 use ciborium::value::{Integer, Value};
 use std::collections::BTreeMap;
 
+use crate::error::{CoreError, CoreResult};
+
 #[derive(Clone, Debug)]
 pub struct CborLimits {
   pub max_bytes: usize,
@@ -18,22 +20,22 @@ impl Default for CborLimits {
   }
 }
 
-pub fn encode_canonical_value(value: &Value) -> Result<Vec<u8>, String> {
+pub fn encode_canonical_value(value: &Value) -> CoreResult<Vec<u8>> {
   let canonical = canonicalize_value(value)?;
   let mut out = Vec::new();
-  ciborium::ser::into_writer(&canonical, &mut out).map_err(|e| e.to_string())?;
+  ciborium::ser::into_writer(&canonical, &mut out).map_err(|e| CoreError::Cbor(e.to_string()))?;
   Ok(out)
 }
 
-pub fn decode_canonical_value(bytes: &[u8], limits: &CborLimits) -> Result<Value, String> {
+pub fn decode_canonical_value(bytes: &[u8], limits: &CborLimits) -> CoreResult<Value> {
   if bytes.len() > limits.max_bytes {
-    return Err("cbor too large".to_string());
+    return Err(CoreError::Cbor("cbor too large".to_string()));
   }
-  let value: Value = ciborium::de::from_reader(bytes).map_err(|e| e.to_string())?;
+  let value: Value = ciborium::de::from_reader(bytes).map_err(|e| CoreError::Cbor(e.to_string()))?;
   check_limits(&value, limits, 0)?;
   let encoded = encode_canonical_value(&value)?;
   if encoded != bytes {
-    return Err("non-canonical cbor".to_string());
+    return Err(CoreError::Cbor("non-canonical cbor".to_string()));
   }
   Ok(value)
 }
@@ -62,75 +64,75 @@ pub fn cbor_array(items: Vec<Value>) -> Value {
   Value::Array(items)
 }
 
-pub fn as_map(value: &Value) -> Result<&[(Value, Value)], String> {
+pub fn as_map(value: &Value) -> CoreResult<&[(Value, Value)]> {
   match value {
     Value::Map(entries) => Ok(entries),
-    _ => Err("expected cbor map".to_string()),
+    _ => Err(CoreError::Cbor("expected cbor map".to_string())),
   }
 }
 
-pub fn as_array(value: &Value) -> Result<&[Value], String> {
+pub fn as_array(value: &Value) -> CoreResult<&[Value]> {
   match value {
     Value::Array(items) => Ok(items),
-    _ => Err("expected cbor array".to_string()),
+    _ => Err(CoreError::Cbor("expected cbor array".to_string())),
   }
 }
 
-pub fn req_text(map: &[(Value, Value)], key: u64) -> Result<String, String> {
+pub fn req_text(map: &[(Value, Value)], key: u64) -> CoreResult<String> {
   let value = map_get(map, key)?;
   match value {
     Value::Text(text) => Ok(text.clone()),
-    _ => Err(format!("expected text at key {key}")),
+    _ => Err(CoreError::Cbor(format!("expected text at key {key}"))),
   }
 }
 
-pub fn req_bytes(map: &[(Value, Value)], key: u64) -> Result<Vec<u8>, String> {
+pub fn req_bytes(map: &[(Value, Value)], key: u64) -> CoreResult<Vec<u8>> {
   let value = map_get(map, key)?;
   match value {
     Value::Bytes(bytes) => Ok(bytes.clone()),
-    _ => Err(format!("expected bytes at key {key}")),
+    _ => Err(CoreError::Cbor(format!("expected bytes at key {key}"))),
   }
 }
 
-pub fn req_uint(map: &[(Value, Value)], key: u64) -> Result<u64, String> {
+pub fn req_uint(map: &[(Value, Value)], key: u64) -> CoreResult<u64> {
   let value = map_get(map, key)?;
   match value {
     Value::Integer(int) => (*int)
       .try_into()
-      .map_err(|_| format!("expected u64 at key {key}")),
-    _ => Err(format!("expected u64 at key {key}")),
+      .map_err(|_| CoreError::Cbor(format!("expected u64 at key {key}"))),
+    _ => Err(CoreError::Cbor(format!("expected u64 at key {key}"))),
   }
 }
 
-pub fn opt_bytes(map: &[(Value, Value)], key: u64) -> Result<Option<Vec<u8>>, String> {
+pub fn opt_bytes(map: &[(Value, Value)], key: u64) -> CoreResult<Option<Vec<u8>>> {
   match map_get_opt(map, key) {
     None => Ok(None),
     Some(Value::Bytes(bytes)) => Ok(Some(bytes.clone())),
-    Some(_) => Err(format!("expected bytes at key {key}")),
+    Some(_) => Err(CoreError::Cbor(format!("expected bytes at key {key}"))),
   }
 }
 
-pub fn opt_text(map: &[(Value, Value)], key: u64) -> Result<Option<String>, String> {
+pub fn opt_text(map: &[(Value, Value)], key: u64) -> CoreResult<Option<String>> {
   match map_get_opt(map, key) {
     None => Ok(None),
     Some(Value::Text(text)) => Ok(Some(text.clone())),
-    Some(_) => Err(format!("expected text at key {key}")),
+    Some(_) => Err(CoreError::Cbor(format!("expected text at key {key}"))),
   }
 }
 
-pub fn opt_uint(map: &[(Value, Value)], key: u64) -> Result<Option<u64>, String> {
+pub fn opt_uint(map: &[(Value, Value)], key: u64) -> CoreResult<Option<u64>> {
   match map_get_opt(map, key) {
     None => Ok(None),
     Some(Value::Integer(int)) => (*int)
       .try_into()
       .map(Some)
-      .map_err(|_| format!("expected u64 at key {key}")),
-    Some(_) => Err(format!("expected u64 at key {key}")),
+      .map_err(|_| CoreError::Cbor(format!("expected u64 at key {key}"))),
+    Some(_) => Err(CoreError::Cbor(format!("expected u64 at key {key}"))),
   }
 }
 
-fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> Result<&'a Value, String> {
-  map_get_opt(map, key).ok_or_else(|| format!("missing key {key}"))
+fn map_get<'a>(map: &'a [(Value, Value)], key: u64) -> CoreResult<&'a Value> {
+  map_get_opt(map, key).ok_or_else(|| CoreError::Cbor(format!("missing key {key}")))
 }
 
 fn map_get_opt<'a>(map: &'a [(Value, Value)], key: u64) -> Option<&'a Value> {
@@ -147,7 +149,7 @@ fn map_get_opt<'a>(map: &'a [(Value, Value)], key: u64) -> Option<&'a Value> {
   })
 }
 
-fn canonicalize_value(value: &Value) -> Result<Value, String> {
+fn canonicalize_value(value: &Value) -> CoreResult<Value> {
   match value {
     Value::Map(entries) => {
       let mut ordered: BTreeMap<Vec<u8>, (Value, Value)> = BTreeMap::new();
@@ -174,14 +176,14 @@ fn canonicalize_value(value: &Value) -> Result<Value, String> {
   }
 }
 
-fn check_limits(value: &Value, limits: &CborLimits, depth: usize) -> Result<(), String> {
+fn check_limits(value: &Value, limits: &CborLimits, depth: usize) -> CoreResult<()> {
   if depth > limits.max_depth {
-    return Err("cbor depth exceeded".to_string());
+    return Err(CoreError::Cbor("cbor depth exceeded".to_string()));
   }
   match value {
     Value::Map(entries) => {
       if entries.len() > limits.max_items {
-        return Err("cbor map too large".to_string());
+        return Err(CoreError::Cbor("cbor map too large".to_string()));
       }
       for (k, v) in entries {
         check_limits(k, limits, depth + 1)?;
@@ -190,7 +192,7 @@ fn check_limits(value: &Value, limits: &CborLimits, depth: usize) -> Result<(), 
     }
     Value::Array(items) => {
       if items.len() > limits.max_items {
-        return Err("cbor array too large".to_string());
+        return Err(CoreError::Cbor("cbor array too large".to_string()));
       }
       for item in items {
         check_limits(item, limits, depth + 1)?;

@@ -1,5 +1,6 @@
 use crate::cbor::{cbor_map, cbor_text, cbor_uint, encode_canonical_value, CborLimits};
 use crate::crypto::KdfParams;
+use crate::error::CoreResult;
 use crate::types::{AeadId, KemCiphersuiteId};
 
 pub fn aad_keyvault_keywrap_v1(
@@ -7,7 +8,7 @@ pub fn aad_keyvault_keywrap_v1(
   user_id: &str,
   kdf: &KdfParams,
   aead: AeadId,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   let kdf_map = cbor_map(vec![
     (0, cbor_text(&kdf.id)),
     (1, ciborium::value::Value::Bytes(kdf.salt.clone())),
@@ -32,7 +33,7 @@ pub fn aad_keyvault_record_v1(
   user_id: &str,
   aead: AeadId,
   record_id: &str,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   let value = cbor_map(vec![
     (0, cbor_text("mo-keyvault-record-aad-v1")),
     (1, cbor_text(vault_id)),
@@ -51,7 +52,7 @@ pub fn aad_key_envelope_wrap_v1(
   kem: KemCiphersuiteId,
   aead: AeadId,
   recipient_uk_pub_fingerprint: Option<&Vec<u8>>,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   let mut entries = vec![
     (0, cbor_text("mo-key-envelope-aad-v1")),
     (1, cbor_text(scope_id)),
@@ -74,7 +75,7 @@ pub fn aad_resource_grant_wrap_v1(
   scope_epoch: u64,
   resource_key_id: &str,
   aead: AeadId,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   let value = cbor_map(vec![
     (0, cbor_text("mo-resource-grant-aad-v1")),
     (1, cbor_text(scope_id)),
@@ -91,7 +92,7 @@ pub fn aad_webauthn_prf_wrap_v1(
   user_id: &str,
   kdf: &KdfParams,
   aead: AeadId,
-) -> Result<Vec<u8>, String> {
+) -> CoreResult<Vec<u8>> {
   let kdf_map = cbor_map(vec![
     (0, cbor_text(&kdf.id)),
     (1, ciborium::value::Value::Bytes(kdf.salt.clone())),
