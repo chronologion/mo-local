@@ -1,7 +1,7 @@
 # MO Local Architecture
 
 **Status**: living document  
-**Last Updated**: 2026-01-01
+**Last Updated**: 2026-01-09
 
 This is the top-level architecture overview. Detailed contracts live in topical docs under `docs/architecture/`, and decisions are recorded in `docs/adr/`.
 
@@ -122,6 +122,7 @@ flowchart LR
 - Core workflows (sync, projections, publish-after-commit): `docs/architecture/workflows.md`
 - Serialization/registry/versioning (ALC-301): `docs/architecture/serialization-and-event-specs.md`
 - Infrastructure durability + sync boundary contracts: `docs/architecture/infrastructure-layer.md`
+- Key Service core (formats, KeyVault, session policy): `docs/architecture/key-service-core.md`
 - Security model overview: `docs/security.md`
 - Runbooks (operational playbooks): `docs/runbooks/`
 

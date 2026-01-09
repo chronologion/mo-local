@@ -5,8 +5,11 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+target/
 
 test-results/
 coverage/
 
 apps/e2e/.tmp/
+.cargo/
+.cache/
