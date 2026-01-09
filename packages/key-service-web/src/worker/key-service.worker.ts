@@ -1,0 +1,580 @@
+import init, { KeyServiceWasm } from '@mo/key-service-wasm';
+import wasmUrl from '@mo/key-service-wasm/mo_key_service_wasm_bg.wasm?url';
+import {
+  KeyServiceErrorCodes,
+  WorkerEnvelopeKinds,
+  WorkerHelloKinds,
+  WorkerResponseKinds,
+  type KeyServiceError,
+  type KeyServiceErrorCode,
+  type KeyServiceRequest,
+  type KeyServiceResponse,
+  type KeyHandle,
+  type ScopeEpoch,
+  type ScopeId,
+  type SessionId,
+  type UnlockResponse,
+  type StepUpResponse,
+  type RenewSessionResponse,
+  type GetWebAuthnPrfUnlockInfoResponse,
+  type IngestScopeStateResponse,
+  type IngestKeyEnvelopeResponse,
+  type SignResponse,
+  type WorkerEnvelope,
+  type WorkerHello,
+} from '../protocol/types';
+import { KeyServiceStorage, type StorageEntry } from './storage';
+
+type PortLike = {
+  postMessage: (message: unknown, transfer?: Transferable[]) => void;
+  addEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
+  removeEventListener: (type: 'message', listener: (event: MessageEvent) => void) => void;
+};
+
+type KeyServiceRuntime = {
+  service: KeyServiceWasm;
+  storage: KeyServiceStorage;
+  activeSessionId: string | null;
+};
+
+const port: PortLike = {
+  postMessage: (message, transfer) => {
+    if (transfer && transfer.length > 0) {
+      self.postMessage(message, transfer);
+    } else {
+      self.postMessage(message);
+    }
+  },
+  addEventListener: (type, listener) => self.addEventListener(type, listener),
+  removeEventListener: (type, listener) => self.removeEventListener(type, listener),
+};
+
+let runtimePromise: Promise<KeyServiceRuntime> | null = null;
+let serverInstanceId: string | null = null;
+
+const handleMessage = (event: MessageEvent): void => {
+  const data = event.data as unknown;
+  if (isWorkerHello(data)) {
+    void handleHello(data);
+    return;
+  }
+  if (!isWorkerEnvelope(data)) return;
+  void handleEnvelope(data);
+};
+
+port.addEventListener('message', handleMessage);
+
+async function handleHello(message: WorkerHello): Promise<void> {
+  if (message.kind !== WorkerHelloKinds.hello) {
+    return;
+  }
+
+  if (!runtimePromise) {
+    runtimePromise = createRuntime(message.storeId);
+  }
+  serverInstanceId ||= crypto.randomUUID();
+
+  try {
+    await runtimePromise;
+    const response: WorkerHello = {
+      v: 1,
+      kind: WorkerHelloKinds.helloOk,
+      protocolVersion: 1,
+      serverInstanceId,
+    };
+    port.postMessage(response);
+  } catch (error) {
+    const response: WorkerHello = {
+      v: 1,
+      kind: WorkerHelloKinds.helloError,
+      error: toKeyServiceError(error, KeyServiceErrorCodes.WorkerProtocolError),
+    };
+    port.postMessage(response);
+  }
+}
+
+async function handleEnvelope(envelope: WorkerEnvelope): Promise<void> {
+  if (envelope.kind !== WorkerEnvelopeKinds.request) return;
+
+  if (!runtimePromise) {
+    const response: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: {
+        kind: WorkerResponseKinds.error,
+        error: {
+          code: KeyServiceErrorCodes.WorkerNotReady,
+          message: 'Key service worker not ready',
+        },
+      },
+    };
+    port.postMessage(response);
+    return;
+  }
+
+  let runtime: KeyServiceRuntime;
+  try {
+    runtime = await runtimePromise;
+  } catch (error) {
+    const response: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: {
+        kind: WorkerResponseKinds.error,
+        error: toKeyServiceError(error, KeyServiceErrorCodes.WorkerProtocolError),
+      },
+    };
+    port.postMessage(response);
+    return;
+  }
+
+  try {
+    const data = await handleRequest(runtime, envelope.payload);
+    const response: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: {
+        kind: WorkerResponseKinds.ok,
+        data,
+      },
+    };
+    const transferables = collectTransferables(data);
+    port.postMessage(response, transferables);
+  } catch (error) {
+    const response: WorkerEnvelope = {
+      v: 1,
+      kind: WorkerEnvelopeKinds.response,
+      requestId: envelope.requestId,
+      payload: {
+        kind: WorkerResponseKinds.error,
+        error: toKeyServiceError(error, KeyServiceErrorCodes.WasmError),
+      },
+    };
+    port.postMessage(response);
+  }
+}
+
+async function handleRequest(runtime: KeyServiceRuntime, request: KeyServiceRequest): Promise<KeyServiceResponse> {
+  const service = runtime.service;
+  switch (request.type) {
+    case 'unlock': {
+      const payload = request.payload;
+      const response =
+        payload.method === 'passphrase'
+          ? service.unlock_passphrase(payload.passphraseUtf8)
+          : service.unlock_webauthn_prf(payload.prfOutput);
+      const unlockResponse = parseUnlockResponse(response);
+      runtime.activeSessionId = unlockResponse.sessionId;
+      await persistWrites(runtime);
+      return { type: 'unlock', payload: unlockResponse };
+    }
+    case 'stepUp': {
+      const response = parseStepUpResponse(service.step_up(request.payload.sessionId, request.payload.passphraseUtf8));
+      await persistWrites(runtime);
+      return { type: 'stepUp', payload: response };
+    }
+    case 'getWebAuthnPrfUnlockInfo': {
+      const response = parseWebAuthnPrfInfo(service.get_webauthn_prf_unlock_info());
+      return { type: 'getWebAuthnPrfUnlockInfo', payload: response };
+    }
+    case 'renewSession': {
+      const response = parseRenewResponse(service.renew_session(request.payload.sessionId));
+      await persistWrites(runtime);
+      return { type: 'renewSession', payload: response };
+    }
+    case 'lock': {
+      service.lock(request.payload.sessionId);
+      if (runtime.activeSessionId === request.payload.sessionId) {
+        runtime.activeSessionId = null;
+      }
+      await persistWrites(runtime);
+      return { type: 'lock', payload: {} };
+    }
+    case 'exportKeyVault': {
+      const blob = ensureUint8Array(service.export_keyvault(request.payload.sessionId), 'exportKeyVault');
+      return { type: 'exportKeyVault', payload: { blob } };
+    }
+    case 'importKeyVault': {
+      service.import_keyvault(request.payload.sessionId, request.payload.blob);
+      await persistWrites(runtime);
+      return { type: 'importKeyVault', payload: {} };
+    }
+    case 'changePassphrase': {
+      service.change_passphrase(request.payload.sessionId, request.payload.newPassphraseUtf8);
+      await persistWrites(runtime);
+      return { type: 'changePassphrase', payload: {} };
+    }
+    case 'enableWebAuthnPrfUnlock': {
+      service.enable_webauthn_prf_unlock(
+        request.payload.sessionId,
+        request.payload.credentialId,
+        request.payload.prfOutput
+      );
+      await persistWrites(runtime);
+      return { type: 'enableWebAuthnPrfUnlock', payload: {} };
+    }
+    case 'disableWebAuthnPrfUnlock': {
+      service.disable_webauthn_prf_unlock(request.payload.sessionId);
+      await persistWrites(runtime);
+      return { type: 'disableWebAuthnPrfUnlock', payload: {} };
+    }
+    case 'ingestScopeState': {
+      const response = service.ingest_scope_state(
+        request.payload.sessionId,
+        request.payload.scopeStateCbor,
+        request.payload.expectedOwnerSignerFingerprint ?? null
+      );
+      const parsed = parseIngestScopeStateResponse(response);
+      await persistWrites(runtime);
+      return { type: 'ingestScopeState', payload: parsed };
+    }
+    case 'ingestKeyEnvelope': {
+      const response = parseIngestKeyEnvelopeResponse(
+        service.ingest_key_envelope(request.payload.sessionId, request.payload.keyEnvelopeCbor)
+      );
+      await persistWrites(runtime);
+      return { type: 'ingestKeyEnvelope', payload: response };
+    }
+    case 'openScope': {
+      const scopeKeyHandle = ensureString(
+        service.open_scope(request.payload.sessionId, request.payload.scopeId, BigInt(request.payload.scopeEpoch)),
+        'openScope'
+      );
+      await persistWrites(runtime);
+      return { type: 'openScope', payload: { scopeKeyHandle: asKeyHandle(scopeKeyHandle) } };
+    }
+    case 'openResource': {
+      const resourceKeyHandle = ensureString(
+        service.open_resource(request.payload.sessionId, request.payload.scopeKeyHandle, request.payload.grantCbor),
+        'openResource'
+      );
+      await persistWrites(runtime);
+      return { type: 'openResource', payload: { resourceKeyHandle: asKeyHandle(resourceKeyHandle) } };
+    }
+    case 'closeHandle': {
+      service.close_handle(request.payload.sessionId, request.payload.keyHandle);
+      await persistWrites(runtime);
+      return { type: 'closeHandle', payload: {} };
+    }
+    case 'encrypt': {
+      const ciphertext = ensureUint8Array(
+        service.encrypt(
+          request.payload.sessionId,
+          request.payload.resourceKeyHandle,
+          request.payload.aad,
+          request.payload.plaintext
+        ),
+        'encrypt'
+      );
+      return { type: 'encrypt', payload: { ciphertext } };
+    }
+    case 'decrypt': {
+      const plaintext = ensureUint8Array(
+        service.decrypt(
+          request.payload.sessionId,
+          request.payload.resourceKeyHandle,
+          request.payload.aad,
+          request.payload.ciphertext
+        ),
+        'decrypt'
+      );
+      return { type: 'decrypt', payload: { plaintext } };
+    }
+    case 'sign': {
+      const response = parseSignResponse(service.sign(request.payload.sessionId, request.payload.data));
+      return { type: 'sign', payload: response };
+    }
+    case 'verify': {
+      const ok = ensureBoolean(
+        service.verify(
+          request.payload.scopeId,
+          request.payload.signerDeviceId,
+          request.payload.data,
+          request.payload.signature,
+          request.payload.ciphersuite
+        ),
+        'verify'
+      );
+      return { type: 'verify', payload: { ok } };
+    }
+    case 'signal': {
+      const sessionId = request.payload.sessionId ?? runtime.activeSessionId;
+      if (sessionId) {
+        try {
+          service.lock(sessionId);
+          if (runtime.activeSessionId === sessionId) {
+            runtime.activeSessionId = null;
+          }
+          await persistWrites(runtime);
+        } catch {
+          // best-effort signal handling
+        }
+      }
+      return { type: 'signal', payload: {} };
+    }
+  }
+}
+
+async function createRuntime(storeId: string): Promise<KeyServiceRuntime> {
+  await init(wasmUrl);
+  const storage = new KeyServiceStorage(storeId);
+  const entries = await storage.loadAll();
+  const service = new KeyServiceWasm();
+  service.load_storage(entries);
+  return {
+    service,
+    storage,
+    activeSessionId: null,
+  };
+}
+
+async function persistWrites(runtime: KeyServiceRuntime): Promise<void> {
+  const rawEntries = runtime.service.drain_storage_writes() as unknown;
+  const entries = parseStorageEntries(rawEntries);
+  await runtime.storage.putEntries(entries);
+}
+
+function parseStorageEntries(value: unknown): StorageEntry[] {
+  if (!Array.isArray(value)) return [];
+  const entries: StorageEntry[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      throw new Error('Invalid storage entry');
+    }
+    const record = item as { namespace?: unknown; key?: unknown; value?: unknown };
+    if (
+      typeof record.namespace !== 'string' ||
+      typeof record.key !== 'string' ||
+      !(record.value instanceof Uint8Array)
+    ) {
+      throw new Error('Invalid storage entry shape');
+    }
+    entries.push({ namespace: record.namespace, key: record.key, value: record.value });
+  }
+  return entries;
+}
+
+function isWorkerEnvelope(value: unknown): value is WorkerEnvelope {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { kind?: unknown; v?: unknown; requestId?: unknown };
+  if (candidate.v !== 1) return false;
+  if (candidate.kind !== WorkerEnvelopeKinds.request && candidate.kind !== WorkerEnvelopeKinds.response) return false;
+  return typeof candidate.requestId === 'string';
+}
+
+function isWorkerHello(value: unknown): value is WorkerHello {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { kind?: unknown; v?: unknown };
+  if (candidate.v !== 1) return false;
+  return (
+    candidate.kind === WorkerHelloKinds.hello ||
+    candidate.kind === WorkerHelloKinds.helloOk ||
+    candidate.kind === WorkerHelloKinds.helloError
+  );
+}
+
+function toKeyServiceError(error: unknown, fallbackCode: KeyServiceErrorCode): KeyServiceError {
+  if (isKeyServiceError(error)) {
+    return error;
+  }
+  if (error && typeof error === 'object') {
+    const candidate = error as { code?: unknown; message?: unknown; context?: unknown };
+    if (typeof candidate.code === 'string' && typeof candidate.message === 'string') {
+      return {
+        code: isKeyServiceErrorCode(candidate.code) ? candidate.code : fallbackCode,
+        message: candidate.message,
+        context: isContext(candidate.context) ? candidate.context : undefined,
+      };
+    }
+  }
+  if (error instanceof Error) {
+    return {
+      code: fallbackCode,
+      message: error.message,
+    };
+  }
+  return {
+    code: fallbackCode,
+    message: 'Unknown error',
+  };
+}
+
+function isContext(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isKeyServiceErrorCode(code: string): code is KeyServiceErrorCode {
+  return Object.values(KeyServiceErrorCodes).includes(code as KeyServiceErrorCode);
+}
+
+function isKeyServiceError(value: unknown): value is KeyServiceError {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { code?: unknown; message?: unknown };
+  return typeof candidate.code === 'string' && typeof candidate.message === 'string';
+}
+
+function collectTransferables(value: unknown): Transferable[] {
+  const transferables: Transferable[] = [];
+  const seen = new Set<unknown>();
+
+  const visit = (item: unknown) => {
+    if (!item || typeof item !== 'object' || seen.has(item)) return;
+    seen.add(item);
+    if (item instanceof Uint8Array) {
+      transferables.push(item.buffer);
+      return;
+    }
+    if (Array.isArray(item)) {
+      for (const entry of item) visit(entry);
+      return;
+    }
+    for (const entry of Object.values(item as Record<string, unknown>)) {
+      visit(entry);
+    }
+  };
+
+  visit(value);
+  return transferables;
+}
+
+function ensureBoolean(value: unknown, context: string): boolean {
+  if (typeof value === 'boolean') return value;
+  throw new Error(`Invalid ${context} response`);
+}
+
+function ensureString(value: unknown, context: string): string {
+  if (typeof value === 'string') return value;
+  throw new Error(`Invalid ${context} response`);
+}
+
+function ensureUint8Array(value: unknown, context: string): Uint8Array {
+  if (value instanceof Uint8Array) return value;
+  throw new Error(`Invalid ${context} response`);
+}
+
+function parseUnlockResponse(value: unknown): UnlockResponse {
+  if (!isRecord(value)) throw new Error('Invalid unlock response');
+  return {
+    sessionId: asSessionId(requireString(value.sessionId, 'sessionId')),
+    issuedAtMs: requireNumber(value.issuedAtMs, 'issuedAtMs'),
+    expiresAtMs: requireNumber(value.expiresAtMs, 'expiresAtMs'),
+    kind: requireSessionKind(value.kind, 'kind'),
+    assurance: requireSessionAssurance(value.assurance, 'assurance'),
+  };
+}
+
+function parseStepUpResponse(value: unknown): StepUpResponse {
+  if (!isRecord(value)) throw new Error('Invalid stepUp response');
+  return {
+    issuedAtMs: requireNumber(value.issuedAtMs, 'issuedAtMs'),
+    expiresAtMs: requireNumber(value.expiresAtMs, 'expiresAtMs'),
+    kind: 'stepUp' as const,
+    assurance: 'passphrase' as const,
+  };
+}
+
+function parseRenewResponse(value: unknown): RenewSessionResponse {
+  if (!isRecord(value)) throw new Error('Invalid renewSession response');
+  return {
+    issuedAtMs: requireNumber(value.issuedAtMs, 'issuedAtMs'),
+    expiresAtMs: requireNumber(value.expiresAtMs, 'expiresAtMs'),
+  };
+}
+
+function parseWebAuthnPrfInfo(value: unknown): GetWebAuthnPrfUnlockInfoResponse {
+  if (!isRecord(value)) throw new Error('Invalid webauthn response');
+  const credentialId = value.credentialId;
+  return {
+    enabled: requireBoolean(value.enabled, 'enabled'),
+    credentialId:
+      credentialId === null || credentialId === undefined ? null : ensureUint8Array(credentialId, 'credentialId'),
+    prfSalt: ensureUint8Array(value.prfSalt, 'prfSalt'),
+    aead: requireAeadId(value.aead, 'aead'),
+  };
+}
+
+function parseIngestScopeStateResponse(value: unknown): IngestScopeStateResponse {
+  if (!isRecord(value)) throw new Error('Invalid ingestScopeState response');
+  return {
+    scopeId: asScopeId(requireString(value.scopeId, 'scopeId')),
+    scopeStateRef: requireString(value.scopeStateRef, 'scopeStateRef'),
+  };
+}
+
+function parseIngestKeyEnvelopeResponse(value: unknown): IngestKeyEnvelopeResponse {
+  if (!isRecord(value)) throw new Error('Invalid ingestKeyEnvelope response');
+  return {
+    scopeId: asScopeId(requireString(value.scopeId, 'scopeId')),
+    scopeEpoch: asScopeEpoch(requireNumber(value.scopeEpoch, 'scopeEpoch')),
+  };
+}
+
+function parseSignResponse(value: unknown): SignResponse {
+  if (!isRecord(value)) throw new Error('Invalid sign response');
+  return {
+    signature: ensureUint8Array(value.signature, 'signature'),
+    ciphersuite: requireSigSuite(value.ciphersuite, 'ciphersuite'),
+  };
+}
+
+function requireBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== 'boolean') throw new Error(`Invalid ${field}`);
+  return value;
+}
+
+function requireNumber(value: unknown, field: string): number {
+  if (typeof value !== 'number') throw new Error(`Invalid ${field}`);
+  return value;
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string') throw new Error(`Invalid ${field}`);
+  return value;
+}
+
+function requireSessionKind(value: unknown, field: string): 'normal' | 'stepUp' {
+  if (value === 'normal' || value === 'stepUp') return value;
+  throw new Error(`Invalid ${field}`);
+}
+
+function requireSessionAssurance(value: unknown, field: string): 'passphrase' | 'webauthnPrf' {
+  if (value === 'passphrase' || value === 'webauthnPrf') return value;
+  throw new Error(`Invalid ${field}`);
+}
+
+function requireAeadId(value: unknown, field: string): 'aead-1' {
+  if (value === 'aead-1') return value;
+  throw new Error(`Invalid ${field}`);
+}
+
+function requireSigSuite(value: unknown, field: string): 'hybrid-sig-1' {
+  if (value === 'hybrid-sig-1') return value;
+  throw new Error(`Invalid ${field}`);
+}
+
+function asSessionId(value: string): SessionId {
+  if (value.length === 0) throw new Error('Invalid sessionId');
+  return value as SessionId;
+}
+
+function asScopeId(value: string): ScopeId {
+  if (value.length === 0) throw new Error('Invalid scopeId');
+  return value as ScopeId;
+}
+
+function asScopeEpoch(value: number): ScopeEpoch {
+  if (!Number.isFinite(value) || value < 0) throw new Error('Invalid scopeEpoch');
+  return value as ScopeEpoch;
+}
+
+function asKeyHandle(value: string): KeyHandle {
+  if (value.length === 0) throw new Error('Invalid key handle');
+  return value as KeyHandle;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
