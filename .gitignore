@@ -12,3 +12,4 @@ coverage/
 
 apps/e2e/.tmp/
 .cargo/
+.cache/
