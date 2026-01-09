@@ -1148,20 +1148,6 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
       .put("keyvault", &key, &bytes)
       .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
 
-    let mut header = self.load_header()?;
-    if !header.records.iter().any(|record| record.record_id == container.record_id) {
-      header.records.push(container.clone());
-      let header_bytes = encode_keyvault_header_v1(&header)
-        .map_err(|e| KeyServiceError::InvalidCbor(e.to_string()))?;
-      self
-        .storage
-        .put("keyvault", "header", &header_bytes)
-        .map_err(|e| KeyServiceError::StorageError(format!("{e:?}")))?;
-      if let Some(state) = self.state.as_mut() {
-        state.keyvault_header = header;
-      }
-    }
-
     let mut index = self.load_record_index()?;
     if !index.contains(&container.record_id) {
       index.push(container.record_id.clone());
