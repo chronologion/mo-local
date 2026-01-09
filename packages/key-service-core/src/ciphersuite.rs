@@ -15,6 +15,7 @@ use ml_kem::{
 };
 use rand_core::RngCore;
 use std::fmt;
+use std::process;
 use signature::Signer as EdSigner;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use ml_dsa::signature::Signer as MlSigner;
@@ -25,7 +26,9 @@ struct OsRngCore;
 
 impl OsRngCore {
   fn fill(dest: &mut [u8]) {
-    getrandom(dest).expect("getrandom failed");
+    if getrandom(dest).is_err() {
+      process::abort();
+    }
   }
 }
 
