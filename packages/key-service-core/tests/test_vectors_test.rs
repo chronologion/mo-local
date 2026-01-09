@@ -143,7 +143,7 @@ fn keyvault_record_and_snapshot_vector() {
         payload: cbor_map(vec![
             (0, cbor_text("scope-1")),
             (1, cbor_uint(1)),
-            (2, mo_key_service_core::cbor::cbor_bytes(&vec![0x42; 32])),
+            (2, mo_key_service_core::cbor::cbor_bytes(&[0x42; 32])),
         ]),
     };
     let record_plain_bytes = encode_keyvault_record_plain_v1(&record_plain).expect("record");
