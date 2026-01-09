@@ -9,10 +9,11 @@
 
 ## Responsibilities
 
-- Host the Key Service core inside a dedicated worker with a minimal request/response protocol.
+- Host the Key Service core inside a SharedWorker (per `storeId`) with a minimal request/response protocol.
 - Load the `mo-key-service-wasm` wrapper and bridge requests to the Rust core.
 - Persist KeyVault storage via IndexedDB and keep runtime state in memory.
 - Enforce session lifecycle via worker-only access and platform signals (idle/blur/lock).
+  - Dedicated Worker fallback if `SharedWorker` is unavailable.
 
 ## Component view
 
@@ -22,7 +23,7 @@ flowchart LR
     UIReq["KeyServiceClient"]
   end
 
-  subgraph Worker["Key Service worker"]
+  subgraph Worker["Key Service SharedWorker (per storeId)"]
     Host["KeyService host"]
     Wasm["mo-key-service-wasm"]
     Core["mo-key-service-core"]
@@ -41,7 +42,7 @@ flowchart LR
 
 - The worker uses a simple `{v, kind, requestId, payload}` envelope (no Comlink).
 - Requests mirror the RFC IDL and are defined in `packages/key-service-web/src/protocol/types.ts`.
-- The worker tracks the active session id to support idle/blur/lock signals.
+- The worker tracks an active session id per connected client to support idle/blur/lock signals.
 
 ## Storage behavior
 
@@ -58,5 +59,4 @@ flowchart LR
 
 ## Open Questions
 
-- Should the worker be upgraded to a SharedWorker for multi-tab reuse, or remain per-tab for isolation?
 - Do we need an explicit `createVault` IDL message for onboarding, or is vault creation handled elsewhere?
