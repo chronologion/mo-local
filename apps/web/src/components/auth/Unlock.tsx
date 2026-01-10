@@ -8,6 +8,7 @@ import { Input } from '../ui/input';
 import { Checkbox } from '../ui/checkbox';
 import { useApp } from '../../providers/AppProvider';
 import { getUserPresenceSecret, isUserPresenceSupported } from '@mo/key-service-web';
+import { getWebAuthnRpId } from '../../utils/webauthn';
 
 export function Unlock() {
   const { session, unlock, unlockWithUserPresence, resetLocalState, requestKeyService } = useApp();
@@ -71,7 +72,7 @@ export function Unlock() {
       const userPresenceSecret = await getUserPresenceSecret({
         credentialId: info.credentialId,
         prfSalt: info.prfSalt,
-        rpId: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+        rpId: getWebAuthnRpId(),
         timeoutMs: 60_000,
       });
 

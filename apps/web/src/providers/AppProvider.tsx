@@ -10,7 +10,8 @@ import { wipeAllMoLocalOpfs, wipeEventStoreDb } from '../utils/resetEventStoreDb
 import { Button } from '../components/ui/button';
 import { createKeyVaultEnvelope, parseKeyVaultEnvelope } from '../backup/keyVaultEnvelope';
 import type { KdfParams, KeyServiceRequest, KeyServiceResponse, SessionId, UserId } from '@mo/key-service-web';
-import { enrollUserPresenceUnlock, isUserPresenceSupported, type UserPresenceEnrollOptions } from '@mo/key-service-web';
+import { isUserPresenceSupported } from '@mo/key-service-web';
+import { enrollPasskeyIfRequested } from './app/passkeyEnrollment';
 
 const USER_META_KEY = 'mo-local-user';
 const STORE_ID_KEY = 'mo-local-store-id';
@@ -490,42 +491,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       // Enroll passkey if requested
       if (enablePasskey && isUserPresenceSupported() && passphraseForStepUp) {
         try {
-          // Step-up before enabling
-          await requestKeyService({
-            type: 'stepUp',
-            payload: { sessionId, passphraseUtf8: passphraseForStepUp },
+          await enrollPasskeyIfRequested({
+            sessionId,
+            userId,
+            passphraseUtf8: passphraseForStepUp,
+            requestKeyService,
           });
-
-          // Get PRF salt
-          const prfInfo = await requestKeyService({
-            type: 'getUserPresenceUnlockInfo',
-            payload: {},
-          });
-
-          if (!prfInfo.enabled) {
-            // Enroll the passkey
-            const enrollOptions: UserPresenceEnrollOptions = {
-              rpName: 'Mo Local',
-              rpId: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-              userId: new TextEncoder().encode(userId),
-              userName: userId,
-              userDisplayName: `User ${userId.slice(0, 8)}`,
-              prfSalt: prfInfo.prfSalt,
-              timeoutMs: 60_000,
-            };
-
-            const { credentialId, userPresenceSecret } = await enrollUserPresenceUnlock(enrollOptions);
-
-            // Store in key service
-            await requestKeyService({
-              type: 'enableUserPresenceUnlock',
-              payload: {
-                sessionId,
-                credentialId,
-                userPresenceSecret,
-              },
-            });
-          }
         } catch (err) {
           // Don't fail onboarding if passkey enrollment fails
           console.warn('Passkey enrollment failed:', err);
@@ -568,42 +539,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       // Enroll passkey if requested
       if (enablePasskey && isUserPresenceSupported() && passphraseForStepUp) {
         try {
-          // Step-up before enabling
-          await requestKeyService({
-            type: 'stepUp',
-            payload: { sessionId, passphraseUtf8: passphraseForStepUp },
+          await enrollPasskeyIfRequested({
+            sessionId,
+            userId: meta.userId,
+            passphraseUtf8: passphraseForStepUp,
+            requestKeyService,
           });
-
-          // Get PRF salt
-          const prfInfo = await requestKeyService({
-            type: 'getUserPresenceUnlockInfo',
-            payload: {},
-          });
-
-          if (!prfInfo.enabled) {
-            // Enroll the passkey
-            const enrollOptions: UserPresenceEnrollOptions = {
-              rpName: 'Mo Local',
-              rpId: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
-              userId: new TextEncoder().encode(meta.userId),
-              userName: meta.userId,
-              userDisplayName: `User ${meta.userId.slice(0, 8)}`,
-              prfSalt: prfInfo.prfSalt,
-              timeoutMs: 60_000,
-            };
-
-            const { credentialId, userPresenceSecret } = await enrollUserPresenceUnlock(enrollOptions);
-
-            // Store in key service
-            await requestKeyService({
-              type: 'enableUserPresenceUnlock',
-              payload: {
-                sessionId,
-                credentialId,
-                userPresenceSecret,
-              },
-            });
-          }
         } catch (err) {
           // Don't fail unlock if passkey enrollment fails
           console.warn('Passkey enrollment failed:', err);
