@@ -1,10 +1,10 @@
 # RFC-20260107-key-service-core
 
-**Status**: Draft
+**Status**: Implemented
 **Linear**: ALC-299
 **Related**: ALC-266, ALC-268, ALC-332
 **Created**: 2026-01-07
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-01-10
 
 ## Scope
 
