@@ -130,7 +130,7 @@ export function Onboarding() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Confirm password</Label>
+              <Label>Confirm passphrase</Label>
               <Input
                 type="password"
                 value={confirm}
