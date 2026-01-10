@@ -207,6 +207,22 @@ impl<S: AsyncStorageAdapter, C: ClockAdapter, E: EntropyAdapter> AsyncKeyService
         self.flush_pending().await
     }
 
+    pub async fn store_app_master_key(
+        &mut self,
+        session_id: &SessionId,
+        master_key: &[u8],
+    ) -> Result<(), KeyServiceError> {
+        self.inner.store_app_master_key(session_id, master_key)?;
+        self.flush_pending().await
+    }
+
+    pub fn get_app_master_key(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Result<Vec<u8>, KeyServiceError> {
+        self.inner.get_app_master_key(session_id)
+    }
+
     pub fn get_user_presence_unlock_info(
         &mut self,
     ) -> Result<GetUserPresenceUnlockInfoResponse, KeyServiceError> {

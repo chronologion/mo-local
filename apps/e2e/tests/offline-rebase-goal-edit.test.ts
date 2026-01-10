@@ -294,7 +294,9 @@ test.describe('offline rebase goal edit', () => {
         name: 'Backup',
       });
       await backupDialog.waitFor();
-      await expect(backupDialog.getByRole('button', { name: 'Download keys' })).toBeEnabled({ timeout: 25_000 });
+      await backupDialog.getByPlaceholder('Enter your passphrase').fill(creds.password);
+      await backupDialog.getByRole('button', { name: 'Generate key backup' }).click();
+      await expect(backupDialog.getByRole('button', { name: 'Copy' })).toBeEnabled({ timeout: 25_000 });
 
       mark('copy backup payload');
       await backupDialog.getByRole('button', { name: 'Copy' }).click();
@@ -508,6 +510,9 @@ test.describe('offline rebase goal edit', () => {
         name: 'Backup',
       });
       await backupDialog.waitFor();
+      await backupDialog.getByPlaceholder('Enter your passphrase').fill(creds.password);
+      await backupDialog.getByRole('button', { name: 'Generate key backup' }).click();
+      await expect(backupDialog.getByRole('button', { name: 'Copy' })).toBeEnabled({ timeout: 25_000 });
       await backupDialog.getByRole('button', { name: 'Copy' }).click();
       const backupCipher = await pageA.evaluate(async () => {
         return navigator.clipboard.readText();

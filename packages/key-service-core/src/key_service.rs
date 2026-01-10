@@ -33,6 +33,9 @@ use aes_gcm::Aes256Gcm;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::Debug;
 
+const APP_MASTER_RESOURCE_ID: &str = "app-master-key";
+const APP_MASTER_RESOURCE_KEY_ID: &str = "v1";
+
 #[derive(Debug, thiserror::Error)]
 pub enum KeyServiceError {
     #[error("storage error: {0}")]
@@ -1382,6 +1385,36 @@ impl<S: StorageAdapter, C: ClockAdapter, E: EntropyAdapter> KeyService<S, C, E> 
             resource_key.to_vec(),
         );
         Ok(())
+    }
+
+    pub fn store_app_master_key(
+        &mut self,
+        session_id: &SessionId,
+        master_key: &[u8],
+    ) -> Result<(), KeyServiceError> {
+        let resource_id = ResourceId(APP_MASTER_RESOURCE_ID.to_string());
+        let resource_key_id = ResourceKeyId(APP_MASTER_RESOURCE_KEY_ID.to_string());
+        self.persist_resource_key(session_id, &resource_id, &resource_key_id, master_key)
+    }
+
+    pub fn get_app_master_key(
+        &mut self,
+        session_id: &SessionId,
+    ) -> Result<Vec<u8>, KeyServiceError> {
+        let now = self.clock.now_ms();
+        self.ensure_session_valid(now, session_id)?;
+        let state = self.state.as_ref().ok_or(KeyServiceError::CryptoError(
+            "keyvault not loaded".to_string(),
+        ))?;
+        state
+            .keyvault_materialized
+            .resource_keys
+            .get(&(
+                APP_MASTER_RESOURCE_ID.to_string(),
+                APP_MASTER_RESOURCE_KEY_ID.to_string(),
+            ))
+            .cloned()
+            .ok_or(KeyServiceError::ResourceKeyMissing)
     }
 
     fn cbor_limits(&self) -> CborLimits {

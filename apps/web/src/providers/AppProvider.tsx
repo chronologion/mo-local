@@ -2,14 +2,14 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { uuidv4 } from '@mo/domain';
 import { createAppServices } from '../bootstrap/createAppServices';
 import { DebugPanel } from '../components/DebugPanel';
-import { decodeSalt, encodeSalt, generateRandomSalt } from '@mo/infrastructure/crypto/deriveSalt';
-import { parseBackupEnvelope } from '@mo/presentation';
+import { generateRandomSalt } from '@mo/infrastructure/crypto/deriveSalt';
 import { z } from 'zod';
 import { InterfaceProvider, type InterfaceContextValue, type InterfaceServices } from '@mo/presentation/react';
 import { useRemoteAuth } from './RemoteAuthProvider';
 import { wipeAllMoLocalOpfs, wipeEventStoreDb } from '../utils/resetEventStoreDb';
-import { parseBackupPayload } from '../backup/backupPayload';
 import { Button } from '../components/ui/button';
+import { createKeyVaultEnvelope, parseKeyVaultEnvelope } from '../backup/keyVaultEnvelope';
+import type { KdfParams, KeyServiceRequest, KeyServiceResponse, SessionId, UserId } from '@mo/key-service-web';
 
 const USER_META_KEY = 'mo-local-user';
 const STORE_ID_KEY = 'mo-local-store-id';
@@ -24,7 +24,7 @@ type UserMeta = {
    * Stable local identity id (UUIDv4). Used for `actorId` and identity key records.
    */
   userId: string;
-  pwdSalt: string;
+  deviceId: string;
 };
 
 type SessionState =
@@ -46,7 +46,7 @@ type AppContextValue = {
   unlock: (params: { password: string }) => Promise<void>;
   resetLocalState: () => Promise<void>;
   rebuildProjections: () => Promise<void>;
-  masterKey: Uint8Array | null;
+  exportKeyVaultBackup: (params: { password: string }) => Promise<string>;
   restoreBackup: (params: {
     password: string;
     backup: string;
@@ -60,10 +60,12 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 const userMetaSchema = z.object({
   userId: z.uuid(),
-  pwdSalt: z.string().min(1),
+  deviceId: z.string().min(1),
 });
 
 const storeIdSchema = z.uuid();
+// UUIDs are validated before branding to UserId.
+const toUserId = (value: string): UserId => value as UserId;
 
 const loadMeta = (): UserMeta | null => {
   const raw = localStorage.getItem(USER_META_KEY);
@@ -81,6 +83,40 @@ const loadMeta = (): UserMeta | null => {
 const saveMeta = (meta: UserMeta): void => {
   localStorage.setItem(USER_META_KEY, JSON.stringify(meta));
 };
+
+type KeyServiceRequestByType<T extends KeyServiceRequest['type']> = Extract<KeyServiceRequest, { type: T }>;
+type KeyServiceResponseByType<T extends KeyServiceResponse['type']> = Extract<KeyServiceResponse, { type: T }>;
+
+const buildKdfParams = (): KdfParams => {
+  return {
+    id: 'kdf-1',
+    salt: generateRandomSalt(),
+    memoryKib: 65_536,
+    iterations: 3,
+    parallelism: 1,
+  };
+};
+
+const randomBytes = (length: number): Uint8Array => {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Web Crypto unavailable');
+  }
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+};
+
+const encodePassphrase = (password: string): Uint8Array => new TextEncoder().encode(password);
+
+const safeZeroize = (bytes: Uint8Array): void => {
+  try {
+    bytes.fill(0);
+  } catch {
+    // Ignore detached buffers (transferred to worker).
+  }
+};
+
+const toBase64 = (data: Uint8Array): string => btoa(String.fromCharCode(...Array.from(data)));
 
 type DebugWindow = Window & {
   __moSyncOnce?: () => Promise<void>;
@@ -107,7 +143,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   } | null>(null);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
-  const [masterKey, setMasterKey] = useState<Uint8Array | null>(null);
+  const [keyStoreReady, setKeyStoreReady] = useState(false);
+  const [keyServiceSessionId, setKeyServiceSessionId] = useState<SessionId | null>(null);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
   const [debugInfo, setDebugInfo] = useState<{
     storeId: string;
@@ -132,6 +169,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (meta) {
       setUserMeta(meta);
       setSession({ status: 'locked', userId: meta.userId });
+      setKeyStoreReady(false);
+      setKeyServiceSessionId(null);
       const nextStoreId = meta.userId;
       if (typeof localStorage !== 'undefined' && storedStoreId !== nextStoreId) {
         localStorage.setItem(STORE_ID_KEY, nextStoreId);
@@ -142,6 +181,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     setUserMeta(null);
     setSession({ status: 'needs-onboarding' });
+    setKeyStoreReady(false);
+    setKeyServiceSessionId(null);
     const fallbackStoreId = (() => {
       if (storedStoreId) {
         const parsed = storeIdSchema.safeParse(storedStoreId);
@@ -301,6 +342,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         createdServices?.contexts.projects?.projectProjection.stop();
         createdServices?.publisher.stop();
         createdServices?.syncEngine.stop();
+        void createdServices?.keyServiceShutdown();
         void createdServices?.dbShutdown();
       } catch (error) {
         console.warn('Failed to shutdown event store cleanly', error);
@@ -312,6 +354,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [storeId]);
 
+  useEffect(() => {
+    if (session.status !== 'ready') {
+      setKeyStoreReady(false);
+      setKeyServiceSessionId(null);
+    }
+  }, [session.status]);
+
   const switchToStore = async (targetStoreId: string): Promise<Services> => {
     if (servicesRef.current && servicesRef.current.storeId === targetStoreId && services) {
       return servicesRef.current;
@@ -322,11 +371,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  const requestKeyService = async <T extends KeyServiceRequest['type']>(
+    request: KeyServiceRequestByType<T>
+  ): Promise<KeyServiceResponseByType<T>['payload']> => {
+    if (!services) {
+      throw new Error('Services not initialized');
+    }
+    return requestKeyServiceFor(services, request);
+  };
+
+  const requestKeyServiceFor = async <T extends KeyServiceRequest['type']>(
+    targetServices: Services,
+    request: KeyServiceRequestByType<T>
+  ): Promise<KeyServiceResponseByType<T>['payload']> => {
+    const response = await targetServices.keyService.request(request);
+    if (response.type !== request.type) {
+      throw new Error(`Key service response mismatch: expected ${request.type}, got ${response.type}`);
+    }
+    // Safe due to response type equality check above.
+    return response.payload as KeyServiceResponseByType<T>['payload'];
+  };
+
   useEffect(() => {
-    if (!services || session.status !== 'ready' || !masterKey) return;
+    if (!services || session.status !== 'ready' || !keyStoreReady) return;
     let cancelled = false;
     const currentServices = services;
-    currentServices.keyStore.setMasterKey(masterKey);
     const goalCtx = currentServices.contexts.goals;
     const projectCtx = currentServices.contexts.projects;
     if (!goalCtx || !projectCtx) return;
@@ -357,10 +426,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [services, masterKey, session.status]);
+  }, [services, keyStoreReady, session.status]);
 
   useEffect(() => {
-    if (!services || session.status !== 'ready' || !masterKey) return;
+    if (!services || session.status !== 'ready' || !keyStoreReady) return;
     if (remoteAuthState.status !== 'connected') {
       services.syncEngine.stop();
       return;
@@ -370,7 +439,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       services.syncEngine.stop();
     };
-  }, [services, masterKey, session.status, remoteAuthState.status]);
+  }, [services, keyStoreReady, session.status, remoteAuthState.status]);
 
   const completeOnboarding = async ({ password }: { password: string }) => {
     if (!services) {
@@ -383,48 +452,98 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!parsedStoreId.success) {
       throw new Error('Invalid store id; please reset local state and re-onboard');
     }
-    const userId = parsedStoreId.data;
-    const salt = generateRandomSalt();
-    const saltB64 = encodeSalt(salt);
+    const userId = toUserId(parsedStoreId.data);
+    const deviceId = uuidv4();
+    const passphraseForCreate = encodePassphrase(password);
+    const passphraseForUnlock = encodePassphrase(password);
+    try {
+      const kdfParams = buildKdfParams();
+      await requestKeyService({
+        type: 'createVault',
+        payload: {
+          userId,
+          passphraseUtf8: passphraseForCreate,
+          kdfParams,
+        },
+      });
+      const unlock = await requestKeyService({
+        type: 'unlock',
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlock },
+      });
+      const sessionId = unlock.sessionId;
+      const masterKey = randomBytes(32);
+      const masterKeyForStore = new Uint8Array(masterKey);
+      await requestKeyService({
+        type: 'storeAppMasterKey',
+        payload: { sessionId, masterKey },
+      });
+      services.keyStore.setMasterKey(masterKeyForStore);
+      safeZeroize(masterKeyForStore);
+      safeZeroize(masterKey);
+      setKeyStoreReady(true);
+      setKeyServiceSessionId(sessionId);
 
-    const kek = await services.crypto.deriveKeyFromPassword(password, salt);
-    services.keyStore.setMasterKey(kek);
-    setMasterKey(kek);
-
-    await services.keyStore.clearAll();
-
-    const signing = await services.crypto.generateSigningKeyPair();
-    const encryption = await services.crypto.generateEncryptionKeyPair();
-
-    await services.keyStore.saveIdentityKeys(userId, {
-      signingPrivateKey: signing.privateKey,
-      signingPublicKey: signing.publicKey,
-      encryptionPrivateKey: encryption.privateKey,
-      encryptionPublicKey: encryption.publicKey,
-    });
-
-    // Start projections only after keys are persisted.
-    const meta = { userId, pwdSalt: saltB64 };
-    saveMeta(meta);
-    setUserMeta(meta);
-    setSession({ status: 'ready', userId });
+      const meta = { userId, deviceId };
+      saveMeta(meta);
+      setUserMeta(meta);
+      setSession({ status: 'ready', userId });
+    } finally {
+      safeZeroize(passphraseForCreate);
+      safeZeroize(passphraseForUnlock);
+    }
   };
 
   const unlock = async ({ password }: { password: string }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
-    const saltForUnlock = decodeSalt(meta.pwdSalt);
-    const kek = await services.crypto.deriveKeyFromPassword(password, saltForUnlock);
-    services.keyStore.setMasterKey(kek);
-    const keys = await services.keyStore.getIdentityKeys(meta.userId);
-    if (!keys) {
-      throw new Error('No keys found, please re-onboard');
+    const passphraseUtf8 = encodePassphrase(password);
+    try {
+      const unlockResponse = await requestKeyService({
+        type: 'unlock',
+        payload: { method: 'passphrase', passphraseUtf8 },
+      });
+      const master = await requestKeyService({
+        type: 'getAppMasterKey',
+        payload: { sessionId: unlockResponse.sessionId },
+      });
+      services.keyStore.setMasterKey(master.masterKey);
+      safeZeroize(master.masterKey);
+      setKeyStoreReady(true);
+      setKeyServiceSessionId(unlockResponse.sessionId);
+      saveMeta(meta);
+      setUserMeta(meta);
+      setSession({ status: 'ready', userId: meta.userId });
+    } finally {
+      safeZeroize(passphraseUtf8);
     }
-    saveMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
-    setUserMeta({ userId: meta.userId, pwdSalt: meta.pwdSalt });
-    setMasterKey(kek);
-    setSession({ status: 'ready', userId: meta.userId });
+  };
+
+  const exportKeyVaultBackup = async ({ password }: { password: string }): Promise<string> => {
+    if (!services) throw new Error('Services not initialized');
+    if (!keyServiceSessionId) {
+      throw new Error('Key service session missing; unlock first.');
+    }
+    const passphraseUtf8 = encodePassphrase(password);
+    try {
+      await requestKeyService({
+        type: 'stepUp',
+        payload: { sessionId: keyServiceSessionId, passphraseUtf8 },
+      });
+      const exportResponse = await requestKeyService({
+        type: 'exportKeyVault',
+        payload: { sessionId: keyServiceSessionId },
+      });
+      const envelope = createKeyVaultEnvelope({
+        cipher: toBase64(exportResponse.blob),
+        userId: session.status === 'ready' ? session.userId : undefined,
+        exportedAt: new Date().toISOString(),
+        version: 1,
+      });
+      return JSON.stringify(envelope, null, 2);
+    } finally {
+      safeZeroize(passphraseUtf8);
+    }
   };
 
   const resetLocalState = async (): Promise<void> => {
@@ -445,7 +564,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       console.warn('Event store shutdown failed', error);
     }
     indexedDB.deleteDatabase('mo-local-keys');
+    if (currentStoreId) {
+      indexedDB.deleteDatabase(`mo-key-service-${currentStoreId}`);
+    }
     localStorage.removeItem(USER_META_KEY);
+    setKeyStoreReady(false);
+    setKeyServiceSessionId(null);
     const nextStoreId = uuidv4();
     localStorage.setItem(STORE_ID_KEY, nextStoreId);
     window.location.reload();
@@ -480,78 +604,87 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }>;
   }) => {
     if (!services) throw new Error('Services not initialized');
-    const parsedEnvelope = parseBackupEnvelope(backup);
+    const parsedEnvelope = parseKeyVaultEnvelope(backup);
     const cipherB64 = parsedEnvelope.cipher;
-    const meta = loadMeta();
-    const decryptSalt =
-      (parsedEnvelope.salt ? decodeSalt(parsedEnvelope.salt) : null) ?? (meta ? decodeSalt(meta.pwdSalt) : null);
-    if (!decryptSalt) {
-      throw new Error('Backup missing salt and no local metadata available to derive one');
-    }
-
-    const decryptKek = await services.crypto.deriveKeyFromPassword(password, decryptSalt);
-    services.keyStore.setMasterKey(decryptKek);
-    const encrypted = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
-    const decrypted = await services.crypto.decrypt(encrypted, decryptKek);
-    const payload = parseBackupPayload(JSON.parse(new TextDecoder().decode(decrypted)));
-
-    const aggregateEntries: Array<[string, string]> = Object.entries(payload.aggregateKeys);
-    const persistSalt = parsedEnvelope.salt !== undefined ? decodeSalt(parsedEnvelope.salt) : generateRandomSalt();
-    const persistSaltB64 = encodeSalt(persistSalt);
-    const persistKek = await services.crypto.deriveKeyFromPassword(password, persistSalt);
-    services.keyStore.setMasterKey(persistKek);
-
-    await services.keyStore.clearAll();
-    if (payload.identityKeys) {
-      await services.keyStore.saveIdentityKeys(payload.userId, {
-        signingPrivateKey: Uint8Array.from(atob(payload.identityKeys.signingPrivateKey), (c) => c.charCodeAt(0)),
-        signingPublicKey: Uint8Array.from(atob(payload.identityKeys.signingPublicKey), (c) => c.charCodeAt(0)),
-        encryptionPrivateKey: Uint8Array.from(atob(payload.identityKeys.encryptionPrivateKey), (c) => c.charCodeAt(0)),
-        encryptionPublicKey: Uint8Array.from(atob(payload.identityKeys.encryptionPublicKey), (c) => c.charCodeAt(0)),
-      });
-    }
-    for (const [aggregateId, keyB64] of aggregateEntries) {
-      await services.keyStore.saveAggregateKey(
-        aggregateId,
-        Uint8Array.from(atob(keyB64), (c) => c.charCodeAt(0))
-      );
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORE_ID_KEY, payload.userId);
-    }
+    const targetUserId = toUserId(parsedEnvelope.userId ?? storeId ?? uuidv4());
+    const passphraseForCreate = encodePassphrase(password);
+    const passphraseForUnlock = encodePassphrase(password);
+    const passphraseForStepUp = encodePassphrase(password);
+    const passphraseForUnlockAfter = encodePassphrase(password);
+    const vaultBytes = Uint8Array.from(atob(cipherB64), (c) => c.charCodeAt(0));
     const targetServices =
-      servicesRef.current?.storeId === payload.userId ? servicesRef.current : await switchToStore(payload.userId);
-    targetServices.keyStore.setMasterKey(persistKek);
+      servicesRef.current?.storeId === targetUserId ? servicesRef.current : await switchToStore(targetUserId);
+    if (!targetServices) {
+      throw new Error('Failed to initialize target services');
+    }
 
-    if (db) {
-      if (!targetServices.db.importMainDatabase) {
-        throw new Error('This build does not support restoring DB files');
+    try {
+      const kdfParams = buildKdfParams();
+      await requestKeyServiceFor(targetServices, {
+        type: 'createVault',
+        payload: { userId: targetUserId, passphraseUtf8: passphraseForCreate, kdfParams },
+      });
+      const unlock = await requestKeyServiceFor(targetServices, {
+        type: 'unlock',
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlock },
+      });
+      await requestKeyServiceFor(targetServices, {
+        type: 'stepUp',
+        payload: { sessionId: unlock.sessionId, passphraseUtf8: passphraseForStepUp },
+      });
+      await requestKeyServiceFor(targetServices, {
+        type: 'importKeyVault',
+        payload: { sessionId: unlock.sessionId, blob: vaultBytes },
+      });
+      await requestKeyServiceFor(targetServices, {
+        type: 'lock',
+        payload: { sessionId: unlock.sessionId },
+      });
+      const unlockAfter = await requestKeyServiceFor(targetServices, {
+        type: 'unlock',
+        payload: { method: 'passphrase', passphraseUtf8: passphraseForUnlockAfter },
+      });
+      const master = await requestKeyServiceFor(targetServices, {
+        type: 'getAppMasterKey',
+        payload: { sessionId: unlockAfter.sessionId },
+      });
+      targetServices.keyStore.setMasterKey(master.masterKey);
+      safeZeroize(master.masterKey);
+      setKeyStoreReady(true);
+      setKeyServiceSessionId(unlockAfter.sessionId);
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORE_ID_KEY, targetUserId);
       }
-      await targetServices.db.importMainDatabase(db.bytes);
-    }
 
-    const goalCtx = targetServices.contexts.goals;
-    const projectCtx = targetServices.contexts.projects;
-    if (!goalCtx || !projectCtx) {
-      throw new Error('Bounded contexts not bootstrapped');
-    }
+      if (db) {
+        if (!targetServices.db.importMainDatabase) {
+          throw new Error('This build does not support restoring DB files');
+        }
+        await targetServices.db.importMainDatabase(db.bytes);
+      }
 
-    // If a backup doesn't include aggregate keys (v2), we cannot decrypt existing
-    // projection cache rows on boot. Rebuild once to (1) repopulate caches and
-    // (2) persist current aggregate keys derived from keyring updates/events.
-    if (Object.keys(payload.aggregateKeys).length === 0) {
+      const goalCtx = targetServices.contexts.goals;
+      const projectCtx = targetServices.contexts.projects;
+      if (!goalCtx || !projectCtx) {
+        throw new Error('Bounded contexts not bootstrapped');
+      }
+
       await goalCtx.goalProjection.resetAndRebuild();
       await projectCtx.projectProjection.resetAndRebuild();
+      const nextMeta = {
+        userId: targetUserId,
+        deviceId: uuidv4(),
+      };
+      saveMeta(nextMeta);
+      setUserMeta(nextMeta);
+      setSession({ status: 'ready', userId: targetUserId });
+    } finally {
+      safeZeroize(passphraseForCreate);
+      safeZeroize(passphraseForUnlock);
+      safeZeroize(passphraseForStepUp);
+      safeZeroize(passphraseForUnlockAfter);
     }
-    const nextMeta = {
-      userId: payload.userId,
-      pwdSalt: persistSaltB64,
-    };
-    saveMeta(nextMeta);
-    setUserMeta(nextMeta);
-    setMasterKey(persistKek);
-    setSession({ status: 'ready', userId: payload.userId });
   };
 
   if (initError) {
@@ -639,7 +772,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           unlock,
           resetLocalState,
           rebuildProjections,
-          masterKey,
+          exportKeyVaultBackup,
           restoreBackup,
         }}
       >

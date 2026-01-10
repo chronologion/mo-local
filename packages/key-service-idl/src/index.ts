@@ -139,6 +139,19 @@ export type ChangePassphraseRequest = Readonly<{
   newPassphraseUtf8: Uint8Array;
 }>;
 
+export type StoreAppMasterKeyRequest = Readonly<{
+  sessionId: SessionId;
+  masterKey: Uint8Array;
+}>;
+
+export type GetAppMasterKeyRequest = Readonly<{
+  sessionId: SessionId;
+}>;
+
+export type GetAppMasterKeyResponse = Readonly<{
+  masterKey: Uint8Array;
+}>;
+
 export type EncryptRequest = Readonly<{
   sessionId: SessionId;
   resourceKeyHandle: KeyHandle;
@@ -192,6 +205,8 @@ export type KeyServiceRequest =
   | Readonly<{ type: 'exportKeyVault'; payload: Readonly<{ sessionId: SessionId }> }>
   | Readonly<{ type: 'importKeyVault'; payload: Readonly<{ sessionId: SessionId; blob: Uint8Array }> }>
   | Readonly<{ type: 'changePassphrase'; payload: ChangePassphraseRequest }>
+  | Readonly<{ type: 'storeAppMasterKey'; payload: StoreAppMasterKeyRequest }>
+  | Readonly<{ type: 'getAppMasterKey'; payload: GetAppMasterKeyRequest }>
   | Readonly<{ type: 'enableUserPresenceUnlock'; payload: EnableUserPresenceUnlockRequest }>
   | Readonly<{ type: 'disableUserPresenceUnlock'; payload: DisableUserPresenceUnlockRequest }>
   | Readonly<{ type: 'ingestScopeState'; payload: IngestScopeStateRequest }>
@@ -218,6 +233,8 @@ export type KeyServiceResponse =
   | Readonly<{ type: 'exportKeyVault'; payload: Readonly<{ blob: Uint8Array }> }>
   | Readonly<{ type: 'importKeyVault'; payload: EmptyObject }>
   | Readonly<{ type: 'changePassphrase'; payload: EmptyObject }>
+  | Readonly<{ type: 'storeAppMasterKey'; payload: EmptyObject }>
+  | Readonly<{ type: 'getAppMasterKey'; payload: GetAppMasterKeyResponse }>
   | Readonly<{ type: 'enableUserPresenceUnlock'; payload: EmptyObject }>
   | Readonly<{ type: 'disableUserPresenceUnlock'; payload: EmptyObject }>
   | Readonly<{ type: 'ingestScopeState'; payload: IngestScopeStateResponse }>

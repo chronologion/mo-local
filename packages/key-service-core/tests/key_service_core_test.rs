@@ -213,6 +213,30 @@ fn scope_grant_encrypt_round_trip() {
 }
 
 #[test]
+fn app_master_key_round_trip() {
+    let storage = MemStorage::default();
+    let clock = FixedClock { now: 1_000_000 };
+    let entropy = FixedEntropy {
+        counter: Cell::new(42),
+    };
+    let mut ks = KeyService::new(storage, clock, entropy, KeyServiceConfig::default());
+
+    let kdf = KdfParams::new_random().expect("kdf params");
+    ks.create_new_vault(UserId("user-1".to_string()), b"pass", kdf)
+        .expect("create vault");
+    let unlock = ks.unlock_passphrase(b"pass").expect("unlock");
+    let master_key = vec![9u8; 32];
+
+    ks.store_app_master_key(&unlock.session_id, &master_key)
+        .expect("store master key");
+    let loaded = ks
+        .get_app_master_key(&unlock.session_id)
+        .expect("load master key");
+
+    assert_eq!(loaded, master_key);
+}
+
+#[test]
 fn rejects_invalid_nonce_length() {
     let key = vec![1u8; 32];
     let aad = b"aad";

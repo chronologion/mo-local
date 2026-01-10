@@ -295,6 +295,30 @@ impl KeyServiceWasm {
         Ok(())
     }
 
+    #[wasm_bindgen(js_name = "storeAppMasterKey")]
+    pub fn store_app_master_key(
+        &self,
+        session_id: String,
+        master_key: Vec<u8>,
+    ) -> Result<(), JsValue> {
+        self.service
+            .borrow_mut()
+            .store_app_master_key(&SessionId(session_id), &master_key)
+            .map_err(to_js_error)?;
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = "getAppMasterKey")]
+    pub fn get_app_master_key(&self, session_id: String) -> Result<JsValue, JsValue> {
+        let key = self
+            .service
+            .borrow_mut()
+            .get_app_master_key(&SessionId(session_id))
+            .map_err(to_js_error)?;
+        let bytes = Uint8Array::from(key.as_slice());
+        Ok(bytes.into())
+    }
+
     #[wasm_bindgen(js_name = "getUserPresenceUnlockInfo")]
     pub fn get_user_presence_unlock_info(&self) -> Result<JsValue, JsValue> {
         let response = self

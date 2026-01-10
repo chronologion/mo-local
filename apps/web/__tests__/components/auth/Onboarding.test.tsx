@@ -29,7 +29,7 @@ describe('Onboarding', () => {
       target: { value: 'short' },
     });
     fireEvent.click(screen.getByRole('button', { name: /finish onboarding/i }));
-    expect(screen.getByText('Password must be at least 8 characters')).not.toBeNull();
+    expect(screen.getByText('Passphrase must be at least 8 characters')).not.toBeNull();
 
     fireEvent.change(screen.getByPlaceholderText('Create a passphrase'), {
       target: { value: 'longpassword' },
@@ -38,7 +38,7 @@ describe('Onboarding', () => {
       target: { value: 'mismatch' },
     });
     fireEvent.click(screen.getByRole('button', { name: /finish onboarding/i }));
-    expect(screen.getByText('Passwords do not match')).not.toBeNull();
+    expect(screen.getByText('Passphrases do not match')).not.toBeNull();
   });
 
   it('calls completeOnboarding with valid password', async () => {

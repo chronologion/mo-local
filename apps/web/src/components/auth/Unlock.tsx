@@ -41,7 +41,7 @@ export function Unlock() {
         <CardContent>
           <form className="space-y-4" onSubmit={handleUnlock}>
             <div className="space-y-2">
-              <Label>Password</Label>
+              <Label>Passphrase</Label>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <div className="flex items-center gap-3">
