@@ -4,6 +4,7 @@ import { AccessModule } from '@access/presentation/access.module';
 import { DatabaseModule } from '@platform/infrastructure/database/database.module';
 import { HealthController } from '@platform/presentation/health.controller';
 import { SyncModule } from '@sync/presentation/sync.module';
+import { SharingModule } from '@sharing/presentation/sharing.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SyncModule } from '@sync/presentation/sync.module';
     DatabaseModule,
     AccessModule,
     SyncModule,
+    SharingModule,
   ],
   controllers: [HealthController],
 })

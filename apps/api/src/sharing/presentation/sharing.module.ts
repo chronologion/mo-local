@@ -11,9 +11,13 @@ import { KyselyScopeStateRepository } from '../infrastructure/kysely-scope-state
 import { KyselyResourceGrantRepository } from '../infrastructure/kysely-resource-grant.repository';
 import { KyselyKeyEnvelopeRepository } from '../infrastructure/kysely-key-envelope.repository';
 import { KyselyKeyVaultRepository } from '../infrastructure/kysely-keyvault.repository';
+import { ScopeController } from './controllers/scope.controller';
+import { GrantController } from './controllers/grant.controller';
+import { KeyVaultController } from './controllers/keyvault.controller';
 
 @Module({
   imports: [SharingDatabaseModule],
+  controllers: [ScopeController, GrantController, KeyVaultController],
   providers: [
     // Services
     ScopeService,
