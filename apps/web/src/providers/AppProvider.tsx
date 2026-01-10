@@ -10,6 +10,7 @@ import { wipeAllMoLocalOpfs, wipeEventStoreDb } from '../utils/resetEventStoreDb
 import { Button } from '../components/ui/button';
 import { createKeyVaultEnvelope, parseKeyVaultEnvelope } from '../backup/keyVaultEnvelope';
 import type { KdfParams, KeyServiceRequest, KeyServiceResponse, SessionId, UserId } from '@mo/key-service-web';
+import { enrollUserPresenceUnlock, isUserPresenceSupported, type UserPresenceEnrollOptions } from '@mo/key-service-web';
 
 const USER_META_KEY = 'mo-local-user';
 const STORE_ID_KEY = 'mo-local-store-id';
@@ -42,8 +43,9 @@ type AppContextValue = {
   services: Services;
   userMeta: UserMeta | null;
   session: SessionState;
-  completeOnboarding: (params: { password: string }) => Promise<void>;
-  unlock: (params: { password: string }) => Promise<void>;
+  completeOnboarding: (params: { password: string; enablePasskey?: boolean }) => Promise<void>;
+  unlock: (params: { password: string; enablePasskey?: boolean }) => Promise<void>;
+  unlockWithUserPresence: (params: { userPresenceSecret: Uint8Array }) => Promise<void>;
   resetLocalState: () => Promise<void>;
   rebuildProjections: () => Promise<void>;
   exportKeyVaultBackup: (params: { password: string }) => Promise<string>;
@@ -54,6 +56,9 @@ type AppContextValue = {
       bytes: Uint8Array;
     }>;
   }) => Promise<void>;
+  requestKeyService: <T extends KeyServiceRequest['type']>(
+    request: KeyServiceRequestByType<T>
+  ) => Promise<KeyServiceResponseByType<T>['payload']>;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -441,7 +446,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [services, keyStoreReady, session.status, remoteAuthState.status]);
 
-  const completeOnboarding = async ({ password }: { password: string }) => {
+  const completeOnboarding = async ({ password, enablePasskey }: { password: string; enablePasskey?: boolean }) => {
     if (!services) {
       throw new Error('Services not initialized');
     }
@@ -456,6 +461,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const deviceId = uuidv4();
     const passphraseForCreate = encodePassphrase(password);
     const passphraseForUnlock = encodePassphrase(password);
+    const passphraseForStepUp = enablePasskey ? encodePassphrase(password) : null;
     try {
       const kdfParams = buildKdfParams();
       await requestKeyService({
@@ -480,6 +486,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       services.keyStore.setMasterKey(masterKeyForStore);
       safeZeroize(masterKeyForStore);
       safeZeroize(masterKey);
+
+      // Enroll passkey if requested
+      if (enablePasskey && isUserPresenceSupported() && passphraseForStepUp) {
+        try {
+          // Step-up before enabling
+          await requestKeyService({
+            type: 'stepUp',
+            payload: { sessionId, passphraseUtf8: passphraseForStepUp },
+          });
+
+          // Get PRF salt
+          const prfInfo = await requestKeyService({
+            type: 'getUserPresenceUnlockInfo',
+            payload: {},
+          });
+
+          if (!prfInfo.enabled) {
+            // Enroll the passkey
+            const enrollOptions: UserPresenceEnrollOptions = {
+              rpName: 'Mo Local',
+              rpId: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+              userId: new TextEncoder().encode(userId),
+              userName: userId,
+              userDisplayName: `User ${userId.slice(0, 8)}`,
+              prfSalt: prfInfo.prfSalt,
+              timeoutMs: 60_000,
+            };
+
+            const { credentialId, userPresenceSecret } = await enrollUserPresenceUnlock(enrollOptions);
+
+            // Store in key service
+            await requestKeyService({
+              type: 'enableUserPresenceUnlock',
+              payload: {
+                sessionId,
+                credentialId,
+                userPresenceSecret,
+              },
+            });
+          }
+        } catch (err) {
+          // Don't fail onboarding if passkey enrollment fails
+          console.warn('Passkey enrollment failed:', err);
+        }
+      }
+
       setKeyStoreReady(true);
       setKeyServiceSessionId(sessionId);
 
@@ -490,32 +542,108 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       safeZeroize(passphraseForCreate);
       safeZeroize(passphraseForUnlock);
+      if (passphraseForStepUp) safeZeroize(passphraseForStepUp);
     }
   };
 
-  const unlock = async ({ password }: { password: string }) => {
+  const unlock = async ({ password, enablePasskey }: { password: string; enablePasskey?: boolean }) => {
     if (!services) throw new Error('Services not initialized');
     const meta = loadMeta();
     if (!meta) throw new Error('No user metadata found');
     const passphraseUtf8 = encodePassphrase(password);
+    const passphraseForStepUp = enablePasskey ? encodePassphrase(password) : null;
     try {
       const unlockResponse = await requestKeyService({
         type: 'unlock',
         payload: { method: 'passphrase', passphraseUtf8 },
       });
+      const sessionId = unlockResponse.sessionId;
       const master = await requestKeyService({
         type: 'getAppMasterKey',
-        payload: { sessionId: unlockResponse.sessionId },
+        payload: { sessionId },
       });
       services.keyStore.setMasterKey(master.masterKey);
       safeZeroize(master.masterKey);
+
+      // Enroll passkey if requested
+      if (enablePasskey && isUserPresenceSupported() && passphraseForStepUp) {
+        try {
+          // Step-up before enabling
+          await requestKeyService({
+            type: 'stepUp',
+            payload: { sessionId, passphraseUtf8: passphraseForStepUp },
+          });
+
+          // Get PRF salt
+          const prfInfo = await requestKeyService({
+            type: 'getUserPresenceUnlockInfo',
+            payload: {},
+          });
+
+          if (!prfInfo.enabled) {
+            // Enroll the passkey
+            const enrollOptions: UserPresenceEnrollOptions = {
+              rpName: 'Mo Local',
+              rpId: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+              userId: new TextEncoder().encode(meta.userId),
+              userName: meta.userId,
+              userDisplayName: `User ${meta.userId.slice(0, 8)}`,
+              prfSalt: prfInfo.prfSalt,
+              timeoutMs: 60_000,
+            };
+
+            const { credentialId, userPresenceSecret } = await enrollUserPresenceUnlock(enrollOptions);
+
+            // Store in key service
+            await requestKeyService({
+              type: 'enableUserPresenceUnlock',
+              payload: {
+                sessionId,
+                credentialId,
+                userPresenceSecret,
+              },
+            });
+          }
+        } catch (err) {
+          // Don't fail unlock if passkey enrollment fails
+          console.warn('Passkey enrollment failed:', err);
+        }
+      }
+
       setKeyStoreReady(true);
-      setKeyServiceSessionId(unlockResponse.sessionId);
+      setKeyServiceSessionId(sessionId);
       saveMeta(meta);
       setUserMeta(meta);
       setSession({ status: 'ready', userId: meta.userId });
     } finally {
       safeZeroize(passphraseUtf8);
+      if (passphraseForStepUp) safeZeroize(passphraseForStepUp);
+    }
+  };
+
+  const unlockWithUserPresence = async ({ userPresenceSecret }: { userPresenceSecret: Uint8Array }) => {
+    if (!services) throw new Error('Services not initialized');
+    const meta = loadMeta();
+    if (!meta) throw new Error('No user metadata found');
+    try {
+      const unlockResponse = await requestKeyService({
+        type: 'unlock',
+        payload: { method: 'userPresence', userPresenceSecret },
+      });
+      const sessionId = unlockResponse.sessionId;
+      const master = await requestKeyService({
+        type: 'getAppMasterKey',
+        payload: { sessionId },
+      });
+      services.keyStore.setMasterKey(master.masterKey);
+      safeZeroize(master.masterKey);
+      setKeyStoreReady(true);
+      setKeyServiceSessionId(sessionId);
+      saveMeta(meta);
+      setUserMeta(meta);
+      setSession({ status: 'ready', userId: meta.userId });
+    } finally {
+      safeZeroize(userPresenceSecret);
     }
   };
 
@@ -770,10 +898,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           session,
           completeOnboarding,
           unlock,
+          unlockWithUserPresence,
           resetLocalState,
           rebuildProjections,
           exportKeyVaultBackup,
           restoreBackup,
+          requestKeyService,
         }}
       >
         <InterfaceProvider value={interfaceContextValue}>{children}</InterfaceProvider>

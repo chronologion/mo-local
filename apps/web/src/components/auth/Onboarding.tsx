@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Checkbox } from '../ui/checkbox';
 import { useApp } from '../../providers/AppProvider';
+import { isUserPresenceSupported } from '@mo/key-service-web';
 
 export function Onboarding() {
   const { completeOnboarding, restoreBackup } = useApp();
@@ -13,6 +15,7 @@ export function Onboarding() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enablePasskey, setEnablePasskey] = useState(false);
   const [restorePass, setRestorePass] = useState('');
   const [restoreInput, setRestoreInput] = useState('');
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export function Onboarding() {
     setLoading(true);
     setError(null);
     try {
-      await completeOnboarding({ password });
+      await completeOnboarding({ password, enablePasskey });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setError(message);
@@ -140,6 +143,21 @@ export function Onboarding() {
                 placeholder="Repeat passphrase"
               />
             </div>
+            {isUserPresenceSupported() && (
+              <div className="md:col-span-2 flex items-center space-x-2">
+                <Checkbox
+                  id="enable-passkey-onboard"
+                  checked={enablePasskey}
+                  onCheckedChange={(checked) => setEnablePasskey(checked === true)}
+                />
+                <label
+                  htmlFor="enable-passkey-onboard"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Enable passkey unlock (fingerprint, face, or security key)
+                </label>
+              </div>
+            )}
             <div className="md:col-span-2 flex items-center gap-3">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Creating keys…' : 'Finish onboarding'}
