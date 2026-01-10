@@ -9,9 +9,10 @@ import { OwnerOnlySyncAccessPolicy } from '../infrastructure/owner-only-sync-acc
 import { SyncDatabaseModule } from '../infrastructure/database.module';
 import { SyncController } from './sync.controller';
 import { AccessModule } from '@access/presentation/access.module';
+import { SharingModule } from '@sharing/presentation/sharing.module';
 
 @Module({
-  imports: [SyncDatabaseModule, AccessModule],
+  imports: [SyncDatabaseModule, AccessModule, SharingModule],
   controllers: [SyncController],
   providers: [
     SyncService,

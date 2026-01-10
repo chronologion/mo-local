@@ -39,6 +39,12 @@ export class SyncController {
       const events = dto.events.map((event) => ({
         eventId: event.eventId,
         recordJson: event.recordJson,
+        scopeId: event.scopeId,
+        resourceId: event.resourceId,
+        resourceKeyId: event.resourceKeyId,
+        grantId: event.grantId,
+        scopeStateRef: event.scopeStateRef ? Buffer.from(event.scopeStateRef, 'hex') : undefined,
+        authorDeviceId: event.authorDeviceId,
       }));
 
       const result = await this.syncService.pushEvents({
