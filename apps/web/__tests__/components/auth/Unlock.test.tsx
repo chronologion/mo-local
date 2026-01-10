@@ -38,7 +38,7 @@ describe('Unlock', () => {
     fireEvent.click(screen.getByRole('button', { name: /unlock/i }));
 
     await waitFor(() => {
-      expect(unlock).toHaveBeenCalledWith({ password: 'secret123' });
+      expect(unlock).toHaveBeenCalledWith({ password: 'secret123', enablePasskey: false });
     });
   });
 

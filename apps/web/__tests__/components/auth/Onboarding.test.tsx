@@ -64,6 +64,7 @@ describe('Onboarding', () => {
     await waitFor(() => {
       expect(completeOnboarding).toHaveBeenCalledWith({
         password: 'longpassword',
+        enablePasskey: false,
       });
     });
   });

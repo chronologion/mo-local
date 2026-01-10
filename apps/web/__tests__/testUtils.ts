@@ -27,10 +27,12 @@ export const makeAppContext = (overrides: Partial<AppContextValue> = {}): AppCon
   session: { status: 'ready', userId: 'user-1' },
   completeOnboarding: async () => {},
   unlock: async () => {},
+  unlockWithUserPresence: async () => {},
   resetLocalState: async () => {},
   rebuildProjections: async () => {},
   exportKeyVaultBackup: async () => '',
   restoreBackup: async (_params) => {},
+  requestKeyService: async () => ({}) as never,
   ...overrides,
 });
 

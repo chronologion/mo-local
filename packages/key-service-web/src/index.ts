@@ -45,6 +45,15 @@ export type KeyServicePort = {
   shutdown: () => void;
 };
 
+export type { UserPresenceEnrollOptions, UserPresenceEnrollResult, UserPresenceSecretOptions } from './userPresence';
+
+export {
+  enrollUserPresenceUnlock,
+  getUserPresenceSecret,
+  isUserPresenceSupported,
+  parseUserPresencePrfOutput,
+} from './userPresence';
+
 type SharedWorkerLike = {
   port: MessagePortLike & { close?: () => void };
 };
