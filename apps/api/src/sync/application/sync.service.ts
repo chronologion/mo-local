@@ -177,6 +177,10 @@ export class SyncService {
         if (!activeGrant || !activeGrant.grantId.equals(grantId)) {
           return 'stale_grant';
         }
+        // 5. Validate resourceKeyId matches grant's resourceKeyId
+        if (event.resourceKeyId && activeGrant.resourceKeyId !== event.resourceKeyId) {
+          return 'stale_grant';
+        }
       }
     }
 

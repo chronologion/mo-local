@@ -30,12 +30,6 @@ export async function up(db: Kysely<SharingDatabase>): Promise<void> {
     .unique()
     .execute();
 
-  await db.schema
-    .createIndex('scope_states_scope_idx')
-    .on('sharing.scope_states')
-    .columns(['scope_id', 'scope_state_seq'])
-    .execute();
-
   await db.schema.createIndex('scope_states_owner_idx').on('sharing.scope_states').column('owner_user_id').execute();
 
   await db.schema.createIndex('scope_states_ref_idx').on('sharing.scope_states').column('scope_state_ref').execute();
@@ -84,12 +78,6 @@ export async function up(db: Kysely<SharingDatabase>): Promise<void> {
     .on('sharing.resource_grants')
     .columns(['scope_id', 'grant_seq'])
     .unique()
-    .execute();
-
-  await db.schema
-    .createIndex('resource_grants_scope_idx')
-    .on('sharing.resource_grants')
-    .columns(['scope_id', 'grant_seq'])
     .execute();
 
   await db.schema
