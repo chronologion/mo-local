@@ -10,6 +10,13 @@ export interface SyncEventsTable {
   event_id: string;
   record_json: string;
   created_at: TimestampColumn;
+  // Sharing dependency references (nullable)
+  scope_id: string | null;
+  resource_id: string | null;
+  resource_key_id: string | null;
+  grant_id: string | null;
+  scope_state_ref: Buffer | null;
+  author_device_id: string | null;
 }
 
 export interface SyncDatabase {

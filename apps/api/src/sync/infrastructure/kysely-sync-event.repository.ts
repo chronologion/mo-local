@@ -91,6 +91,12 @@ export class KyselySyncEventRepository extends SyncEventRepository {
             global_seq: nextSequence,
             event_id: event.eventId,
             record_json: event.recordJson,
+            scope_id: event.scopeId ?? null,
+            resource_id: event.resourceId ?? null,
+            resource_key_id: event.resourceKeyId ?? null,
+            grant_id: event.grantId ?? null,
+            scope_state_ref: event.scopeStateRef ?? null,
+            author_device_id: event.authorDeviceId ?? null,
           })
           .onConflict((oc) => oc.columns(['owner_identity_id', 'store_id', 'event_id']).doNothing())
           .returning(['event_id', 'global_seq'])

@@ -20,7 +20,8 @@
     "paths": {
       "@platform/*": ["platform/*"],
       "@access/*": ["access/*"],
-      "@sync/*": ["sync/*"]
+      "@sync/*": ["sync/*"],
+      "@sharing/*": ["sharing/*"]
     }
   },
   "include": ["src/**/*"],

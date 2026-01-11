@@ -22,4 +22,11 @@ export type SyncEventAssignment = Readonly<{
 export type SyncIncomingEvent = Readonly<{
   eventId: string;
   recordJson: string;
+  // Optional sharing dependency references (for encrypted resources)
+  scopeId?: string;
+  resourceId?: string;
+  resourceKeyId?: string;
+  grantId?: string;
+  scopeStateRef?: Buffer;
+  authorDeviceId?: string;
 }>;
