@@ -22,13 +22,19 @@ type EventRow = Readonly<{
   aggregate_id: string;
   event_type: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
   occurred_at: number;
   actor_id: string | null;
   causation_id: string | null;
   correlation_id: string | null;
-  epoch: number | null;
+  scope_id: string;
+  resource_id: string;
+  resource_key_id: string;
+  grant_id: string;
+  scope_state_ref: Uint8Array;
+  author_device_id: string;
+  sig_suite: string;
+  signature: Uint8Array;
   commit_sequence: number;
 }>;
 
@@ -203,13 +209,19 @@ class MemoryDb implements SqliteDbPort {
         aggregateId,
         eventType,
         payloadEncrypted,
-        keyringUpdate,
         version,
         occurredAt,
         actorId,
         causationId,
         correlationId,
-        epoch,
+        scopeId,
+        resourceId,
+        resourceKeyId,
+        grantId,
+        scopeStateRef,
+        authorDeviceId,
+        sigSuite,
+        signature,
       ] = params;
       if (this.events.some((row) => row.id === id)) {
         return;
@@ -226,7 +238,8 @@ class MemoryDb implements SqliteDbPort {
         return;
       }
       const payload = toUint8Array(payloadEncrypted, 'payload_encrypted');
-      const keyring = toNullableUint8Array(keyringUpdate, 'keyring_update');
+      const scopeStateRefBytes = toUint8Array(scopeStateRef, 'scope_state_ref');
+      const signatureBytes = toUint8Array(signature, 'signature');
       this.commitSequence += 1;
       this.events.push({
         id: String(id),
@@ -234,13 +247,19 @@ class MemoryDb implements SqliteDbPort {
         aggregate_id: String(aggregateId),
         event_type: String(eventType),
         payload_encrypted: payload,
-        keyring_update: keyring,
         version: Number(version),
         occurred_at: Number(occurredAt),
         actor_id: actorId === null ? null : String(actorId),
         causation_id: causationId === null ? null : String(causationId),
         correlation_id: correlationId === null ? null : String(correlationId),
-        epoch: epoch === null ? null : Number(epoch),
+        scope_id: String(scopeId),
+        resource_id: String(resourceId),
+        resource_key_id: String(resourceKeyId),
+        grant_id: String(grantId),
+        scope_state_ref: scopeStateRefBytes,
+        author_device_id: String(authorDeviceId),
+        sig_suite: String(sigSuite),
+        signature: signatureBytes,
         commit_sequence: this.commitSequence,
       });
       return;
@@ -324,12 +343,6 @@ const toUint8Array = (value: SqliteValue, label: string): Uint8Array => {
   throw new Error(`Expected ${label} to be Uint8Array`);
 };
 
-const toNullableUint8Array = (value: SqliteValue, label: string): Uint8Array | null => {
-  if (value === null) return null;
-  if (value instanceof Uint8Array) return value;
-  throw new Error(`Expected ${label} to be Uint8Array or null`);
-};
-
 type TestEnvelopeMeta = Readonly<{
   eventId: string;
   eventType: string;
@@ -397,13 +410,11 @@ const makeRecordJson = (params: {
   eventType: string;
   payload: Uint8Array;
   version: number;
-  epoch?: number | null;
 }): string =>
   JSON.stringify({
     recordVersion: 1,
     aggregateType: params.aggregateType,
     aggregateId: params.aggregateId,
-    epoch: params.epoch ?? null,
     version: params.version,
     payloadCiphertext: encodeBase64Url(
       encodeEnvelopeBytes(
@@ -418,7 +429,14 @@ const makeRecordJson = (params: {
         params.payload
       )
     ),
-    keyringUpdate: null,
+    scopeId: 'default-scope',
+    resourceId: 'default-resource',
+    resourceKeyId: 'default-key',
+    grantId: 'default-grant',
+    scopeStateRef: encodeBase64Url(new Uint8Array(32)),
+    authorDeviceId: 'default-device',
+    sigSuite: 'ecdsa-p256',
+    signature: encodeBase64Url(new Uint8Array(64)),
   });
 
 type ParsedRecord = Readonly<{
@@ -453,13 +471,19 @@ const createTestMaterializer = (): SyncRecordMaterializerPort => ({
         aggregate_id: record.aggregateId,
         event_type: meta.eventType,
         payload_encrypted: payloadBytes,
-        keyring_update: null,
         version: record.version,
         occurred_at: meta.occurredAt,
         actor_id: meta.actorId,
         causation_id: meta.causationId,
         correlation_id: meta.correlationId,
-        epoch: record.epoch ?? null,
+        scope_id: record.scopeId,
+        resource_id: record.resourceId,
+        resource_key_id: record.resourceKeyId,
+        grant_id: record.grantId,
+        scope_state_ref: decodeBase64Url(record.scopeStateRef),
+        author_device_id: record.authorDeviceId,
+        sig_suite: record.sigSuite,
+        signature: decodeBase64Url(record.signature),
       },
     };
   },
@@ -478,13 +502,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -579,14 +609,20 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       // Intentionally points "forward" to demonstrate that we do NOT topologically sort.
       causation_id: 'local-2',
       correlation_id: 'corr-1',
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     db.seedEvent({
@@ -595,13 +631,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalRefined',
       payload_encrypted: new Uint8Array([2]),
-      keyring_update: null,
       version: 2,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: 'corr-1',
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -658,13 +700,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     const engine = new SyncEngine({
@@ -761,13 +809,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     const engine = new SyncEngine({
@@ -841,13 +895,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     db.emitTableChange();
@@ -914,13 +974,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     await vi.advanceTimersByTimeAsync(49);
@@ -946,13 +1012,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -1008,13 +1080,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -1116,13 +1194,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -1167,13 +1251,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -1256,13 +1346,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     transport.pullResponses.push({
@@ -1301,13 +1397,19 @@ describe('SyncEngine', () => {
       aggregate_id: 'goal-1',
       event_type: 'GoalCreated',
       payload_encrypted: new Uint8Array([1, 2, 3]),
-      keyring_update: null,
       version: 1,
       occurred_at: Date.now(),
       actor_id: null,
       causation_id: null,
       correlation_id: null,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     });
 
     const pullError = new Error('pull failed');
