@@ -44,9 +44,15 @@ describe('SyncRecordMaterializer', () => {
       aggregate_type: aggregateType,
       aggregate_id: aggregateId,
       payload_encrypted: ciphertext,
-      keyring_update: null,
       version: 1,
-      epoch: null,
+      scope_id: 'default-scope',
+      resource_id: 'default-resource',
+      resource_key_id: 'default-key',
+      grant_id: 'default-grant',
+      scope_state_ref: new Uint8Array(32),
+      author_device_id: 'default-device',
+      sig_suite: 'ecdsa-p256',
+      signature: new Uint8Array(64),
     };
     const recordJson = toRecordJson(toSyncRecord(row));
 
