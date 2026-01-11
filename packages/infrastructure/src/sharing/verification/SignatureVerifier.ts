@@ -96,16 +96,18 @@ export class SignatureVerifier {
 /**
  * Verification result for a signed artifact.
  */
+export type VerificationFailureReason =
+  | 'signature_invalid'
+  | 'dependency_missing'
+  | 'signer_not_found'
+  | 'signer_not_authorized'
+  | 'hash_chain_violation';
+
 export type VerificationResult =
   | { ok: true }
   | {
       ok: false;
-      reason:
-        | 'signature_invalid'
-        | 'dependency_missing'
-        | 'signer_not_found'
-        | 'signer_not_authorized'
-        | 'hash_chain_violation';
+      reason: VerificationFailureReason;
       details?: string;
     };
 
@@ -115,7 +117,7 @@ export type VerificationResult =
 export class SignatureVerificationError extends Error {
   constructor(
     message: string,
-    public readonly reason: VerificationResult['reason']
+    public readonly reason: VerificationFailureReason
   ) {
     super(message);
     this.name = 'SignatureVerificationError';

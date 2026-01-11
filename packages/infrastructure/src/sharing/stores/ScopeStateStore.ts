@@ -31,6 +31,16 @@ export type ScopeSigner = Readonly<{
   pubKeys: Readonly<Record<string, Uint8Array>>;
 }>;
 
+type ScopeStateRow = Readonly<{
+  scope_state_ref: Uint8Array;
+  scope_id: string;
+  scope_state_seq: string;
+  members_json: string;
+  signers_json: string;
+  signature: Uint8Array;
+  verified_at: number;
+}>;
+
 /**
  * ScopeStateStore manages the local cache of verified ScopeState records.
  *
@@ -50,7 +60,7 @@ export class ScopeStateStore {
    * @param state - Verified scope state record
    */
   async store(state: VerifiedScopeState): Promise<void> {
-    await this.db.run(
+    await this.db.execute(
       `INSERT OR REPLACE INTO scope_states (
         scope_state_ref,
         scope_id,
@@ -79,16 +89,11 @@ export class ScopeStateStore {
    * @returns Verified scope state or null if not found
    */
   async loadByRef(scopeStateRef: Uint8Array): Promise<VerifiedScopeState | null> {
-    const row = await this.db.get<{
-      scope_state_ref: Uint8Array;
-      scope_id: string;
-      scope_state_seq: string;
-      members_json: string;
-      signers_json: string;
-      signature: Uint8Array;
-      verified_at: number;
-    }>('SELECT * FROM scope_states WHERE scope_state_ref = ?', [scopeStateRef]);
+    const rows = await this.db.query<ScopeStateRow>('SELECT * FROM scope_states WHERE scope_state_ref = ?', [
+      scopeStateRef,
+    ]);
 
+    const row = rows[0];
     if (!row) return null;
 
     return {
@@ -109,17 +114,12 @@ export class ScopeStateStore {
    * @returns Array of verified scope states
    */
   async loadByScopeId(scopeId: string): Promise<VerifiedScopeState[]> {
-    const rows = await this.db.all<{
-      scope_state_ref: Uint8Array;
-      scope_id: string;
-      scope_state_seq: string;
-      members_json: string;
-      signers_json: string;
-      signature: Uint8Array;
-      verified_at: number;
-    }>('SELECT * FROM scope_states WHERE scope_id = ? ORDER BY scope_state_seq ASC', [scopeId]);
+    const rows = await this.db.query<ScopeStateRow>(
+      'SELECT * FROM scope_states WHERE scope_id = ? ORDER BY scope_state_seq ASC',
+      [scopeId]
+    );
 
-    return rows.map((row) => ({
+    return rows.map((row: ScopeStateRow) => ({
       scopeStateRef: new Uint8Array(row.scope_state_ref),
       scopeId: row.scope_id,
       scopeStateSeq: BigInt(row.scope_state_seq),
@@ -167,10 +167,10 @@ export class ScopeStateStore {
    * @returns true if exists
    */
   async exists(scopeStateRef: Uint8Array): Promise<boolean> {
-    const row = await this.db.get<{ count: number }>(
+    const rows = await this.db.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM scope_states WHERE scope_state_ref = ?',
       [scopeStateRef]
     );
-    return (row?.count ?? 0) > 0;
+    return (rows[0]?.count ?? 0) > 0;
   }
 }

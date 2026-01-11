@@ -1,29 +1,41 @@
 import { decodeBase64Url, encodeBase64Url } from './base64url';
 import type { SyncRecord } from './types';
 
+/**
+ * LocalEventRow structure matching the new events table schema with sharing fields.
+ */
 export type LocalEventRow = Readonly<{
   id: string;
   aggregate_type: string;
   aggregate_id: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
-  epoch: number | null;
+  scope_id: string;
+  resource_id: string;
+  resource_key_id: string;
+  grant_id: string;
+  scope_state_ref: Uint8Array;
+  author_device_id: string;
+  sig_suite: string;
+  signature: Uint8Array;
 }>;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
-
-const isNullableNumber = (value: unknown): value is number | null =>
-  value === null || (typeof value === 'number' && Number.isFinite(value));
 
 export const toSyncRecord = (row: LocalEventRow): SyncRecord => ({
   recordVersion: 1,
   aggregateType: row.aggregate_type,
   aggregateId: row.aggregate_id,
-  epoch: row.epoch ?? null,
   version: row.version,
   payloadCiphertext: encodeBase64Url(row.payload_encrypted),
-  keyringUpdate: row.keyring_update === null ? null : encodeBase64Url(row.keyring_update),
+  scopeId: row.scope_id,
+  resourceId: row.resource_id,
+  resourceKeyId: row.resource_key_id,
+  grantId: row.grant_id,
+  scopeStateRef: encodeBase64Url(row.scope_state_ref),
+  authorDeviceId: row.author_device_id,
+  sigSuite: row.sig_suite,
+  signature: encodeBase64Url(row.signature),
 });
 
 export const toRecordJson = (record: SyncRecord): string =>
@@ -31,10 +43,16 @@ export const toRecordJson = (record: SyncRecord): string =>
     recordVersion: record.recordVersion,
     aggregateType: record.aggregateType,
     aggregateId: record.aggregateId,
-    epoch: record.epoch,
     version: record.version,
     payloadCiphertext: record.payloadCiphertext,
-    keyringUpdate: record.keyringUpdate,
+    scopeId: record.scopeId,
+    resourceId: record.resourceId,
+    resourceKeyId: record.resourceKeyId,
+    grantId: record.grantId,
+    scopeStateRef: record.scopeStateRef,
+    authorDeviceId: record.authorDeviceId,
+    sigSuite: record.sigSuite,
+    signature: record.signature,
   });
 
 const isSyncRecord = (value: unknown): value is SyncRecord => {
@@ -44,11 +62,17 @@ const isSyncRecord = (value: unknown): value is SyncRecord => {
     record.recordVersion === 1 &&
     isString(record.aggregateType) &&
     isString(record.aggregateId) &&
-    isNullableNumber(record.epoch) &&
     typeof record.version === 'number' &&
     Number.isFinite(record.version) &&
     isString(record.payloadCiphertext) &&
-    (record.keyringUpdate === null || typeof record.keyringUpdate === 'string')
+    isString(record.scopeId) &&
+    isString(record.resourceId) &&
+    isString(record.resourceKeyId) &&
+    isString(record.grantId) &&
+    isString(record.scopeStateRef) &&
+    isString(record.authorDeviceId) &&
+    isString(record.sigSuite) &&
+    isString(record.signature)
   );
 };
 
@@ -66,6 +90,3 @@ export const parseRecordJson = (recordJson: string): SyncRecord => {
 };
 
 export const decodeRecordPayload = (record: SyncRecord): Uint8Array => decodeBase64Url(record.payloadCiphertext);
-
-export const decodeRecordKeyringUpdate = (record: SyncRecord): Uint8Array | null =>
-  record.keyringUpdate === null ? null : decodeBase64Url(record.keyringUpdate);

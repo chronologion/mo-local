@@ -22,6 +22,15 @@ export type OutboxArtifact = Readonly<{
   enqueuedAt: number;
 }>;
 
+type OutboxRow = Readonly<{
+  artifact_id: string;
+  artifact_type: string;
+  payload: string;
+  dependencies: string;
+  status: string;
+  enqueued_at: number;
+}>;
+
 /**
  * OutboxStore manages persistent storage for the crypto outbox.
  *
@@ -41,7 +50,7 @@ export class OutboxStore {
    * @param artifact - Artifact to enqueue
    */
   async enqueue(artifact: OutboxArtifact): Promise<void> {
-    await this.db.run(
+    await this.db.execute(
       `INSERT OR REPLACE INTO crypto_outbox (
         artifact_id,
         artifact_type,
@@ -67,16 +76,12 @@ export class OutboxStore {
    * @returns Array of pending artifacts
    */
   async loadPending(): Promise<OutboxArtifact[]> {
-    const rows = await this.db.all<{
-      artifact_id: string;
-      artifact_type: string;
-      payload: string;
-      dependencies: string;
-      status: string;
-      enqueued_at: number;
-    }>('SELECT * FROM crypto_outbox WHERE status = ? ORDER BY enqueued_at ASC', ['pending']);
+    const rows = await this.db.query<OutboxRow>(
+      'SELECT * FROM crypto_outbox WHERE status = ? ORDER BY enqueued_at ASC',
+      ['pending']
+    );
 
-    return rows.map((row) => ({
+    return rows.map((row: OutboxRow) => ({
       artifactId: row.artifact_id,
       artifactType: row.artifact_type as OutboxArtifactType,
       payload: row.payload,
@@ -93,15 +98,9 @@ export class OutboxStore {
    * @returns Artifact or null if not found
    */
   async loadById(artifactId: string): Promise<OutboxArtifact | null> {
-    const row = await this.db.get<{
-      artifact_id: string;
-      artifact_type: string;
-      payload: string;
-      dependencies: string;
-      status: string;
-      enqueued_at: number;
-    }>('SELECT * FROM crypto_outbox WHERE artifact_id = ?', [artifactId]);
+    const rows = await this.db.query<OutboxRow>('SELECT * FROM crypto_outbox WHERE artifact_id = ?', [artifactId]);
 
+    const row = rows[0];
     if (!row) return null;
 
     return {
@@ -120,7 +119,7 @@ export class OutboxStore {
    * @param artifactId - Artifact identifier
    */
   async markPushed(artifactId: string): Promise<void> {
-    await this.db.run('UPDATE crypto_outbox SET status = ? WHERE artifact_id = ?', ['pushed', artifactId]);
+    await this.db.execute('UPDATE crypto_outbox SET status = ? WHERE artifact_id = ?', ['pushed', artifactId]);
   }
 
   /**
@@ -129,7 +128,7 @@ export class OutboxStore {
    * @param artifactId - Artifact identifier
    */
   async delete(artifactId: string): Promise<void> {
-    await this.db.run('DELETE FROM crypto_outbox WHERE artifact_id = ?', [artifactId]);
+    await this.db.execute('DELETE FROM crypto_outbox WHERE artifact_id = ?', [artifactId]);
   }
 
   /**
@@ -138,7 +137,7 @@ export class OutboxStore {
    * @param olderThan - Timestamp threshold
    */
   async clearPushed(olderThan: number): Promise<void> {
-    await this.db.run('DELETE FROM crypto_outbox WHERE status = ? AND enqueued_at < ?', ['pushed', olderThan]);
+    await this.db.execute('DELETE FROM crypto_outbox WHERE status = ? AND enqueued_at < ?', ['pushed', olderThan]);
   }
 
   /**
@@ -148,10 +147,10 @@ export class OutboxStore {
    * @returns true if exists
    */
   async exists(artifactId: string): Promise<boolean> {
-    const row = await this.db.get<{ count: number }>(
+    const rows = await this.db.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM crypto_outbox WHERE artifact_id = ?',
       [artifactId]
     );
-    return (row?.count ?? 0) > 0;
+    return (rows[0]?.count ?? 0) > 0;
   }
 }

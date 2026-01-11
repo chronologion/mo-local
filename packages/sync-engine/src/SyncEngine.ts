@@ -939,7 +939,6 @@ export class SyncEngine {
         });
         const eventRow = materialized.eventRow;
         const payload = eventRow.payload_encrypted;
-        const keyringUpdate = eventRow.keyring_update;
         statements.push({
           kind: SqliteStatementKinds.execute,
           sql: `INSERT OR IGNORE INTO events (
@@ -948,27 +947,39 @@ export class SyncEngine {
             aggregate_id,
             event_type,
             payload_encrypted,
-            keyring_update,
             version,
             occurred_at,
             actor_id,
             causation_id,
             correlation_id,
-            epoch
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            scope_id,
+            resource_id,
+            resource_key_id,
+            grant_id,
+            scope_state_ref,
+            author_device_id,
+            sig_suite,
+            signature
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           params: [
             eventRow.id,
             eventRow.aggregate_type,
             eventRow.aggregate_id,
             eventRow.event_type,
             payload,
-            keyringUpdate,
             eventRow.version,
             eventRow.occurred_at,
             eventRow.actor_id,
             eventRow.causation_id,
             eventRow.correlation_id,
-            eventRow.epoch,
+            eventRow.scope_id,
+            eventRow.resource_id,
+            eventRow.resource_key_id,
+            eventRow.grant_id,
+            eventRow.scope_state_ref,
+            eventRow.author_device_id,
+            eventRow.sig_suite,
+            eventRow.signature,
           ],
         });
         insertedEventIds.push(eventRow.id);

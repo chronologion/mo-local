@@ -304,7 +304,7 @@ export class VerificationPipeline {
    * Compute SHA-256 hash of payload ciphertext.
    */
   private async hashPayload(ciphertext: Uint8Array): Promise<Uint8Array> {
-    const hash = await crypto.subtle.digest('SHA-256', ciphertext);
+    const hash = await crypto.subtle.digest('SHA-256', ciphertext as BufferSource);
     return new Uint8Array(hash);
   }
 }

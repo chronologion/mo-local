@@ -14,6 +14,17 @@ export type VerifiedResourceGrant = Readonly<{
   verifiedAt: number;
 }>;
 
+type ResourceGrantRow = Readonly<{
+  grant_id: string;
+  scope_id: string;
+  resource_id: string;
+  resource_key_id: string;
+  wrapped_key: Uint8Array;
+  scope_state_ref: Uint8Array;
+  status: string;
+  verified_at: number;
+}>;
+
 /**
  * ResourceGrantStore manages the local cache of verified ResourceGrant records.
  *
@@ -33,7 +44,7 @@ export class ResourceGrantStore {
    * @param grant - Verified resource grant record
    */
   async store(grant: VerifiedResourceGrant): Promise<void> {
-    await this.db.run(
+    await this.db.execute(
       `INSERT OR REPLACE INTO resource_grants (
         grant_id,
         scope_id,
@@ -64,17 +75,9 @@ export class ResourceGrantStore {
    * @returns Verified grant or null if not found
    */
   async loadById(grantId: string): Promise<VerifiedResourceGrant | null> {
-    const row = await this.db.get<{
-      grant_id: string;
-      scope_id: string;
-      resource_id: string;
-      resource_key_id: string;
-      wrapped_key: Uint8Array;
-      scope_state_ref: Uint8Array;
-      status: string;
-      verified_at: number;
-    }>('SELECT * FROM resource_grants WHERE grant_id = ?', [grantId]);
+    const rows = await this.db.query<ResourceGrantRow>('SELECT * FROM resource_grants WHERE grant_id = ?', [grantId]);
 
+    const row = rows[0];
     if (!row) return null;
 
     return {
@@ -103,18 +106,9 @@ export class ResourceGrantStore {
 
     const params = includeRevoked ? [scopeId] : [scopeId, 'active'];
 
-    const rows = await this.db.all<{
-      grant_id: string;
-      scope_id: string;
-      resource_id: string;
-      resource_key_id: string;
-      wrapped_key: Uint8Array;
-      scope_state_ref: Uint8Array;
-      status: string;
-      verified_at: number;
-    }>(sql, params);
+    const rows = await this.db.query<ResourceGrantRow>(sql, params);
 
-    return rows.map((row) => ({
+    return rows.map((row: ResourceGrantRow) => ({
       grantId: row.grant_id,
       scopeId: row.scope_id,
       resourceId: row.resource_id,
@@ -140,18 +134,9 @@ export class ResourceGrantStore {
 
     const params = includeRevoked ? [resourceId] : [resourceId, 'active'];
 
-    const rows = await this.db.all<{
-      grant_id: string;
-      scope_id: string;
-      resource_id: string;
-      resource_key_id: string;
-      wrapped_key: Uint8Array;
-      scope_state_ref: Uint8Array;
-      status: string;
-      verified_at: number;
-    }>(sql, params);
+    const rows = await this.db.query<ResourceGrantRow>(sql, params);
 
-    return rows.map((row) => ({
+    return rows.map((row: ResourceGrantRow) => ({
       grantId: row.grant_id,
       scopeId: row.scope_id,
       resourceId: row.resource_id,
@@ -170,11 +155,11 @@ export class ResourceGrantStore {
    * @returns true if exists
    */
   async exists(grantId: string): Promise<boolean> {
-    const row = await this.db.get<{ count: number }>(
+    const rows = await this.db.query<{ count: number }>(
       'SELECT COUNT(*) as count FROM resource_grants WHERE grant_id = ?',
       [grantId]
     );
-    return (row?.count ?? 0) > 0;
+    return (rows[0]?.count ?? 0) > 0;
   }
 
   /**
@@ -184,9 +169,9 @@ export class ResourceGrantStore {
    * @returns true if active, false if revoked or not found
    */
   async isActive(grantId: string): Promise<boolean> {
-    const row = await this.db.get<{ status: string }>('SELECT status FROM resource_grants WHERE grant_id = ?', [
+    const rows = await this.db.query<{ status: string }>('SELECT status FROM resource_grants WHERE grant_id = ?', [
       grantId,
     ]);
-    return row?.status === 'active';
+    return rows[0]?.status === 'active';
   }
 }
