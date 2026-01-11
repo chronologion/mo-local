@@ -461,8 +461,10 @@ export class SyncEngine {
             resourceId: syncRecord.resourceId ?? undefined,
             resourceKeyId: syncRecord.resourceKeyId ?? undefined,
             grantId: syncRecord.grantId ?? undefined,
-            // Server expects hex encoding for scopeStateRef, convert from base64url
-            scopeStateRef: row.scope_state_ref ? Buffer.from(row.scope_state_ref).toString('hex') : undefined,
+            // Server expects hex encoding for scopeStateRef, convert Uint8Array to hex
+            scopeStateRef: row.scope_state_ref
+              ? Array.from(row.scope_state_ref, (byte) => byte.toString(16).padStart(2, '0')).join('')
+              : undefined,
             authorDeviceId: syncRecord.authorDeviceId ?? undefined,
           };
         });
