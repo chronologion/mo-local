@@ -3,6 +3,7 @@ import { KyselyScopeStateRepository } from '../../src/sharing/infrastructure/kys
 import { ScopeStateHeadMismatchError } from '../../src/sharing/application/ports/scope-state-repository';
 import { ScopeId } from '../../src/sharing/domain/value-objects/ScopeId';
 import { SequenceNumber } from '../../src/sharing/domain/value-objects/SequenceNumber';
+import { UserId } from '../../src/sharing/domain/value-objects/UserId';
 import type { SharingDatabaseService } from '../../src/sharing/infrastructure/database.service';
 
 type ScopeStateRow = {
@@ -204,7 +205,7 @@ describe('KyselyScopeStateRepository', () => {
       state: {
         prevHash: null,
         scopeStateRef: ref,
-        ownerUserId: 'user-1',
+        ownerUserId: UserId.from('user-1'),
         scopeEpoch: 1n,
         signedRecordCbor: Buffer.from('cbor'),
         members: {},
@@ -244,7 +245,7 @@ describe('KyselyScopeStateRepository', () => {
         state: {
           prevHash: wrongPrevHash,
           scopeStateRef: Buffer.from('112233', 'hex'),
-          ownerUserId: 'user-1',
+          ownerUserId: UserId.from('user-1'),
           scopeEpoch: 1n,
           signedRecordCbor: Buffer.from('cbor'),
           members: {},
@@ -277,7 +278,7 @@ describe('KyselyScopeStateRepository', () => {
         state: {
           prevHash: null,
           scopeStateRef: Buffer.from('778899', 'hex'),
-          ownerUserId: 'user-1',
+          ownerUserId: UserId.from('user-1'),
           scopeEpoch: 1n,
           signedRecordCbor: Buffer.from('cbor'),
           members: {},

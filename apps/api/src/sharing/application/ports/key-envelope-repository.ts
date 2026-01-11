@@ -1,5 +1,6 @@
 import { EnvelopeId } from '../../domain/value-objects/EnvelopeId';
 import { ScopeId } from '../../domain/value-objects/ScopeId';
+import { UserId } from '../../domain/value-objects/UserId';
 import { KeyEnvelope } from '../../domain/entities/KeyEnvelope';
 
 /**
@@ -8,7 +9,7 @@ import { KeyEnvelope } from '../../domain/entities/KeyEnvelope';
 export type KeyEnvelopeInput = Readonly<{
   envelopeId: EnvelopeId;
   scopeId: ScopeId;
-  recipientUserId: string;
+  recipientUserId: UserId;
   scopeEpoch: bigint;
   recipientUkPubFingerprint: Buffer;
   ciphersuite: string;
@@ -33,5 +34,5 @@ export abstract class KeyEnvelopeRepository {
    * @param scopeEpoch - Optional filter for specific epoch
    * @returns Envelopes ordered by scope_epoch ascending
    */
-  abstract getEnvelopes(scopeId: ScopeId, recipientUserId: string, scopeEpoch?: bigint): Promise<KeyEnvelope[]>;
+  abstract getEnvelopes(scopeId: ScopeId, recipientUserId: UserId, scopeEpoch?: bigint): Promise<KeyEnvelope[]>;
 }

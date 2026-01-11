@@ -1,5 +1,6 @@
 import { ScopeId } from '../value-objects/ScopeId';
 import { SequenceNumber } from '../value-objects/SequenceNumber';
+import { UserId } from '../value-objects/UserId';
 
 /**
  * ScopeState represents a signed membership/roles/epoch rotation record.
@@ -10,7 +11,7 @@ export type ScopeState = Readonly<{
   scopeStateSeq: SequenceNumber;
   prevHash: Buffer | null; // NULL for genesis (seq=0)
   scopeStateRef: Buffer; // 32-byte hash of this record
-  ownerUserId: string; // UUID
+  ownerUserId: UserId;
   scopeEpoch: bigint;
   signedRecordCbor: Buffer; // Full ScopeStateV1 CBOR
   members: Record<string, { role: string }>; // Derived from signedRecordCbor for queries

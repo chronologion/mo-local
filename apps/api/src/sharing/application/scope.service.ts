@@ -3,6 +3,7 @@ import { ScopeStateRepository, ScopeStateInput } from './ports/scope-state-repos
 import { KeyEnvelopeRepository, KeyEnvelopeInput } from './ports/key-envelope-repository';
 import { ScopeId } from '../domain/value-objects/ScopeId';
 import { SequenceNumber } from '../domain/value-objects/SequenceNumber';
+import { UserId } from '../domain/value-objects/UserId';
 import { ScopeState } from '../domain/entities/ScopeState';
 import { KeyEnvelope } from '../domain/entities/KeyEnvelope';
 
@@ -71,7 +72,7 @@ export class ScopeService {
   /**
    * Get key envelopes for a recipient in a scope.
    */
-  async getEnvelopes(scopeId: ScopeId, recipientUserId: string, scopeEpoch?: bigint): Promise<KeyEnvelope[]> {
+  async getEnvelopes(scopeId: ScopeId, recipientUserId: UserId, scopeEpoch?: bigint): Promise<KeyEnvelope[]> {
     return await this.envelopeRepo.getEnvelopes(scopeId, recipientUserId, scopeEpoch);
   }
 

@@ -1,5 +1,6 @@
 import { ScopeId } from '../../domain/value-objects/ScopeId';
 import { SequenceNumber } from '../../domain/value-objects/SequenceNumber';
+import { UserId } from '../../domain/value-objects/UserId';
 import { ScopeState } from '../../domain/entities/ScopeState';
 
 /**
@@ -8,7 +9,7 @@ import { ScopeState } from '../../domain/entities/ScopeState';
 export type ScopeStateInput = Readonly<{
   prevHash: Buffer | null;
   scopeStateRef: Buffer;
-  ownerUserId: string;
+  ownerUserId: UserId;
   scopeEpoch: bigint;
   signedRecordCbor: Buffer;
   members: Record<string, { role: string }>;

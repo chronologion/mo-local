@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, Matches, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsJSON, Matches, MaxLength } from 'class-validator';
 
 export class CreateInviteDto {
   @IsString()
@@ -28,6 +28,7 @@ export class CreateInviteDto {
 
   @IsOptional()
   @IsString()
+  @IsJSON()
   @MaxLength(10240) // 10KB max metadata
   metadata?: string; // JSON string
 }

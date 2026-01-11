@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { KeyEnvelopeRepository, type KeyEnvelopeInput } from '../application/ports/key-envelope-repository';
 import { ScopeId } from '../domain/value-objects/ScopeId';
 import { EnvelopeId } from '../domain/value-objects/EnvelopeId';
+import { UserId } from '../domain/value-objects/UserId';
 import { KeyEnvelope } from '../domain/entities/KeyEnvelope';
 import { SharingDatabaseService } from './database.service';
 
@@ -19,7 +20,7 @@ export class KyselyKeyEnvelopeRepository extends KeyEnvelopeRepository {
       .values({
         envelope_id: envelope.envelopeId.unwrap(),
         scope_id: envelope.scopeId.unwrap(),
-        recipient_user_id: envelope.recipientUserId,
+        recipient_user_id: envelope.recipientUserId.unwrap(),
         scope_epoch: envelope.scopeEpoch.toString(),
         recipient_uk_pub_fingerprint: envelope.recipientUkPubFingerprint,
         ciphersuite: envelope.ciphersuite,
@@ -29,14 +30,14 @@ export class KyselyKeyEnvelopeRepository extends KeyEnvelopeRepository {
       .execute();
   }
 
-  async getEnvelopes(scopeId: ScopeId, recipientUserId: string, scopeEpoch?: bigint): Promise<KeyEnvelope[]> {
+  async getEnvelopes(scopeId: ScopeId, recipientUserId: UserId, scopeEpoch?: bigint): Promise<KeyEnvelope[]> {
     const db = this.dbService.getDb();
 
     let query = db
       .selectFrom('sharing.key_envelopes')
       .selectAll()
       .where('scope_id', '=', scopeId.unwrap())
-      .where('recipient_user_id', '=', recipientUserId);
+      .where('recipient_user_id', '=', recipientUserId.unwrap());
 
     if (scopeEpoch !== undefined) {
       query = query.where('scope_epoch', '=', scopeEpoch.toString());
@@ -61,7 +62,7 @@ export class KyselyKeyEnvelopeRepository extends KeyEnvelopeRepository {
     return {
       envelopeId: EnvelopeId.from(row.envelope_id),
       scopeId: ScopeId.from(row.scope_id),
-      recipientUserId: row.recipient_user_id,
+      recipientUserId: UserId.from(row.recipient_user_id),
       scopeEpoch: BigInt(row.scope_epoch),
       recipientUkPubFingerprint: Buffer.from(row.recipient_uk_pub_fingerprint),
       ciphersuite: row.ciphersuite,

@@ -7,6 +7,7 @@ import { ScopeService } from '../../application/scope.service';
 import { ScopeId } from '../../domain/value-objects/ScopeId';
 import { EnvelopeId } from '../../domain/value-objects/EnvelopeId';
 import { SequenceNumber } from '../../domain/value-objects/SequenceNumber';
+import { UserId } from '../../domain/value-objects/UserId';
 import { CreateInviteDto } from '../dto/CreateInviteDto';
 import { GetScopeKeyDto } from '../dto/GetScopeKeyDto';
 import { PullMembershipDto } from '../dto/PullMembershipDto';
@@ -32,7 +33,7 @@ export class ScopeController {
     await this.scopeService.createEnvelope({
       envelopeId,
       scopeId,
-      recipientUserId: dto.recipientUserId,
+      recipientUserId: UserId.from(dto.recipientUserId),
       scopeEpoch: BigInt(dto.scopeEpoch),
       recipientUkPubFingerprint: Buffer.from(dto.recipientUkPubFingerprint, 'hex'),
       ciphersuite: dto.ciphersuite,
@@ -56,13 +57,13 @@ export class ScopeController {
     const scopeId = ScopeId.from(scopeIdParam);
     const scopeEpoch = dto.scopeEpoch ? BigInt(dto.scopeEpoch) : undefined;
 
-    const envelopes = await this.scopeService.getEnvelopes(scopeId, identity.id, scopeEpoch);
+    const envelopes = await this.scopeService.getEnvelopes(scopeId, UserId.from(identity.id), scopeEpoch);
 
     return {
       envelopes: envelopes.map((envelope) => ({
         envelopeId: envelope.envelopeId.unwrap(),
         scopeId: envelope.scopeId.unwrap(),
-        recipientUserId: envelope.recipientUserId,
+        recipientUserId: envelope.recipientUserId.unwrap(),
         scopeEpoch: envelope.scopeEpoch.toString(),
         recipientUkPubFingerprint: envelope.recipientUkPubFingerprint.toString('hex'),
         ciphersuite: envelope.ciphersuite,
@@ -95,7 +96,7 @@ export class ScopeController {
         scopeStateSeq: state.scopeStateSeq.unwrap().toString(),
         prevHash: state.prevHash?.toString('hex') ?? null,
         scopeStateRef: state.scopeStateRef.toString('hex'),
-        ownerUserId: state.ownerUserId,
+        ownerUserId: state.ownerUserId.unwrap(),
         scopeEpoch: state.scopeEpoch.toString(),
         signedRecordCbor: state.signedRecordCbor.toString('base64'),
         members: state.members,

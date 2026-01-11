@@ -1,5 +1,6 @@
 import { EnvelopeId } from '../value-objects/EnvelopeId';
 import { ScopeId } from '../value-objects/ScopeId';
+import { UserId } from '../value-objects/UserId';
 
 /**
  * KeyEnvelope represents a per-user scope key distribution artifact.
@@ -8,7 +9,7 @@ import { ScopeId } from '../value-objects/ScopeId';
 export type KeyEnvelope = Readonly<{
   envelopeId: EnvelopeId;
   scopeId: ScopeId;
-  recipientUserId: string; // UUID
+  recipientUserId: UserId;
   scopeEpoch: bigint;
   recipientUkPubFingerprint: Buffer; // AAD binding for verification
   ciphersuite: string; // e.g., "hybrid-kem-1"

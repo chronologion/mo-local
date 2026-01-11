@@ -7,6 +7,7 @@ import {
 } from '../application/ports/scope-state-repository';
 import { ScopeId } from '../domain/value-objects/ScopeId';
 import { SequenceNumber } from '../domain/value-objects/SequenceNumber';
+import { UserId } from '../domain/value-objects/UserId';
 import { ScopeState } from '../domain/entities/ScopeState';
 import { SharingDatabaseService } from './database.service';
 
@@ -90,7 +91,7 @@ export class KyselyScopeStateRepository extends ScopeStateRepository {
           scope_state_seq: nextSeq.toString(),
           prev_hash: state.prevHash,
           scope_state_ref: state.scopeStateRef,
-          owner_user_id: state.ownerUserId,
+          owner_user_id: state.ownerUserId.unwrap(),
           scope_epoch: state.scopeEpoch.toString(),
           signed_record_cbor: state.signedRecordCbor,
           members: JSON.stringify(state.members),
@@ -106,7 +107,7 @@ export class KyselyScopeStateRepository extends ScopeStateRepository {
         .insertInto('sharing.scope_state_heads')
         .values({
           scope_id: scopeId.unwrap(),
-          owner_user_id: state.ownerUserId,
+          owner_user_id: state.ownerUserId.unwrap(),
           head_seq: nextSeq.toString(),
           head_ref: state.scopeStateRef,
         })
@@ -170,7 +171,7 @@ export class KyselyScopeStateRepository extends ScopeStateRepository {
       scopeStateSeq: SequenceNumber.from(row.scope_state_seq),
       prevHash: row.prev_hash ? Buffer.from(row.prev_hash) : null,
       scopeStateRef: Buffer.from(row.scope_state_ref),
-      ownerUserId: row.owner_user_id,
+      ownerUserId: UserId.from(row.owner_user_id),
       scopeEpoch: BigInt(row.scope_epoch),
       signedRecordCbor: Buffer.from(row.signed_record_cbor),
       members: typeof row.members === 'string' ? JSON.parse(row.members) : row.members,

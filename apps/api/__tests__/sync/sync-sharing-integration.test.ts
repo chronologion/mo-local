@@ -11,6 +11,7 @@ import { ScopeId } from '../../src/sharing/domain/value-objects/ScopeId';
 import { ResourceId } from '../../src/sharing/domain/value-objects/ResourceId';
 import { GrantId } from '../../src/sharing/domain/value-objects/GrantId';
 import { SequenceNumber } from '../../src/sharing/domain/value-objects/SequenceNumber';
+import { UserId } from '../../src/sharing/domain/value-objects/UserId';
 import { ScopeState } from '../../src/sharing/domain/entities/ScopeState';
 import { ResourceGrant } from '../../src/sharing/domain/entities/ResourceGrant';
 import { InMemorySyncEventRepository } from './support/in-memory-sync-event-repository';
@@ -116,7 +117,7 @@ describe('SyncService with sharing validation', () => {
       scopeStateSeq: SequenceNumber.from(1),
       prevHash: null,
       scopeStateRef,
-      ownerUserId: 'user-1',
+      ownerUserId: UserId.from('user-1'),
       scopeEpoch: 1n,
       signedRecordCbor: Buffer.from('cbor'),
       members: {},
@@ -204,7 +205,7 @@ describe('SyncService with sharing validation', () => {
       scopeStateSeq: SequenceNumber.from(1),
       prevHash: null,
       scopeStateRef: oldRef,
-      ownerUserId: 'user-1',
+      ownerUserId: UserId.from('user-1'),
       scopeEpoch: 1n,
       signedRecordCbor: Buffer.from('cbor'),
       members: {},
@@ -270,7 +271,7 @@ describe('SyncService with sharing validation', () => {
       scopeStateSeq: SequenceNumber.from(1),
       prevHash: null,
       scopeStateRef,
-      ownerUserId: 'user-1',
+      ownerUserId: UserId.from('user-1'),
       scopeEpoch: 1n,
       signedRecordCbor: Buffer.from('cbor'),
       members: {},
@@ -334,6 +335,72 @@ describe('SyncService with sharing validation', () => {
           scopeId: scopeId.unwrap(),
           resourceId: resourceId.unwrap(),
           grantId: oldGrantId.unwrap(), // Stale grant!
+          scopeStateRef,
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('stale_grant');
+    }
+  });
+
+  it('rejects event with mismatched resourceKeyId', async () => {
+    const scopeId = ScopeId.from('scope-1');
+    const resourceId = ResourceId.from('resource-1');
+    const grantId = GrantId.from('grant-1');
+    const scopeStateRef = Buffer.from('ref1', 'hex');
+
+    // Setup valid scope state
+    scopeStateRepo.states.push({
+      scopeId,
+      scopeStateSeq: SequenceNumber.from(1),
+      prevHash: null,
+      scopeStateRef,
+      ownerUserId: UserId.from('user-1'),
+      scopeEpoch: 1n,
+      signedRecordCbor: Buffer.from('cbor'),
+      members: {},
+      signers: {},
+      sigSuite: 'ed25519',
+      signature: Buffer.from('sig'),
+      createdAt: new Date(),
+    });
+    scopeStateRepo.heads.set(scopeId.unwrap(), { ref: scopeStateRef, seq: SequenceNumber.from(1) });
+
+    // Setup valid grant with resourceKeyId: 'key-1'
+    grantRepo.grants.push({
+      grantId,
+      scopeId,
+      resourceId,
+      grantSeq: SequenceNumber.from(1),
+      prevHash: null,
+      grantHash: Buffer.from('hash1'),
+      scopeStateRef,
+      scopeEpoch: 1n,
+      resourceKeyId: 'key-1', // Grant has key-1
+      wrappedKey: Buffer.from('wrapped'),
+      policy: null,
+      status: 'active',
+      signedGrantCbor: Buffer.from('cbor'),
+      sigSuite: 'ed25519',
+      signature: Buffer.from('sig'),
+      createdAt: new Date(),
+    });
+
+    const result = await service.pushEvents({
+      ownerId,
+      storeId,
+      expectedHead: GlobalSequenceNumber.from(0),
+      events: [
+        {
+          eventId: 'e1',
+          recordJson: '{"encrypted":true}',
+          scopeId: scopeId.unwrap(),
+          resourceId: resourceId.unwrap(),
+          resourceKeyId: 'key-2', // Event claims key-2 (mismatch!)
+          grantId: grantId.unwrap(),
           scopeStateRef,
         },
       ],
