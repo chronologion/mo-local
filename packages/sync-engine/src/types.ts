@@ -106,14 +106,41 @@ export interface SyncTransportPort {
   ping(): Promise<void>;
 }
 
+/**
+ * SyncRecord V1 - Extended for Sharing BC
+ *
+ * BREAKING CHANGE: This is an extended version of SyncRecord that includes
+ * sharing metadata and signatures for verification-before-decrypt.
+ *
+ * Changes from previous version:
+ * - ADDED: scopeId, resourceId, resourceKeyId, grantId, scopeStateRef, authorDeviceId
+ * - ADDED: sigSuite, signature (for hybrid signature verification)
+ * - REMOVED: epoch, keyringUpdate (replaced by sharing metadata)
+ *
+ * @see RFC-20260107-key-scopes-and-sharing.md
+ */
 export type SyncRecord = Readonly<{
   recordVersion: 1;
+
+  // Core event identification
   aggregateType: string;
   aggregateId: string;
-  epoch: number | null;
   version: number;
-  payloadCiphertext: string;
-  keyringUpdate: string | null;
+
+  // Encrypted payload
+  payloadCiphertext: string; // base64url
+
+  // Sharing metadata (NEW)
+  scopeId: string;
+  resourceId: string;
+  resourceKeyId: string;
+  grantId: string;
+  scopeStateRef: string; // base64url-encoded 32-byte hash
+  authorDeviceId: string;
+
+  // Signature (NEW)
+  sigSuite: string; // e.g., "hybrid-sig-1" (Ed25519 + ML-DSA)
+  signature: string; // base64url-encoded signature
 }>;
 
 export type SyncEngineOptions = Readonly<{
@@ -156,19 +183,39 @@ export interface SyncAbortableTransportPort extends SyncTransportPort {
   setAbortSignal(direction: SyncDirection, signal: AbortSignal | null): void;
 }
 
+/**
+ * MaterializedEventRow - Extended for Sharing BC
+ *
+ * BREAKING CHANGE: Updated to match extended SyncRecord structure.
+ *
+ * Changes:
+ * - ADDED: scope_id, resource_id, resource_key_id, grant_id, scope_state_ref, author_device_id
+ * - ADDED: sig_suite, signature
+ * - REMOVED: epoch, keyring_update
+ */
 export type MaterializedEventRow = Readonly<{
   id: string;
   aggregate_type: string;
   aggregate_id: string;
   event_type: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
   occurred_at: number;
   actor_id: string | null;
   causation_id: string | null;
   correlation_id: string | null;
-  epoch: number | null;
+
+  // Sharing metadata (NEW)
+  scope_id: string;
+  resource_id: string;
+  resource_key_id: string;
+  grant_id: string;
+  scope_state_ref: Uint8Array;
+  author_device_id: string;
+
+  // Signature (NEW)
+  sig_suite: string;
+  signature: Uint8Array;
 }>;
 
 export interface SyncRecordMaterializerPort {
