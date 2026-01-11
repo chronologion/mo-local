@@ -1,7 +1,7 @@
 import type { SqliteContext } from './sqlite';
 import { PlatformErrorCodes } from '@mo/eventstore-core';
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 1;
 
 const SCHEMA_V1: ReadonlyArray<string> = [
   `CREATE TABLE IF NOT EXISTS events (
@@ -96,16 +96,7 @@ const SCHEMA_V1: ReadonlyArray<string> = [
   )`,
   'CREATE INDEX IF NOT EXISTS sync_event_map_global_seq ON sync_event_map (global_seq)',
   'CREATE INDEX IF NOT EXISTS idempotency_keys_created_at ON idempotency_keys (created_at)',
-];
-
-/**
- * Schema V2: Add sharing verification tables
- *
- * These tables cache verified ScopeState and ResourceGrant records for
- * signature verification before decryption. They also provide the crypto
- * outbox for dependency ordering.
- */
-const SCHEMA_V2: ReadonlyArray<string> = [
+  // Sharing verification tables
   `CREATE TABLE IF NOT EXISTS scope_states (
     scope_state_ref BLOB PRIMARY KEY,
     scope_id TEXT NOT NULL,
@@ -154,14 +145,9 @@ export async function applySchema(ctx: SqliteContext): Promise<void> {
 
   await ctx.sqlite3.exec(ctx.db, 'BEGIN');
   try {
-    // Apply migrations from current version to target version
+    // Apply schema
     if (currentVersion === 0) {
       for (const statement of SCHEMA_V1) {
-        await ctx.sqlite3.exec(ctx.db, statement);
-      }
-    }
-    if (currentVersion <= 1) {
-      for (const statement of SCHEMA_V2) {
         await ctx.sqlite3.exec(ctx.db, statement);
       }
     }
