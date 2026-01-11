@@ -92,6 +92,22 @@ export class OutboxStore {
   }
 
   /**
+   * Load all pushed artifact IDs.
+   *
+   * Used for validating external dependencies in topological sort.
+   *
+   * @returns Set of pushed artifact IDs
+   */
+  async loadPushedIds(): Promise<Set<string>> {
+    const rows = await this.db.query<{ artifact_id: string }>(
+      'SELECT artifact_id FROM crypto_outbox WHERE status = ?',
+      ['pushed']
+    );
+
+    return new Set(rows.map((row) => row.artifact_id));
+  }
+
+  /**
    * Load a specific artifact by ID.
    *
    * @param artifactId - Artifact identifier

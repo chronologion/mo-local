@@ -188,7 +188,10 @@ export class Scope extends AggregateRoot<ScopeId> {
    */
   addMember(params: { memberId: UserId; role: string; addedAt: Timestamp; actorId: UserId }): void {
     const existingMember = this._members.get(params.memberId.value);
-    Assert.that(existingMember?.removedAt === null, 'Cannot add member: user is already an active member').isFalse();
+    Assert.that(
+      !existingMember || existingMember.removedAt !== null,
+      'Cannot add member: user is already an active member'
+    ).isTrue();
 
     this.apply(
       new ScopeMemberAdded(

@@ -80,25 +80,80 @@ export class DependencyValidator {
   }
 
   /**
-   * Validate that a ScopeState's prevHash dependency exists (for hash chain validation).
+   * Validate that a ScopeState's prevHash dependency exists and sequence numbers are correct.
    *
-   * @param prevHash - Previous hash in chain (null for genesis)
+   * @param params - Validation parameters
+   * @param params.prevHash - Previous hash in chain (null for genesis)
+   * @param params.scopeStateSeq - Sequence number of new state
+   * @param params.scopeId - Scope identifier for head validation
    * @returns Validation result
    */
-  async validateScopeStatePrevHash(prevHash: Uint8Array | null): Promise<DependencyValidationResult> {
+  async validateScopeStatePrevHash(params: {
+    prevHash: Uint8Array | null;
+    scopeStateSeq: bigint;
+    scopeId: string;
+  }): Promise<DependencyValidationResult> {
     // Genesis records have no prevHash
-    if (prevHash === null) {
+    if (params.prevHash === null) {
+      if (params.scopeStateSeq !== 0n) {
+        return {
+          ok: false,
+          reason: 'scope_state_missing',
+          details: `Genesis ScopeState must have seq=0, got seq=${params.scopeStateSeq}`,
+        };
+      }
       return { ok: true };
     }
 
-    // Check prevHash exists
-    const exists = await this.scopeStateStore.exists(prevHash);
-    if (!exists) {
+    // Non-genesis: validate hash chain
+    if (params.scopeStateSeq === 0n) {
       return {
         ok: false,
         reason: 'scope_state_missing',
-        details: `Previous ScopeState with ref ${Buffer.from(prevHash).toString('hex')} not found (hash chain violation)`,
+        details: 'Non-genesis ScopeState cannot have seq=0',
       };
+    }
+
+    // Check prevHash exists
+    const prevState = await this.scopeStateStore.loadByRef(params.prevHash);
+    if (!prevState) {
+      return {
+        ok: false,
+        reason: 'scope_state_missing',
+        details: `Previous ScopeState with ref ${Buffer.from(params.prevHash).toString('hex')} not found (hash chain violation)`,
+      };
+    }
+
+    // Validate sequence number is exactly prevSeq + 1
+    const expectedSeq = prevState.scopeStateSeq + 1n;
+    if (params.scopeStateSeq !== expectedSeq) {
+      return {
+        ok: false,
+        reason: 'scope_state_missing',
+        details: `Sequence number must be ${expectedSeq}, got ${params.scopeStateSeq}`,
+      };
+    }
+
+    // Validate prevState belongs to same scope
+    if (prevState.scopeId !== params.scopeId) {
+      return {
+        ok: false,
+        reason: 'scope_state_missing',
+        details: `Previous ScopeState belongs to different scope: ${prevState.scopeId}`,
+      };
+    }
+
+    // Validate we're extending the current head (fork detection)
+    const allStatesInScope = await this.scopeStateStore.loadByScopeId(params.scopeId);
+    if (allStatesInScope.length > 0) {
+      const headSeq = allStatesInScope[allStatesInScope.length - 1].scopeStateSeq;
+      if (params.scopeStateSeq <= headSeq) {
+        return {
+          ok: false,
+          reason: 'scope_state_missing',
+          details: `Fork detected: new seq ${params.scopeStateSeq} does not extend head seq ${headSeq}`,
+        };
+      }
     }
 
     return { ok: true };

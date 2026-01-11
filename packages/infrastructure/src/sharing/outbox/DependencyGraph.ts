@@ -15,10 +15,11 @@ export class DependencyGraph {
    * Sort artifacts in topological order (dependencies before dependents).
    *
    * @param artifacts - Artifacts to sort
+   * @param pushedArtifactIds - Set of artifact IDs that have already been pushed
    * @returns Sorted artifacts
-   * @throws {Error} if circular dependency detected
+   * @throws {Error} if circular dependency detected or external dependencies are missing
    */
-  sort(artifacts: OutboxArtifact[]): OutboxArtifact[] {
+  sort(artifacts: OutboxArtifact[], pushedArtifactIds?: Set<string>): OutboxArtifact[] {
     const artifactMap = new Map(artifacts.map((a) => [a.artifactId, a]));
     const inDegree = new Map<string, number>();
     const adjList = new Map<string, Set<string>>();
@@ -32,10 +33,16 @@ export class DependencyGraph {
     // Build adjacency list and calculate in-degrees
     for (const artifact of artifacts) {
       for (const depId of artifact.dependencies) {
-        // Only track dependencies that are in the current artifact set
+        // Track dependencies that are in the current artifact set
         if (artifactMap.has(depId)) {
           adjList.get(depId)!.add(artifact.artifactId);
           inDegree.set(artifact.artifactId, (inDegree.get(artifact.artifactId) ?? 0) + 1);
+        } else if (pushedArtifactIds && !pushedArtifactIds.has(depId)) {
+          // External dependency not in pending set and not already pushed
+          throw new Error(
+            `Artifact ${artifact.artifactId} depends on ${depId} which is neither pending nor pushed. ` +
+              `This indicates a missing dependency that must be resolved before pushing.`
+          );
         }
       }
     }

@@ -2,6 +2,12 @@ import { OutboxStore, type OutboxArtifact } from './OutboxStore';
 import { DependencyGraph } from './DependencyGraph';
 
 /**
+ * Maximum recursion depth for resolving missing dependencies.
+ * Prevents infinite loops if server keeps returning different missing deps.
+ */
+const MAX_DEPENDENCY_RESOLUTION_DEPTH = 10;
+
+/**
  * Transport interface for pushing sharing artifacts to the server.
  */
 export interface SharingTransportPort {
@@ -72,13 +78,16 @@ export class CryptoOutbox {
       return { pushed: 0, failed: 0 };
     }
 
-    // Sort artifacts in topological order
+    // Load pushed artifact IDs for external dependency validation
+    const pushedIds = await this.outboxStore.loadPushedIds();
+
+    // Sort artifacts in topological order with external dependency validation
     let sorted: OutboxArtifact[];
     try {
-      sorted = this.dependencyGraph.sort(pending);
+      sorted = this.dependencyGraph.sort(pending, pushedIds);
     } catch (error) {
-      // Circular dependency detected
-      console.error('Crypto outbox: circular dependency detected', error);
+      // Circular dependency or missing external dependency detected
+      console.error('Crypto outbox: dependency validation failed', error);
       return { pushed: 0, failed: pending.length };
     }
 
@@ -106,12 +115,24 @@ export class CryptoOutbox {
   }
 
   /**
-   * Push a single artifact, handling MissingDeps errors.
+   * Push a single artifact, handling MissingDeps errors with depth limiting.
    *
    * @param artifact - Artifact to push
+   * @param depth - Current recursion depth (defaults to 0)
    * @returns Success result or failure
    */
-  private async pushArtifact(artifact: OutboxArtifact): Promise<{ ok: true } | { ok: false; error: string }> {
+  private async pushArtifact(
+    artifact: OutboxArtifact,
+    depth = 0
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    // Check recursion depth limit
+    if (depth > MAX_DEPENDENCY_RESOLUTION_DEPTH) {
+      return {
+        ok: false,
+        error: `Maximum dependency resolution depth (${MAX_DEPENDENCY_RESOLUTION_DEPTH}) exceeded for artifact ${artifact.artifactId}`,
+      };
+    }
+
     try {
       const response = await this.pushArtifactToTransport(artifact);
 
@@ -122,12 +143,12 @@ export class CryptoOutbox {
       // Handle MissingDeps error
       if (response.reason === 'missing_deps') {
         // Attempt to resolve missing dependencies
-        const resolved = await this.resolveMissingDeps(response.missingDeps);
+        const resolved = await this.resolveMissingDeps(response.missingDeps, depth + 1);
         if (!resolved) {
           return { ok: false, error: `Cannot resolve missing dependencies: ${response.missingDeps.join(', ')}` };
         }
 
-        // Retry push after resolving dependencies
+        // Retry push after resolving dependencies (only one retry)
         const retryResponse = await this.pushArtifactToTransport(artifact);
         if (retryResponse.ok) {
           return { ok: true };
@@ -180,9 +201,10 @@ export class CryptoOutbox {
    * Resolve missing dependencies by pushing them first.
    *
    * @param missingDeps - Array of missing dependency IDs
+   * @param depth - Current recursion depth
    * @returns true if resolved successfully
    */
-  private async resolveMissingDeps(missingDeps: string[]): Promise<boolean> {
+  private async resolveMissingDeps(missingDeps: string[], depth: number): Promise<boolean> {
     for (const depId of missingDeps) {
       const depArtifact = await this.outboxStore.loadById(depId);
       if (!depArtifact) {
@@ -190,8 +212,8 @@ export class CryptoOutbox {
         return false;
       }
 
-      // Push the dependency
-      const result = await this.pushArtifact(depArtifact);
+      // Push the dependency with incremented depth
+      const result = await this.pushArtifact(depArtifact, depth);
       if (!result.ok) {
         return false;
       }

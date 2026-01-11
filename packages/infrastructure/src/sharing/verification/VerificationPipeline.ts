@@ -2,12 +2,16 @@ import { ManifestCodec, type DomainEventManifestV1 } from '../sync/ManifestCodec
 import { SignatureVerifier, type SignatureSuite, type VerificationResult } from './SignatureVerifier';
 import { DependencyValidator } from './DependencyValidator';
 import { ScopeStateStore } from '../stores/ScopeStateStore';
+import { buildSharingEventAad } from '../../eventing/aad';
 
 /**
  * Input for verifying a domain event.
  */
 export type VerifyDomainEventInput = Readonly<{
   eventId: string;
+  aggregateType: string;
+  aggregateId: string;
+  version: number;
   scopeId: string;
   resourceId: string;
   resourceKeyId: string;
@@ -87,6 +91,16 @@ export class VerificationPipeline {
 
     // Step 2: Construct CBOR manifest
     const payloadCiphertextHash = await this.hashPayload(input.payloadCiphertext);
+    const payloadAad = buildSharingEventAad({
+      aggregateType: input.aggregateType,
+      aggregateId: input.aggregateId,
+      version: input.version,
+      scopeId: input.scopeId,
+      resourceId: input.resourceId,
+      resourceKeyId: input.resourceKeyId,
+      grantId: input.grantId,
+      sigSuite: input.sigSuite,
+    });
     const manifest: DomainEventManifestV1 = {
       version: 'mo-domain-event-manifest-v1',
       eventId: input.eventId,
@@ -96,7 +110,7 @@ export class VerificationPipeline {
       grantId: input.grantId,
       scopeStateRef: input.scopeStateRef,
       authorDeviceId: input.authorDeviceId,
-      payloadAad: new Uint8Array(0), // TODO: Include AAD once encryption is updated
+      payloadAad,
       payloadCiphertextHash,
     };
 
@@ -178,8 +192,12 @@ export class VerificationPipeline {
    * @returns Verification result
    */
   async verifyScopeState(input: VerifyScopeStateInput): Promise<VerificationResult> {
-    // Step 1: Validate hash chain
-    const depResult = await this.dependencyValidator.validateScopeStatePrevHash(input.prevHash);
+    // Step 1: Validate hash chain with sequence and fork detection
+    const depResult = await this.dependencyValidator.validateScopeStatePrevHash({
+      prevHash: input.prevHash,
+      scopeStateSeq: input.scopeStateSeq,
+      scopeId: input.scopeId,
+    });
     if (!depResult.ok) {
       return {
         ok: false,

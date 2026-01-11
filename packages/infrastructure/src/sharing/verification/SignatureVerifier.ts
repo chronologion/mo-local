@@ -41,10 +41,10 @@ export class SignatureVerifier {
         return this.verifyEcdsaP256(manifest, signature, publicKey);
 
       case 'hybrid-sig-1':
-        // TODO: Implement hybrid signature verification (Ed25519 + ML-DSA)
-        // For now, fall back to ECDSA P-256
-        // In production, this should verify BOTH Ed25519 and ML-DSA signatures
-        return this.verifyEcdsaP256(manifest, signature, publicKey);
+        throw new Error(
+          'Hybrid signature verification (Ed25519 + ML-DSA) not yet implemented. ' +
+            'Cannot verify hybrid-sig-1 signatures until full implementation is complete.'
+        );
 
       default:
         throw new Error(`Unsupported signature suite: ${sigSuite}`);
