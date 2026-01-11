@@ -451,10 +451,21 @@ export class SyncEngine {
           return;
         }
         const expectedHead = await this.getExpectedHead();
-        const events = pending.map((row) => ({
-          eventId: row.id,
-          recordJson: toRecordJson(toSyncRecord(row)),
-        }));
+        const events = pending.map((row) => {
+          const syncRecord = toSyncRecord(row);
+          return {
+            eventId: row.id,
+            recordJson: toRecordJson(syncRecord),
+            // TODO(ALC-368): These sharing fields are nullable until sharing system is implemented
+            scopeId: syncRecord.scopeId ?? undefined,
+            resourceId: syncRecord.resourceId ?? undefined,
+            resourceKeyId: syncRecord.resourceKeyId ?? undefined,
+            grantId: syncRecord.grantId ?? undefined,
+            // Server expects hex encoding for scopeStateRef, convert from base64url
+            scopeStateRef: row.scope_state_ref ? Buffer.from(row.scope_state_ref).toString('hex') : undefined,
+            authorDeviceId: syncRecord.authorDeviceId ?? undefined,
+          };
+        });
         this.pushAbortController?.abort();
         this.pushAbortController = new AbortController();
         this.transport.setAbortSignal(SyncDirections.push, this.pushAbortController.signal);
