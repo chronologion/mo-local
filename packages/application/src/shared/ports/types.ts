@@ -50,8 +50,6 @@ export interface EncryptedEvent {
   causationId?: string | null;
   correlationId?: string | null;
   sequence?: number;
-  epoch?: number;
-  keyringUpdate?: Uint8Array;
 }
 
 export interface EventFilter {

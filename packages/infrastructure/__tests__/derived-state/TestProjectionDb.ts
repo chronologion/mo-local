@@ -42,13 +42,11 @@ type EventRow = Readonly<{
   aggregate_id: string;
   event_type: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
   occurred_at: number;
   actor_id: string | null;
   causation_id: string | null;
   correlation_id: string | null;
-  epoch: number | null;
 }>;
 
 const normalizeSql = (sql: string): string => sql.replace(/\s+/g, ' ').trim().toUpperCase();
@@ -91,13 +89,11 @@ export class TestProjectionDb implements SqliteDbPort {
       aggregate_id: event.aggregateId,
       event_type: event.eventType,
       payload_encrypted: event.payload,
-      keyring_update: event.keyringUpdate ?? null,
       version: event.version,
       occurred_at: event.occurredAt,
       actor_id: event.actorId ?? null,
       causation_id: event.causationId ?? null,
       correlation_id: event.correlationId ?? null,
-      epoch: event.epoch ?? null,
     });
 
     if (options?.globalSequence !== undefined) {
@@ -191,8 +187,6 @@ export class TestProjectionDb implements SqliteDbPort {
           aggregate_id: row.aggregate_id,
           event_type: row.event_type,
           payload_encrypted: row.payload_encrypted,
-          epoch: row.epoch,
-          keyring_update: row.keyring_update,
           version: row.version,
           occurred_at: row.occurred_at,
           actor_id: row.actor_id,

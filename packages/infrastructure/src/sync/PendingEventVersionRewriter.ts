@@ -10,13 +10,11 @@ type PendingEventRow = Readonly<{
   aggregate_id: string;
   event_type: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
   occurred_at: number;
   actor_id: string | null;
   causation_id: string | null;
   correlation_id: string | null;
-  epoch: number | null;
 }>;
 
 export class PendingEventVersionRewriter {
@@ -38,13 +36,11 @@ export class PendingEventVersionRewriter {
             e.aggregate_id,
             e.event_type,
             e.payload_encrypted,
-            e.keyring_update,
             e.version,
             e.occurred_at,
             e.actor_id,
             e.causation_id,
-            e.correlation_id,
-            e.epoch
+            e.correlation_id
           FROM events e
           LEFT JOIN sync_event_map m ON m.event_id = e.id
           WHERE e.aggregate_type = ?
@@ -71,8 +67,6 @@ export class PendingEventVersionRewriter {
           actorId: row.actor_id,
           causationId: row.causation_id,
           correlationId: row.correlation_id,
-          epoch: row.epoch ?? undefined,
-          keyringUpdate: row.keyring_update ?? undefined,
         };
 
         const key = await this.keyringManager.resolveKeyForEvent(event);

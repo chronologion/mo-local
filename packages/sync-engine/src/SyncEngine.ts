@@ -827,13 +827,15 @@ export class SyncEngine {
         e.aggregate_id,
         e.event_type,
         e.payload_encrypted,
-        e.keyring_update,
         e.version,
-        e.occurred_at,
-        e.actor_id,
-        e.causation_id,
-        e.correlation_id,
-        e.epoch,
+        e.scope_id,
+        e.resource_id,
+        e.resource_key_id,
+        e.grant_id,
+        e.scope_state_ref,
+        e.author_device_id,
+        e.sig_suite,
+        e.signature,
         e.commit_sequence
       FROM events e
       LEFT JOIN sync_event_map m ON m.event_id = e.id

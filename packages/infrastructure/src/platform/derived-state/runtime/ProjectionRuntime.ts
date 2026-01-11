@@ -257,8 +257,6 @@ export class ProjectionRuntime {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
-        epoch: number | null;
-        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -273,8 +271,6 @@ export class ProjectionRuntime {
           aggregate_id,
           event_type,
           payload_encrypted,
-          epoch,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
@@ -299,8 +295,6 @@ export class ProjectionRuntime {
       actorId: row.actor_id,
       causationId: row.causation_id,
       correlationId: row.correlation_id,
-      epoch: row.epoch ?? null,
-      keyringUpdate: row.keyring_update ?? null,
       commitSequence: Number(row.commit_sequence),
       globalSequence: null,
     }));
@@ -313,8 +307,6 @@ export class ProjectionRuntime {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
-        epoch: number | null;
-        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -330,8 +322,6 @@ export class ProjectionRuntime {
           e.aggregate_id,
           e.event_type,
           e.payload_encrypted,
-          e.epoch,
-          e.keyring_update,
           e.version,
           e.occurred_at,
           e.actor_id,
@@ -371,8 +361,6 @@ export class ProjectionRuntime {
       actorId: row.actor_id,
       causationId: row.causation_id,
       correlationId: row.correlation_id,
-      epoch: row.epoch ?? null,
-      keyringUpdate: row.keyring_update ?? null,
       commitSequence: Number(row.commit_sequence),
       globalSequence: row.global_seq !== null ? Number(row.global_seq) : null,
     }));
