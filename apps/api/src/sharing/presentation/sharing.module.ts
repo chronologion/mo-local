@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SharingDatabaseModule } from '../infrastructure/database.module';
+import { AccessModule } from '@access/presentation/access.module';
 import { ScopeService } from '../application/scope.service';
 import { GrantService } from '../application/grant.service';
 import { KeyVaultService } from '../application/keyvault.service';
@@ -16,7 +17,7 @@ import { GrantController } from './controllers/grant.controller';
 import { KeyVaultController } from './controllers/keyvault.controller';
 
 @Module({
-  imports: [SharingDatabaseModule],
+  imports: [SharingDatabaseModule, AccessModule],
   controllers: [ScopeController, GrantController, KeyVaultController],
   providers: [
     // Services
