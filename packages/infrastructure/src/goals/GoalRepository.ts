@@ -1,4 +1,4 @@
-import { Goal, GoalId, Timestamp, UserId, goalEventTypes } from '@mo/domain';
+import { Goal, GoalId, Timestamp, UserId } from '@mo/domain';
 import type { GoalSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
@@ -83,13 +83,7 @@ export class GoalRepository implements GoalRepositoryPort {
       for (let idx = 0; idx < pending.length; idx += 1) {
         const event = pending[idx];
         if (!event) continue;
-        const options = await this.buildEncryptionOptions(
-          event.eventType,
-          event.aggregateId.value,
-          event.occurredAt.value,
-          encryptionKey
-        );
-        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey, options));
+        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey));
       }
       await this.eventStore.append(goal.id.value, encrypted);
       goal.markEventsAsCommitted();
@@ -123,24 +117,5 @@ export class GoalRepository implements GoalRepositoryPort {
       throw new MissingKeyError(`Missing encryption key for ${id.value}`);
     }
     await this.save(goal.value, kGoal);
-  }
-
-  private async buildEncryptionOptions(
-    eventType: string,
-    aggregateId: string,
-    occurredAt: number,
-    encryptionKey: Uint8Array
-  ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
-    let keyringUpdate: Uint8Array | undefined;
-    if (eventType === goalEventTypes.goalCreated) {
-      const update = await this.keyringManager.createInitialUpdate(aggregateId, encryptionKey, occurredAt);
-      keyringUpdate = update?.keyringUpdate;
-    }
-    const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
-    const epoch = currentEpoch !== 0 ? currentEpoch : undefined;
-    if (!keyringUpdate && epoch === undefined) {
-      return undefined;
-    }
-    return { epoch, keyringUpdate };
   }
 }

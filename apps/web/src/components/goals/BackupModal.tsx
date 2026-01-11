@@ -11,7 +11,6 @@ type BackupModalProps = {
 
 export function BackupModal({ open, onClose }: BackupModalProps) {
   const { session, services, exportKeyVaultBackup } = useApp();
-  const [backupCipher, setBackupCipher] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupPassphrase, setBackupPassphrase] = useState('');
@@ -22,13 +21,12 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
 
   useEffect(() => {
     if (!open) {
-      setBackupCipher(null);
       setBackupError(null);
       setBackupPassphrase('');
     }
   }, [open]);
 
-  const generateBackup = async () => {
+  const downloadBackup = async () => {
     if (session.status !== 'ready') {
       setBackupError('Unlock with your passphrase to back up keys.');
       return;
@@ -41,25 +39,19 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
     setBackupError(null);
     try {
       const backup = await exportKeyVaultBackup({ password: backupPassphrase });
-      setBackupCipher(backup);
+      const blob = new Blob([backup], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mo-local-backup-${userId ?? 'user'}.backup`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to export KeyVault';
       setBackupError(message);
-      setBackupCipher(null);
     } finally {
       setBackupLoading(false);
     }
-  };
-
-  const downloadBackup = () => {
-    if (!backupCipher) return;
-    const blob = new Blob([backupCipher], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mo-local-backup-${userId ?? 'user'}.backup`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const downloadDb = async (): Promise<void> => {
@@ -136,22 +128,8 @@ export function BackupModal({ open, onClose }: BackupModalProps) {
           </div>
 
           <div className="mt-2 flex items-center gap-2">
-            <Button onClick={() => void generateBackup()} disabled={backupLoading} variant="outline">
-              Generate key backup
-            </Button>
-            <Button onClick={downloadBackup} disabled={!backupCipher || backupLoading} variant="outline">
+            <Button onClick={() => void downloadBackup()} disabled={backupLoading} variant="outline">
               Download backup
-            </Button>
-            <Button
-              onClick={() => {
-                if (backupCipher) {
-                  void navigator.clipboard.writeText(backupCipher);
-                }
-              }}
-              disabled={!backupCipher || backupLoading}
-              variant="ghost"
-            >
-              Copy
             </Button>
             <Button onClick={() => void downloadDb()} disabled={dbBackupLoading} variant="outline">
               {dbBackupLoading ? 'Exporting DB…' : 'Backup DB'}

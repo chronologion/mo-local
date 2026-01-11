@@ -44,27 +44,23 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
           aggregate_id,
           event_type,
           payload_encrypted,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
           causation_id,
-          correlation_id,
-          epoch
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          correlation_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING
           commit_sequence,
           id,
           aggregate_id,
           event_type,
           payload_encrypted,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
           causation_id,
-          correlation_id,
-          epoch
+          correlation_id
       `,
       params: [
         event.eventId,
@@ -72,13 +68,11 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
         event.aggregateId,
         event.eventType,
         event.payload,
-        event.keyringUpdate,
         event.version,
         event.occurredAt,
         event.actorId,
         event.causationId,
         event.correlationId,
-        event.epoch,
       ],
     }));
 
@@ -99,8 +93,6 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
       actorId: row.actor_id,
       causationId: row.causation_id,
       correlationId: row.correlation_id,
-      epoch: row.epoch,
-      keyringUpdate: row.keyring_update,
       commitSequence: row.commit_sequence,
     }));
   }
@@ -151,13 +143,11 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
       aggregate_id: string;
       event_type: string;
       payload_encrypted: Uint8Array;
-      keyring_update: Uint8Array | null;
       version: number;
       occurred_at: number;
       actor_id: string | null;
       causation_id: string | null;
       correlation_id: string | null;
-      epoch: number | null;
     }>
   > {
     try {
@@ -191,13 +181,11 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
-        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
         causation_id: string | null;
         correlation_id: string | null;
-        epoch: number | null;
       }>
     >(
       `
@@ -207,13 +195,11 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
           aggregate_id,
           event_type,
           payload_encrypted,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
           causation_id,
-          correlation_id,
-          epoch
+          correlation_id
         FROM ${table}
         WHERE id IN (${eventIds.map(() => '?').join(', ')})
         ORDER BY commit_sequence ASC
@@ -228,18 +214,15 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
     aggregate_id: string;
     event_type: string;
     payload_encrypted: Uint8Array;
-    keyring_update: Uint8Array | null;
     version: number;
     occurred_at: number;
     actor_id: string | null;
     causation_id: string | null;
     correlation_id: string | null;
-    epoch: number | null;
   } {
     const commitSequence = this.readNumber(row, 'commit_sequence');
     const version = this.readNumber(row, 'version');
     const occurredAt = this.readNumber(row, 'occurred_at');
-    const epoch = this.readNullableNumber(row, 'epoch');
 
     const id = this.readString(row, 'id');
     const aggregateId = this.readString(row, 'aggregate_id');
@@ -250,22 +233,17 @@ export class SqliteEncryptedEventAppender implements EncryptedEventAppender {
       throw new Error('RETURNING row missing payload_encrypted');
     }
 
-    const keyringUpdateValue = row.keyring_update;
-    const keyringUpdate = keyringUpdateValue instanceof Uint8Array ? keyringUpdateValue : null;
-
     return {
       commit_sequence: commitSequence,
       id,
       aggregate_id: aggregateId,
       event_type: eventType,
       payload_encrypted: payload,
-      keyring_update: keyringUpdate,
       version,
       occurred_at: occurredAt,
       actor_id: this.readNullableString(row, 'actor_id'),
       causation_id: this.readNullableString(row, 'causation_id'),
       correlation_id: this.readNullableString(row, 'correlation_id'),
-      epoch,
     };
   }
 

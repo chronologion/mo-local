@@ -26,8 +26,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
-        epoch: number | null;
-        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -42,8 +40,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
           aggregate_id,
           event_type,
           payload_encrypted,
-          epoch,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
@@ -89,8 +85,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
         aggregate_id: string;
         event_type: string;
         payload_encrypted: Uint8Array;
-        epoch: number | null;
-        keyring_update: Uint8Array | null;
         version: number;
         occurred_at: number;
         actor_id: string | null;
@@ -105,8 +99,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
           aggregate_id,
           event_type,
           payload_encrypted,
-          epoch,
-          keyring_update,
           version,
           occurred_at,
           actor_id,
@@ -129,8 +121,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
     aggregate_id: string;
     event_type: string;
     payload_encrypted: Uint8Array;
-    epoch: number | null;
-    keyring_update: Uint8Array | null;
     version: number;
     occurred_at: number;
     actor_id: string | null;
@@ -150,8 +140,6 @@ export class SqliteEncryptedEventReader implements EncryptedEventReader {
       actorId: row.actor_id,
       causationId: row.causation_id,
       correlationId: row.correlation_id,
-      epoch: row.epoch ?? undefined,
-      keyringUpdate: row.keyring_update ?? undefined,
       sequence: row.commit_sequence,
     };
   }

@@ -31,8 +31,6 @@ export class SqliteEventStore implements EventStorePort {
       actorId: event.actorId ?? null,
       causationId: event.causationId ?? null,
       correlationId: event.correlationId ?? null,
-      epoch: event.epoch ?? null,
-      keyringUpdate: event.keyringUpdate ?? null,
     }));
 
     await this.appender.appendForAggregate(

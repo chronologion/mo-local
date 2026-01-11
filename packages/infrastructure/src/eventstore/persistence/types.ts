@@ -20,8 +20,6 @@ export type EncryptedEventToAppend = Readonly<{
   actorId: string | null;
   causationId: string | null;
   correlationId: string | null;
-  epoch: number | null;
-  keyringUpdate: Uint8Array | null;
 }>;
 
 export type AppendedEncryptedEvent = Readonly<{
@@ -34,8 +32,6 @@ export type AppendedEncryptedEvent = Readonly<{
   actorId: string | null;
   causationId: string | null;
   correlationId: string | null;
-  epoch: number | null;
-  keyringUpdate: Uint8Array | null;
   commitSequence: number;
 }>;
 

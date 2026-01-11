@@ -8,13 +8,11 @@ export type TestEventRow = {
   aggregate_id: string;
   event_type: string;
   payload_encrypted: Uint8Array;
-  keyring_update: Uint8Array | null;
   version: number;
   occurred_at: number;
   actor_id: string | null;
   causation_id: string | null;
   correlation_id: string | null;
-  epoch: number | null;
 };
 
 type IdempotencyRow = {
@@ -190,26 +188,22 @@ export class TestSqliteDb implements SqliteDbPort {
         aggregateId,
         eventType,
         payload,
-        keyringUpdate,
         version,
         occurredAt,
         actorId,
         causationId,
         correlationId,
-        epoch,
       ] = params as [
         string,
         string,
         string,
         string,
         Uint8Array,
-        Uint8Array | null,
         number,
         number,
         string | null,
         string | null,
         string | null,
-        number | null,
       ];
       const hasDuplicate = this.events.some(
         (row) =>
@@ -228,13 +222,11 @@ export class TestSqliteDb implements SqliteDbPort {
         aggregate_id: aggregateId,
         event_type: eventType,
         payload_encrypted: payload,
-        keyring_update: keyringUpdate,
         version: Number(version),
         occurred_at: Number(occurredAt),
         actor_id: actorId ?? null,
         causation_id: causationId ?? null,
         correlation_id: correlationId ?? null,
-        epoch: epoch ?? null,
       });
       this.nextCommitSequence += 1;
       return;

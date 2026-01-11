@@ -21,15 +21,26 @@ describe('BackupModal', () => {
 
     render(<BackupModal open={true} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /generate key backup/i }));
+    fireEvent.click(screen.getByRole('button', { name: /download backup/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Enter your passphrase to export the KeyVault.')).not.toBeNull();
     });
   });
 
-  it('enables download after export', async () => {
+  it('generates and downloads backup in single click', async () => {
     const exportKeyVaultBackup = vi.fn(async () => '{"cipher":"abc"}');
+    const clickSpy = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName === 'a') {
+        element.click = clickSpy;
+      }
+      return element;
+    });
+
     mockedUseApp.mockReturnValue({
       ...makeAppContext({
         session: { status: 'ready', userId: 'user-1' },
@@ -42,18 +53,13 @@ describe('BackupModal', () => {
     fireEvent.change(screen.getByPlaceholderText('Enter your passphrase'), {
       target: { value: 'passphrase' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /generate key backup/i }));
+    fireEvent.click(screen.getByRole('button', { name: /download backup/i }));
 
     await waitFor(() => {
-      const downloadButton = screen.getByRole('button', { name: /download backup/i });
-      expect(downloadButton).toBeTruthy();
-      if (!(downloadButton instanceof HTMLButtonElement)) {
-        throw new Error('Expected download backup to be a button element');
-      }
-      expect(downloadButton.disabled).toBe(false);
+      expect(exportKeyVaultBackup).toHaveBeenCalledWith({ password: 'passphrase' });
+      expect(clickSpy).toHaveBeenCalled();
     });
 
-    expect(exportKeyVaultBackup).toHaveBeenCalledWith({ password: 'passphrase' });
-    expect(screen.getByRole('button', { name: /backup db/i })).toBeTruthy();
+    vi.restoreAllMocks();
   });
 });

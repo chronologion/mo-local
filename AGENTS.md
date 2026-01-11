@@ -18,9 +18,10 @@ Key rules:
 - Make sure to thoroughly test and review each subtask before continuing. Prefer TDD.
 - Tests are located in `__tests__` on the same level as `src` for each app/module.
 - Use the `yarn` scripts and control the Docker compose stack to run & debug the app, and run e2e tests.
-- ALWAYS lint, typecheck, prettify and RUN your tests before you declare something is ready.
+- ALWAYS lint, typecheck, prettify and RUN all tests including the full E2E suite before you declare something is ready.
 - Before you concludue work, make sure that the references of the current Linear issue ID in the documentation are resolved.
 - For each completed task, make a PR with a proper markdown summary using `gh`. Wait for review and fix any reported issues.
 - The title of the PR must include a list of the Linear issues and a summary, e.g. "ALC-123, ALC-124: This is a PR title". Capitalize the first letter of the summary.
 - In PR descriptions, you MUST keep the original PR template, use proper markdown, wrap code identifiers, filenames, and commands in backticks.
+- When reviewing PRs, ALWAYS make sure to do it from the perspective of an elite Engineering Manager and Architect, to diligently through all changes, and make sure they correspond to the current issue requirements, the related RFC (if there's such), and align with the architecture, security and quality standards. Check if all tests (including E2E) are passing. Add your review as a comment to the Linear issue.
 - Use the Context7 MCP tools or web search in case you need to RTFM!

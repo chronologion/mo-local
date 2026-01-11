@@ -1,4 +1,4 @@
-import { Project, ProjectId, Timestamp, UserId, projectEventTypes } from '@mo/domain';
+import { Project, ProjectId, Timestamp, UserId } from '@mo/domain';
 import type { ProjectSnapshot } from '@mo/domain';
 import {
   ConcurrencyError,
@@ -83,13 +83,7 @@ export class ProjectRepository implements ProjectRepositoryPort {
       for (let idx = 0; idx < pending.length; idx += 1) {
         const event = pending[idx];
         if (!event) continue;
-        const options = await this.buildEncryptionOptions(
-          event.eventType,
-          event.aggregateId.value,
-          event.occurredAt.value,
-          encryptionKey
-        );
-        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey, options));
+        encrypted.push(await this.toEncrypted.toEncrypted(event, startVersion + idx, encryptionKey));
       }
       await this.eventStore.append(project.id.value, encrypted);
       await this.persistSnapshot(project, encryptionKey);
@@ -105,25 +99,6 @@ export class ProjectRepository implements ProjectRepositoryPort {
 
   async archive(_id: ProjectId, _archivedAt: Timestamp, _actorId: UserId): Promise<void> {
     // Project archiving is event-driven; nothing to delete from the event log.
-  }
-
-  private async buildEncryptionOptions(
-    eventType: string,
-    aggregateId: string,
-    occurredAt: number,
-    encryptionKey: Uint8Array
-  ): Promise<{ epoch?: number; keyringUpdate?: Uint8Array } | undefined> {
-    let keyringUpdate: Uint8Array | undefined;
-    if (eventType === projectEventTypes.projectCreated) {
-      const update = await this.keyringManager.createInitialUpdate(aggregateId, encryptionKey, occurredAt);
-      keyringUpdate = update?.keyringUpdate;
-    }
-    const currentEpoch = await this.keyringManager.getCurrentEpoch(aggregateId);
-    const epoch = currentEpoch !== 0 ? currentEpoch : undefined;
-    if (!keyringUpdate && epoch === undefined) {
-      return undefined;
-    }
-    return { epoch, keyringUpdate };
   }
 
   private async persistSnapshot(project: Project, encryptionKey: Uint8Array): Promise<void> {

@@ -1,5 +1,6 @@
 import { test, expect, chromium, type Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
 const API_BASE = process.env.PLAYWRIGHT_API_BASE ?? 'http://localhost:4000';
@@ -295,14 +296,12 @@ test.describe('offline rebase goal edit', () => {
       });
       await backupDialog.waitFor();
       await backupDialog.getByPlaceholder('Enter your passphrase').fill(creds.password);
-      await backupDialog.getByRole('button', { name: 'Generate key backup' }).click();
-      await expect(backupDialog.getByRole('button', { name: 'Copy' })).toBeEnabled({ timeout: 25_000 });
 
-      mark('copy backup payload');
-      await backupDialog.getByRole('button', { name: 'Copy' }).click();
-      const backupCipher = await pageA.evaluate(async () => {
-        return navigator.clipboard.readText();
-      });
+      mark('download backup');
+      const downloadPromise = pageA.waitForEvent('download');
+      await backupDialog.getByRole('button', { name: 'Download backup' }).click();
+      const download = await downloadPromise;
+      const backupCipher = await download.path().then((p) => (p ? readFileSync(p, 'utf8') : ''));
       mark(`backup payload length=${backupCipher.length}`);
       await pageA.keyboard.press('Escape');
       await expect(backupDialog).toBeHidden({ timeout: 25_000 });
@@ -511,12 +510,11 @@ test.describe('offline rebase goal edit', () => {
       });
       await backupDialog.waitFor();
       await backupDialog.getByPlaceholder('Enter your passphrase').fill(creds.password);
-      await backupDialog.getByRole('button', { name: 'Generate key backup' }).click();
-      await expect(backupDialog.getByRole('button', { name: 'Copy' })).toBeEnabled({ timeout: 25_000 });
-      await backupDialog.getByRole('button', { name: 'Copy' }).click();
-      const backupCipher = await pageA.evaluate(async () => {
-        return navigator.clipboard.readText();
-      });
+
+      const downloadPromise = pageA.waitForEvent('download');
+      await backupDialog.getByRole('button', { name: 'Download backup' }).click();
+      const download = await downloadPromise;
+      const backupCipher = await download.path().then((p) => (p ? readFileSync(p, 'utf8') : ''));
       await pageA.keyboard.press('Escape');
       await expect(backupDialog).toBeHidden({ timeout: 25_000 });
 

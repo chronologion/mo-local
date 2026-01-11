@@ -451,10 +451,23 @@ export class SyncEngine {
           return;
         }
         const expectedHead = await this.getExpectedHead();
-        const events = pending.map((row) => ({
-          eventId: row.id,
-          recordJson: toRecordJson(toSyncRecord(row)),
-        }));
+        const events = pending.map((row) => {
+          const syncRecord = toSyncRecord(row);
+          return {
+            eventId: row.id,
+            recordJson: toRecordJson(syncRecord),
+            // TODO(ALC-368): These sharing fields are nullable until sharing system is implemented
+            scopeId: syncRecord.scopeId ?? undefined,
+            resourceId: syncRecord.resourceId ?? undefined,
+            resourceKeyId: syncRecord.resourceKeyId ?? undefined,
+            grantId: syncRecord.grantId ?? undefined,
+            // Server expects hex encoding for scopeStateRef, convert Uint8Array to hex
+            scopeStateRef: row.scope_state_ref
+              ? Array.from(row.scope_state_ref, (byte) => byte.toString(16).padStart(2, '0')).join('')
+              : undefined,
+            authorDeviceId: syncRecord.authorDeviceId ?? undefined,
+          };
+        });
         this.pushAbortController?.abort();
         this.pushAbortController = new AbortController();
         this.transport.setAbortSignal(SyncDirections.push, this.pushAbortController.signal);
@@ -827,13 +840,15 @@ export class SyncEngine {
         e.aggregate_id,
         e.event_type,
         e.payload_encrypted,
-        e.keyring_update,
         e.version,
-        e.occurred_at,
-        e.actor_id,
-        e.causation_id,
-        e.correlation_id,
-        e.epoch,
+        e.scope_id,
+        e.resource_id,
+        e.resource_key_id,
+        e.grant_id,
+        e.scope_state_ref,
+        e.author_device_id,
+        e.sig_suite,
+        e.signature,
         e.commit_sequence
       FROM events e
       LEFT JOIN sync_event_map m ON m.event_id = e.id
@@ -939,7 +954,6 @@ export class SyncEngine {
         });
         const eventRow = materialized.eventRow;
         const payload = eventRow.payload_encrypted;
-        const keyringUpdate = eventRow.keyring_update;
         statements.push({
           kind: SqliteStatementKinds.execute,
           sql: `INSERT OR IGNORE INTO events (
@@ -948,27 +962,39 @@ export class SyncEngine {
             aggregate_id,
             event_type,
             payload_encrypted,
-            keyring_update,
             version,
             occurred_at,
             actor_id,
             causation_id,
             correlation_id,
-            epoch
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            scope_id,
+            resource_id,
+            resource_key_id,
+            grant_id,
+            scope_state_ref,
+            author_device_id,
+            sig_suite,
+            signature
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           params: [
             eventRow.id,
             eventRow.aggregate_type,
             eventRow.aggregate_id,
             eventRow.event_type,
             payload,
-            keyringUpdate,
             eventRow.version,
             eventRow.occurred_at,
             eventRow.actor_id,
             eventRow.causation_id,
             eventRow.correlation_id,
-            eventRow.epoch,
+            eventRow.scope_id,
+            eventRow.resource_id,
+            eventRow.resource_key_id,
+            eventRow.grant_id,
+            eventRow.scope_state_ref,
+            eventRow.author_device_id,
+            eventRow.sig_suite,
+            eventRow.signature,
           ],
         });
         insertedEventIds.push(eventRow.id);
