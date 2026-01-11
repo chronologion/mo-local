@@ -1,7 +1,7 @@
 import type { SqliteContext } from './sqlite';
 import { PlatformErrorCodes } from '@mo/eventstore-core';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const SCHEMA_V1: ReadonlyArray<string> = [
   `CREATE TABLE IF NOT EXISTS events (
@@ -92,11 +92,54 @@ const SCHEMA_V1: ReadonlyArray<string> = [
   'CREATE INDEX IF NOT EXISTS idempotency_keys_created_at ON idempotency_keys (created_at)',
 ];
 
+/**
+ * Schema V2: Add sharing verification tables
+ *
+ * These tables cache verified ScopeState and ResourceGrant records for
+ * signature verification before decryption. They also provide the crypto
+ * outbox for dependency ordering.
+ */
+const SCHEMA_V2: ReadonlyArray<string> = [
+  `CREATE TABLE IF NOT EXISTS scope_states (
+    scope_state_ref BLOB PRIMARY KEY,
+    scope_id TEXT NOT NULL,
+    scope_state_seq TEXT NOT NULL,
+    members_json TEXT NOT NULL,
+    signers_json TEXT NOT NULL,
+    signature BLOB NOT NULL,
+    verified_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS scope_states_scope_id ON scope_states (scope_id)',
+  `CREATE TABLE IF NOT EXISTS resource_grants (
+    grant_id TEXT PRIMARY KEY,
+    scope_id TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    resource_key_id TEXT NOT NULL,
+    wrapped_key BLOB NOT NULL,
+    scope_state_ref BLOB NOT NULL,
+    status TEXT NOT NULL,
+    verified_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS resource_grants_scope_id ON resource_grants (scope_id)',
+  'CREATE INDEX IF NOT EXISTS resource_grants_resource_id ON resource_grants (resource_id)',
+  `CREATE TABLE IF NOT EXISTS crypto_outbox (
+    artifact_id TEXT PRIMARY KEY,
+    artifact_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    dependencies TEXT NOT NULL,
+    status TEXT NOT NULL,
+    enqueued_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS crypto_outbox_status ON crypto_outbox (status)',
+];
+
 export async function applySchema(ctx: SqliteContext): Promise<void> {
   const currentVersion = await readUserVersion(ctx);
   if (currentVersion === SCHEMA_VERSION) return;
-  if (currentVersion !== 0) {
-    const error = new Error(`Unsupported schema version ${currentVersion}, expected ${SCHEMA_VERSION}`) as Error & {
+  if (currentVersion > SCHEMA_VERSION) {
+    const error = new Error(
+      `Database schema version ${currentVersion} is newer than supported version ${SCHEMA_VERSION}`
+    ) as Error & {
       code?: string;
     };
     error.code = PlatformErrorCodes.MigrationError;
@@ -105,8 +148,16 @@ export async function applySchema(ctx: SqliteContext): Promise<void> {
 
   await ctx.sqlite3.exec(ctx.db, 'BEGIN');
   try {
-    for (const statement of SCHEMA_V1) {
-      await ctx.sqlite3.exec(ctx.db, statement);
+    // Apply migrations from current version to target version
+    if (currentVersion === 0) {
+      for (const statement of SCHEMA_V1) {
+        await ctx.sqlite3.exec(ctx.db, statement);
+      }
+    }
+    if (currentVersion <= 1) {
+      for (const statement of SCHEMA_V2) {
+        await ctx.sqlite3.exec(ctx.db, statement);
+      }
     }
     await ctx.sqlite3.exec(ctx.db, `PRAGMA user_version = ${SCHEMA_VERSION}`);
     await ctx.sqlite3.exec(ctx.db, 'COMMIT');
