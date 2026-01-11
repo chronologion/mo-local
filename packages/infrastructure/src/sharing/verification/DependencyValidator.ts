@@ -8,7 +8,7 @@ export type DependencyValidationResult =
   | { ok: true }
   | {
       ok: false;
-      reason: 'scope_state_missing' | 'grant_missing' | 'grant_revoked';
+      reason: 'scope_state_missing' | 'grant_missing' | 'grant_revoked' | 'scope_id_mismatch';
       details: string;
     };
 
@@ -138,22 +138,19 @@ export class DependencyValidator {
     if (prevState.scopeId !== params.scopeId) {
       return {
         ok: false,
-        reason: 'scope_state_missing',
+        reason: 'scope_id_mismatch',
         details: `Previous ScopeState belongs to different scope: ${prevState.scopeId}`,
       };
     }
 
     // Validate we're extending the current head (fork detection)
-    const allStatesInScope = await this.scopeStateStore.loadByScopeId(params.scopeId);
-    if (allStatesInScope.length > 0) {
-      const headSeq = allStatesInScope[allStatesInScope.length - 1].scopeStateSeq;
-      if (params.scopeStateSeq <= headSeq) {
-        return {
-          ok: false,
-          reason: 'scope_state_missing',
-          details: `Fork detected: new seq ${params.scopeStateSeq} does not extend head seq ${headSeq}`,
-        };
-      }
+    const head = await this.scopeStateStore.getHead(params.scopeId);
+    if (head && params.scopeStateSeq <= head.scopeStateSeq) {
+      return {
+        ok: false,
+        reason: 'scope_state_missing',
+        details: `Fork detected: new seq ${params.scopeStateSeq} does not extend head seq ${head.scopeStateSeq}`,
+      };
     }
 
     return { ok: true };

@@ -131,6 +131,34 @@ export class ScopeStateStore {
   }
 
   /**
+   * Get the head (latest) ScopeState for a given scope.
+   *
+   * Optimized query that only fetches the latest state by sequence number.
+   *
+   * @param scopeId - Scope identifier
+   * @returns Head scope state or null if no states exist
+   */
+  async getHead(scopeId: string): Promise<VerifiedScopeState | null> {
+    const rows = await this.db.query<ScopeStateRow>(
+      'SELECT * FROM scope_states WHERE scope_id = ? ORDER BY scope_state_seq DESC LIMIT 1',
+      [scopeId]
+    );
+
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      scopeStateRef: new Uint8Array(row.scope_state_ref),
+      scopeId: row.scope_id,
+      scopeStateSeq: BigInt(row.scope_state_seq),
+      membersJson: row.members_json,
+      signersJson: row.signers_json,
+      signature: new Uint8Array(row.signature),
+      verifiedAt: row.verified_at,
+    };
+  }
+
+  /**
    * Parse members from JSON string.
    */
   parseMembers(membersJson: string): ScopeMember[] {

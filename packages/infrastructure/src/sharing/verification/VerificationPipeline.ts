@@ -1,5 +1,10 @@
 import { ManifestCodec, type DomainEventManifestV1 } from '../sync/ManifestCodec';
-import { SignatureVerifier, type SignatureSuite, type VerificationResult } from './SignatureVerifier';
+import {
+  SignatureVerifier,
+  type SignatureSuite,
+  type VerificationResult,
+  type VerificationFailureReason,
+} from './SignatureVerifier';
 import { DependencyValidator } from './DependencyValidator';
 import { ScopeStateStore } from '../stores/ScopeStateStore';
 import { buildSharingEventAad } from '../../eventing/aad';
@@ -84,7 +89,7 @@ export class VerificationPipeline {
     if (!depResult.ok) {
       return {
         ok: false,
-        reason: 'dependency_missing',
+        reason: this.mapDependencyErrorToVerificationReason(depResult.reason),
         details: depResult.details,
       };
     }
@@ -201,7 +206,7 @@ export class VerificationPipeline {
     if (!depResult.ok) {
       return {
         ok: false,
-        reason: 'dependency_missing',
+        reason: this.mapDependencyErrorToVerificationReason(depResult.reason),
         details: depResult.details,
       };
     }
@@ -324,5 +329,21 @@ export class VerificationPipeline {
   private async hashPayload(ciphertext: Uint8Array): Promise<Uint8Array> {
     const hash = await crypto.subtle.digest('SHA-256', ciphertext as BufferSource);
     return new Uint8Array(hash);
+  }
+
+  /**
+   * Map dependency validation error reasons to verification failure reasons.
+   */
+  private mapDependencyErrorToVerificationReason(
+    depReason: 'scope_state_missing' | 'grant_missing' | 'grant_revoked' | 'scope_id_mismatch'
+  ): VerificationFailureReason {
+    switch (depReason) {
+      case 'scope_state_missing':
+      case 'grant_missing':
+      case 'grant_revoked':
+        return 'dependency_missing';
+      case 'scope_id_mismatch':
+        return 'hash_chain_violation';
+    }
   }
 }
