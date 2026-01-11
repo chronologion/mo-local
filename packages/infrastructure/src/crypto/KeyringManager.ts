@@ -51,10 +51,9 @@ export class KeyringManager {
   }
 
   async resolveKeyForEvent(event: EncryptedEvent): Promise<Uint8Array> {
-    if (event.keyringUpdate) {
-      await this.ingestKeyringUpdate(event.aggregateId, event.keyringUpdate);
-    }
-    return this.resolveKeyForEpoch(event.aggregateId, event.epoch ?? 0);
+    // TODO(ALC-368): Replace epoch-based key resolution with sharing-based resolution
+    // once sharing system is fully implemented (use grant_id to resolve K_resource)
+    return this.resolveKeyForEpoch(event.aggregateId, 0);
   }
 
   async resolveKeyForEpoch(aggregateId: string, epoch: number | null): Promise<Uint8Array> {

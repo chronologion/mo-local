@@ -206,8 +206,6 @@ export class GoalProjectionProcessor implements ProjectionRuntimePort, IndexingP
     causationId: string | null;
     correlationId: string | null;
     commitSequence: number;
-    epoch: number | null;
-    keyringUpdate: Uint8Array | null;
   }): EncryptedEvent {
     return {
       id: record.id,
@@ -221,8 +219,6 @@ export class GoalProjectionProcessor implements ProjectionRuntimePort, IndexingP
       causationId: record.causationId ?? undefined,
       correlationId: record.correlationId ?? undefined,
       sequence: record.commitSequence,
-      epoch: record.epoch ?? undefined,
-      keyringUpdate: record.keyringUpdate ?? undefined,
     };
   }
 }

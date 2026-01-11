@@ -37,9 +37,9 @@ export class SyncRecordMaterializer implements SyncRecordMaterializerPort {
       throw new Error(`EventId mismatch for ${eventId}`);
     }
 
-    // Decode sharing metadata
-    const scopeStateRefBytes = Buffer.from(record.scopeStateRef, 'base64url');
-    const signatureBytes = Buffer.from(record.signature, 'base64url');
+    // TODO(ALC-368): Integrate VerificationPipeline to verify signatures and resolve K_resource via grant_id
+    const scopeStateRefBytes = record.scopeStateRef ? Buffer.from(record.scopeStateRef, 'base64url') : null;
+    const signatureBytes = record.signature ? Buffer.from(record.signature, 'base64url') : null;
 
     return {
       eventRow: {

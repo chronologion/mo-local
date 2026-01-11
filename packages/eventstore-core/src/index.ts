@@ -62,8 +62,6 @@ export type EventRecord = Readonly<{
   actorId: string | null;
   causationId: string | null;
   correlationId: string | null;
-  epoch: number | null;
-  keyringUpdate: Uint8Array | null;
 
   /** Monotonic local commit order (stable on-device). */
   commitSequence: number;

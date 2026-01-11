@@ -26,12 +26,7 @@ export class DomainToEncryptedEventAdapter {
     private readonly aggregateType: AggregateType
   ) {}
 
-  async toEncrypted(
-    domainEvent: DomainEvent,
-    version: number,
-    aggregateKey: Uint8Array,
-    options?: { epoch?: number; keyringUpdate?: Uint8Array }
-  ): Promise<EncryptedEvent> {
+  async toEncrypted(domainEvent: DomainEvent, version: number, aggregateKey: Uint8Array): Promise<EncryptedEvent> {
     const serialized = encodePersisted(domainEvent);
     const payloadBytes = encodeEventEnvelope({
       envelopeVersion: 1,
@@ -69,8 +64,6 @@ export class DomainToEncryptedEventAdapter {
       actorId: domainEvent.actorId.value,
       causationId: domainEvent.causationId?.value ?? null,
       correlationId: domainEvent.correlationId?.value ?? null,
-      epoch: options?.epoch,
-      keyringUpdate: options?.keyringUpdate,
       // sequence is assigned by the event store during append
     };
   }

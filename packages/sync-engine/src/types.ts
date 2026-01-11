@@ -130,17 +130,16 @@ export type SyncRecord = Readonly<{
   // Encrypted payload
   payloadCiphertext: string; // base64url
 
-  // Sharing metadata (NEW)
-  scopeId: string;
-  resourceId: string;
-  resourceKeyId: string;
-  grantId: string;
-  scopeStateRef: string; // base64url-encoded 32-byte hash
-  authorDeviceId: string;
-
-  // Signature (NEW)
-  sigSuite: string; // e.g., "hybrid-sig-1" (Ed25519 + ML-DSA)
-  signature: string; // base64url-encoded signature
+  // TODO(ALC-368): Make sharing fields non-nullable once sharing system is fully implemented
+  // These fields are nullable now to allow events without sharing context during implementation
+  scopeId: string | null;
+  resourceId: string | null;
+  resourceKeyId: string | null;
+  grantId: string | null;
+  scopeStateRef: string | null; // base64url-encoded 32-byte hash
+  authorDeviceId: string | null;
+  sigSuite: string | null; // e.g., "hybrid-sig-1" (Ed25519 + ML-DSA)
+  signature: string | null; // base64url-encoded signature
 }>;
 
 export type SyncEngineOptions = Readonly<{
@@ -205,17 +204,15 @@ export type MaterializedEventRow = Readonly<{
   causation_id: string | null;
   correlation_id: string | null;
 
-  // Sharing metadata (NEW)
-  scope_id: string;
-  resource_id: string;
-  resource_key_id: string;
-  grant_id: string;
-  scope_state_ref: Uint8Array;
-  author_device_id: string;
-
-  // Signature (NEW)
-  sig_suite: string;
-  signature: Uint8Array;
+  // TODO(ALC-368): Make sharing fields non-nullable once sharing system is fully implemented
+  scope_id: string | null;
+  resource_id: string | null;
+  resource_key_id: string | null;
+  grant_id: string | null;
+  scope_state_ref: Uint8Array | null;
+  author_device_id: string | null;
+  sig_suite: string | null;
+  signature: Uint8Array | null;
 }>;
 
 export interface SyncRecordMaterializerPort {

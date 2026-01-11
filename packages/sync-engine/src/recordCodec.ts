@@ -3,6 +3,7 @@ import type { SyncRecord } from './types';
 
 /**
  * LocalEventRow structure matching the new events table schema with sharing fields.
+ * TODO(ALC-368): Make sharing fields non-nullable once sharing system is fully implemented.
  */
 export type LocalEventRow = Readonly<{
   id: string;
@@ -10,14 +11,14 @@ export type LocalEventRow = Readonly<{
   aggregate_id: string;
   payload_encrypted: Uint8Array;
   version: number;
-  scope_id: string;
-  resource_id: string;
-  resource_key_id: string;
-  grant_id: string;
-  scope_state_ref: Uint8Array;
-  author_device_id: string;
-  sig_suite: string;
-  signature: Uint8Array;
+  scope_id: string | null;
+  resource_id: string | null;
+  resource_key_id: string | null;
+  grant_id: string | null;
+  scope_state_ref: Uint8Array | null;
+  author_device_id: string | null;
+  sig_suite: string | null;
+  signature: Uint8Array | null;
 }>;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
@@ -32,10 +33,10 @@ export const toSyncRecord = (row: LocalEventRow): SyncRecord => ({
   resourceId: row.resource_id,
   resourceKeyId: row.resource_key_id,
   grantId: row.grant_id,
-  scopeStateRef: encodeBase64Url(row.scope_state_ref),
+  scopeStateRef: row.scope_state_ref ? encodeBase64Url(row.scope_state_ref) : null,
   authorDeviceId: row.author_device_id,
   sigSuite: row.sig_suite,
-  signature: encodeBase64Url(row.signature),
+  signature: row.signature ? encodeBase64Url(row.signature) : null,
 });
 
 export const toRecordJson = (record: SyncRecord): string =>
@@ -65,14 +66,14 @@ const isSyncRecord = (value: unknown): value is SyncRecord => {
     typeof record.version === 'number' &&
     Number.isFinite(record.version) &&
     isString(record.payloadCiphertext) &&
-    isString(record.scopeId) &&
-    isString(record.resourceId) &&
-    isString(record.resourceKeyId) &&
-    isString(record.grantId) &&
-    isString(record.scopeStateRef) &&
-    isString(record.authorDeviceId) &&
-    isString(record.sigSuite) &&
-    isString(record.signature)
+    (isString(record.scopeId) || record.scopeId === null) &&
+    (isString(record.resourceId) || record.resourceId === null) &&
+    (isString(record.resourceKeyId) || record.resourceKeyId === null) &&
+    (isString(record.grantId) || record.grantId === null) &&
+    (isString(record.scopeStateRef) || record.scopeStateRef === null) &&
+    (isString(record.authorDeviceId) || record.authorDeviceId === null) &&
+    (isString(record.sigSuite) || record.sigSuite === null) &&
+    (isString(record.signature) || record.signature === null)
   );
 };
 
