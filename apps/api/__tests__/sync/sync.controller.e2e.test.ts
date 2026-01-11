@@ -16,6 +16,7 @@ import { InMemorySyncEventRepository } from './support/in-memory-sync-event-repo
 import { SyncIncomingEvent } from '../../src/sync/domain/SyncEvent';
 
 const TEST_STORE_ID = 'b5a60a7c-78d2-4310-90da-64d1c1f2f4a4';
+const TEST_STORE_ID_2 = 'c6b71b8d-89e3-5421-a1eb-75e2d2f3f5b5';
 
 class InMemorySyncStoreRepository extends SyncStoreRepository {
   private owners = new Map<string, string>();
@@ -132,7 +133,7 @@ describe('SyncController (integration, in-memory repos)', () => {
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID,
+        storeId: TEST_STORE_ID_2,
         expectedHead: 0,
         events: [makeEvent('e10', 10)],
       })
@@ -141,14 +142,14 @@ describe('SyncController (integration, in-memory repos)', () => {
     await request(app.getHttpServer())
       .post('/sync/dev/reset')
       .set('x-session-token', 'fake')
-      .send({ storeId: TEST_STORE_ID })
+      .send({ storeId: TEST_STORE_ID_2 })
       .expect(201);
 
     const conflict = await request(app.getHttpServer())
       .post('/sync/push')
       .set('x-session-token', 'fake')
       .send({
-        storeId: TEST_STORE_ID,
+        storeId: TEST_STORE_ID_2,
         expectedHead: 1,
         events: [makeEvent('e11', 11)],
       })
